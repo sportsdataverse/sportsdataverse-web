@@ -8,7 +8,7 @@ export const Footer: FC = ({}): ReactElement => {
       <Typography variant="body1" display="inline" className={style['footer-content']}>
         Copyright © 2021{' '}
         <a href="http://www.github.com/saiemgilani" target="_blank" rel="noreferrer">
-          Saiem Gilani
+          SportsDataverse.org
         </a>
       </Typography>
     </div>
