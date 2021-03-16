@@ -12,11 +12,11 @@
 [![Deployment Status](https://img.shields.io/endpoint?url=https%3A%2F%2Fsportsdataverse.org%2Fapi%2Fdeployment)](https://sportsdataverse.org)
 
 
-This is the code of my [personal blog](https://sportsdataverse.org).
+This is the code for the homepage of the [sportsdataverse](https://sportsdataverse.org).
 
 Generally would describe the stack as Next.js, React.js using TypeScript and Material UI.
 
-There is a [series of articles](https://sportsdataverse.org/blog/blog-with-next-js-react-material-ui-and-typescript) on my blog describing how this project works under the hood, so if you are interested, have a look there.
+
 
 ## Executing this project
 
