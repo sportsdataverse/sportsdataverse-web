@@ -16,7 +16,7 @@
     "cors": "^2.8.5",
     "deployment-badge": "^1.0.0",
     "gray-matter": "^4.0.2",
-    "marked": "^1.2.5",
+    "marked": ">=2.0.0",
     "moment": "2.25.3",
     "next": "10.0.2",
     "next-compose-plugins": "2.2.0",
