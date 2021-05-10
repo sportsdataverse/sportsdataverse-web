@@ -1,9 +1,9 @@
 ---
-title: 'kenpomR for college basketball data'
+title: 'kenpomR for men's college basketball data'
 date: '2021-03-13'
 description: 'Retrieves sports data from kenpom.com, ESPN and the NCAA website.'
 featured: true
-topics: R,College Basketball,kenpomR
+topics: R,Men's College Basketball,kenpomR
 recommended: introducing-cfbscrapR
 ---
 
