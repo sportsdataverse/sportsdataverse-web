@@ -1,13 +1,12 @@
 ---
-title: 'wehoop: Functions to Access Women's Basketball Play by Play Data'
+title: "wehoop Functions to Access Womens Basketball Play by Play Data"
 date: '2021-05-09'
-description: 'An R package to quickly obtain clean and tidy women's basketball play by play data.'
+description: "An R package to quickly obtain clean and tidy women's basketball play by play data."
 featured: true
-topics: R,Women's College basketball,WNBA, wehoop
+topics: R,Women's College Basketball,WNBA,wehoop
 recommended: kenpomR-for-mens-basketball
 ---
-
-# wehoop <a href='http://saiemgilani.github.io/wehoop'><img src="man/figures/logo.png" align="right" height="139"/></a>
+# wehoop <a href='http://saiemgilani.github.io/wehoop'><img src="https://raw.githubusercontent.com/saiemgilani/wehoop/master/logo.png" align="right" height="139"/></a>
 
 <!-- badges: start -->
 

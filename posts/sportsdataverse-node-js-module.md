@@ -3,7 +3,7 @@ title: 'The sportsdataverse node.js module'
 date: '2021-03-12'
 description: 'Retrieves sports data from ESPN, the NCAA website, and 247.'
 featured: true
-topics: Node.JS,Sports,College Basketball,SportsDataverse,NFL,NHL,Women's Soccer, Women's Ice Hockey, Volleyball
+topics: Node.JS,Sports,College Basketball,SportsDataverse,NFL,NHL,Women's Soccer,Women's Ice Hockey,Volleyball
 recommended: introducing-cfbscrapR
 ---
 
