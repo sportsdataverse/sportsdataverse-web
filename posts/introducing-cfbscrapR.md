@@ -1,12 +1,12 @@
 ---
-title: 'Introducing cfbscrapR'
+title: 'Introducing cfbscrapR - Archived'
 date: '2021-03-12'
 description: 'cfbscrapR is an R package for working with CFB data. It is an R API wrapper around https://collegefootballdata.com/. It provides users the capability to retrieve data from a plethora of endpoints and supplement that data with additional information (Expected Points Added/Win Probability added).'
 featured: true
 topics: R,College Football,cfbscrapR
 recommended: sportsdataverse-node-js-module
 ---
-# cfbscrapR <a href='http://saiemgilani.github.io/cfbscrapR'><img src='https://saiemgilani.github.io/cfbscrapR/reference/figures/logo.png' align="right" height="139" /></a>
+# cfbscrapR - Archived <a href='http://saiemgilani.github.io/cfbscrapR'><img src='https://saiemgilani.github.io/cfbscrapR/reference/figures/logo.png' align="right" height="139" /></a>
 
 <p align="left"> <a href="https://twitter.com/cfbscrapR" target="blank"><img src="https://img.shields.io/twitter/follow/cfbscrapR?logo=twitter&style=for-the-badge" alt="cfbscrapR" /></a> <a href="https://twitter.com/saiemgilani" target="blank"><img src="https://img.shields.io/twitter/follow/saiemgilani?logo=twitter&style=for-the-badge" alt="saiemgilani" /></a> </p>
 <a href="https://www.linkedin.com/in/saiem-gilani/"><img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" /><a> <a href="https://github.com/saiemgilani"><img src="https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white" /><a> <a href="https://www.patreon.com/join/sportsdataverse?"><img src="https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white" /><a>
