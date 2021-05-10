@@ -1,6 +1,6 @@
 ---
 title: 'kenpomR for men's college basketball data'
-date: '2021-03-13'
+date: '2021-05-09'
 description: 'Retrieves sports data from kenpom.com, ESPN and the NCAA website.'
 featured: true
 topics: R,Men's College Basketball,kenpomR
