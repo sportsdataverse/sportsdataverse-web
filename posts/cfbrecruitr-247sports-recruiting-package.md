@@ -9,7 +9,7 @@ recommended: introducing-cfbscrapR
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# cfbrecruitR <a href='http://saiemgilani.github.io/cfbrecruitR'><img src='public/images/cfbrecruitr-logo.png' align="right" height="105" /></a>
+# cfbrecruitR <a href='http://saiemgilani.github.io/cfbrecruitR'><img src='https://raw.githubusercontent.com/saiemgilani/cfbrecruitR/master/logo.png' align="right" height="105" /></a>
 
 <!-- badges: start -->
 
