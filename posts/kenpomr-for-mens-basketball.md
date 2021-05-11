@@ -1,5 +1,5 @@
 ---
-title: "kenpomR for men's college basketball data."
+title: 'kenpomR for mens basketball data.'
 date: '2021-05-08'
 description: 'Retrieves sports data from kenpom.com, ESPN and the NCAA website.'
 featured: true
@@ -7,7 +7,7 @@ topics: R,kenpomR
 recommended: introducing-cfbscrapR
 ---
 
-# kenpomR <a href='http://saiemgilani.github.io/kenpomR'><img src="https://raw.githubusercontent.com/saiemgilani/kenpomR/master/logo.png" align="right" height="139"/></a>
+# kenpomR <a href='http://saiemgilani.github.io/kenpomR'><img src='https://raw.githubusercontent.com/saiemgilani/kenpomR/master/logo.png' align='right' height='139'/></a>
 
 <!-- badges: start -->
 
