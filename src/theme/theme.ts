@@ -5,12 +5,12 @@ export const paletteColorsDark = {
   secondary: '#FFFFFF',
   card: '#FFFFFF',
   error: '#E44C65',
-  background: '#1A1D21',
+  background: '#36393F',
   text: '#FEF4E8',
 }
 
 export const paletteColorsLight = {
-  primary: '#763A79',
+  primary: '#99649D',
   secondary: '#FFFFFF',
   card: '#FFFFFF',
   error: '#E44C65',
