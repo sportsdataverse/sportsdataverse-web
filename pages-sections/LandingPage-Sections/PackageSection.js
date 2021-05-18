@@ -33,7 +33,7 @@ export default function PackageSection() {
         <GridContainer>
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
-              <GridItem xs={12} sm={12} md={6} className={classes.itemGrid}>
+              <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
                 <img src={`images/cfbfastR-logo.png`} alt="cfbfastR" />
               </GridItem>
               <h4 className={classes.cardTitle}>
@@ -57,28 +57,28 @@ export default function PackageSection() {
           </GridItem>
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
-              <GridItem xs={12} sm={12} md={6} className={classes.itemGrid}>
-                <img src={`images/kenpomR-logo.png`} alt="kenpomR" />
+              <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
+                <img src={`images/hoopR-logo.png`} alt="hoopR" />
               </GridItem>
               <h4 className={classes.cardTitle}>
-                kenpomR
+                hoopR
                 <br />
                 <small className={classes.smallTitle}>Men's Basketball - R</small>
               </h4>
               <CardBody>
                 <p className={classes.description}>
-                kenpomR is an R package for working with men's basketball data.
-                A scraping and aggregating interface for Ken Pomeroy’s college basketball statistics website, kenpom.com.
+                hoopR is an R package for working with men's basketball data.
+                Provides live game support for ESPN’s NBA and men's college basketball game data and NCAA NET Rankings.
                 </p>
                 <p className={classes.description}>
-                Also provides support for ESPN’s NBA and men's college basketball game data and NCAA NET Rankings.
+                Also performs as a scraping and aggregating interface for Ken Pomeroy’s college basketball statistics website, kenpom.com.
                 </p>
               </CardBody>
             </Card>
           </GridItem>
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
-              <GridItem xs={12} sm={12} md={6} className={classes.itemGrid}>
+              <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
                 <img src={`images/wehoop-logo.png`} alt="wehoop"  />
               </GridItem>
               <h4 className={classes.cardTitle}>
@@ -120,7 +120,7 @@ export default function PackageSection() {
           </GridItem>
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
-              <GridItem xs={12} sm={12} md={7} className={classes.itemGrid}>
+              <GridItem xs={12} sm={12} md={11} className={classes.itemGrid}>
                 <img src={`images/cfbfastR-data-repo.png`} alt="cfbfastR-data" />
               </GridItem>
               <h4 className={classes.cardTitle}>
@@ -137,17 +137,38 @@ export default function PackageSection() {
           </GridItem>
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
-              <GridItem xs={12} sm={12} md={7} className={classes.itemGrid}>
-                <img src={`images/kenpomR-data-repo.png`} alt="kenpomR-data" />
+              <GridItem xs={12} sm={12} md={9} className={classes.itemGrid}>
+                <img src={`images/hoopR_social_card_data_repo.png`} alt="hoopR-data" />
               </GridItem>
               <h4 className={classes.cardTitle}>
-                kenpomR-data
+                hoopR-data
                 <br />
-                <small className={classes.smallTitle}>Men's Basketball - R</small>
+                <small className={classes.smallTitle}>Men's Basketball - Data</small>
               </h4>
               <CardBody>
                 <p className={classes.description}>
-                kenpomR contains data for most teams, players and coaches from 2002-2020. All data provided in csv format.
+                hoopR-data contains data for most teams, players and coaches from 2002-2020. All data provided in csv, rds, and parquet format.
+                </p>
+              </CardBody>
+            </Card>
+          </GridItem>
+        </GridContainer>
+      </div>
+      <div>
+        <GridContainer>
+          <GridItem xs={12} sm={12} md={4}>
+            <Card plain>
+              <GridItem xs={12} sm={12} md={7} className={classes.itemGrid}>
+                <img src={`images/wehoop_social_card_data_repo.png`} alt="wehoop-data"  />
+              </GridItem>
+              <h4 className={classes.cardTitle}>
+              wehoop-data
+                <br />
+                <small className={classes.smallTitle}>Women's Basketball - Data</small>
+              </h4>
+              <CardBody>
+                <p className={classes.description}>
+                wehoop-data contains data for most teams and games from 2002-present. All data provided in csv, rds, and parquet format.
                 </p>
               </CardBody>
             </Card>
