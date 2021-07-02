@@ -14,6 +14,7 @@ import Button from "../../src/components/CustomButtons/Button.js";
 import Card from "../../src/components/Card/Card.js";
 import CardBody from "../../src/components/Card/CardBody.js";
 import CardFooter from "../../src/components/Card/CardFooter.js";
+import Image from 'next/image'
 
 import styles from "../../assets/jss/nextjs-material-kit/pages/landingPageSections/packageStyle.js";
 
@@ -29,14 +30,18 @@ export default function RPackageSection() {
   );
   return (
     <div className={classes.section}>
-      <h2 className={classes.title}>R packages that are part of the SportsDataverse:</h2>
+      <h2 className={classes.title}>R packages in the SportsDataverse:</h2>
       <div>
         <GridContainer>
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
               <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
               <Link href="https://saiemgilani.github.io/cfbfastR/">
-                <img src={`images/cfbfastR-logo.png`} alt="cfbfastR" />
+                <Image
+                  src={`/images/cfbfastR-logo.png`}
+                  alt="cfbfastR"
+                  width={209}
+                  height={250} />
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
@@ -61,7 +66,13 @@ export default function RPackageSection() {
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
               <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
-              <Link href="https://saiemgilani.github.io/hoopR/"><img src={`images/hoopR-logo.png`} alt="hoopR" /></Link>
+              <Link href="https://saiemgilani.github.io/hoopR/">
+                <Image
+                    src={`/images/hoopR-logo.png`}
+                    alt="hoopR"
+                    width={209}
+                    height={250} />
+              </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
                 <Link href="https://saiemgilani.github.io/hoopR/">hoopR</Link>
@@ -82,7 +93,13 @@ export default function RPackageSection() {
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
               <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
-              <Link href="https://saiemgilani.github.io/wehoop/"><img src={`images/wehoop-logo.png`} alt="wehoop"  /></Link>
+              <Link href="https://saiemgilani.github.io/wehoop/">
+              <Image
+                    src={`/images/wehoop-logo.png`}
+                    alt="wehoop"
+                    width={209}
+                    height={250} />
+              </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
               <Link href="https://saiemgilani.github.io/wehoop/">wehoop</Link>

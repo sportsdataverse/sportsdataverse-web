@@ -14,6 +14,7 @@ import { ToggleThemeContext } from '../theme'
 import Link from 'next/link'
 import { Tooltip } from '@material-ui/core'
 import { NAME_AND_DOMAIN } from '../types/constants'
+import Image from 'next/image'
 import {
   container,
   hexToRGBAlpha,
@@ -94,8 +95,8 @@ export const TopBar = (): ReactElement => {
         <Link href="/">
           <a>
             <img
-              src="/logo/logo.png"
-              height="25px"
+              src="/logo/sdv.png"
+              height="45px"
               alt="sportsdataverse.org"
               style={{ paddingRight: 10, verticalAlign: 'bottom' }}
             />
