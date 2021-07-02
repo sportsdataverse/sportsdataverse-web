@@ -15,7 +15,7 @@ export const getSortedPostsData = (): PostData[] => {
   const fileNames = fs.readdirSync(postsDirectory)
   const allPostsData: PostData[] = fileNames.map((fileName) => {
     // Remove ".md" from file name to get id
-    const id = fileName.replace(/\.md$/, '')
+    var id = fileName.replace(/\.md$/, '')
 
     // Read markdown file as string
     const fullPath = path.join(postsDirectory, fileName)

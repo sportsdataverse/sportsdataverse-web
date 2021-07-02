@@ -1,10 +1,10 @@
 ---
-title: 'cfbrecruitR for 247Sports recruiting data'
+title: 'cfbrecruitR for 247Sports Recruiting Data'
 date: '2021-03-13'
-description: 'Retrieves recruiting data, player rankings, commitments, and class rankings from 247 sports.'
+description: 'Retrieves recruiting data, player rankings, commitments, and class rankings from 247Sports.'
 featured: true
 topics: R,College Football,cfbrecruitR
-recommended: introducing-cfbscrapR
+recommended: cfbfastR-tidying-college-football-play-by-play-data
 ---
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->

@@ -1,6 +1,7 @@
 import React from "react";
 // nodejs library that concatenates classes
 import classNames from "classnames";
+import Link from 'next/link'
 // @material-ui/core components
 import { makeStyles } from "@material-ui/core/styles";
 
@@ -19,7 +20,7 @@ import styles from "../../assets/jss/nextjs-material-kit/pages/landingPageSectio
 
 const useStyles = makeStyles(styles);
 
-export default function PackageSection() {
+export default function RPackageSection() {
   const classes = useStyles();
   const imageClasses = classNames(
     classes.imgRaised,
@@ -34,16 +35,18 @@ export default function PackageSection() {
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
               <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
+              <Link href="https://saiemgilani.github.io/cfbfastR/">
                 <img src={`images/cfbfastR-logo.png`} alt="cfbfastR" />
+              </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
-                cfbfastR
+                <Link href="https://saiemgilani.github.io/cfbfastR/">cfbfastR</Link>
                 <br />
                 <small className={classes.smallTitle}>College Football - R</small>
               </h4>
               <CardBody>
                 <p className={classes.description}>
-                cfbfastR is an R package for working with College Football data.
+                <Link href="https://saiemgilani.github.io/cfbfastR/">cfbfastR</Link> is an R package for working with College Football data.
                 </p>
                 <p className={classes.description}>
                 It is an R API wrapper around https://collegefootballdata.com/.
@@ -58,16 +61,16 @@ export default function PackageSection() {
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
               <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
-                <img src={`images/hoopR-logo.png`} alt="hoopR" />
+              <Link href="https://saiemgilani.github.io/hoopR/"><img src={`images/hoopR-logo.png`} alt="hoopR" /></Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
-                hoopR
+                <Link href="https://saiemgilani.github.io/hoopR/">hoopR</Link>
                 <br />
                 <small className={classes.smallTitle}>Men's Basketball - R</small>
               </h4>
               <CardBody>
                 <p className={classes.description}>
-                hoopR is an R package for working with men's basketball data.
+                <Link href="https://saiemgilani.github.io/hoopR/">hoopR</Link> is an R package for working with men's basketball data.
                 Provides live game support for ESPN’s NBA and men's college basketball game data and NCAA NET Rankings.
                 </p>
                 <p className={classes.description}>
@@ -79,16 +82,16 @@ export default function PackageSection() {
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
               <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
-                <img src={`images/wehoop-logo.png`} alt="wehoop"  />
+              <Link href="https://saiemgilani.github.io/wehoop/"><img src={`images/wehoop-logo.png`} alt="wehoop"  /></Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
-                wehoop
+              <Link href="https://saiemgilani.github.io/wehoop/">wehoop</Link>
                 <br />
                 <small className={classes.smallTitle}>Women's Basketball - R</small>
               </h4>
               <CardBody>
                 <p className={classes.description}>
-                wehoop is an R package for working with WNBA and women's college basketball data.
+                <Link href="https://saiemgilani.github.io/wehoop/">wehoop</Link> is an R package for working with WNBA and women's college basketball data.
                 </p>
                 <p className={classes.description}>
                 Provides support for ESPN’s WNBA and women's college basketball game data and NCAA NET Rankings.
@@ -104,71 +107,18 @@ export default function PackageSection() {
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
               <GridItem xs={12} sm={12} md={7} className={classes.itemGrid}>
-                <img src={`images/cfbrecruitR-logo.png`} alt="cfbrecruitR"  />
+                <Link href="https://saiemgilani.github.io/cfbrecruitR/">
+                  <img src={`images/cfbrecruitR-logo.png`} alt="cfbrecruitR"  />
+                </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
-                cfbrecruitR
+              <Link href="https://saiemgilani.github.io/cfbrecruitR/">cfbrecruitR</Link>
                 <br />
                 <small className={classes.smallTitle}>College Football Recruiting - R</small>
               </h4>
               <CardBody>
                 <p className={classes.description}>
-                cfbrecruitR is an R package for working with college football recruiting data.
-                </p>
-              </CardBody>
-            </Card>
-          </GridItem>
-          <GridItem xs={12} sm={12} md={4}>
-            <Card plain>
-              <GridItem xs={12} sm={12} md={11} className={classes.itemGrid}>
-                <img src={`images/cfbfastR-data-repo.png`} alt="cfbfastR-data" />
-              </GridItem>
-              <h4 className={classes.cardTitle}>
-                cfbfastR-data
-                <br />
-                <small className={classes.smallTitle}>College Football - Data</small>
-              </h4>
-              <CardBody>
-                <p className={classes.description}>
-                cfbfastR-data is a repository for working with CFB data. 2002-2020 data included in csv, rds, and parquet format.
-                </p>
-              </CardBody>
-            </Card>
-          </GridItem>
-          <GridItem xs={12} sm={12} md={4}>
-            <Card plain>
-              <GridItem xs={12} sm={12} md={9} className={classes.itemGrid}>
-                <img src={`images/hoopR_social_card_data_repo.png`} alt="hoopR-data" />
-              </GridItem>
-              <h4 className={classes.cardTitle}>
-                hoopR-data
-                <br />
-                <small className={classes.smallTitle}>Men's Basketball - Data</small>
-              </h4>
-              <CardBody>
-                <p className={classes.description}>
-                hoopR-data contains data for most teams, players and coaches from 2002-2020. All data provided in csv, rds, and parquet format.
-                </p>
-              </CardBody>
-            </Card>
-          </GridItem>
-        </GridContainer>
-      </div>
-      <div>
-        <GridContainer>
-          <GridItem xs={12} sm={12} md={4}>
-            <Card plain>
-              <GridItem xs={12} sm={12} md={7} className={classes.itemGrid}>
-                <img src={`images/wehoop_social_card_data_repo.png`} alt="wehoop-data"  />
-              </GridItem>
-              <h4 className={classes.cardTitle}>
-              wehoop-data
-                <br />
-                <small className={classes.smallTitle}>Women's Basketball - Data</small>
-              </h4>
-              <CardBody>
-                <p className={classes.description}>
-                wehoop-data contains data for most teams and games from 2002-present. All data provided in csv, rds, and parquet format.
+                <Link href="https://saiemgilani.github.io/cfbrecruitR/">cfbrecruitR</Link> is an R package for working with college football recruiting data.
                 </p>
               </CardBody>
             </Card>

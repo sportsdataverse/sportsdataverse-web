@@ -3,6 +3,7 @@ import React from "react";
 import classNames from "classnames";
 // @material-ui/core components
 import { makeStyles } from "@material-ui/core/styles";
+import Link from 'next/link'
 
 // @material-ui/icons
 
@@ -34,10 +35,12 @@ export default function PackageSection() {
           <GridItem xs={24} sm={"auto"} md={12}>
             <Card plain>
               <GridItem xs={24} sm={"auto"} md={12} className={classes.itemGrid}>
-                <img src={`images/sportsdataverse-node.png`} alt="sportsdataverse-node-js" />
+                <Link href="https://saiemgilani.github.io/sportsdataverse/">
+                  <img src={`images/sportsdataverse-node.png`} alt="sportsdataverse-node-js" />
+                </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
-                sportsdataverse
+              <Link href="https://saiemgilani.github.io/sportsdataverse/">sportsdataverse</Link>
                 <br />
                 <small className={classes.smallTitle}>All collegiate and 6 Professional sports - Node.js</small>
               </h4>

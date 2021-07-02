@@ -31,9 +31,9 @@ export default function WorkSection() {
             Additionally, we are making the publicly available sports
             data much more accessible to the common person. The desired goal is to create
             a supportive community that will provide guidance and mentor those who want to
-            be a part of the solution. Drop us a brief message below so that I can reach out to you!
+            be a part of the solution. Shoot me a message on Twitter - <Link href="https://twitter.com/SaiemGilani">@SaiemGilani</Link>!
           </h4>
-          <form>
+          {/* <form>
             <GridContainer>
               <GridItem xs={12} sm={12} md={6}>
                 <CustomInput
@@ -44,6 +44,7 @@ export default function WorkSection() {
                   }}
                 />
               </GridItem>
+              <br></br>
               <GridItem xs={12} sm={12} md={6}>
                 <CustomInput
                   labelText="Your Email"
@@ -71,7 +72,7 @@ export default function WorkSection() {
                 <Button color="primary">Send Message</Button>
               </GridItem>
             </GridContainer>
-          </form>
+          </form> */}
         </GridItem>
       </GridContainer>
     </div>

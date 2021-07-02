@@ -20,7 +20,10 @@ import { NAME, NAME_AND_DOMAIN } from '../src/types/constants'
 // Sections for this page
 import NodePackageSection from "../pages-sections/LandingPage-Sections/NodePackageSection.js";
 import ProductSection from "../pages-sections/LandingPage-Sections/ProductSection.js";
-import PackageSection from "../pages-sections/LandingPage-Sections/PackageSection.js";
+import PythonPackageSection from "../pages-sections/LandingPage-Sections/PythonPackageSection.js";
+
+import RPackageSection from "../pages-sections/LandingPage-Sections/RPackageSection.js";
+import DataPackageSection from "../pages-sections/LandingPage-Sections/DataPackageSection.js";
 import WorkSection from "../pages-sections/LandingPage-Sections/WorkSection.js";
 
 
@@ -49,8 +52,10 @@ export default function LandingPage(props) {
           </Grid>
       <div className={classNames(styles.main, styles.mainRaised)}>
         <div className={styles.headings}>
-          <PackageSection />
+          <RPackageSection />
+          <PythonPackageSection />
           <NodePackageSection />
+          <DataPackageSection />
           <ProductSection />
           <WorkSection />
         </div>
