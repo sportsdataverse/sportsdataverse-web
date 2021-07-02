@@ -54,7 +54,7 @@ export default function PythonPackageSection() {
                 <Link href='https://cfbfastR-py.sportsdataverse.org/'>cfbfastR-py</Link> is a python package for working with College Football data.
                 </p>
                 <p className={classes.description}>
-                It provides users the capability to load data from the <Link href='https://saiemgilani.github.io/cfbfastR-data/'>cfbfastR-data</Link> repository with
+                It provides users the capability to load data from the <Link href='https://github.com/saiemgilani/cfbfastR-data/'>cfbfastR-data</Link> repository with
                 Expected Points Added/Win Probability added metrics.
                 </p>
               </CardBody>
