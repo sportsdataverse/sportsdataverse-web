@@ -53,8 +53,8 @@ export default function LandingPage(props) {
           </Grid>
       <div className={classNames(styles.main, styles.mainRaised)}>
         <div className={styles.headings}>
-          <RPackageSection />
           <PythonPackageSection />
+          <RPackageSection />
           <NodePackageSection />
           <DataPackageSection />
           <ProductSection />
