@@ -16,6 +16,7 @@ import Parallax from "../src/components/Parallax/Parallax.js";
 import Head from 'next/head'
 import styles from '../styles/Shared.module.css'
 import { NAME, NAME_AND_DOMAIN } from '../src/types/constants'
+import Link from 'next/link'
 
 // Sections for this page
 import NodePackageSection from "../pages-sections/LandingPage-Sections/NodePackageSection.js";

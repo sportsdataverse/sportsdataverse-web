@@ -14,6 +14,7 @@ import Button from "../../src/components/CustomButtons/Button.js";
 import Card from "../../src/components/Card/Card.js";
 import CardBody from "../../src/components/Card/CardBody.js";
 import CardFooter from "../../src/components/Card/CardFooter.js";
+import Image from 'next/image'
 
 import styles from "../../assets/jss/nextjs-material-kit/pages/landingPageSections/packageStyle.js";
 
@@ -35,7 +36,13 @@ export default function DataPackageSection() {
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
               <GridItem xs={12} sm={12} md={11} className={classes.itemGrid}>
-              <Link href="https://saiemgilani.github.io/cfbfastR-data/"><img src={`images/cfbfastR-data-repo.png`} alt="cfbfastR-data" /></Link>
+              <Link href="https://saiemgilani.github.io/cfbfastR-data/">
+                <Image
+                  src={`/images/cfbfastR-data-repo.png`}
+                  alt="cfbfastR-data"
+                  width={299}
+                  height={250} />
+              </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
               <Link href="https://saiemgilani.github.io/cfbfastR-data/">cfbfastR-data</Link>
@@ -52,7 +59,13 @@ export default function DataPackageSection() {
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
               <GridItem xs={12} sm={12} md={9} className={classes.itemGrid}>
-              <Link href="https://saiemgilani.github.io/hoopR-data/"><img src={`images/hoopR_social_card_data_repo.png`} alt="hoopR-data" /></Link>
+              <Link href="https://saiemgilani.github.io/hoopR-data/">
+                <Image
+                  src={`/images/hoopR_social_card_data_repo.png`}
+                  alt="hoopR-data"
+                  width={600}
+                  height={600} />
+              </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
               <Link href="https://saiemgilani.github.io/hoopR-data/">hoopR-data</Link>
@@ -69,7 +82,13 @@ export default function DataPackageSection() {
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
               <GridItem xs={12} sm={12} md={7} className={classes.itemGrid}>
-              <Link href="https://saiemgilani.github.io/wehoop-data/"><img src={`images/wehoop_social_card_data_repo.png`} alt="wehoop-data"  /></Link>
+              <Link href="https://saiemgilani.github.io/wehoop-data/">
+              <Image
+                  src={`/images/wehoop_social_card_data_repo.png`}
+                  alt="wehoop-data"
+                  width={620}
+                  height={770} />
+              </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
               <Link href="https://saiemgilani.github.io/wehoop-data/">wehoop-data</Link>

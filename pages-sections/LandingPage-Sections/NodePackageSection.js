@@ -65,27 +65,6 @@ export default function PackageSection() {
           </GridItem>
         </GridContainer>
       </div>
-      <div>
-        <GridContainer>
-          <GridItem  xs={24} sm={"auto"} md={12}>
-            <Card plain>
-              <GridItem  xs={24} sm={"auto"} md={12} className={classes.itemGrid}>
-                <img src={`small/introducing-cbb-npm.png`} alt="cbb-npm-node-js" />
-              </GridItem>
-              <h4 className={classes.cardTitle}>
-                cbb-npm
-                <br />
-                <small className={classes.smallTitle}>All collegiate - Node.js</small>
-              </h4>
-              <CardBody>
-                <p className={classes.description}>
-                <i>Was almost immediately deprecated due to massively expanding coverage, misleading name, and turned into the sportsdataverse Node.js module</i>
-                </p>
-              </CardBody>
-            </Card>
-          </GridItem>
-        </GridContainer>
-      </div>
     </div>
   );
 }
