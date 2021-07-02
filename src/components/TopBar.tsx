@@ -92,22 +92,13 @@ export const TopBar = (): ReactElement => {
   return (
     <AppBar className={trigger ? classes.hide : classes.show} position="sticky">
       <Toolbar className={classes.toolbar}>
-        <Link href="/">
-          <a>
-            <img
-              src="/logo/sdv.png"
-              height="45px"
+        <Link href="https://sportsdataverse.org">
+            <Image
+              src="/logo/logo.png"
+              width="80px"
+              height="40px"
               alt="sportsdataverse.org"
-              style={{ paddingRight: 10, verticalAlign: 'bottom' }}
             />
-          </a>
-        </Link>
-        <Link href="/">
-          <a>
-            <Typography variant="h6" style={!isDark ? { color: '#fff' } : {}}>
-              {NAME_AND_DOMAIN}
-            </Typography>
-          </a>
         </Link>
         <div className={classes.toolbarContent}>
           <Link href="/blog">

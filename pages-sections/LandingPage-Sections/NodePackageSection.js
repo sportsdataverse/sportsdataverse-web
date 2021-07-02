@@ -29,7 +29,7 @@ export default function PackageSection() {
   );
   return (
     <div className={classes.section}>
-      <h2 className={classes.title}>Node.js modules that are part of the SportsDataverse:</h2>
+      <h2 className={classes.title}>Node.js modules in the SportsDataverse:</h2>
       <div>
         <GridContainer>
           <GridItem xs={24} sm={"auto"} md={12}>
