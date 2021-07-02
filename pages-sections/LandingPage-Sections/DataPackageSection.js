@@ -36,7 +36,7 @@ export default function DataPackageSection() {
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
               <GridItem xs={12} sm={12} md={11} className={classes.itemGrid}>
-              <Link href="https://saiemgilani.github.io/cfbfastR-data/">
+              <Link href="https://github.com/saiemgilani/cfbfastR-data/">
                 <Image
                   src={`/images/cfbfastR-data-repo.png`}
                   alt="cfbfastR-data"
@@ -45,13 +45,13 @@ export default function DataPackageSection() {
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
-              <Link href="https://saiemgilani.github.io/cfbfastR-data/">cfbfastR-data</Link>
+              <Link href="https://github.com/saiemgilani/cfbfastR-data/">cfbfastR-data</Link>
                 <br />
                 <small className={classes.smallTitle}>College Football - Data</small>
               </h4>
               <CardBody>
                 <p className={classes.description}>
-                <Link href="https://saiemgilani.github.io/cfbfastR-data/">cfbfastR-data</Link> is a repository for working with CFB data. 2002-2020 data included in csv, rds, and parquet format.
+                <Link href="https://github.com/saiemgilani/cfbfastR-data/">cfbfastR-data</Link> is a repository for working with CFB data. 2002-2020 data included in csv, rds, and parquet format.
                 </p>
               </CardBody>
             </Card>
@@ -59,7 +59,7 @@ export default function DataPackageSection() {
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
               <GridItem xs={12} sm={12} md={9} className={classes.itemGrid}>
-              <Link href="https://saiemgilani.github.io/hoopR-data/">
+              <Link href="https://github.com/saiemgilani/hoopR-data/">
                 <Image
                   src={`/images/hoopR_social_card_data_repo.png`}
                   alt="hoopR-data"
@@ -68,13 +68,13 @@ export default function DataPackageSection() {
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
-              <Link href="https://saiemgilani.github.io/hoopR-data/">hoopR-data</Link>
+              <Link href="https://github.com/saiemgilani/hoopR-data/">hoopR-data</Link>
                 <br />
                 <small className={classes.smallTitle}>Men's Basketball - Data</small>
               </h4>
               <CardBody>
                 <p className={classes.description}>
-                <Link href="https://saiemgilani.github.io/hoopR-data/">hoopR-data</Link> contains data for most teams, players and coaches from 2002-2020. All data provided in csv, rds, and parquet format.
+                <Link href="https://github.com/saiemgilani/hoopR-data/">hoopR-data</Link> contains data for most teams, players and coaches from 2002-2020. All data provided in csv, rds, and parquet format.
                 </p>
               </CardBody>
             </Card>
@@ -82,7 +82,7 @@ export default function DataPackageSection() {
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
               <GridItem xs={12} sm={12} md={7} className={classes.itemGrid}>
-              <Link href="https://saiemgilani.github.io/wehoop-data/">
+              <Link href="https://github.com/saiemgilani/wehoop-data/">
               <Image
                   src={`/images/wehoop_social_card_data_repo.png`}
                   alt="wehoop-data"
@@ -91,13 +91,13 @@ export default function DataPackageSection() {
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
-              <Link href="https://saiemgilani.github.io/wehoop-data/">wehoop-data</Link>
+              <Link href="https://github.com/saiemgilani/wehoop-data/">wehoop-data</Link>
                 <br />
                 <small className={classes.smallTitle}>Women's Basketball - Data</small>
               </h4>
               <CardBody>
                 <p className={classes.description}>
-                <Link href="https://saiemgilani.github.io/wehoop-data/">wehoop-data</Link> contains data for most teams and games from 2002-present. All data provided in csv, rds, and parquet format.
+                <Link href="https://github.com/saiemgilani/wehoop-data/">wehoop-data</Link> contains data for most teams and games from 2002-present. All data provided in csv, rds, and parquet format.
                 </p>
               </CardBody>
             </Card>
