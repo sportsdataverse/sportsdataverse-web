@@ -1,21 +1,22 @@
-import React from "react";
+import React from 'react';
 // nodejs library that concatenates classes
-import classNames from "classnames";
+import classNames from 'classnames';
 // @material-ui/core components
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles } from '@material-ui/core/styles';
 import Link from 'next/link'
+import Image from 'next/image'
 
 // @material-ui/icons
 
 // core components
-import GridContainer from "../../src/components/Grid/GridContainer.js";
-import GridItem from "../../src/components/Grid/GridItem.js";
-import Button from "../../src/components/CustomButtons/Button.js";
-import Card from "../../src/components/Card/Card.js";
-import CardBody from "../../src/components/Card/CardBody.js";
-import CardFooter from "../../src/components/Card/CardFooter.js";
+import GridContainer from '../../src/components/Grid/GridContainer.js';
+import GridItem from '../../src/components/Grid/GridItem.js';
+import Button from '../../src/components/CustomButtons/Button.js';
+import Card from '../../src/components/Card/Card.js';
+import CardBody from '../../src/components/Card/CardBody.js';
+import CardFooter from '../../src/components/Card/CardFooter.js';
 
-import styles from "../../assets/jss/nextjs-material-kit/pages/landingPageSections/nodePackageStyle.js";
+import styles from '../../assets/jss/nextjs-material-kit/pages/landingPageSections/nodePackageStyle.js';
 
 
 const useStyles = makeStyles(styles);
@@ -29,25 +30,37 @@ export default function PackageSection() {
   );
   return (
     <div className={classes.section}>
-      <h2 className={classes.title}>Node.js modules in the SportsDataverse:</h2>
+      <h2 className={classes.title}>Node.js modules in SportsDataverse:</h2>
       <div>
         <GridContainer>
-          <GridItem xs={24} sm={"auto"} md={12}>
+          <GridItem xs={12} sm={12} md={3}>
             <Card plain>
-              <GridItem xs={24} sm={"auto"} md={12} className={classes.itemGrid}>
-                <Link href="https://saiemgilani.github.io/sportsdataverse/">
-                  <img src={`images/sportsdataverse-node.png`} alt="sportsdataverse-node-js" />
+              <GridItem xs={12} sm={12} md={6} className={classes.itemGrid}>
+              </GridItem>
+              <CardBody>
+              </CardBody>
+            </Card>
+          </GridItem>
+          <GridItem xs={12} sm={12} md={6}>
+            <Card plain>
+              <GridItem xs={12} sm={12} md={12} className={classes.itemGrid}>
+                <Link href='https://saiemgilani.github.io/sportsdataverse/'>
+                  <Image 
+                  src={`/images/sportsdataverse-node.png`} 
+                  alt='sportsdataverse-node-js'
+                  height ={300}
+                  width ={600} />
                 </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
-              <Link href="https://saiemgilani.github.io/sportsdataverse/">sportsdataverse</Link>
+              <Link href='https://saiemgilani.github.io/sportsdataverse/'>sportsdataverse</Link>
                 <br />
                 <small className={classes.smallTitle}>All collegiate and 6 Professional sports - Node.js</small>
               </h4>
               <CardBody>
-                <p className={classes.description}>
+              <h4 className={classes.description}>
                 Support for the following types of data from ESPN's endpoints: play-by-play (including shot location data when available), scores, schedule, standings, and rankings (not available for professional sports).
-                </p>
+              </h4>
                 <p className={classes.description}>
                 Recruiting data from 247Sports available for: men's college basketball and college football.
                 </p>
@@ -60,6 +73,14 @@ export default function PackageSection() {
                 'fieldhockey', 'volleyball-women', 'icehockey-men', 'icehockey-women', 'baseball',
                 'beach-volleyball', 'lacrosse-men', 'lacrosse-women', 'volleyball-men'
                 </p>
+              </CardBody>
+            </Card>
+          </GridItem>
+          <GridItem xs={12} sm={12} md={3}>
+            <Card plain>
+              <GridItem xs={12} sm={12} md={6} className={classes.itemGrid}>
+              </GridItem>
+              <CardBody>
               </CardBody>
             </Card>
           </GridItem>

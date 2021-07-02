@@ -1,31 +1,31 @@
-import React from "react";
+import React from 'react'
 // nodejs library that concatenates classes
-import classNames from "classnames";
+import classNames from 'classnames';
 // @material-ui/core components
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles } from '@material-ui/core/styles';
 
 // @material-ui/icons
 
 // core components
-import { Footer } from "../src/components/Footer";
+import { Footer } from '../src/components/Footer';
 import { Grid, Typography } from '@material-ui/core'
 import useMediaQuery from '@material-ui/core/useMediaQuery'
 import Box from '@material-ui/core/Box'
-import Button from "../src/components/CustomButtons/Button.js";
-import Parallax from "../src/components/Parallax/Parallax.js";
+import Button from '../src/components/CustomButtons/Button.js';
+import Parallax from '../src/components/Parallax/Parallax.js';
 import Head from 'next/head'
 import styles from '../styles/Shared.module.css'
 import { NAME, NAME_AND_DOMAIN } from '../src/types/constants'
 import Link from 'next/link'
 
 // Sections for this page
-import NodePackageSection from "../pages-sections/LandingPage-Sections/NodePackageSection.js";
-import ProductSection from "../pages-sections/LandingPage-Sections/ProductSection.js";
-import PythonPackageSection from "../pages-sections/LandingPage-Sections/PythonPackageSection.js";
+import NodePackageSection from '../pages-sections/LandingPage-Sections/NodePackageSection.js';
+import ProductSection from '../pages-sections/LandingPage-Sections/ProductSection.js';
+import PythonPackageSection from '../pages-sections/LandingPage-Sections/PythonPackageSection.js';
 
-import RPackageSection from "../pages-sections/LandingPage-Sections/RPackageSection.js";
-import DataPackageSection from "../pages-sections/LandingPage-Sections/DataPackageSection.js";
-import WorkSection from "../pages-sections/LandingPage-Sections/WorkSection.js";
+import RPackageSection from '../pages-sections/LandingPage-Sections/RPackageSection.js';
+import DataPackageSection from '../pages-sections/LandingPage-Sections/DataPackageSection.js';
+import WorkSection from '../pages-sections/LandingPage-Sections/WorkSection.js';
 
 
 
@@ -37,8 +37,7 @@ export default function LandingPage(props) {
         <Head>
           <title>{NAME}: Building the SportsDataverse</title>
           <meta
-            name="description"
-            content={`${NAME} is the homepage of the SportsDataverse.`}
+            name="description" content={`${NAME} is the homepage of the SportsDataverse.`}
           />
         </Head>
         <Grid container>

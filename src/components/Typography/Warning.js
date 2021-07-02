@@ -1,20 +1,18 @@
-import React from "react";
+import React from 'react';
 // nodejs library to set properties for components
-import PropTypes from "prop-types";
+import PropTypes from 'prop-types'
 // @material-ui/core components
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles } from '@material-ui/core/styles'
 // core components
-import styles from "assets/jss/nextjs-material-kit/components/typographyStyle.js";
+import styles from 'assets/jss/nextjs-material-kit/components/typographyStyle.js'
 
-const useStyles = makeStyles(styles);
+const useStyles = makeStyles(styles)
 
 export default function Warning(props) {
-  const classes = useStyles();
-  const { children } = props;
+  const classes = useStyles()
+  const { children } = props
   return (
-    <div className={classes.defaultFontStyle + " " + classes.warningText}>
-      {children}
-    </div>
+    <div className={classes.defaultFontStyle + ' ' + classes.warningText}>{children}</div>
   );
 }
 

@@ -1,15 +1,14 @@
-import React from "react";
 // @material-ui/core components
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles } from '@material-ui/core/styles'
 import Link from 'next/link'
 
 // @material-ui/icons
 
 // core components
-import GridContainer from "../../src/components/Grid/GridContainer.js";
-import GridItem from "../../src/components/Grid/GridItem.js";
-import CustomInput from "../../src/components/CustomInput/CustomInput.js";
-import Button from "../../src/components/CustomButtons/Button.js";
+import GridContainer from '../../src/components/Grid/GridContainer.js';
+import GridItem from '../../src/components/Grid/GridItem.js';
+import CustomInput from '../../src/components/CustomInput/CustomInput.js';
+import Button from '../../src/components/CustomButtons/Button.js';
 
 import styles from '../../styles/Shared.module.css'
 

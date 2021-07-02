@@ -14,8 +14,8 @@ export const getSortedPostsData = (): PostData[] => {
   // Get file names under /posts
   const fileNames = fs.readdirSync(postsDirectory)
   const allPostsData: PostData[] = fileNames.map((fileName) => {
-    // Remove ".md" from file name to get id
-    var id = fileName.replace(/\.md$/, '')
+    // Remove '.md' from file name to get id
+    let id = fileName.replace(/\.md$/, '')
 
     // Read markdown file as string
     const fullPath = path.join(postsDirectory, fileName)
@@ -30,10 +30,8 @@ export const getSortedPostsData = (): PostData[] => {
     }
   })
 }
-
 const getPostFromFile = (fullPath: string, id: string, includeContent = false): PostData => {
   const fileContents = fs.readFileSync(fullPath, 'utf8')
-
   // Use gray-matter to parse the post metadata section
   const matterResult = matter(fileContents)
   // Combine the data with the id
@@ -44,19 +42,14 @@ const getPostFromFile = (fullPath: string, id: string, includeContent = false): 
     topics: matterResult.data.topics.split(','),
   } as PostData
 }
-
 export const getSortedTopics = (): string[] => {
   const posts = getSortedPostsData()
-
   const allTopics = posts.reduce((prev: string[], current: PostData) => {
     return [...prev, ...current.topics]
   }, [])
-
   const map: Record<string, number> = {}
-
   allTopics.map((t) => {
     map[t] = allTopics.filter((topic) => t === topic).length
   })
-
   return Array.from(new Set(allTopics)).sort((a, b) => map[b] - map[a])
 }

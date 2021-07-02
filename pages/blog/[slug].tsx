@@ -14,6 +14,7 @@ import GitHubIcon from '@material-ui/icons/GitHub'
 import TopicsDisplay from '../../src/components/TopicsDisplay'
 import PreviewCard from '../../src/components/PreviewCard'
 import { BASE_URL, NAME } from '../../src/types/constants'
+import Image from 'next/image'
 
 type Props = { postData: PostData; nextPath: PostData }
 
