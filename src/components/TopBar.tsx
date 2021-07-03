@@ -94,7 +94,7 @@ export const TopBar = (): ReactElement => {
   return (
     <AppBar className={trigger ? classes.hide : classes.show} position='sticky'>
       <Toolbar className={classes.toolbar}>
-        <Link href='/'>
+        <Link href='https://sportsdataverse.org/'>
             <Image
               src='/logo/logo.png'
               width='80px'
