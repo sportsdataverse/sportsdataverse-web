@@ -8,7 +8,7 @@
 </p>
 <h1 align="center"><a href="https://sportsdataverse.org">SportsDataverse.org</a></h1>
 
-<h3>Built by Saiem Gilani</h3>
+<h3 align="center">Website built by Saiem Gilani</h3>
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](/LICENSE)
 [![Deployment Status](https://img.shields.io/endpoint?url=https%3A%2F%2Fsportsdataverse.org%2Fapi%2Fdeployment)](https://sportsdataverse.org)
 
