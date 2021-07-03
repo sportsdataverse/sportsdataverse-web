@@ -126,7 +126,7 @@ export const TopBar = (): ReactElement => {
                 <a href="https://wehoop-py.sportsdataverse.org/"
                  className={classes.toolbarContent}>wehoop-py</a>
               </Link>,
-              <strong>R</strong>,
+              <a className={classes.toolbarContent}><strong>R</strong></a>,
               <Link href="https://saiemgilani.github.io/cfbfastR/">
                 <a href="https://saiemgilani.github.io/cfbfastR/"
                  className={classes.toolbarContent}>cfbfastR</a>
@@ -136,7 +136,8 @@ export const TopBar = (): ReactElement => {
                  className={classes.toolbarContent}>hoopR</a>
               </Link>,
               <Link href="https://saiemgilani.github.io/wehoop/">
-                <a href="https://saiemgilani.github.io/wehoop/">wehoop</a>
+                <a href="https://saiemgilani.github.io/wehoop/"
+                className={classes.toolbarContent}>wehoop</a>
               </Link>,
               <Link href="https://saiemgilani.github.io/recruitR/">
                 <a href="https://saiemgilani.github.io/recruitR/"
