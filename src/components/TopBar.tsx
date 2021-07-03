@@ -160,6 +160,7 @@ export const TopBar = (): ReactElement => {
               <Link href="https://saiemgilani.github.io/sportsdataverse">
                 <a
                   href="https://saiemgilani.github.io/sportsdataverse"
+                  className={classes.toolbarContent}
                 > sportsdataverse.js
                 </a>
               </Link>
