@@ -18,10 +18,10 @@ const buttonStyle = {
     boxShadow:
       "0 2px 2px 0 rgba(153, 153, 153, 0.14), 0 3px 1px -2px rgba(153, 153, 153, 0.2), 0 1px 5px 0 rgba(153, 153, 153, 0.12)",
     border: "none",
-    borderRadius: "3px",
+    borderRadius: "1px",
     position: "relative",
-    padding: "12px 30px",
-    margin: ".3125rem 1px",
+    padding: "1px 0px",
+    margin: "0rem 1px",
     fontSize: "14px",
     fontWeight: "400",
     textTransform: "uppercase",

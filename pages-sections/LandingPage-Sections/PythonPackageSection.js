@@ -30,7 +30,7 @@ export default function PythonPackageSection() {
   );
   return (
     <div className={classes.section}>
-      <h2 className={classes.title}>Python packages in the SportsDataverse:</h2>
+      <h3 className={classes.title}>Python packages in the SportsDataverse:</h3>
       <div>
         <GridContainer>
           <GridItem xs={12} sm={12} md={4}>
@@ -64,9 +64,12 @@ export default function PythonPackageSection() {
             <Card plain>
               <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
               <Link href='https://hoopR-py.sportsdataverse.org/'>
-              <Image src={`/images/hoopR-py-logo.png`} alt='hoopR-py'
-                width={209}
-                height={250} /></Link>
+              <Image
+                  src={`/images/hoopR-py-logo.png`}
+                  alt='hoopR-py'
+                  width={209}
+                  height={250} />
+              </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
                 <Link href='https://hoopR-py.sportsdataverse.org/'>hoopR-py</Link>
