@@ -40,18 +40,17 @@ export default function LandingPage(props) {
           <meta
             name="description" content={`${DESC}.`}
           />
-          <meta name="twitter:card" content="summary" />
-          <meta name="twitter:description" content={DESC} />
-          <meta name="twitter:title" content={TITLE} />
-          <meta name="twitter:image" content={`${BASE_URL}/images/sdv-purple-white.png`} />
           <meta property="og:type" content="article" />
           <meta property="og:title" content={TITLE} />
           <meta property="og:description" content={DESC} />
           <meta property="og:url" content={`${BASE_URL}`} />
           <meta property="og:site_name" content={NAME} />
           <meta property="og:image" content={`${BASE_URL}/images/sdv-purple-white.png`} />
-          <meta property="og:image:secure_url" content={`${BASE_URL}/images/sdv-purple-white.png`} />
-      
+          <meta property="og:image:secure_url" content="summary_large_image" />
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:description" content={DESC} />
+          <meta name="twitter:title" content={TITLE} />
+          <meta name="twitter:image" content="summary_large_image" />
         </Head>
         <Grid container>
           <Grid item xs={12} className={styles.headings}>
