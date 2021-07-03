@@ -124,18 +124,18 @@ export default function RPackageSection() {
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
               <GridItem xs={12} sm={12} md={7} className={classes.itemGrid}>
-                <Link href='https://saiemgilani.github.io/cfbrecruitR/'>
-                  <img src={`images/cfbrecruitR-logo.png`} alt='cfbrecruitR'  />
+                <Link href='https://saiemgilani.github.io/recruitR/'>
+                  <img src={`images/recruitR-logo.png`} alt='recruitR'  />
                 </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
-              <Link href='https://saiemgilani.github.io/cfbrecruitR/'>cfbrecruitR</Link>
+              <Link href='https://saiemgilani.github.io/recruitR/'>recruitR</Link>
                 <br />
-                <small className={classes.smallTitle}>College Football Recruiting - R</small>
+                <small className={classes.smallTitle}>College Sports Recruiting - R</small>
               </h4>
               <CardBody>
                 <p className={classes.description}>
-                <Link href='https://saiemgilani.github.io/cfbrecruitR/'>cfbrecruitR</Link> is an R package for working with college football recruiting data.
+                <Link href='https://saiemgilani.github.io/recruitR/'>recruitR</Link> is an R package for working with college sports recruiting data.
                 </p>
               </CardBody>
             </Card>
