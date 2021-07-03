@@ -22,7 +22,7 @@ const buttonStyle = {
     position: "relative",
     padding: "12px 30px",
     margin: ".3125rem 1px",
-    fontSize: "12px",
+    fontSize: "14px",
     fontWeight: "400",
     textTransform: "uppercase",
     letterSpacing: "0",
@@ -39,7 +39,7 @@ const buttonStyle = {
       color: "#FFFFFF",
       backgroundColor: grayColor,
       boxShadow:
-        "0 14px 26px -12px rgba(153, 153, 153, 0.42), 0 4px 23px 0px rgba(0, 0, 0, 0.12), 0 8px 10px -5px rgba(153, 153, 153, 0.2)"
+        "0 0px 0px -12px rgba(153, 153, 153, 0.42), 0 4px 3px 0px rgba(0, 0, 0, 0.12), 0 8px 10px -5px rgba(153, 153, 153, 0.2)"
     },
     "& .fab,& .fas,& .far,& .fal,& .material-icons": {
       position: "relative",
@@ -318,7 +318,7 @@ const buttonStyle = {
     pointerEvents: "none"
   },
   lg: {
-    padding: "1.125rem 2.25rem",
+    padding: "0.25rem 0.25rem",
     fontSize: "0.875rem",
     lineHeight: "1.333333",
     borderRadius: "0.2rem"
@@ -330,7 +330,7 @@ const buttonStyle = {
     borderRadius: "0.2rem"
   },
   round: {
-    borderRadius: "30px"
+    borderRadius: "10px"
   },
   block: {
     width: "100% !important"

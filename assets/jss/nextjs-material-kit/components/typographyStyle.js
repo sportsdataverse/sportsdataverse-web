@@ -10,15 +10,15 @@ import {
 const typographyStyle = {
   defaultFontStyle: {
     ...defaultFont,
-    fontSize: "14px"
+    fontSize: "24px"
   },
   defaultHeaderMargins: {
-    marginTop: "20px",
+    marginTop: "24px",
     marginBottom: "10px"
   },
   quote: {
-    padding: "10px 20px",
-    margin: "0 0 20px",
+    padding: "10px 10px",
+    margin: "0 0 10px",
     fontSize: "17.5px",
     borderLeft: "5px solid #eee"
   },
@@ -51,7 +51,7 @@ const typographyStyle = {
     color: dangerColor
   },
   smallText: {
-    fontSize: "65%",
+    fontSize: "85%",
     fontWeight: "400",
     lineHeight: "1",
     color: "#777"

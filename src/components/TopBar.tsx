@@ -3,7 +3,9 @@ import Toolbar from '@material-ui/core/Toolbar'
 import SunIcon from '@material-ui/icons/WbSunnyOutlined'
 import ViewHeadlineIcon from '@material-ui/icons/ViewHeadline'
 import MoonIcon from '@material-ui/icons/Brightness2Outlined'
+import CustomDropdown from '../components/CustomDropdown/CustomDropdown';
 import CodeIcon from '@material-ui/icons/Code'
+import AccountTreeIcon from '@material-ui/icons/AccountTree';
 import IconButton from '@material-ui/core/IconButton';
 import Typography from '@material-ui/core/Typography'
 import Button from '@material-ui/core/Button'
@@ -66,7 +68,7 @@ const useStyles = makeStyles({
     paddingLeft: '5%',
   },
   toolbarContent: {
-    paddingLeft: 70,
+    paddingLeft: 30,
   },
   toolbarRight: {
     right: 0,
@@ -92,7 +94,7 @@ export const TopBar = (): ReactElement => {
   return (
     <AppBar className={trigger ? classes.hide : classes.show} position='sticky'>
       <Toolbar className={classes.toolbar}>
-        <Link href='https://sportsdataverse.org'>
+        <Link href='/'>
             <Image
               src='/logo/logo.png'
               width='80px'
@@ -101,16 +103,64 @@ export const TopBar = (): ReactElement => {
             />
         </Link>
         <div className={classes.toolbarContent}>
+        <CustomDropdown
+            noLiPadding
+            navDropdown
+            buttonText="Packages"
+            buttonProps={{
+              color: "transparent"
+            }}
+            buttonIcon={AccountTreeIcon}
+            dropdownList={[
+              <strong>Python</strong>,
+              <Link href="https://cfbfastR-py.sportsdataverse.org/">
+                <a href="https://cfbfastR-py.sportsdataverse.org/">
+                  cfbfastR-py</a>
+              </Link>,
+              <Link href="https://hoopR-py.sportsdataverse.org/">
+                <a href="https://hoopR-py.sportsdataverse.org/">hoopR-py</a>
+              </Link>,
+              <Link href="https://wehoop-py.sportsdataverse.org/">
+                <a href="https://wehoop-py.sportsdataverse.org/">wehoop-py</a>
+              </Link>,
+              <strong>R</strong>,
+              <Link href="https://saiemgilani.github.io/cfbfastR/">
+                <a href="https://saiemgilani.github.io/cfbfastR/">cfbfastR</a>
+              </Link>,
+              <Link href="https://saiemgilani.github.io/hoopR/">
+                <a href="https://saiemgilani.github.io/hoopR/">hoopR</a>
+              </Link>,
+              <Link href="https://saiemgilani.github.io/wehoop/">
+                <a href="https://saiemgilani.github.io/wehoop/">wehoop</a>
+              </Link>,
+              <Link href="https://saiemgilani.github.io/recruitR/">
+                <a href="https://saiemgilani.github.io/recruitR/">recruitR</a>
+              </Link>,
+              <Link href="https://puntalytics.github.io/puntr/">
+                <a href="https://puntalytics.github.io/puntr/">puntr</a>
+              </Link>,
+              <Link href="https://jacklich10.github.io/gamezoneR/">
+                <a
+                  href="https://jacklich10.github.io/gamezoneR/"
+                  target="_blank"
+                > gamezoneR
+                </a>
+              </Link>,
+              <strong>Node.js</strong>,,
+              <Link href="https://saiemgilani.github.io/sportsdataverse">
+                <a
+                  href="https://saiemgilani.github.io/sportsdataverse"
+                > sportsdataverse.js
+                </a>
+              </Link>
+            ]}
+          />
+        </div>
+        <div className={classes.toolbarContent}>
           <Link href='/blog'>
             <Button variant='text' color='inherit'>
               <ViewHeadlineIcon />
               &nbsp;Blog
-            </Button>
-          </Link>
-          <Link href='/topics'>
-            <Button variant='text' color='inherit'>
-              <CodeIcon />
-              &nbsp;Topics
             </Button>
           </Link>
         </div>

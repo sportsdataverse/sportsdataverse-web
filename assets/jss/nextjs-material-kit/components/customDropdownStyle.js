@@ -27,8 +27,8 @@ const customDropdownStyle = theme => ({
       willChange: "none !important",
       "& > div": {
         boxShadow: "none !important",
-        marginLeft: "1.5rem",
-        marginRight: "1.5rem",
+        marginLeft: "1.0rem",
+        marginRight: "1.0rem",
         transition: "none !important",
         marginTop: "0px !important",
         marginBottom: "5px !important",
@@ -45,10 +45,10 @@ const customDropdownStyle = theme => ({
     minWidth: "160px",
     padding: "5px 0",
     margin: "2px 0 0",
-    fontSize: "14px",
+    fontSize: "20px",
     textAlign: "left",
     listStyle: "none",
-    backgroundColor: "#fff",
+    backgroundColor: "#C087F1",
     backgroundClip: "padding-box"
   },
   menuList: {
@@ -58,7 +58,7 @@ const customDropdownStyle = theme => ({
     zIndex: "1200",
     position: "absolute !important",
     [theme.breakpoints.down("sm")]: {
-      zIndex: "1640",
+      zIndex: "1440",
       position: "static !important",
       float: "none",
       width: "auto",
@@ -71,10 +71,10 @@ const customDropdownStyle = theme => ({
   },
   dropdownItem: {
     ...defaultFont,
-    fontSize: "13px",
-    padding: "10px 20px",
-    margin: "0 5px",
-    borderRadius: "2px",
+    fontSize: "16px",
+    padding: "0px 0px",
+    margin: "0 10px",
+    borderRadius: "5px",
     position: "relative",
     transition: "all 150ms linear",
     display: "block",

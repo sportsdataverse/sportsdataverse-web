@@ -11,7 +11,7 @@ import {
 const navPillsStyle = theme => ({
   root: {
     marginTop: "20px",
-    paddingLeft: "0",
+    paddingLeft: "10px",
     marginBottom: "0",
     overflow: "visible !important",
     lineHeight: "24px",
@@ -41,7 +41,7 @@ const navPillsStyle = theme => ({
     float: "left",
     position: "relative",
     display: "block",
-    borderRadius: "30px",
+    borderRadius: "10px",
     minWidth: "100px",
     textAlign: "center",
     transition: "all .3s",

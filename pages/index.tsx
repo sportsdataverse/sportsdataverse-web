@@ -15,9 +15,8 @@ import Button from '../src/components/CustomButtons/Button.js';
 import Parallax from '../src/components/Parallax/Parallax.js';
 import Head from 'next/head'
 import styles from '../styles/Shared.module.css'
-import { NAME, NAME_AND_DOMAIN } from '../src/types/constants'
+import {BASE_URL, NAME, NAME_AND_DOMAIN } from '../src/types/constants'
 import Link from 'next/link'
-
 // Sections for this page
 import NodePackageSection from '../pages-sections/LandingPage-Sections/NodePackageSection.js';
 import ProductSection from '../pages-sections/LandingPage-Sections/ProductSection.js';
@@ -32,13 +31,27 @@ import WorkSection from '../pages-sections/LandingPage-Sections/WorkSection.js';
 export default function LandingPage(props) {
   const large = useMediaQuery('(min-width:700px)')
   const { ...rest } = props;
+  const DESC = `${NAME} is the homepage of the SportsDataverse.`;
+  const TITLE = `${NAME}: Building the SportsDataverse`;
   return (
       <>
         <Head>
           <title>{NAME}: Building the SportsDataverse</title>
           <meta
-            name="description" content={`${NAME} is the homepage of the SportsDataverse.`}
+            name="description" content={`${DESC}.`}
           />
+          <meta name="twitter:card" content="summary" />
+          <meta name="twitter:description" content={DESC} />
+          <meta name="twitter:title" content={TITLE} />
+          <meta name="twitter:image" content={`${BASE_URL}/images/sdv-purple-white.png`} />
+          <meta property="og:type" content="article" />
+          <meta property="og:title" content={TITLE} />
+          <meta property="og:description" content={DESC} />
+          <meta property="og:url" content={`${BASE_URL}`} />
+          <meta property="og:site_name" content={NAME} />
+          <meta property="og:image" content={`${BASE_URL}/images/sdv-purple-white.png`} />
+          <meta property="og:image:secure_url" content={`${BASE_URL}/images/sdv-purple-white.png`} />
+      
         </Head>
         <Grid container>
           <Grid item xs={12} className={styles.headings}>
