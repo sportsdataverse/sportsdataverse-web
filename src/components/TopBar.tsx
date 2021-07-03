@@ -112,41 +112,50 @@ export const TopBar = (): ReactElement => {
             }}
             buttonIcon={AccountTreeIcon}
             dropdownList={[
-              <strong>Python</strong>,
+              <a className={classes.toolbarContent}><strong>Python</strong></a>,
               <Link href="https://cfbfastR-py.sportsdataverse.org/">
-                <a href="https://cfbfastR-py.sportsdataverse.org/">
+                <a href="https://cfbfastR-py.sportsdataverse.org/"
+                className={classes.toolbarContent}>
                   cfbfastR-py</a>
               </Link>,
               <Link href="https://hoopR-py.sportsdataverse.org/">
-                <a href="https://hoopR-py.sportsdataverse.org/">hoopR-py</a>
+                <a href="https://hoopR-py.sportsdataverse.org/"
+                 className={classes.toolbarContent}>hoopR-py</a>
               </Link>,
               <Link href="https://wehoop-py.sportsdataverse.org/">
-                <a href="https://wehoop-py.sportsdataverse.org/">wehoop-py</a>
+                <a href="https://wehoop-py.sportsdataverse.org/"
+                 className={classes.toolbarContent}>wehoop-py</a>
               </Link>,
               <strong>R</strong>,
               <Link href="https://saiemgilani.github.io/cfbfastR/">
-                <a href="https://saiemgilani.github.io/cfbfastR/">cfbfastR</a>
+                <a href="https://saiemgilani.github.io/cfbfastR/"
+                 className={classes.toolbarContent}>cfbfastR</a>
               </Link>,
               <Link href="https://saiemgilani.github.io/hoopR/">
-                <a href="https://saiemgilani.github.io/hoopR/">hoopR</a>
+                <a href="https://saiemgilani.github.io/hoopR/"
+                 className={classes.toolbarContent}>hoopR</a>
               </Link>,
               <Link href="https://saiemgilani.github.io/wehoop/">
                 <a href="https://saiemgilani.github.io/wehoop/">wehoop</a>
               </Link>,
               <Link href="https://saiemgilani.github.io/recruitR/">
-                <a href="https://saiemgilani.github.io/recruitR/">recruitR</a>
+                <a href="https://saiemgilani.github.io/recruitR/"
+                 className={classes.toolbarContent}>recruitR</a>
               </Link>,
               <Link href="https://puntalytics.github.io/puntr/">
-                <a href="https://puntalytics.github.io/puntr/">puntr</a>
+                <a href="https://puntalytics.github.io/puntr/"
+                 className={classes.toolbarContent}>puntr</a>
               </Link>,
               <Link href="https://jacklich10.github.io/gamezoneR/">
                 <a
                   href="https://jacklich10.github.io/gamezoneR/"
                   target="_blank"
+                  rel="noreferrer"
+                  className={classes.toolbarContent}
                 > gamezoneR
                 </a>
               </Link>,
-              <strong>Node.js</strong>,,
+              <a className={classes.toolbarContent}><strong>Node.js</strong></a>,
               <Link href="https://saiemgilani.github.io/sportsdataverse">
                 <a
                   href="https://saiemgilani.github.io/sportsdataverse"
