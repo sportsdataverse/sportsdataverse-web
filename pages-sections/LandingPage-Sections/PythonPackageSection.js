@@ -16,6 +16,9 @@ import CardBody from '../../src/components/Card/CardBody.js';
 import CardFooter from '../../src/components/Card/CardFooter.js';
 import Image from 'next/image'
 
+import wehoopPy from '../../public/images/wehoop-py-logo.png'
+import hoopRPy from '../../public/images/hoopR-py-logo.png'
+import cfbfastRPy from '../../public/images/cfbfastR-py-logo.png'
 import styles from '../../assets/jss/nextjs-material-kit/pages/landingPageSections/packageStyle.js';
 
 
@@ -38,10 +41,8 @@ export default function PythonPackageSection() {
               <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
               <Link href='https://cfbfastR-py.sportsdataverse.org/'>
                 <Image
-                src={`/images/cfbfastR-py-logo.png`} 
-                alt='cfbfastR-py'
-                width={209}
-                height={250} />
+                src={cfbfastRPy}
+                alt='cfbfastR-py' />
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
@@ -65,10 +66,8 @@ export default function PythonPackageSection() {
               <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
               <Link href='https://hoopR-py.sportsdataverse.org/'>
               <Image
-                  src={`/images/hoopR-py-logo.png`}
-                  alt='hoopR-py'
-                  width={209}
-                  height={250} />
+                  src={hoopRPy}
+                  alt='hoopR-py'/>
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
@@ -89,10 +88,8 @@ export default function PythonPackageSection() {
               <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
               <Link href='https://wehoop-py.sportsdataverse.org/'>
                 <Image
-                  src={`/images/wehoop-py-logo.png`}
-                  alt='wehoop-py'
-                  width={209}
-                  height={250} />
+                  src={wehoopPy}
+                  alt='wehoop-py' />
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>

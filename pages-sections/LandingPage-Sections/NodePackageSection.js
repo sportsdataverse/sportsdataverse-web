@@ -15,6 +15,7 @@ import Button from '../../src/components/CustomButtons/Button.js';
 import Card from '../../src/components/Card/Card.js';
 import CardBody from '../../src/components/Card/CardBody.js';
 import CardFooter from '../../src/components/Card/CardFooter.js';
+import sdvLogo from '../../public/images/sportsdataverse-node.png'
 
 import styles from '../../assets/jss/nextjs-material-kit/pages/landingPageSections/nodePackageStyle.js';
 
@@ -30,7 +31,7 @@ export default function PackageSection() {
   );
   return (
     <div className={classes.section}>
-      <h2 className={classes.title}>Node.js modules in SportsDataverse:</h2>
+      <h3 className={classes.title}>Node.js modules in the SportsDataverse:</h3>
       <div>
         <GridContainer>
           <GridItem xs={12} sm={12} md={3}>
@@ -46,10 +47,8 @@ export default function PackageSection() {
               <GridItem xs={12} sm={12} md={12} className={classes.itemGrid}>
                 <Link href='https://saiemgilani.github.io/sportsdataverse/'>
                   <Image 
-                  src={`/images/sportsdataverse-node.png`} 
-                  alt='sportsdataverse-node-js'
-                  height ={300}
-                  width ={600} />
+                  src={sdvLogo} 
+                  alt='sportsdataverse-node-js'/>
                 </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>

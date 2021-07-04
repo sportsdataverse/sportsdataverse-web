@@ -49,7 +49,7 @@ const options = (dark: boolean): ThemeOptions => {
         letterSpacing: '-1.5px',
       },
       h2: { fontFamily: 'Roboto Slab', fontWeight: 400, fontSize: '48px', lineHeight: '190%', letterSpacing: '-0.5px' },
-      h3: { fontFamily: 'Roboto Slab', fontSize: '36px', lineHeight: '150%' },
+      h3: { fontFamily: 'Roboto Slab', fontSize: '40px', lineHeight: '150%' },
       h4: { fontFamily: 'Roboto Slab', fontSize: '34px', lineHeight: '130%', letterSpacing: '0.25px' },
       h5: { fontFamily: 'Chivo', fontSize: '24px', lineHeight: '32px' },
       h6: { fontFamily: 'Chivo', fontWeight: 500, fontSize: '20px', lineHeight: '26px', letterSpacing: '0.15px' },

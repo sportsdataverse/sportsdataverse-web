@@ -16,6 +16,9 @@ import CardBody from '../../src/components/Card/CardBody.js';
 import CardFooter from '../../src/components/Card/CardFooter.js';
 import Image from 'next/image'
 
+import wehoopData from '../../public/images/wehoop_social_card_data_repo_full.png'
+import hoopRData from '../../public/images/hoopR_social_card_data_repo_full.png'
+import cfbfastRData from '../../public/images/social_card_final_quote_data_repo.png'
 import styles from '../../assets/jss/nextjs-material-kit/pages/landingPageSections/packageStyle.js';
 
 
@@ -30,7 +33,7 @@ export default function DataPackageSection() {
   );
   return (
     <div className={classes.section}>
-      <h2 className={classes.title}>Data Repositories that support the SportsDataverse packages:</h2>
+      <h3 className={classes.title}>Data Repositories supporting SportsDataverse packages:</h3>
       <div>
         <GridContainer>
           <GridItem xs={12} sm={12} md={4}>
@@ -38,10 +41,8 @@ export default function DataPackageSection() {
               <GridItem xs={12} sm={12} md={11} className={classes.itemGrid}>
               <Link href='https://github.com/saiemgilani/cfbfastR-data/'>
                 <Image
-                  src={`/images/cfbfastR-data-repo.png`}
-                  alt='cfbfastR-data'
-                  width={299}
-                  height={250} />
+                  src={cfbfastRData}
+                  alt='cfbfastR-data' />
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
@@ -58,13 +59,11 @@ export default function DataPackageSection() {
           </GridItem>
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
-              <GridItem xs={12} sm={12} md={9} className={classes.itemGrid}>
+              <GridItem xs={12} sm={12} md={11} className={classes.itemGrid}>
               <Link href='https://github.com/saiemgilani/hoopR-data/'>
                 <Image
-                  src={`/images/hoopR_social_card_data_repo.png`}
-                  alt='hoopR-data'
-                  width={600}
-                  height={600} />
+                  src={hoopRData}
+                  alt='hoopR-data' />
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
@@ -81,13 +80,11 @@ export default function DataPackageSection() {
           </GridItem>
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
-              <GridItem xs={12} sm={12} md={7} className={classes.itemGrid}>
+              <GridItem xs={12} sm={12} md={11} className={classes.itemGrid}>
               <Link href='https://github.com/saiemgilani/wehoop-data/'>
               <Image
-                  src={`/images/wehoop_social_card_data_repo.png`}
-                  alt='wehoop-data'
-                  width={620}
-                  height={770} />
+                  src={wehoopData}
+                  alt='wehoop-data' />
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>

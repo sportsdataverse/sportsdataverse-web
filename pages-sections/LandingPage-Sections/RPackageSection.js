@@ -15,7 +15,10 @@ import Card from '../../src/components/Card/Card.js';
 import CardBody from '../../src/components/Card/CardBody.js';
 import CardFooter from '../../src/components/Card/CardFooter.js';
 import Image from 'next/image'
-
+import wehoop from '../../public/images/wehoop.png'
+import hoopR from '../../public/images/hoopR.png'
+import cfbfastR from '../../public/images/cfbfastR.png'
+import recruitR from '../../public/images/recruitR-logo.png'
 import styles from '../../assets/jss/nextjs-material-kit/pages/landingPageSections/packageStyle.js';
 
 
@@ -30,7 +33,7 @@ export default function RPackageSection() {
   );
   return (
     <div className={classes.section}>
-      <h2 className={classes.title}>R packages in the SportsDataverse:</h2>
+      <h3 className={classes.title}>R packages in the SportsDataverse:</h3>
       <div>
         <GridContainer>
           <GridItem xs={12} sm={12} md={4}>
@@ -38,10 +41,8 @@ export default function RPackageSection() {
               <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
               <Link href='https://saiemgilani.github.io/cfbfastR/' passHref>
                 <Image
-                  src={`/images/cfbfastR-logo.png`}
-                  alt='cfbfastR'
-                  width={209}
-                  height={250} />
+                  src={cfbfastR}
+                  alt='cfbfastR'/>
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
@@ -68,10 +69,8 @@ export default function RPackageSection() {
               <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
               <Link href='https://saiemgilani.github.io/hoopR/'>
                 <Image
-                    src={`/images/hoopR-logo.png`}
-                    alt='hoopR'
-                    width={209}
-                    height={250} />
+                    src={hoopR}
+                    alt='hoopR' />
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
@@ -95,10 +94,8 @@ export default function RPackageSection() {
               <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
               <Link href='https://saiemgilani.github.io/wehoop/'>
               <Image
-                    src={`/images/wehoop-logo.png`}
-                    alt='wehoop'
-                    width={209}
-                    height={250} />
+                    src={wehoop}
+                    alt='wehoop' />
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
@@ -125,7 +122,8 @@ export default function RPackageSection() {
             <Card plain>
               <GridItem xs={12} sm={12} md={7} className={classes.itemGrid}>
                 <Link href='https://saiemgilani.github.io/recruitR/'>
-                  <img src={`images/recruitR-logo.png`} alt='recruitR'  />
+                  <Image src={recruitR}
+                    alt='recruitR' />
                 </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
