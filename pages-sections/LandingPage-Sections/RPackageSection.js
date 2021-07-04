@@ -38,8 +38,8 @@ export default function RPackageSection() {
         <GridContainer>
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
-              <GridItem xs={12} sm={12} md={8}>
-              <Link href='https://saiemgilani.github.io/cfbfastR/' passHref>
+              <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
+              <Link href='https://saiemgilani.github.io/cfbfastR/'>
                 <Image
                   src={cfbfastR}
                   alt='cfbfastR'/>
