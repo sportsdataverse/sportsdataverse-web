@@ -37,17 +37,16 @@ const Slug: FC<Props> = ({ postData, nextPath }): ReactElement => {
         <title>{postData.title}</title>
         <meta name="description" content={postData.description} />
         <meta property="article:published_time" content={`${postData.date}T10:00:00Z`} />
-        <meta name="twitter:card" content="summary" />
-        <meta name="twitter:description" content={postData.description} />
-        <meta name="twitter:title" content={postData.title} />
-        <meta name="twitter:image" content={`${BASE_URL}/small/${postData.id}.png`} />
         <meta property="og:type" content="article" />
         <meta property="og:title" content={postData.title} />
         <meta property="og:description" content={postData.description} />
         <meta property="og:url" content={`${BASE_URL}/blog/${postData.id}`} />
         <meta property="og:site_name" content={NAME} />
         <meta property="og:image" content={`${BASE_URL}/small/${postData.id}.png`} />
-        <meta property="og:image:secure_url" content={`${BASE_URL}/small/${postData.id}.png`} />
+        <meta property="og:image:secure_url" content="summary_large_image" />
+        <meta name="twitter:description" content={postData.description} />
+        <meta name="twitter:title" content={postData.title} />
+        <meta name="twitter:image" content="summary_large_image" />
       </Head>
       <div className={styles['text-content']}>
         <PageHeading title={postData.title} />
@@ -74,7 +73,11 @@ const Slug: FC<Props> = ({ postData, nextPath }): ReactElement => {
       <div className={styles['image-container']}>
         <Card className={styles.image}>
           <CardMedia>
-            <img alt={postData.title} loading="lazy" src={`/small/${postData.id}.png`} />
+          <Image
+                    src={`/small/${postData.id}.png`}
+                    alt={postData.title}
+                    width={500}
+                    height={200} />
           </CardMedia>
         </Card>
       </div>
