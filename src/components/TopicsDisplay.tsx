@@ -25,12 +25,12 @@ const TopicsDisplay = ({ topics, n, noMargin = undefined }: TopicsDisplayProps):
   return (
     <div style={noMargin ? {} : { width: '90%', margin: 'auto', textAlign: 'center', display: 'absolute' }}>
       {topics.slice(0, n ?? 1000).map((t) => (
-        <Link key={t} href={`/topics/${t.replace(' ', '-')}`}>
+        <Link key={t} href={`/topics/${t.replace(' ', '-')}`} passHref>
           <Chip className={noMargin ? classes.buttonPaddingNoMargin : classes.buttonPadding} label={t} />
         </Link>
       ))}
       {topics.length > n && (
-        <Link href={`/topics`}>
+        <Link href={`/topics`} passHref>
           <Chip className={classes.buttonPadding} label="…" />
         </Link>
       )}

@@ -57,7 +57,7 @@ export const PreviewCard: FC<PreviewCardProps> = ({ post, noMargin }): ReactElem
   const classes = useStyles()
 
   return (
-    <Link href={`/blog/${post.id}`}>
+    <Link href={`/blog/${post.id}`} passHref>
       <Card className={classes.card} elevation={3} style={noMargin ? { margin: 0 } : {}}>
         <CardActionArea>
           <CardMedia className={classes.media} image={`/small/${post.id}.png`} title={post.title} />

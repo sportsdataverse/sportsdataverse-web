@@ -94,7 +94,7 @@ export const TopBar = (): ReactElement => {
   return (
     <AppBar className={trigger ? classes.hide : classes.show} position='sticky'>
       <Toolbar className={classes.toolbar}>
-        <Link href='https://sportsdataverse.org/'>
+        <Link href='https://sportsdataverse.org/' passHref>
             <Image
               src='/logo/logo.png'
               width='80px'
@@ -113,41 +113,41 @@ export const TopBar = (): ReactElement => {
             buttonIcon={AccountTreeIcon}
             dropdownList={[
               <a className={classes.toolbarContent}><strong>Python</strong></a>,
-              <Link href="https://cfbfastR-py.sportsdataverse.org/">
+              <Link href="https://cfbfastR-py.sportsdataverse.org/" passHref>
                 <a href="https://cfbfastR-py.sportsdataverse.org/"
                 className={classes.toolbarContent}>
                   cfbfastR-py</a>
               </Link>,
-              <Link href="https://hoopR-py.sportsdataverse.org/">
+              <Link href="https://hoopR-py.sportsdataverse.org/" passHref>
                 <a href="https://hoopR-py.sportsdataverse.org/"
                  className={classes.toolbarContent}>hoopR-py</a>
               </Link>,
-              <Link href="https://wehoop-py.sportsdataverse.org/">
+              <Link href="https://wehoop-py.sportsdataverse.org/" passHref>
                 <a href="https://wehoop-py.sportsdataverse.org/"
                  className={classes.toolbarContent}>wehoop-py</a>
               </Link>,
               <a className={classes.toolbarContent}><strong>R</strong></a>,
-              <Link href="https://saiemgilani.github.io/cfbfastR/">
+              <Link href="https://saiemgilani.github.io/cfbfastR/" passHref>
                 <a href="https://saiemgilani.github.io/cfbfastR/"
                  className={classes.toolbarContent}>cfbfastR</a>
               </Link>,
-              <Link href="https://saiemgilani.github.io/hoopR/">
+              <Link href="https://saiemgilani.github.io/hoopR/" passHref>
                 <a href="https://saiemgilani.github.io/hoopR/"
                  className={classes.toolbarContent}>hoopR</a>
               </Link>,
-              <Link href="https://saiemgilani.github.io/wehoop/">
+              <Link href="https://saiemgilani.github.io/wehoop/" passHref>
                 <a href="https://saiemgilani.github.io/wehoop/"
                 className={classes.toolbarContent}>wehoop</a>
               </Link>,
-              <Link href="https://saiemgilani.github.io/recruitR/">
+              <Link href="https://saiemgilani.github.io/recruitR/" passHref>
                 <a href="https://saiemgilani.github.io/recruitR/"
                  className={classes.toolbarContent}>recruitR</a>
               </Link>,
-              <Link href="https://puntalytics.github.io/puntr/">
+              <Link href="https://puntalytics.github.io/puntr/" passHref>
                 <a href="https://puntalytics.github.io/puntr/"
                  className={classes.toolbarContent}>puntr</a>
               </Link>,
-              <Link href="https://jacklich10.github.io/gamezoneR/">
+              <Link href="https://jacklich10.github.io/gamezoneR/" passHref>
                 <a
                   href="https://jacklich10.github.io/gamezoneR/"
                   target="_blank"
@@ -157,7 +157,7 @@ export const TopBar = (): ReactElement => {
                 </a>
               </Link>,
               <a className={classes.toolbarContent}><strong>Node.js</strong></a>,
-              <Link href="https://saiemgilani.github.io/sportsdataverse">
+              <Link href="https://saiemgilani.github.io/sportsdataverse" passHref>
                 <a
                   href="https://saiemgilani.github.io/sportsdataverse"
                   className={classes.toolbarContent}
@@ -168,7 +168,7 @@ export const TopBar = (): ReactElement => {
           />
         </div>
         <div className={classes.toolbarContent}>
-          <Link href='/blog'>
+          <Link href='/blog' passHref>
             <Button variant='text' color='inherit'>
               <ViewHeadlineIcon />
               &nbsp;Blog
