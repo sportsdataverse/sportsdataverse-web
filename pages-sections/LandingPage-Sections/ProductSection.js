@@ -21,7 +21,7 @@ export default function ProductSection() {
     <div className={classes.section}>
       <GridContainer justify="center">
         <GridItem xs={12} sm={12} md={8}>
-          <h2 className={classes.title}>Talk Data to Us</h2>
+          <h3 className={classes.title}>Talk Data to Us</h3>
           <h4 className={classes.description}>
             We are always looking to add more developers to the SportsDataverse developer group who share common cause
             with the aim to make the sports data industry more diverse and inclusive. If you are already a package developer
