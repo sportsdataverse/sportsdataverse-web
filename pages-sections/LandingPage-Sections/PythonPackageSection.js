@@ -42,7 +42,8 @@ export default function PythonPackageSection() {
               <Link href='https://cfbfastR-py.sportsdataverse.org/'>
                 <Image
                 src={cfbfastRPy}
-                alt='cfbfastR-py' />
+                alt='cfbfastR-py'
+                priority='true' />
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
@@ -67,7 +68,8 @@ export default function PythonPackageSection() {
               <Link href='https://hoopR-py.sportsdataverse.org/'>
               <Image
                   src={hoopRPy}
-                  alt='hoopR-py'/>
+                  alt='hoopR-py'
+                  priority='true' />
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
@@ -89,7 +91,8 @@ export default function PythonPackageSection() {
               <Link href='https://wehoop-py.sportsdataverse.org/'>
                 <Image
                   src={wehoopPy}
-                  alt='wehoop-py' />
+                  alt='wehoop-py'
+                  priority='true'  />
               </Link>
               </GridItem>
               <h4 className={classes.cardTitle}>
