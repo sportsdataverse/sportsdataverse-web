@@ -87,7 +87,7 @@ export default function PythonPackageSection() {
           </GridItem>
           <GridItem xs={12} sm={12} md={4}>
             <Card plain>
-              <GridItem xs={12} sm={12} md={8} className={classes.itemGrid}>
+              <GridItem xs={12} sm={12} md={8}>
               <Link href='https://wehoop-py.sportsdataverse.org/'>
                 <Image
                   src={wehoopPy}

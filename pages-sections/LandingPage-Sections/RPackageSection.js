@@ -15,9 +15,9 @@ import Card from '../../src/components/Card/Card.js';
 import CardBody from '../../src/components/Card/CardBody.js';
 import CardFooter from '../../src/components/Card/CardFooter.js';
 import Image from 'next/image'
-import wehoop from '../../public/images/wehoop.png'
-import hoopR from '../../public/images/hoopR.png'
-import cfbfastR from '../../public/images/cfbfastR.png'
+import wehoop from '../../public/images/wehoop-logo.png'
+import hoopR from '../../public/images/hoopR-logo.png'
+import cfbfastR from '../../public/images/cfbfastR-logo.png'
 import recruitR from '../../public/images/recruitR-logo.png'
 import styles from '../../assets/jss/nextjs-material-kit/pages/landingPageSections/packageStyle.js';
 

@@ -46,8 +46,8 @@ export default function PackageSection() {
             <Card plain>
               <GridItem xs={12} sm={12} md={12} className={classes.itemGrid}>
                 <Link href='https://saiemgilani.github.io/sportsdataverse/'>
-                  <Image 
-                  src={sdvLogo} 
+                  <Image
+                  src={sdvLogo}
                   alt='sportsdataverse-node-js'/>
                 </Link>
               </GridItem>
@@ -72,14 +72,6 @@ export default function PackageSection() {
                 'fieldhockey', 'volleyball-women', 'icehockey-men', 'icehockey-women', 'baseball',
                 'beach-volleyball', 'lacrosse-men', 'lacrosse-women', 'volleyball-men'
                 </p>
-              </CardBody>
-            </Card>
-          </GridItem>
-          <GridItem xs={12} sm={12} md={3}>
-            <Card plain>
-              <GridItem xs={12} sm={12} md={6} className={classes.itemGrid}>
-              </GridItem>
-              <CardBody>
               </CardBody>
             </Card>
           </GridItem>
