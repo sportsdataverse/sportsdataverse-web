@@ -49,14 +49,15 @@ export default function PythonPackageSection() {
               <h4 className={classes.cardTitle}>
                 <Link href='https://cfbfastR-py.sportsdataverse.org/'>cfbfastR-py</Link>
                 <br />
-                <small className={classes.smallTitle}>College Football - Python</small>
+                <small className={classes.smallTitle}>American Football - Python</small>
               </h4>
               <CardBody>
                 <p className={classes.description}>
-                <Link href='https://cfbfastR-py.sportsdataverse.org/'>cfbfastR-py</Link> is a Python package for working with College Football data.
+                <Link href='https://cfbfastR-py.sportsdataverse.org/'>cfbfastR-py</Link> is a Python package for working with American Football data.
                 </p>
                 <p className={classes.description}>
-                It provides users the capability to load data from the <Link href='https://github.com/saiemgilani/cfbfastR-data/'>cfbfastR-data</Link> repository with
+                It provides users the capability to load data from the <Link href='https://github.com/saiemgilani/cfbfastR-data/'>cfbfastR-data</Link> and 
+                <Link href='https://github.com/nflverse/nflfastR-data/'>nflfastR-data</Link> repository with
                 Expected Points Added/Win Probability added metrics.
                 </p>
               </CardBody>
