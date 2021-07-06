@@ -57,7 +57,7 @@ export default function PythonPackageSection() {
                 </p>
                 <p className={classes.description}>
                 It provides users the capability to load data from the <Link href='https://github.com/saiemgilani/cfbfastR-data/'>cfbfastR-data</Link> and 
-                <Link href='https://github.com/nflverse/nflfastR-data/'>nflfastR-data</Link> repository with
+                 <Link href='https://github.com/nflverse/nflfastR-data/'>nflfastR-data</Link> repository with
                 Expected Points Added/Win Probability added metrics.
                 </p>
               </CardBody>
