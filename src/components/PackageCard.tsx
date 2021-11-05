@@ -56,9 +56,9 @@ export const PackageCard: FC<PackageCardProps> = ({
     <Container maxWidth="sm"  >
         <Box p={1}>
             <Link href={sourceHref}>
-                {logo !== ''?<Image
+                <Image
                     src={logo}
-                    alt={sourceLabel} />:''}
+                    alt={sourceLabel} />
             </Link>
             
             <Typography variant={'h4'}><Link href={sourceHref}>{`${sourceLabel}`}</Link>  <Link href={sourceHref}><GitHubIcon/></Link></Typography>
