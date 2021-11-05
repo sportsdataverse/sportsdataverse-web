@@ -33,13 +33,13 @@ import sdvBlue from '../public/images/sdv-blue-banner.png'
 export default function LandingPage(props) {
   const large = useMediaQuery('(min-width:700px)')
   const { ...rest } = props;
-  const DESC = `${NAME} is the homepage of the SportsDataverse.`;
-  const TITLE = `${NAME}: Building the SportsDataverse`;
+  const DESC = `The homepage of the SportsDataverse.`;
+  const TITLE = `SportsDataverse`;
   const imgAlt = `The SportsDataverse`
   return (
       <>
         <Head>
-          <title>{NAME}: Building the SportsDataverse</title>
+          <title>SportsDataverse</title>
           <meta
             name="description" content={`${DESC}.`}
           />
