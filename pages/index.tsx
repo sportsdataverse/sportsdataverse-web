@@ -53,7 +53,7 @@ export default function LandingPage(props) {
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:description" content={DESC} />
           <meta name="twitter:title" content={TITLE} />
-          <meta name="twitter:image" content="summary_large_image" />
+          <meta name="twitter:image" content={`${BASE_URL}/images/sdv-blue.png`} />
         </Head>
         <Grid container>
           <Grid item xs={12} className={styles.headings}>
