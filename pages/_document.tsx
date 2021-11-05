@@ -13,7 +13,7 @@ export default class MyDocument extends Document {
           <meta name="apple-mobile-web-app-title" content={NAME} />
           <meta name="application-name" content={NAME} />
           <meta property="og:locale" content="en_GB" />
-          <link rel="icon" type="image/png" href="/logo/logo.png" />
+          <link rel="icon" type="image/png" href="/logo/logo.ico" />
           <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:300,400,500,700&display=swap" />
           <link
             rel="stylesheet"

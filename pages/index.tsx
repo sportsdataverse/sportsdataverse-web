@@ -3,6 +3,7 @@ import React from 'react'
 import classNames from 'classnames';
 // @material-ui/core components
 import { makeStyles } from '@material-ui/core/styles';
+import Image from 'next/image'
 
 // @material-ui/icons
 
@@ -18,14 +19,15 @@ import styles from '../styles/Shared.module.css'
 import {BASE_URL, NAME, NAME_AND_DOMAIN } from '../src/types/constants'
 import Link from 'next/link'
 // Sections for this page
-import NodePackageSection from '../pages-sections/LandingPage-Sections/NodePackageSection.js';
+import NodePackageSection from '../pages-sections/LandingPage-Sections/NodePackageSection';
 import ProductSection from '../pages-sections/LandingPage-Sections/ProductSection.js';
-import PythonPackageSection from '../pages-sections/LandingPage-Sections/PythonPackageSection.js';
+import PythonPackageSection from '../pages-sections/LandingPage-Sections/PythonPackageSection';
 
-import RPackageSection from '../pages-sections/LandingPage-Sections/RPackageSection.js';
-import DataPackageSection from '../pages-sections/LandingPage-Sections/DataPackageSection.js';
+import RPackageSection from '../pages-sections/LandingPage-Sections/RPackageSection';
+import DataPackageSection from '../pages-sections/LandingPage-Sections/DataPackageSection';
 import WorkSection from '../pages-sections/LandingPage-Sections/WorkSection.js';
 
+import sdvBlue from '../public/images/sdv-blue-banner.png'
 
 
 export default function LandingPage(props) {
@@ -33,6 +35,7 @@ export default function LandingPage(props) {
   const { ...rest } = props;
   const DESC = `${NAME} is the homepage of the SportsDataverse.`;
   const TITLE = `${NAME}: Building the SportsDataverse`;
+  const imgAlt = `The SportsDataverse`
   return (
       <>
         <Head>
@@ -45,7 +48,7 @@ export default function LandingPage(props) {
           <meta property="og:description" content={DESC} />
           <meta property="og:url" content={`${BASE_URL}`} />
           <meta property="og:site_name" content={NAME} />
-          <meta property="og:image" content={`${BASE_URL}/images/sdv-purple-white.png`} />
+          <meta property="og:image" content={`${BASE_URL}/images/sdv-blue.png`} />
           <meta property="og:image:secure_url" content="summary_large_image" />
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:description" content={DESC} />
@@ -54,19 +57,30 @@ export default function LandingPage(props) {
         </Head>
         <Grid container>
           <Grid item xs={12} className={styles.headings}>
-            <Box p={5}>
-              <Typography variant={large ? 'h1' : 'h4'}>{NAME_AND_DOMAIN}</Typography>
-              <Typography className={styles.secondHeading} variant={large ? 'h3' : 'h6'}>
-              Building the SportsDataverse.
-              </Typography>
+            <Box p={3}>
+              <Image
+                    src={sdvBlue}
+                    alt={imgAlt} />
             </Box>
           </Grid>
           </Grid>
       <div className={classNames(styles.main, styles.mainRaised)}>
         <div className={styles.headings}>
+        <Grid container>
+          <Grid item xs={12} sm={12} md={6} lg={6}  className={styles.headings}>
+        <Box p={2}>
+          <Typography variant={'h3'}>Python packages</Typography>
+        </Box>
           <PythonPackageSection />
-          <RPackageSection />
+          </Grid>
+          <Grid item xs={12} sm={12} md={6} lg={6}  className={styles.headings}>
+        <Box p={2}>
+          <Typography variant={'h3'}>Node.js modules</Typography>
+        </Box>
           <NodePackageSection />
+          </Grid>
+          </Grid>
+          <RPackageSection />
           <DataPackageSection />
           <ProductSection />
           <WorkSection />

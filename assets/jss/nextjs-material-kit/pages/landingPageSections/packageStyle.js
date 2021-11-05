@@ -4,7 +4,7 @@ import imagesStyle from "../../imagesStyles.js";
 const packageStyle = {
   section: {
     padding: "10px 0",
-    textAlign: "center"
+    textAlign: center
   },
   title: {
     ...title,

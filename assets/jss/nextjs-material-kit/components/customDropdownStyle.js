@@ -48,7 +48,7 @@ const customDropdownStyle = theme => ({
     fontSize: "20px",
     textAlign: "left",
     listStyle: "none",
-    backgroundColor: "#C087F1",
+    backgroundColor: "#0493C8",
     backgroundClip: "padding-box"
   },
   menuList: {
@@ -89,7 +89,7 @@ const customDropdownStyle = theme => ({
     "&:hover": {
       boxShadow:
         "0 4px 20px 0px rgba(0, 0, 0, 0.14), 0 7px 10px -5px rgba(33, 33, 33, 0.4)",
-      backgroundColor: "#212121",
+      backgroundColor: "#05749E",
       color: "#fff"
     }
   },

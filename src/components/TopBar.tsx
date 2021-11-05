@@ -113,18 +113,10 @@ export const TopBar = (): ReactElement => {
             buttonIcon={AccountTreeIcon}
             dropdownList={[
               <a className={classes.toolbarContent}><strong>Python</strong></a>,
-              <Link href="https://cfbfastR-py.sportsdataverse.org/" passHref>
-                <a href="https://cfbfastR-py.sportsdataverse.org/"
+              <Link href="https://py.sportsdataverse.org/" passHref>
+                <a href="https://py.sportsdataverse.org/"
                 className={classes.toolbarContent}>
-                  cfbfastR-py</a>
-              </Link>,
-              <Link href="https://hoopR-py.sportsdataverse.org/" passHref>
-                <a href="https://hoopR-py.sportsdataverse.org/"
-                 className={classes.toolbarContent}>hoopR-py</a>
-              </Link>,
-              <Link href="https://wehoop-py.sportsdataverse.org/" passHref>
-                <a href="https://wehoop-py.sportsdataverse.org/"
-                 className={classes.toolbarContent}>wehoop-py</a>
+                  sportsdataverse</a>
               </Link>,
               <a className={classes.toolbarContent}><strong>R</strong></a>,
               <Link href="https://saiemgilani.github.io/cfbfastR/" passHref>
@@ -156,6 +148,30 @@ export const TopBar = (): ReactElement => {
                 > gamezoneR
                 </a>
               </Link>,
+              <Link href="https://kazink36.github.io/cfbplotR/" passHref>
+                <a href="https://kazink36.github.io/cfbplotR/"
+                 className={classes.toolbarContent}>cfbplotR</a>
+              </Link>,
+              <Link href="https://kazink36.github.io/cfb4th/" passHref>
+                <a href="https://kazink36.github.io/cfb4th/"
+                 className={classes.toolbarContent}>cfb4th</a>
+              </Link>,
+              <Link href="https://jaseziv.github.io/worldfootballR/" passHref>
+                <a href="https://jaseziv.github.io/worldfootballR/"
+                 className={classes.toolbarContent}>worldfootballR</a>
+              </Link>,
+              <Link href="https://BillPetti.github.io/baseballr/" passHref>
+                <a href="https://BillPetti.github.io/baseballr/"
+                 className={classes.toolbarContent}>baseballr</a>
+              </Link>,
+              <Link href="https://hockeyr.netlify.app/" passHref>
+                <a href="https://hockeyr.netlify.app/"
+                 className={classes.toolbarContent}>hockeyR</a>
+              </Link>,
+              <Link href="https://BenHowell71.github.io/fastRhockey/" passHref>
+                <a href="https://BenHowell71.github.io/fastRhockey/"
+                 className={classes.toolbarContent}>fastRhockey</a>
+              </Link>,
               <a className={classes.toolbarContent}><strong>Node.js</strong></a>,
               <Link href="https://saiemgilani.github.io/sportsdataverse" passHref>
                 <a
@@ -163,6 +179,10 @@ export const TopBar = (): ReactElement => {
                   className={classes.toolbarContent}
                 > sportsdataverse.js
                 </a>
+              </Link>,
+              <Link href="https://github.com/nntrn/nfl-nerd/" passHref>
+                <a href="https://github.com/nntrn/nfl-nerd/"
+                 className={classes.toolbarContent}>nfl-nerd</a>
               </Link>
             ]}
           />
