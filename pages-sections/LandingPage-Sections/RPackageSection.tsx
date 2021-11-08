@@ -84,14 +84,14 @@ const rPackages = [
     ]
   },
   {
-    sourceHref: 'https://github.com/danmorse314/hockeyR/',
+    sourceHref: 'https://github.com/jaseziv/worldfootballR/',
     sourceLabel: 'worldfootballR',
     logo: worldfootballR,
     docsHref: 'https://jaseziv.github.io/worldfootballR/',
     sports: "World Football",
     repositoryType: 'R',
     description: [
-      {content:"  Functions to Extract World Football (Soccer) Data from Fbref.com, transfermarkt.com, understat.com, and fotmob.com."},
+      {content:"  Functions to Extract World Football (Soccer) Data from Fbref.com, transfermarkt.com, and understat.com."},
 
     ]
   },
