@@ -36,7 +36,6 @@ import styles from '../../assets/jss/nextjs-material-kit/pages/landingPageSectio
 import PackageCard from '../../src/components/PackageCard'
 
 const rPackages = [
-  
   {
     sourceHref: 'https://github.com/saiemgilani/cfbfastR/',
     sourceLabel: 'cfbfastR',
@@ -159,17 +158,6 @@ const rPackages = [
     repositoryType: 'R',
     description: [
       {content:" Functions to access college sports recruiting data."},
-    ]
-  },
-  {
-    sourceHref: 'https://github.com/saiemgilani/powerplay/',
-    sourceLabel: 'powerplay',
-    logo: emptyLogo,
-    docsHref: 'https://saiemgilani.github.io/powerplay/',
-    sports: "NHL",
-    repositoryType: 'R',
-    description: [
-      {content:" Functions to Access Hockey Play-by-Play Data."},
     ]
   },
   {

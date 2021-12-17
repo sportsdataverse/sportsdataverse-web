@@ -115,8 +115,7 @@ export const TopBar = (): ReactElement => {
               <a className={classes.toolbarContent}><strong>Python</strong></a>,
               <Link href="https://py.sportsdataverse.org/" passHref>
                 <a href="https://py.sportsdataverse.org/"
-                className={classes.toolbarContent}>
-                  sportsdataverse</a>
+                className={classes.toolbarContent}>sportsdataverse</a>
               </Link>,
               <a className={classes.toolbarContent}><strong>R</strong></a>,
               <Link href="https://saiemgilani.github.io/cfbfastR/" passHref>
@@ -140,13 +139,10 @@ export const TopBar = (): ReactElement => {
                  className={classes.toolbarContent}>puntr</a>
               </Link>,
               <Link href="https://jacklich10.github.io/gamezoneR/" passHref>
-                <a
-                  href="https://jacklich10.github.io/gamezoneR/"
+                <a href="https://jacklich10.github.io/gamezoneR/"
                   target="_blank"
                   rel="noreferrer"
-                  className={classes.toolbarContent}
-                > gamezoneR
-                </a>
+                  className={classes.toolbarContent}>gamezoneR</a>
               </Link>,
               <Link href="https://kazink36.github.io/cfbplotR/" passHref>
                 <a href="https://kazink36.github.io/cfbplotR/"
