@@ -94,6 +94,7 @@ export const TopBar = (): ReactElement => {
   return (
     <AppBar className={trigger ? classes.hide : classes.show} position='sticky'>
       <Toolbar className={classes.toolbar}>
+        <div className={classes.toolbarContent}>
         <Link href='https://sportsdataverse.org/' passHref>
             <Image
               src='/logo/logo.png'
@@ -102,6 +103,7 @@ export const TopBar = (): ReactElement => {
               alt='sportsdataverse.org'
             />
         </Link>
+        </div>
         <div className={classes.toolbarContent}>
         <CustomDropdown
             noLiPadding
@@ -159,10 +161,6 @@ export const TopBar = (): ReactElement => {
               <Link href="https://BillPetti.github.io/baseballr/" passHref>
                 <a href="https://BillPetti.github.io/baseballr/"
                  className={classes.toolbarContent}>baseballr</a>
-              </Link>,
-              <Link href="https://hockeyr.netlify.app/" passHref>
-                <a href="https://hockeyr.netlify.app/"
-                 className={classes.toolbarContent}>hockeyR</a>
               </Link>,
               <Link href="https://BenHowell71.github.io/fastRhockey/" passHref>
                 <a href="https://BenHowell71.github.io/fastRhockey/"
