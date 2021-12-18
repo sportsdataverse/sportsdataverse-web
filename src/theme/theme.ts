@@ -84,11 +84,41 @@ const options = (dark: boolean): ThemeOptions => {
             overflowX: 'hidden',
           },
           a: {
+            hover: {
+              textDecoration: 'none',
+              fontWeight: 900,
+              color: paletteColors.text,
+              cursor: "pointer",
+            },
             textDecoration: 'none',
             fontWeight: 900,
             color: paletteColors.text,
             cursor: "pointer",
           },
+          svg: {
+            hover: {
+              textDecoration: 'none',
+              fontWeight: 900,
+              color: paletteColors.text,
+              cursor: "pointer",
+            },
+            textDecoration: 'none',
+            fontWeight: 900,
+            color: paletteColors.text,
+            cursor: "pointer",
+          },
+          img: {
+            textDecoration: 'none',
+            fontWeight: 900,
+            color: paletteColors.text,
+            cursor: "pointer",
+          },
+          link: {
+            textDecoration: 'none',
+            fontWeight: 900,
+            color: paletteColors.text,
+            cursor: "pointer",
+          }
         },
       },
     },

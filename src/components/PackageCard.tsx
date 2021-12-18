@@ -32,17 +32,44 @@ type PackageCardProps = {
   }
 
 
-// const useStyles = makeStyles((theme) => ({
-//   container: {
-//     minWidth: '95%',
-//     width: '100%',
-//     height: 400,
-//     spacing: '2%',
-//     position: 'relative',
-//     backgroundColor: theme.palette.primary.main,
-//     color: theme.palette.text.secondary,
-//   },
-// }))
+const useStyles = makeStyles((theme) => ({
+    
+    a: {
+        hover: {
+          textDecoration: 'none',
+          fontWeight: 900,
+          cursor: "pointer",
+        },
+        textDecoration: 'none',
+        fontWeight: 900,
+        cursor: "pointer",
+      },
+    Link: {
+        textDecoration: 'none',
+        fontWeight: 900,
+        cursor: "pointer",
+    },
+    svg: {
+      hover: {
+        textDecoration: 'none',
+        fontWeight: 900,
+        cursor: "pointer",
+      },
+      textDecoration: 'none',
+      fontWeight: 900,
+      cursor: "pointer",
+    },
+    Image: {
+      hover: {
+        textDecoration: 'none',
+        fontWeight: 900,
+        cursor: "pointer",
+      },
+      textDecoration: 'none',
+      fontWeight: 900,
+      cursor: "pointer",
+    },
+}))
 
 export const PackageCard: FC<PackageCardProps> = ({
     sourceHref,
@@ -52,12 +79,12 @@ export const PackageCard: FC<PackageCardProps> = ({
     sports,
     repositoryType,
     description }): ReactElement => {
-//   const classes = useStyles()
+  const classes = useStyles()
   const large = useMediaQuery('(min-width:500px)')
   return (
     <Container maxWidth="sm"  >
         <Box p={1}>
-            <Link href={docsHref} passHref>
+            <Link href={docsHref}>
                 <Image
                     src={logo}
                     alt={sourceLabel} />
@@ -66,8 +93,8 @@ export const PackageCard: FC<PackageCardProps> = ({
                 <Link href={sourceHref} passHref>{`${sourceLabel}`}</Link>
             </Typography>
             <div>
-                <Link href={sourceHref} passHref><GitHubIcon/></Link>
-                <Link href={docsHref} passHref><DescriptionIcon/></Link>
+                <Link href={sourceHref}><GitHubIcon/></Link>
+                <Link href={docsHref}><DescriptionIcon/></Link>
             </div>
             <Typography variant={'caption'}>{`${sports}`+' - '+`${repositoryType}`}</Typography>
             {description.map((d,idx)=>
