@@ -2,7 +2,7 @@
 title: 'recruitR for college sports recruiting data'
 date: '2021-10-21'
 description: 'Package for working with college sports recruiting data.'
-featured: false
+featured: true
 topics: R,Sports,Recruiting,College Football,Men's College Basketball
 recommended: cfbfastR-tidying-college-football-play-by-play-data
 ---

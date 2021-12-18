@@ -33,7 +33,6 @@ type PackageCardProps = {
 
 
 const useStyles = makeStyles((theme) => ({
-    
     a: {
         hover: {
           textDecoration: 'none',

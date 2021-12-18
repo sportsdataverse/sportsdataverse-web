@@ -99,12 +99,10 @@ const options = (dark: boolean): ThemeOptions => {
             hover: {
               textDecoration: 'none',
               fontWeight: 900,
-              color: paletteColors.text,
               cursor: "pointer",
             },
             textDecoration: 'none',
             fontWeight: 900,
-            color: paletteColors.text,
             cursor: "pointer",
           },
           img: {
