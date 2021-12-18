@@ -21,6 +21,7 @@ import wehoopData from '../../public/images/wehoop_social_card_data_repo_full.pn
 import hoopRData from '../../public/images/hoopR_social_card_data_repo_full.png'
 import cfbfastRData from '../../public/images/social_card_final_quote_data_repo.png'
 import worldfootballRData from '../../public/images/worldfootballR-data-card.png'
+import emptyLogo from '../../public/images/empty.png'
 
 
 const dataPackages = [
