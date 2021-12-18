@@ -29,7 +29,7 @@ const dataPackages = [
     sourceHref: 'https://github.com/saiemgilani/cfbfastR-data/',
     sourceLabel: 'cfbfastR-data',
     logo: cfbfastRData,
-    docsHref: '',
+    docsHref: 'https://github.com/saiemgilani/cfbfastR-data/',
     sports: 'College Football',
     repositoryType: 'Data',
     description: [
@@ -40,7 +40,7 @@ const dataPackages = [
     sourceHref: 'https://github.com/saiemgilani/hoopR-data/',
     sourceLabel: 'hoopR-data',
     logo: hoopRData,
-    docsHref: '',
+    docsHref: 'https://github.com/saiemgilani/hoopR-data/',
     sports: "Men's Basketball (NBA and MBB)",
     repositoryType: 'Data',
     description: [
@@ -51,7 +51,7 @@ const dataPackages = [
     sourceHref: 'https://github.com/saiemgilani/wehoop-data/',
     sourceLabel: 'wehoop-data',
     logo: wehoopData,
-    docsHref: '',
+    docsHref: 'https://github.com/saiemgilani/wehoop-data/',
     sports: "Women's Basketball (WNBA and WBB)",
     repositoryType: 'Data',
     description: [
@@ -62,7 +62,7 @@ const dataPackages = [
     sourceHref: 'https://github.com/JaseZiv/worldfootballR_data',
     sourceLabel: 'worldfootballR-data',
     logo: worldfootballRData,
-    docsHref: '',
+    docsHref: 'https://github.com/JaseZiv/worldfootballR_data',
     sports: "World Football (Soccer)",
     repositoryType: 'Data',
     description: [
@@ -73,7 +73,7 @@ const dataPackages = [
     sourceHref: 'https://github.com/saiemgilani/fastRhockey-data/',
     sourceLabel: 'fastRhockey-data',
     logo: emptyLogo,
-    docsHref: '',
+    docsHref: 'https://github.com/saiemgilani/fastRhockey-data/',
     sports: "Hockey (NHL and PHF)",
     repositoryType: 'Data',
     description: [
@@ -84,13 +84,12 @@ const dataPackages = [
 
 export default function DataPackageSection() {
   const large = useMediaQuery('(min-width:500px)')
-  const dataPkgs = dataPackages 
+  const dataPkgs = dataPackages
   return (
     <div>
       <Box p={5}>
         <Typography variant={'h3'}>Data Repositories supporting SportsDataverse packages:</Typography>
       </Box>
-      
       <Grid container
           direction={"row"}
           spacing={1}>

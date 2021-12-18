@@ -87,6 +87,7 @@ const options = (dark: boolean): ThemeOptions => {
             textDecoration: 'none',
             fontWeight: 900,
             color: paletteColors.text,
+            cursor: "pointer",
           },
         },
       },
