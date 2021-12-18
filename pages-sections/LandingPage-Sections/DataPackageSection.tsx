@@ -33,7 +33,7 @@ const dataPackages = [
     sports: 'College Football',
     repositoryType: 'Data',
     description: [
-      {content:' Repository containing data for working with CFB data. 2002-2020 data included in csv, rds, and parquet format.'}
+      {content:' Repository containing data for working with CFB data. 2002-present data included in csv, rds, and parquet format.'}
     ]
   },
   {
@@ -44,7 +44,7 @@ const dataPackages = [
     sports: "Men's Basketball (NBA and MBB)",
     repositoryType: 'Data',
     description: [
-      {content:' Repository containing data for most teams, players and coaches from 2002-2020. All data provided in csv, rds, and parquet format.'}
+      {content:' Repository containing data for most teams, players and coaches from 2002-present. All data provided in csv, rds, and parquet format.'}
     ]
   },
   {
