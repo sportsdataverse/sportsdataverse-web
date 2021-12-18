@@ -68,6 +68,17 @@ const dataPackages = [
       {content:' Repository containing data for Fbref Comps and Leagues, Transfermarkt Leagues, Mapping between FBref and Transfermarkt Players'}
     ]
   },
+  {
+    sourceHref: 'https://github.com/saiemgilani/fastRhockey-data/',
+    sourceLabel: 'fastRhockey-data',
+    logo: emptyLogo,
+    docsHref: '',
+    sports: "Hockey (NHL and PHF)",
+    repositoryType: 'Data',
+    description: [
+      {content:' Repository containing data for most teams and games from 2010-present for NHL, 2016-present for PHF. All data provided in csv, rds, and parquet format.'}
+    ]
+  },
 ]
 
 export default function DataPackageSection() {
