@@ -106,17 +106,6 @@ const rPackages = [
     ]
   },
   {
-    sourceHref: 'https://github.com/danmorse314/hockeyR/',
-    sourceLabel: 'hockeyR',
-    logo: hockeyR,
-    docsHref: 'https://hockeyr.netlify.app/',
-    sports: "NHL",
-    repositoryType: 'R',
-    description: [
-      {content:"  Functions for Acquiring and Analyzing NHL Play-by-Play Data."},
-    ]
-  },
-  {
     sourceHref: 'https://github.com/kazink36/cfbplotR/',
     sourceLabel: 'cfbplotR',
     logo: cfbplotR,
