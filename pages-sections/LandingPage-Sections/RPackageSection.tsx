@@ -95,6 +95,17 @@ const rPackages = [
     ]
   },
   {
+    sourceHref: 'https://github.com/benhowell71/fastRhockey/',
+    sourceLabel: 'fastRhockey',
+    logo: fastRhockey,
+    docsHref: 'https://benhowell71.github.io/fastRhockey/',
+    sports: "NHL and PHF",
+    repositoryType: 'R',
+    description: [
+      {content:"  Functions to Access NHL and Premier Hockey Federation Play by Play Data."},
+    ]
+  },
+  {
     sourceHref: 'https://github.com/danmorse314/hockeyR/',
     sourceLabel: 'hockeyR',
     logo: hockeyR,
@@ -103,17 +114,6 @@ const rPackages = [
     repositoryType: 'R',
     description: [
       {content:"  Functions for Acquiring and Analyzing NHL Play-by-Play Data."},
-    ]
-  },
-  {
-    sourceHref: 'https://github.com/benhowell71/fastRhockey/',
-    sourceLabel: 'fastRhockey',
-    logo: fastRhockey,
-    docsHref: 'https://benhowell71.github.io/fastRhockey/',
-    sports: "PHF",
-    repositoryType: 'R',
-    description: [
-      {content:"  Functions to Access Premier Hockey Federation Play by Play Data."},
     ]
   },
   {
