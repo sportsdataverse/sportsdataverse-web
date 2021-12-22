@@ -30,7 +30,7 @@ const nodePackages = [
     sourceHref: 'https://github.com/saiemgilani/sportsdataverse/',
     sourceLabel: 'sportsdataverse',
     logo: sdvLogo,
-    docsHref: 'https://saiemgilani.github.io/sportsdataverse/',
+    docsHref: 'https://js.sportsdataverse.org/',
     sports: 'All collegiate and 6 Professional sports',
     repositoryType: 'Node.js',
     description: [

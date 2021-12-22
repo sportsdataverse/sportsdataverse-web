@@ -56,7 +56,6 @@ const useStyles = makeStyles((theme) => ({
 }))
 export const PreviewCard: FC<PreviewCardProps> = ({ post, noMargin }): ReactElement => {
   const classes = useStyles()
-  const onMediaFallback = event => event.target.src = FALLBACK_IMAGE;
 
   return (
     <Link href={`/blog/${post.id}`} passHref>

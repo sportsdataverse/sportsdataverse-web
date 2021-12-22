@@ -167,9 +167,9 @@ export const TopBar = (): ReactElement => {
                  className={classes.toolbarContent}>fastRhockey</a>
               </Link>,
               <a className={classes.toolbarContent}><strong>Node.js</strong></a>,
-              <Link href="https://saiemgilani.github.io/sportsdataverse" passHref>
+              <Link href="https://js.sportsdataverse.org/" passHref>
                 <a
-                  href="https://saiemgilani.github.io/sportsdataverse"
+                  href="https://js.sportsdataverse.org/"
                   className={classes.toolbarContent}
                 > sportsdataverse.js
                 </a>
