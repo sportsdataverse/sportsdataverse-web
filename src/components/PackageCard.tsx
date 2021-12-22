@@ -83,7 +83,7 @@ export const PackageCard: FC<PackageCardProps> = ({
   return (
     <Container maxWidth="sm"  >
         <Box p={1}>
-            <Link href={docsHref}>
+            <Link href={docsHref} passHref>
                 <Image
                     src={logo}
                     alt={sourceLabel} />
@@ -92,8 +92,8 @@ export const PackageCard: FC<PackageCardProps> = ({
                 <Link href={sourceHref} passHref>{`${sourceLabel}`}</Link>
             </Typography>
             <div>
-                <Link href={sourceHref}><GitHubIcon/></Link>
-                <Link href={docsHref}><DescriptionIcon/></Link>
+                <Link href={sourceHref} passHref><GitHubIcon/></Link>
+                <Link href={docsHref} passHref><DescriptionIcon/></Link>
             </div>
             <Typography variant={'caption'}>{`${sports}`+' - '+`${repositoryType}`}</Typography>
             {description.map((d,idx)=>
