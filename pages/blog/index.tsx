@@ -3,7 +3,6 @@ import { GetStaticPropsResult } from 'next'
 import { PostData } from '../../src/types/posts'
 import React, { ReactElement } from 'react'
 import { Grid, Typography } from '@material-ui/core'
-import styles from '../../styles/Shared.module.css'
 import Box from '@material-ui/core/Box'
 import TopicsDisplay from '../../src/components/TopicsDisplay'
 import useMediaQuery from '@material-ui/core/useMediaQuery'
@@ -27,7 +26,7 @@ const Home = ({ postsData, sortedTopics }: { postsData: PostData[]; sortedTopics
         <Grid item xs={12} className={styles.headings}>
           <Box p={5}>
             <Typography variant={large ? 'h1' : 'h4'}>{NAME_AND_DOMAIN}</Typography>
-            <Typography className={styles.secondHeading} variant={large ? 'h3' : 'h6'}>
+            <Typography variant={large ? 'h3' : 'h6'}>
              Building the SportsDataverse.
             </Typography>
           </Box>

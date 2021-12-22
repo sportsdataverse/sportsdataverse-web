@@ -1,27 +1,14 @@
 import React from 'react';
-// nodejs library that concatenates classes
-import classNames from 'classnames'
-import Link from 'next/link'
-// @material-ui/core components
-
-// @material-ui/icons
-
 // core components
 import { Grid, Typography } from '@material-ui/core'
-import Button from '../../src/components/CustomButtons/Button.js';
-import Card from '../../src/components/Card/Card.js';
-import CardBody from '../../src/components/Card/CardBody.js';
-import CardFooter from '../../src/components/Card/CardFooter.js';
-import Image from 'next/image'
-import useMediaQuery from '@material-ui/core/useMediaQuery'
 import Box from '@material-ui/core/Box'
-import styles from '../../assets/jss/nextjs-material-kit/pages/landingPageSections/packageStyle.js';
+import useMediaQuery from '@material-ui/core/useMediaQuery'
 import PackageCard from '../../src/components/PackageCard'
 import wehoopData from '../../public/images/wehoop_social_card_data_repo_full.png'
 import hoopRData from '../../public/images/hoopR_social_card_data_repo_full.png'
 import cfbfastRData from '../../public/images/social_card_final_quote_data_repo.png'
 import worldfootballRData from '../../public/images/worldfootballR-data-card.png'
-import emptyLogo from '../../public/images/empty.png'
+import emptyLogo from '../../public/images/emptyLogo.png'
 
 
 const dataPackages = [
