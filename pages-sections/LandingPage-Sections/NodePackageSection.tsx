@@ -21,7 +21,7 @@ import useMediaQuery from '@material-ui/core/useMediaQuery'
 import Image from 'next/image'
 import PackageCard from '../../src/components/PackageCard'
 
-import sdvLogo from '../../public/images/sportsdataverse-node.png'
+import sdvLogo from '../../public/images/sdv-js-logo.png'
 import emptyLogo from '../../public/images/empty.png'
 
 
