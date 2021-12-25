@@ -23,7 +23,7 @@ const Home = ({ postsData, sortedTopics }: { postsData: PostData[]; sortedTopics
         />
       </Head>
       <Grid container>
-        <Grid item xs={12} className={styles.headings}>
+        <Grid item xs={12} >
           <Box p={5}>
             <Typography variant={large ? 'h1' : 'h4'}>{NAME_AND_DOMAIN}</Typography>
             <Typography variant={large ? 'h3' : 'h6'}>
