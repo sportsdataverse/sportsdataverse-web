@@ -158,6 +158,10 @@ export const TopBar = (): ReactElement => {
                 <a href="https://jaseziv.github.io/worldfootballR/"
                  className={classes.toolbarContent}>worldfootballR</a>
               </Link>,
+              <Link href="https://jaseziv.github.io/chessR/" passHref>
+                <a href="https://jaseziv.github.io/chessR/"
+                 className={classes.toolbarContent}>chessR</a>
+              </Link>,
               <Link href="https://BillPetti.github.io/baseballr/" passHref>
                 <a href="https://BillPetti.github.io/baseballr/"
                  className={classes.toolbarContent}>baseballr</a>

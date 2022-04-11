@@ -16,6 +16,7 @@ import baseballr from '../../public/images/baseballr-logo.png'
 import hockeyR from '../../public/images/hockeyR-logo.png'
 import fastRhockey from '../../public/images/fastRhockey-logo.png'
 import worldfootballR from '../../public/images/worldfootballR-logo.png'
+import worldfootballR from '../../public/images/chessR-logo.png'
 import emptyLogo from '../../public/images/emptyLogo.png'
 
 const rPackages = [
@@ -74,6 +75,18 @@ const rPackages = [
     repositoryType: 'R',
     description: [
       {content:"  Functions to Extract World Football (Soccer) Data from Fbref.com, transfermarkt.com, and understat.com."},
+
+    ]
+  },
+  {
+    sourceHref: 'https://github.com/jaseziv/chessR/',
+    sourceLabel: 'chessR',
+    logo: chessR,
+    docsHref: 'https://jaseziv.github.io/chessR/',
+    sports: "Chess",
+    repositoryType: 'R',
+    description: [
+      {content:"  Functions designed to extract and analyse chess game data played on Lichess and chess.com."},
 
     ]
   },
