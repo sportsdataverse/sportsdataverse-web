@@ -16,7 +16,7 @@ import baseballr from '../../public/images/baseballr-logo.png'
 import hockeyR from '../../public/images/hockeyR-logo.png'
 import fastRhockey from '../../public/images/fastRhockey-logo.png'
 import worldfootballR from '../../public/images/worldfootballR-logo.png'
-import worldfootballR from '../../public/images/chessR-logo.png'
+import chessR from '../../public/images/chessR-logo.png'
 import emptyLogo from '../../public/images/emptyLogo.png'
 
 const rPackages = [
