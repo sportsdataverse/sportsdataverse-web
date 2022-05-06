@@ -114,15 +114,15 @@ export const TopBar = (): ReactElement => {
             }}
             buttonIcon={AccountTreeIcon}
             dropdownList={[
-              <strong>Python</strong>,
+              <a className={classes.toolbarContent}><strong>Python</strong></a>,
               <Link href="https://py.sportsdataverse.org/" passHref>
                 <a href="https://py.sportsdataverse.org/"
-                className={classes.toolbarContent}>sportsdataverse (py)</a>
+                className={classes.toolbarContent}>sportsdataverse</a>
               </Link>,
-              <strong>R</strong>,
+              <a className={classes.toolbarContent}><strong>R</strong></a>,
               <Link href="https://r.sportsdataverse.org/" passHref>
                 <a href="https://r.sportsdataverse.org/"
-                className={classes.toolbarContent}>sportsdataverse (R)</a>
+                className={classes.toolbarContent}>sportsdataverse</a>
               </Link>,
               <Link href="https://cfbfastR.sportsdataverse.org/" passHref>
                 <a href="https://cfbfastR.sportsdataverse.org/"
