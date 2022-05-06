@@ -25,7 +25,7 @@ import emptyLogo from '../../public/images/emptyLogo.png'
 const versePackages = [
   {
     sourceHref: 'https://github.com/saiemgilani/sportsdataverse-R/',
-    sourceLabel: 'sportsdataverseR',
+    sourceLabel: 'sportsdataverse',
     logo: sportsdataverseR,
     docsHref: 'https://r.sportsdataverse.org/',
     sports: 'All CRAN Packages',
@@ -38,10 +38,10 @@ const versePackages = [
 
 const rPackages = [
   {
-    sourceHref: 'https://cfbfastR.sportsdataverse.org/',
+    sourceHref: 'https://github.com/saiemgilani/cfbfastR/',
     sourceLabel: 'cfbfastR',
     logo: cfbfastR,
-    docsHref: 'https://saiemgilani.github.io/cfbfastR/',
+    docsHref: 'https://cfbfastR.sportsdataverse.org/',
     sports: 'College Football',
     repositoryType: 'R',
     description: [
