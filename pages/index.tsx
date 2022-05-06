@@ -37,56 +37,56 @@ export default function LandingPage(props) {
   const TITLE = `SportsDataverse`;
   const imgAlt = `The SportsDataverse`
   return (
-      <>
-        <Head>
-          <title>SportsDataverse</title>
-          <meta
-            name="description" content={`${DESC}.`}
-          />
-          <meta property="og:type" content="article" />
-          <meta property="og:title" content={TITLE} />
-          <meta property="og:description" content={DESC} />
-          <meta property="og:url" content={`${BASE_URL}`} />
-          <meta property="og:site_name" content={NAME} />
-          <meta property="og:image" content={`${BASE_URL}/images/sdv-blue.png`} />
-          <meta property="og:image:secure_url" content="summary_large_image" />
-          <meta name="twitter:card" content="summary_large_image" />
-          <meta name="twitter:description" content={DESC} />
-          <meta name="twitter:title" content={TITLE} />
-          <meta name="twitter:image" content={`${BASE_URL}/images/sdv-blue.png`} />
-        </Head>
-        <Grid container>
-          <Grid item xs={12} className={styles.headings}>
-            <Box p={3}>
-              <Image
-                    src={sdvBlue}
-                    alt={imgAlt} />
-            </Box>
-          </Grid>
-          </Grid>
-      <div className={classNames(styles.main, styles.mainRaised)}>
-        <div className={styles.headings}>
-        <Grid container>
-          <Grid item xs={12} sm={12} md={6} lg={6}  className={styles.headings}>
-        <Box p={2}>
-          <Typography variant={'h3'}>Python packages</Typography>
-        </Box>
-          <PythonPackageSection />
-          </Grid>
-          <Grid item xs={12} sm={12} md={6} lg={6}  className={styles.headings}>
-        <Box p={2}>
-          <Typography variant={'h3'}>Node.js modules</Typography>
-        </Box>
-          <NodePackageSection />
-          </Grid>
-          </Grid>
-          <RPackageSection />
-          <DataPackageSection />
-          <ProductSection />
-          <WorkSection />
-        </div>
-      </div>
-      <Footer />
+    <>
+    <Head>
+    <title>SportsDataverse</title>
+    <meta
+    name="description" content={`${DESC}.`}
+    />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content={TITLE} />
+    <meta property="og:description" content={DESC} />
+    <meta property="og:url" content={`${BASE_URL}`} />
+    <meta property="og:site_name" content={NAME} />
+    <meta property="og:image" content={`${BASE_URL}/images/sdv-blue.png`} />
+    <meta property="og:image:secure_url" content="summary_large_image" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:description" content={DESC} />
+    <meta name="twitter:title" content={TITLE} />
+    <meta name="twitter:image" content={`${BASE_URL}/images/sdv-blue.png`} />
+    </Head>
+    <Grid container>
+    <Grid item xs={12} className={styles.headings}>
+    <Box p={3}>
+    <Image
+    src={sdvBlue}
+    alt={imgAlt} />
+    </Box>
+    </Grid>
+    </Grid>
+    <div className={classNames(styles.main, styles.mainRaised)}>
+    <div className={styles.headings}>
+    <Grid container>
+    <Grid item xs={12} sm={12} md={6} lg={6}  className={styles.headings}>
+    <Box p={2}>
+    <Typography variant={'h3'}>Python packages</Typography>
+    </Box>
+    <PythonPackageSection />
+    </Grid>
+    <Grid item xs={12} sm={12} md={6} lg={6}  className={styles.headings}>
+    <Box p={2}>
+    <Typography variant={'h3'}>Node.js modules</Typography>
+    </Box>
+    <NodePackageSection />
+    </Grid>
+    </Grid>
+    <RPackageSection />
+    <DataPackageSection />
+    <ProductSection />
+    <WorkSection />
+    </div>
+    </div>
+    <Footer />
     </>
-  );
-}
+    );
+  }

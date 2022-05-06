@@ -13,22 +13,39 @@ import cfbplotR from '../../public/images/cfbplotR-logo.png'
 import cfb4th from '../../public/images/cfb4th-logo.png'
 import gamezoneR from '../../public/images/gamezoneR-logo.png'
 import baseballr from '../../public/images/baseballr-logo.png'
-import hockeyR from '../../public/images/hockeyR-logo.png'
 import fastRhockey from '../../public/images/fastRhockey-logo.png'
 import worldfootballR from '../../public/images/worldfootballR-logo.png'
+import usfootballR from '../../public/images/usfootballR-logo.png'
+import toRvik from '../../public/images/toRvik-logo.png'
 import chessR from '../../public/images/chessR-logo.png'
+import sportyR from '../../public/images/sportyR-logo.png'
+import sportsdataverseR from '../../public/images/sportsdataverseR-logo.png'
 import emptyLogo from '../../public/images/emptyLogo.png'
+
+const versePackages = [
+  {
+    sourceHref: 'https://github.com/saiemgilani/sportsdataverse-R/',
+    sourceLabel: 'sportsdataverseR',
+    logo: sportsdataverseR,
+    docsHref: 'https://r.sportsdataverse.org/',
+    sports: 'All CRAN Packages',
+    repositoryType: 'R',
+    description: [
+      {content:" Easily Install and Load the 'sportsdataverse'"}
+    ]
+  }
+]
 
 const rPackages = [
   {
-    sourceHref: 'https://github.com/saiemgilani/cfbfastR/',
+    sourceHref: 'https://cfbfastR.sportsdataverse.org/',
     sourceLabel: 'cfbfastR',
     logo: cfbfastR,
     docsHref: 'https://saiemgilani.github.io/cfbfastR/',
     sports: 'College Football',
     repositoryType: 'R',
     description: [
-      {content:' Functions to Access College Football Play by Play Data.'}
+      {content:' Access College Football Play by Play Data.'}
     ]
   },
   {
@@ -39,7 +56,7 @@ const rPackages = [
     sports: "Men's Basketball (NBA and MBB)",
     repositoryType: 'R',
     description: [
-      {content:" Functions to Access Men's Basketball Play by Play Data."},
+      {content:" Access Men's Basketball Play by Play Data."},
       // {content:"Provides live game support for ESPN’s NBA and men's college basketball game data and NCAA NET Rankings."},
       // {content:"Also performs as a scraping and aggregating interface for Ken Pomeroy’s college basketball statistics website, kenpom.com."}
     ]
@@ -52,7 +69,18 @@ const rPackages = [
     sports: "Women's Basketball (WNBA and WBB)",
     repositoryType: 'R',
     description: [
-      {content:" Functions to Access Women's Basketball Play by Play Data."},
+      {content:" Access Women's Basketball Play by Play Data."},
+    ]
+  },
+  {
+    sourceHref: 'https://github.com/andreweatherman/toRvik/',
+    sourceLabel: 'toRvik',
+    logo: toRvik,
+    docsHref: 'https://www.torvik.dev/',
+    sports: "Men's College Basketball",
+    repositoryType: 'R',
+    description: [
+      {content:" Scrape Tidy Men's College Basketball Data from BartTorvik."},
     ]
   },
   {
@@ -63,18 +91,18 @@ const rPackages = [
     sports: "MLB, MiLB, NCAA Baseball",
     repositoryType: 'R',
     description: [
-      {content:"  Functions for Acquiring and Analyzing Baseball Data."},
+      {content:"  Acquiring and Analyzing Baseball Data."},
     ]
   },
   {
-    sourceHref: 'https://github.com/jaseziv/worldfootballR/',
-    sourceLabel: 'worldfootballR',
-    logo: worldfootballR,
-    docsHref: 'https://jaseziv.github.io/worldfootballR/',
-    sports: "World Football",
+    sourceHref: 'https://github.com/rossdrucker/sportyR',
+    sourceLabel: 'sportyR',
+    logo: sportyR,
+    docsHref: 'https://rossdrucker.github.io/sportyR/',
+    sports: "Sports Visualizations",
     repositoryType: 'R',
     description: [
-      {content:"  Functions to Extract World Football (Soccer) Data from Fbref.com, transfermarkt.com, and understat.com."},
+      {content:"  Plot Scaled 'ggplot' Representations of Sports Playing Surfaces."},
 
     ]
   },
@@ -86,7 +114,7 @@ const rPackages = [
     sports: "Chess",
     repositoryType: 'R',
     description: [
-      {content:"  Functions designed to extract and analyse chess game data played on Lichess and chess.com."},
+      {content:"  Extract and Analyze Chess Game Data Played on Lichess and chess.com."},
 
     ]
   },
@@ -98,7 +126,31 @@ const rPackages = [
     sports: "NHL and PHF",
     repositoryType: 'R',
     description: [
-      {content:"  Functions to Access NHL and Premier Hockey Federation Play by Play Data."},
+      {content:"  Access NHL and Premier Hockey Federation Play by Play Data."},
+    ]
+  },
+  {
+    sourceHref: 'https://github.com/jaseziv/worldfootballR/',
+    sourceLabel: 'worldfootballR',
+    logo: worldfootballR,
+    docsHref: 'https://jaseziv.github.io/worldfootballR/',
+    sports: "World Football",
+    repositoryType: 'R',
+    description: [
+      {content:"  Extract World Football (Soccer) Data from Fbref.com, transfermarkt.com, and understat.com."},
+
+    ]
+  },
+  {
+    sourceHref: 'https://github.com/saiemgilani/usfootballR/',
+    sourceLabel: 'usfootballR',
+    logo: usfootballR,
+    docsHref: 'https://usfootballR.sportsdataverse.org/',
+    sports: "USA Football",
+    repositoryType: 'R',
+    description: [
+      {content:"  Access MLS and NWSL Play-by-Play Data."},
+
     ]
   },
   {
@@ -120,7 +172,7 @@ const rPackages = [
     sports: "College Football Modeling",
     repositoryType: 'R',
     description: [
-      {content:" Functions to Calculate Optimal Fourth Down Decisions for NCAA Football."},
+      {content:" Calculate Optimal Fourth Down Decisions for NCAA Football."},
     ]
   },
   {
@@ -131,18 +183,18 @@ const rPackages = [
     sports: "College Basketball",
     repositoryType: 'R',
     description: [
-      {content:"  Functions to access NCAA Men’s Basketball data from STATS LLC’s GameZone."},
+      {content:"  Access NCAA Men’s Basketball Data from STATS LLC’s GameZone."},
     ]
   },
   {
     sourceHref: 'https://github.com/saiemgilani/recruitR/',
     sourceLabel: 'recruitR',
     logo: recruitR,
-    docsHref: 'https://saiemgilani.github.io/recruitR/',
+    docsHref: 'https://recruitr.sportsdataverse.org/',
     sports: "College Sports Recruiting",
     repositoryType: 'R',
     description: [
-      {content:" Functions to access college sports recruiting data."},
+      {content:" Access College Sports Recruiting Data."},
     ]
   },
   {
@@ -164,12 +216,28 @@ const rPackages = [
 
 export default function RPackageSection() {
   const large = useMediaQuery('(min-width:500px)')
+  const vPkgs = versePackages
   const rPkgs = rPackages
   return (
     <div>
       <Box p={5}>
         <Typography variant={'h3'}>R packages</Typography>
       </Box>
+      <Grid container
+          spacing={1}>
+          {vPkgs.map((d,idx)=>
+            <Grid item xs={12} sm={12} md={12} lg={12} key={idx}>
+              <PackageCard             
+                  sourceHref={d.sourceHref}
+                  sourceLabel={d.sourceLabel}
+                  logo={d.logo}
+                  docsHref={d.docsHref}
+                  sports={d.sports}
+                  repositoryType={d.repositoryType}
+                  description={d.description}/>
+            </Grid>
+          )}
+      </Grid>
       <Grid container
           spacing={1}>
           {rPkgs.map((d,idx)=>
