@@ -114,26 +114,30 @@ export const TopBar = (): ReactElement => {
             }}
             buttonIcon={AccountTreeIcon}
             dropdownList={[
-              <a className={classes.toolbarContent}><strong>Python</strong></a>,
+              <strong>Python</strong>,
               <Link href="https://py.sportsdataverse.org/" passHref>
                 <a href="https://py.sportsdataverse.org/"
-                className={classes.toolbarContent}>sportsdataverse</a>
+                className={classes.toolbarContent}>sportsdataverse (py)</a>
               </Link>,
-              <a className={classes.toolbarContent}><strong>R</strong></a>,
-              <Link href="https://saiemgilani.github.io/cfbfastR/" passHref>
-                <a href="https://saiemgilani.github.io/cfbfastR/"
+              <strong>R</strong>,
+              <Link href="https://r.sportsdataverse.org/" passHref>
+                <a href="https://r.sportsdataverse.org/"
+                className={classes.toolbarContent}>sportsdataverse (R)</a>
+              </Link>,
+              <Link href="https://cfbfastR.sportsdataverse.org/" passHref>
+                <a href="https://cfbfastR.sportsdataverse.org/"
                  className={classes.toolbarContent}>cfbfastR</a>
               </Link>,
-              <Link href="https://saiemgilani.github.io/hoopR/" passHref>
-                <a href="https://saiemgilani.github.io/hoopR/"
+              <Link href="https://hoopR.sportsdataverse.org/" passHref>
+                <a href="https://hoopR.sportsdataverse.org/"
                  className={classes.toolbarContent}>hoopR</a>
               </Link>,
-              <Link href="https://saiemgilani.github.io/wehoop/" passHref>
-                <a href="https://saiemgilani.github.io/wehoop/"
+              <Link href="https://wehoop.sportsdataverse.org/" passHref>
+                <a href="https://wehoop.sportsdataverse.org/"
                 className={classes.toolbarContent}>wehoop</a>
               </Link>,
-              <Link href="https://saiemgilani.github.io/recruitR/" passHref>
-                <a href="https://saiemgilani.github.io/recruitR/"
+              <Link href="https://recruitr.sportsdataverse.org/" passHref>
+                <a href="https://recruitr.sportsdataverse.org/"
                  className={classes.toolbarContent}>recruitR</a>
               </Link>,
               <Link href="https://puntalytics.github.io/puntr/" passHref>
@@ -158,6 +162,10 @@ export const TopBar = (): ReactElement => {
                 <a href="https://jaseziv.github.io/worldfootballR/"
                  className={classes.toolbarContent}>worldfootballR</a>
               </Link>,
+              <Link href="https://usfootballR.sportsdataverse.org/" passHref>
+                <a href="https://usfootballR.sportsdataverse.org/"
+                 className={classes.toolbarContent}>usfootballR</a>
+              </Link>,
               <Link href="https://jaseziv.github.io/chessR/" passHref>
                 <a href="https://jaseziv.github.io/chessR/"
                  className={classes.toolbarContent}>chessR</a>
@@ -169,6 +177,14 @@ export const TopBar = (): ReactElement => {
               <Link href="https://BenHowell71.github.io/fastRhockey/" passHref>
                 <a href="https://BenHowell71.github.io/fastRhockey/"
                  className={classes.toolbarContent}>fastRhockey</a>
+              </Link>,
+              <Link href="https://www.torvik.dev/" passHref>
+                <a href="https://www.torvik.dev/"
+                 className={classes.toolbarContent}>toRvik</a>
+              </Link>,
+              <Link href="https://rossdrucker.github.io/sportyR/" passHref>
+                <a href="https://rossdrucker.github.io/sportyR/"
+                 className={classes.toolbarContent}>sportyR</a>
               </Link>,
               <a className={classes.toolbarContent}><strong>Node.js</strong></a>,
               <Link href="https://js.sportsdataverse.org/" passHref>
