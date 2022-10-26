@@ -248,6 +248,12 @@ export const TopBar = (): ReactElement => {
                   rel="noreferrer"
                  className={classes.toolbarContent}>recruitR</a>
               </Link>,
+              <Link href="https://oddsapiR.sportsdataverse.org/" passHref>
+                <a href="https://oddsapiR.sportsdataverse.org/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>oddsapiR</a>
+              </Link>,
               <Link href="https://jacklich10.github.io/gamezoneR/" passHref>
                 <a href="https://jacklich10.github.io/gamezoneR/"
                   target="_blank"

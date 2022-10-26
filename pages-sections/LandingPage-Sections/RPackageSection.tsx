@@ -23,6 +23,7 @@ import ggshakeR from '../../public/images/ggshakeR-logo.png'
 import toRvik from '../../public/images/toRvik-logo.png'
 import chessR from '../../public/images/chessR-logo.png'
 import sportyR from '../../public/images/sportyR-logo.png'
+import oddsapiR from '../../public/images/oddsapiR-logo.png'
 import sportsdataverseR from '../../public/images/sportsdataverseR-logo.png'
 import emptyLogo from '../../public/images/emptyLogo.png'
 
@@ -223,6 +224,17 @@ const rPackages = [
     repositoryType: 'R',
     description: [
       {content:" Calculate Optimal Fourth Down Decisions for NCAA Football."},
+    ]
+  },
+  {
+    sourceHref: 'https://github.com/sportsdataverse/oddsapiR/',
+    sourceLabel: 'oddsapiR',
+    logo: oddsapiR,
+    docsHref: 'https://oddsapiR.sportsdataverse.org/',
+    sports: "Sports Betting",
+    repositoryType: 'R',
+    description: [
+      {content:" Access sports odds from the Odds API."},
     ]
   },
   {
