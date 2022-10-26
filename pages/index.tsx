@@ -78,7 +78,6 @@ export default function LandingPage(props) {
     </>
     );
   }
-
 // export async function getServerSideProps(ctx) {
 //   // get the current environment
 //   let dev = process.env.NODE_ENV !== 'production';
