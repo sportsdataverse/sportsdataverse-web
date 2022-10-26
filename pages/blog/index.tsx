@@ -19,7 +19,7 @@ const Home = ({ postsData, sortedTopics }: { postsData: PostData[]; sortedTopics
         <title>{NAME}: Building the SportsDataverse</title>
         <meta
           name="description"
-          content={`${NAME} is the homepage of the SportsDataverse.`}
+          content={`${NAME} is the homepage of the SportsDataverse, an open-source developer community.`}
         />
       </Head>
       <Grid container>
