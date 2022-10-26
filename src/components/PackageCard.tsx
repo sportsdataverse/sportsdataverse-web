@@ -94,8 +94,22 @@ export const PackageCard: FC<PackageCardProps> = ({
                 <Link href={sourceHref} passHref>{`${sourceLabel}`}</Link>
             </Typography>
             <div>
-                <Link href={sourceHref} passHref><GitHubIcon/></Link>
-                <Link href={docsHref} passHref><DescriptionIcon/></Link>
+                <Link href={sourceHref} passHref>
+                  <a href={sourceHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={classes.a}>
+                    <GitHubIcon/>
+                  </a>
+                </Link>
+                <Link href={docsHref} passHref>
+                  <a href={docsHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={classes.a}>
+                    <DescriptionIcon/>
+                  </a>
+                </Link>
             </div>
             <Typography variant={'caption'}>{`${sports}`+' - '+`${repositoryType}`}</Typography>
             {description.map((d,idx)=>
