@@ -42,6 +42,8 @@ const useStyles = makeStyles((theme) => ({
         textDecoration: 'none',
         fontWeight: 900,
         cursor: "pointer",
+        target: "_blank",
+        rel: "noreferrer",
       },
     Link: {
         textDecoration: 'none',

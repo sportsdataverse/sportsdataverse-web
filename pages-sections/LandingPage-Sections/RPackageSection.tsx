@@ -10,12 +10,16 @@ import hoopR from '../../public/images/hoopR-logo.png'
 import cfbfastR from '../../public/images/cfbfastR-logo.png'
 import recruitR from '../../public/images/recruitR-logo.png'
 import cfbplotR from '../../public/images/cfbplotR-logo.png'
+import mlbplotR from '../../public/images/mlbplotR-logo.png'
 import cfb4th from '../../public/images/cfb4th-logo.png'
 import gamezoneR from '../../public/images/gamezoneR-logo.png'
 import baseballr from '../../public/images/baseballr-logo.png'
 import fastRhockey from '../../public/images/fastRhockey-logo.png'
+import hockeyR from '../../public/images/hockeyR-logo.png'
 import worldfootballR from '../../public/images/worldfootballR-logo.png'
+import soccerAnimate from '../../public/images/soccerAnimate-logo.png'
 import usfootballR from '../../public/images/usfootballR-logo.png'
+import ggshakeR from '../../public/images/ggshakeR-logo.png'
 import toRvik from '../../public/images/toRvik-logo.png'
 import chessR from '../../public/images/chessR-logo.png'
 import sportyR from '../../public/images/sportyR-logo.png'
@@ -24,7 +28,7 @@ import emptyLogo from '../../public/images/emptyLogo.png'
 
 const versePackages = [
   {
-    sourceHref: 'https://github.com/saiemgilani/sportsdataverse-R/',
+    sourceHref: 'https://github.com/sportsdataverse/sportsdataverse-R/',
     sourceLabel: 'sportsdataverse',
     logo: sportsdataverseR,
     docsHref: 'https://r.sportsdataverse.org/',
@@ -38,7 +42,7 @@ const versePackages = [
 
 const rPackages = [
   {
-    sourceHref: 'https://github.com/saiemgilani/cfbfastR/',
+    sourceHref: 'https://github.com/sportsdataverse/cfbfastR/',
     sourceLabel: 'cfbfastR',
     logo: cfbfastR,
     docsHref: 'https://cfbfastR.sportsdataverse.org/',
@@ -49,7 +53,7 @@ const rPackages = [
     ]
   },
   {
-    sourceHref: 'https://github.com/saiemgilani/hoopR/',
+    sourceHref: 'https://github.com/sportsdataverse/hoopR/',
     sourceLabel: 'hoopR',
     logo: hoopR,
     docsHref: 'https://hoopR.sportsdataverse.org/',
@@ -62,7 +66,7 @@ const rPackages = [
     ]
   },
   {
-    sourceHref: 'https://github.com/saiemgilani/wehoop/',
+    sourceHref: 'https://github.com/sportsdataverse/wehoop/',
     sourceLabel: 'wehoop',
     logo: wehoop,
     docsHref: 'https://wehoop.sportsdataverse.org/',
@@ -95,10 +99,10 @@ const rPackages = [
     ]
   },
   {
-    sourceHref: 'https://github.com/rossdrucker/sportyR',
+    sourceHref: 'https://github.com/sportsdataverse/sportyR/',
     sourceLabel: 'sportyR',
     logo: sportyR,
-    docsHref: 'https://rossdrucker.github.io/sportyR/',
+    docsHref: 'https://sportyR.sportsdataverse.org/',
     sports: "Sports Visualizations",
     repositoryType: 'R',
     description: [
@@ -119,14 +123,25 @@ const rPackages = [
     ]
   },
   {
-    sourceHref: 'https://github.com/benhowell71/fastRhockey/',
+    sourceHref: 'https://github.com/sportsdataverse/fastRhockey/',
     sourceLabel: 'fastRhockey',
     logo: fastRhockey,
-    docsHref: 'https://benhowell71.github.io/fastRhockey/',
+    docsHref: 'https://fastRhockey.sportsdataverse.org/',
     sports: "NHL and PHF",
     repositoryType: 'R',
     description: [
       {content:"  Access NHL and Premier Hockey Federation Play by Play Data."},
+    ]
+  },
+  {
+    sourceHref: 'https://github.com/danmorse314/hockeyR/',
+    sourceLabel: 'hockeyR',
+    logo: hockeyR,
+    docsHref: 'https://hockeyr.netlify.app/',
+    sports: "NHL",
+    repositoryType: 'R',
+    description: [
+      {content:"  Access NHL Play by Play Data."},
     ]
   },
   {
@@ -142,7 +157,19 @@ const rPackages = [
     ]
   },
   {
-    sourceHref: 'https://github.com/saiemgilani/usfootballR/',
+    sourceHref: 'https://github.com/abhiamishra/ggshakeR/',
+    sourceLabel: 'ggshakeR',
+    logo: ggshakeR,
+    docsHref: 'https://abhiamishra.github.io/ggshakeR/',
+    sports: "Data Visualization",
+    repositoryType: 'R',
+    description: [
+      {content:"  Extract World Football (Soccer) Data from Fbref.com, transfermarkt.com, and understat.com."},
+
+    ]
+  },
+  {
+    sourceHref: 'https://github.com/sportsdataverse/usfootballR/',
     sourceLabel: 'usfootballR',
     logo: usfootballR,
     docsHref: 'https://usfootballR.sportsdataverse.org/',
@@ -154,10 +181,22 @@ const rPackages = [
     ]
   },
   {
-    sourceHref: 'https://github.com/kazink36/cfbplotR/',
+    sourceHref: 'https://github.com/Dato-Futbol/soccerAnimate/',
+    sourceLabel: 'soccerAnimate',
+    logo: soccerAnimate,
+    docsHref: 'https://github.com/Dato-Futbol/soccerAnimate/',
+    sports: "2D Soccer Animation",
+    repositoryType: 'R',
+    description: [
+      {content:"  Create 2-D animations of soccer tracking data."},
+
+    ]
+  },
+  {
+    sourceHref: 'https://github.com/sportsdataverse/cfbplotR/',
     sourceLabel: 'cfbplotR',
     logo: cfbplotR,
-    docsHref: 'https://kazink36.github.io/cfbplotR/',
+    docsHref: 'https://cfbplotR.sportsdataverse.org/',
     sports: "College Sports Visualization",
     repositoryType: 'R',
     description: [
@@ -165,10 +204,21 @@ const rPackages = [
     ]
   },
   {
-    sourceHref: 'https://github.com/kazink36/cfb4th/',
+    sourceHref: 'https://github.com/camdenk/mlbplotR/',
+    sourceLabel: 'mlbplotR',
+    logo: mlbplotR,
+    docsHref: 'https://camdenk.github.io/mlbplotR/',
+    sports: "Baseball Visualization",
+    repositoryType: 'R',
+    description: [
+      {content:" MLB Logo Plots in 'ggplot2'."},
+    ]
+  },
+  {
+    sourceHref: 'https://github.com/sportsdataverse/cfb4th/',
     sourceLabel: 'cfb4th',
     logo: cfb4th,
-    docsHref: 'https://kazink36.github.io/cfb4th/',
+    docsHref: 'https://cfb4th.sportsdataverse.org/',
     sports: "College Football Modeling",
     repositoryType: 'R',
     description: [
@@ -187,7 +237,7 @@ const rPackages = [
     ]
   },
   {
-    sourceHref: 'https://github.com/saiemgilani/recruitR/',
+    sourceHref: 'https://github.com/sportsdataverse/recruitR/',
     sourceLabel: 'recruitR',
     logo: recruitR,
     docsHref: 'https://recruitr.sportsdataverse.org/',
@@ -227,7 +277,7 @@ export default function RPackageSection() {
           spacing={1}>
           {vPkgs.map((d,idx)=>
             <Grid item xs={12} sm={12} md={12} lg={12} key={idx}>
-              <PackageCard             
+              <PackageCard
                   sourceHref={d.sourceHref}
                   sourceLabel={d.sourceLabel}
                   logo={d.logo}
@@ -242,7 +292,7 @@ export default function RPackageSection() {
           spacing={1}>
           {rPkgs.map((d,idx)=>
             <Grid item xs={12} sm={6} md={6} lg={4} key={idx}>
-              <PackageCard             
+              <PackageCard
                   sourceHref={d.sourceHref}
                   sourceLabel={d.sourceLabel}
                   logo={d.logo}

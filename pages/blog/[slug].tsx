@@ -1,5 +1,5 @@
 import React, { FC, ReactElement, useEffect } from 'react'
-import { getPost, getSortedPostsData } from '../../src/lib/posts'
+import { getPost, getSortedPostsData } from '../../lib/posts'
 import { PostData } from '../../src/types/posts'
 import { GetStaticPropsContext, GetStaticPropsResult } from 'next'
 import marked from 'marked'

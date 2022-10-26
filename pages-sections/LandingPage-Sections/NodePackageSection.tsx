@@ -10,7 +10,7 @@ import emptyLogo from '../../public/images/emptyLogo.png'
 
 const nodePackages = [
   {
-    sourceHref: 'https://github.com/saiemgilani/sportsdataverse/',
+    sourceHref: 'https://github.com/sportsdataverse/sportsdataverse/',
     sourceLabel: 'sportsdataverse',
     logo: sdvLogo,
     docsHref: 'https://js.sportsdataverse.org/',
@@ -38,11 +38,15 @@ const nodePackages = [
 ]
 export default function NodePackageSection() {
   const large = useMediaQuery('(min-width:500px)')
-  const nodePkgs = nodePackages 
+  const nodePkgs = nodePackages
   return (
     <>
+      <Box p={2}>
+        <Typography variant={'h3'}>Node.js modules</Typography>
+      </Box>
+      <Grid container spacing={1}>
           {nodePkgs.map((d,idx)=>
-            <Grid item xs={12} sm={12} md={12} lg={12} key={idx}>
+            <Grid item xs={12} sm={6} md={6} lg={4} key={idx}>
               <PackageCard
                 sourceHref={d.sourceHref}
                 sourceLabel={d.sourceLabel}
@@ -53,6 +57,7 @@ export default function NodePackageSection() {
                 description={d.description}/>
             </Grid>
           )}
+      </Grid>
     </>
   );
 }

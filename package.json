@@ -18,6 +18,7 @@
     "gray-matter": ">=4.0.2",
     "highlight": "^0.2.4",
     "marked": ">=2.0.0",
+    "mongodb": "^4.2.0",
     "moment": "2.25.3",
     "next": "latest",
     "next-compose-plugins": "2.2.0",

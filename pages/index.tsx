@@ -66,21 +66,9 @@ export default function LandingPage(props) {
     </Grid>
     <div className={classNames(styles.main, styles.mainRaised)}>
     <div className={styles.headings}>
-    <Grid container>
-    <Grid item xs={12} sm={12} md={6} lg={6}  className={styles.headings}>
-    <Box p={2}>
-    <Typography variant={'h3'}>Python packages</Typography>
-    </Box>
     <PythonPackageSection />
-    </Grid>
-    <Grid item xs={12} sm={12} md={6} lg={6}  className={styles.headings}>
-    <Box p={2}>
-    <Typography variant={'h3'}>Node.js modules</Typography>
-    </Box>
-    <NodePackageSection />
-    </Grid>
-    </Grid>
     <RPackageSection />
+    <NodePackageSection />
     <DataPackageSection />
     <ProductSection />
     <WorkSection />
@@ -90,3 +78,20 @@ export default function LandingPage(props) {
     </>
     );
   }
+
+export async function getServerSideProps(ctx) {
+  // get the current environment
+  let dev = process.env.NODE_ENV !== 'production';
+  let { DEV_URL, PROD_URL } = process.env;
+
+  // request posts from api
+  let response = await fetch(`${dev ? DEV_URL : PROD_URL}/api/posts`);
+  // extract the data
+  let data = await response.json();
+  console.log(data['message'])
+  return {
+      props: {
+          posts: data['message'],
+      },
+  };
+}

@@ -13,10 +13,10 @@ import emptyLogo from '../../public/images/emptyLogo.png'
 
 const dataPackages = [
   {
-    sourceHref: 'https://github.com/saiemgilani/cfbfastR-data/',
+    sourceHref: 'https://github.com/sportsdataverse/cfbfastR-data/',
     sourceLabel: 'cfbfastR-data',
     logo: cfbfastRData,
-    docsHref: 'https://github.com/saiemgilani/cfbfastR-data/',
+    docsHref: 'https://github.com/sportsdataverse/cfbfastR-data/',
     sports: 'College Football',
     repositoryType: 'Data',
     description: [
@@ -24,10 +24,10 @@ const dataPackages = [
     ]
   },
   {
-    sourceHref: 'https://github.com/saiemgilani/hoopR-data/',
+    sourceHref: 'https://github.com/sportsdataverse/hoopR-data/',
     sourceLabel: 'hoopR-data',
     logo: hoopRData,
-    docsHref: 'https://github.com/saiemgilani/hoopR-data/',
+    docsHref: 'https://github.com/sportsdataverse/hoopR-data/',
     sports: "Men's Basketball (NBA and MBB)",
     repositoryType: 'Data',
     description: [
@@ -35,10 +35,10 @@ const dataPackages = [
     ]
   },
   {
-    sourceHref: 'https://github.com/saiemgilani/wehoop-data/',
+    sourceHref: 'https://github.com/sportsdataverse/wehoop-data/',
     sourceLabel: 'wehoop-data',
     logo: wehoopData,
-    docsHref: 'https://github.com/saiemgilani/wehoop-data/',
+    docsHref: 'https://github.com/sportsdataverse/wehoop-data/',
     sports: "Women's Basketball (WNBA and WBB)",
     repositoryType: 'Data',
     description: [
@@ -57,10 +57,10 @@ const dataPackages = [
     ]
   },
   {
-    sourceHref: 'https://github.com/saiemgilani/fastRhockey-data/',
+    sourceHref: 'https://github.com/sportsdataverse/fastRhockey-data/',
     sourceLabel: 'fastRhockey-data',
     logo: emptyLogo,
-    docsHref: 'https://github.com/saiemgilani/fastRhockey-data/',
+    docsHref: 'https://github.com/sportsdataverse/fastRhockey-data/',
     sports: "Hockey (NHL and PHF)",
     repositoryType: 'Data',
     description: [

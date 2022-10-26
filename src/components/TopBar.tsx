@@ -117,32 +117,136 @@ export const TopBar = (): ReactElement => {
               <a className={classes.toolbarContent}><strong>Python</strong></a>,
               <Link href="https://py.sportsdataverse.org/" passHref>
                 <a href="https://py.sportsdataverse.org/"
+                  target="_blank"
+                  rel="noreferrer"
                 className={classes.toolbarContent}>sportsdataverse</a>
+              </Link>,
+              <Link href="https://sportypy.sportsdataverse.org/" passHref>
+                <a href="https://sportypy.sportsdataverse.org/"
+                  target="_blank"
+                  rel="noreferrer"
+                className={classes.toolbarContent}>sportypy</a>
+              </Link>,
+              <Link href="https://github.com/sportsdataverse/recruitR-py/" passHref>
+                <a href="https://github.com/sportsdataverse/recruitR-py/"
+                  target="_blank"
+                  rel="noreferrer"
+                className={classes.toolbarContent}>recruitr-py</a>
+              </Link>,
+              <Link href="https://github.com/nathanblumenfeld/collegebaseball/" passHref>
+                <a href="https://github.com/nathanblumenfeld/collegebaseball/"
+                  target="_blank"
+                  rel="noreferrer"
+                className={classes.toolbarContent}>collegebaseball</a>
               </Link>,
               <a className={classes.toolbarContent}><strong>R</strong></a>,
               <Link href="https://r.sportsdataverse.org/" passHref>
                 <a href="https://r.sportsdataverse.org/"
+                  target="_blank"
+                  rel="noreferrer"
                 className={classes.toolbarContent}>sportsdataverse</a>
               </Link>,
               <Link href="https://cfbfastR.sportsdataverse.org/" passHref>
                 <a href="https://cfbfastR.sportsdataverse.org/"
+                  target="_blank"
+                  rel="noreferrer"
                  className={classes.toolbarContent}>cfbfastR</a>
               </Link>,
               <Link href="https://hoopR.sportsdataverse.org/" passHref>
                 <a href="https://hoopR.sportsdataverse.org/"
+                  target="_blank"
+                  rel="noreferrer"
                  className={classes.toolbarContent}>hoopR</a>
               </Link>,
               <Link href="https://wehoop.sportsdataverse.org/" passHref>
                 <a href="https://wehoop.sportsdataverse.org/"
+                  target="_blank"
+                  rel="noreferrer"
                 className={classes.toolbarContent}>wehoop</a>
+              </Link>,
+              <Link href="https://www.torvik.dev/" passHref>
+                <a href="https://www.torvik.dev/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>toRvik</a>
+              </Link>,
+              <Link href="https://BillPetti.github.io/baseballr/" passHref>
+                <a href="https://BillPetti.github.io/baseballr/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>baseballr</a>
+              </Link>,
+              <Link href="https://sportyR.sportsdataverse.org/" passHref>
+                <a href="https://sportyR.sportsdataverse.org/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>sportyR</a>
+              </Link>,
+              <Link href="https://jaseziv.github.io/chessR/" passHref>
+                <a href="https://jaseziv.github.io/chessR/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>chessR</a>
+              </Link>,
+              <Link href="https://fastRhockey.sportsdataverse.org/" passHref>
+                <a href="https://fastRhockey.sportsdataverse.org/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>fastRhockey</a>
+              </Link>,
+              <Link href="https://hockeyr.netlify.app/" passHref>
+                <a href="https://hockeyr.netlify.app/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>hockeyR</a>
+              </Link>,
+              <Link href="https://jaseziv.github.io/worldfootballR/" passHref>
+                <a href="https://jaseziv.github.io/worldfootballR/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>worldfootballR</a>
+              </Link>,
+              <Link href="https://abhiamishra.github.io/ggshakeR/" passHref>
+                <a href="https://abhiamishra.github.io/ggshakeR/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>ggshakeR</a>
+              </Link>,
+              <Link href="https://usfootballR.sportsdataverse.org/" passHref>
+                <a href="https://usfootballR.sportsdataverse.org/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>usfootballR</a>
+              </Link>,
+              <Link href="https://github.com/Dato-Futbol/soccerAnimate/" passHref>
+                <a href="https://github.com/Dato-Futbol/soccerAnimate/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>soccerAnimate</a>
+              </Link>,
+              <Link href="https://cfbplotR.sportsdataverse.org/" passHref>
+                <a href="https://cfbplotR.sportsdataverse.org/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>cfbplotR</a>
+              </Link>,
+              <Link href="https://camdenk.github.io/mlbplotR/" passHref>
+                <a href="https://camdenk.github.io/mlbplotR/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>mlbplotR</a>
+              </Link>,
+              <Link href="https://cfb4th.sportsdataverse.org/" passHref>
+                <a href="https://cfb4th.sportsdataverse.org/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>cfb4th</a>
               </Link>,
               <Link href="https://recruitr.sportsdataverse.org/" passHref>
                 <a href="https://recruitr.sportsdataverse.org/"
+                  target="_blank"
+                  rel="noreferrer"
                  className={classes.toolbarContent}>recruitR</a>
-              </Link>,
-              <Link href="https://puntalytics.github.io/puntr/" passHref>
-                <a href="https://puntalytics.github.io/puntr/"
-                 className={classes.toolbarContent}>puntr</a>
               </Link>,
               <Link href="https://jacklich10.github.io/gamezoneR/" passHref>
                 <a href="https://jacklich10.github.io/gamezoneR/"
@@ -150,52 +254,26 @@ export const TopBar = (): ReactElement => {
                   rel="noreferrer"
                   className={classes.toolbarContent}>gamezoneR</a>
               </Link>,
-              <Link href="https://kazink36.github.io/cfbplotR/" passHref>
-                <a href="https://kazink36.github.io/cfbplotR/"
-                 className={classes.toolbarContent}>cfbplotR</a>
-              </Link>,
-              <Link href="https://kazink36.github.io/cfb4th/" passHref>
-                <a href="https://kazink36.github.io/cfb4th/"
-                 className={classes.toolbarContent}>cfb4th</a>
-              </Link>,
-              <Link href="https://jaseziv.github.io/worldfootballR/" passHref>
-                <a href="https://jaseziv.github.io/worldfootballR/"
-                 className={classes.toolbarContent}>worldfootballR</a>
-              </Link>,
-              <Link href="https://usfootballR.sportsdataverse.org/" passHref>
-                <a href="https://usfootballR.sportsdataverse.org/"
-                 className={classes.toolbarContent}>usfootballR</a>
-              </Link>,
-              <Link href="https://jaseziv.github.io/chessR/" passHref>
-                <a href="https://jaseziv.github.io/chessR/"
-                 className={classes.toolbarContent}>chessR</a>
-              </Link>,
-              <Link href="https://BillPetti.github.io/baseballr/" passHref>
-                <a href="https://BillPetti.github.io/baseballr/"
-                 className={classes.toolbarContent}>baseballr</a>
-              </Link>,
-              <Link href="https://BenHowell71.github.io/fastRhockey/" passHref>
-                <a href="https://BenHowell71.github.io/fastRhockey/"
-                 className={classes.toolbarContent}>fastRhockey</a>
-              </Link>,
-              <Link href="https://www.torvik.dev/" passHref>
-                <a href="https://www.torvik.dev/"
-                 className={classes.toolbarContent}>toRvik</a>
-              </Link>,
-              <Link href="https://rossdrucker.github.io/sportyR/" passHref>
-                <a href="https://rossdrucker.github.io/sportyR/"
-                 className={classes.toolbarContent}>sportyR</a>
+              <Link href="https://puntalytics.github.io/puntr/" passHref>
+                <a href="https://puntalytics.github.io/puntr/"
+                  target="_blank"
+                  rel="noreferrer"
+                 className={classes.toolbarContent}>puntr</a>
               </Link>,
               <a className={classes.toolbarContent}><strong>Node.js</strong></a>,
               <Link href="https://js.sportsdataverse.org/" passHref>
                 <a
                   href="https://js.sportsdataverse.org/"
+                  target="_blank"
+                  rel="noreferrer"
                   className={classes.toolbarContent}
                 > sportsdataverse.js
                 </a>
               </Link>,
               <Link href="https://github.com/nntrn/nfl-nerd/" passHref>
                 <a href="https://github.com/nntrn/nfl-nerd/"
+                  target="_blank"
+                  rel="noreferrer"
                  className={classes.toolbarContent}>nfl-nerd</a>
               </Link>
             ]}

@@ -1,4 +1,4 @@
-import { getSortedPostsData, getSortedTopics } from '../../src/lib/posts'
+import { getSortedPostsData, getSortedTopics } from '../../lib/posts'
 import { GetStaticPropsResult } from 'next'
 import { PostData } from '../../src/types/posts'
 import React, { ReactElement } from 'react'
