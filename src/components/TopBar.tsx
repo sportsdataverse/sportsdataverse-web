@@ -133,8 +133,8 @@ export const TopBar = (): ReactElement => {
                   rel="noreferrer"
                 className={classes.toolbarContent}>recruitr-py</a>
               </Link>,
-              <Link href="https://github.com/nathanblumenfeld/collegebaseball/" passHref>
-                <a href="https://github.com/nathanblumenfeld/collegebaseball/"
+              <Link href="https://collegebaseball.readthedocs.io/en/latest/index.html" passHref>
+                <a href="https://collegebaseball.readthedocs.io/en/latest/index.html"
                   target="_blank"
                   rel="noreferrer"
                 className={classes.toolbarContent}>collegebaseball</a>
