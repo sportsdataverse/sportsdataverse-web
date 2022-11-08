@@ -165,7 +165,7 @@ const rPackages = [
     sports: "Data Visualization",
     repositoryType: 'R',
     description: [
-      {content:"  Extract World Football (Soccer) Data from Fbref.com, transfermarkt.com, and understat.com."},
+      {content:"  An Analysis and Visualization Package for Publicly Available Soccer Data."},
 
     ]
   },
