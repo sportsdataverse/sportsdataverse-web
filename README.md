@@ -24,9 +24,8 @@ Generally would describe the stack as Next.js, React.js using TypeScript and Mat
 First, run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
+
+yarn && yarn build && yarn dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
