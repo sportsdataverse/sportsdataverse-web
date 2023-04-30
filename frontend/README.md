@@ -222,7 +222,6 @@ After that server should be running on [localhost:3000](http://localhost:3000)
 └── yarn.lock
 ```
 
-
 ## Setting up the Environment
 
 Rename [`.env.example`](/.env.example) to `.env.local` and then you need to populate that with the respective values.
