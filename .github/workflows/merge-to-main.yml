@@ -1,0 +1,20 @@
+on:
+  workflow_dispatch:
+
+
+name: Merge back to main
+
+jobs:
+  build:
+    name: Merge with-data to main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: with-data
+      - uses: mtanzi/action-automerge@v1
+        id: merge
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          source: 'with-data'
+          target: 'main'

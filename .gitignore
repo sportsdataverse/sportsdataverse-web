@@ -1,45 +1,81 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+/backend/
+backend
+# npm things
+*/node_modules/
+/node_modules/
+
+
+# Sphinx documentation
+docs/_build/
+
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
-/.pnp
-.pnp.js
+/frontend/node_modules
+/frontend/.pnp
+/frontend/.pnp.js
 
 # testing
-/coverage
+/frontend/coverage
 
 # next.js
-/.next/
-/out/
+/frontend/.next/
+/frontend/out/
 
 # production
-/build
+/frontend/build
+
+# private markdown
+/frontend/meta.md
 
 # misc
-.DS_Store
-*.pem
+/frontend/.DS_Store
+/frontend/*.pem
 
 # debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+/frontend/npm-debug.log*
+/frontend/yarn-debug.log*
+/frontend/yarn-error.log*
 
 # local env files
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+/frontend/.env.local
+/frontend/.env.development.local
+/frontend/.env.test.local
+/frontend/.env.production.local
 
 # vercel
-.vercel
+/frontend/.vercel
 
-#misc
-.idea
 
-public/sitemap.xml
+# rss
+/frontend/public/rss
+/frontend/public/feed.xml
+/frontendpublic/sitemap.xml
 
-drafts/*
 
-^sendgrid.env
-sendgrid_api_key.txt
-.env.local
+# pwa
+/frontend/public/sw.js
+/frontend/public/workbox-*.js
+/frontend/public/worker-*.js
+/frontend/public/sw.js.map
+/frontend/public/workbox-*.js.map
+/frontend/public/worker-*.js.map
+
+
+/frontend/store
+
+/frontend/tsconfig.tsbuildinfo

@@ -1,0 +1,1031 @@
+[
+    {
+        "name": "hoopR",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "1.8.0",
+        "lastCommit": {
+            "sha": "8ccc33b1de571c4843ec32dfc6e418134128919a",
+            "date": "2023-04-10T22:37:03Z",
+            "message": "update tests"
+        },
+        "type": "package",
+        "logoUrl": "https://raw.githubusercontent.com/sportsdataverse/hoopR/main/logo.png",
+        "description": "A utility to quickly obtain clean and tidy men's\nbasketball play by play data. Provides functions to access\nlive play by play and box score data from ESPN<https://www.espn.com> with shot locations\nwhen available. It is also a full NBA Stats API<https://www.nba.com/stats/> wrapper.\nIt is also a scraping and aggregating interface for Ken Pomeroy's\nmen's college basketball statistics website<https://kenpom.com>. It provides users with an\nactive subscription the capability to scrape the website tables and\nanalyze the data for themselves.",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/sportsdataverse/hoopR",
+            "cran": "https://cran.r-project.org/package=hoopR",
+            "website": "http://hoopr.sportsdataverse.org/"
+        },
+        "contributors": [
+            "saiemgilani",
+            "john-b-edwards",
+            "andreweatherman",
+            "jpatak16",
+            "rossdrucker"
+        ],
+        "sports": [
+            "Basketball"
+        ],
+        "categories": [
+            "Scraper/API",
+            "Model/Calculations"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:07Z",
+            "updated": "2023-04-25T04:16:07Z",
+            "lastChecked": "2023-04-25T04:16:07Z"
+        }
+    },
+    {
+        "name": "wehoop",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "1.5.0",
+        "lastCommit": {
+            "sha": "b0caf20db9628cdbc1b283127e14c585997c6e6d",
+            "date": "2023-04-05T15:11:46Z",
+            "message": "Update espn_wbb_data.R"
+        },
+        "type": "package",
+        "logoUrl": "https://raw.githubusercontent.com/sportsdataverse/wehoop/main/logo.png",
+        "description": "A utility for working with women's basketball data. A scraping and aggregating interface for the WNBA Stats API <https://stats.wnba.com/> and ESPN's <https://www.espn.com> women's college basketball and WNBA statistics. It provides users with the capability to access the game play-by-plays, box scores, standings and results to analyze the data for themselves.",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/sportsdataverse/wehoop",
+            "cran": "https://cran.r-project.org/package=wehoop",
+            "website": "https://wehoop.sportsdataverse.org/"
+        },
+        "contributors": [
+            "saiemgilani",
+            "hutchngo",
+            "DavisVaughan"
+        ],
+        "sports": [
+            "Basketball"
+        ],
+        "categories": [
+            "Scraper/API",
+            "Model/Calculations"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:09Z",
+            "updated": "2023-04-25T04:16:09Z",
+            "lastChecked": "2023-04-25T04:16:09Z"
+        }
+    },
+    {
+        "name": "cfbfastR",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "1.9.0",
+        "lastCommit": {
+            "sha": "e0f97cfe07e7f5e970dd482a0d68315c211dc095",
+            "date": "2023-04-04T07:36:34Z",
+            "message": "Update _pkgdown.yml"
+        },
+        "type": "package",
+        "logoUrl": "https://raw.githubusercontent.com/sportsdataverse/cfbfastR/main/logo.png",
+        "description": "A utility to quickly obtain clean and tidy college football\ndata. Serves as a wrapper around the\n<https://collegefootballdata.com/> API and provides functions to\naccess live play by play and box score data from ESPN\n<https://www.espn.com> when available. It provides users the\ncapability to access a plethora of endpoints, and supplement that data\nwith additional information (Expected Points Added/Win Probability\nadded).",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/sportsdataverse/cfbfastR",
+            "cran": "https://cran.r-project.org/package=cfbfastR",
+            "website": "https://cfbfastR.sportsdataverse.org"
+        },
+        "contributors": [
+            "saiemgilani",
+            "Kazink36",
+            "mcqconor",
+            "mrcaseb",
+            "maatspencer",
+            "topfunky",
+            "keegan-abdoo",
+            "tanho63"
+        ],
+        "sports": [
+            "Motorsport",
+            "American Football"
+        ],
+        "categories": [
+            "Scraper/API",
+            "Model/Calculations"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:10Z",
+            "updated": "2023-04-25T04:16:10Z",
+            "lastChecked": "2023-04-25T04:16:10Z"
+        }
+    },
+    {
+        "name": "fastRhockey",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "0.4.0",
+        "lastCommit": {
+            "sha": "60c1df2177e5df80dfb7146fbcf1a599fbaa5ff9",
+            "date": "2023-03-08T07:41:13Z",
+            "message": "update version and news"
+        },
+        "type": "package",
+        "logoUrl": "https://raw.githubusercontent.com/sportsdataverse/fastRhockey/main/logo.png",
+        "description": "A utility to scrape and load play-by-play data\nand statistics from the Premier Hockey Federation (PHF) <https://www.premierhockeyfederation.com/>, formerly\nknown as the National Women's Hockey League (NWHL). Additionally, allows access to the National Hockey League's\nstats API <https://www.nhl.com/>.",
+        "images": [
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/fastRhockey/main/man/figures/fastRhockey_full_holographic_graphic.png"
+            }
+        ],
+        "urls": {
+            "github": "https://github.com/sportsdataverse/fastRhockey",
+            "cran": "https://cran.r-project.org/package=fastRhockey",
+            "website": "https://fastRhockey.sportsdataverse.org"
+        },
+        "contributors": [
+            "saiemgilani",
+            "benhowell71",
+            "tanho63"
+        ],
+        "sports": [
+            "Ice Hockey"
+        ],
+        "categories": [
+            "Scraper/API"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:12Z",
+            "updated": "2023-04-25T04:16:12Z",
+            "lastChecked": "2023-04-25T04:16:12Z"
+        }
+    },
+    {
+        "name": "baseballr",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "1.5.0",
+        "lastCommit": {
+            "sha": "1758bf8a3fd31e6ee380da677e6e27e14ff6c8b2",
+            "date": "2023-03-20T13:49:19Z",
+            "message": "docs"
+        },
+        "type": "package",
+        "logoUrl": "https://raw.githubusercontent.com/billpetti/baseballr/master/logo.png",
+        "description": "Provides numerous utilities for acquiring and analyzing\nbaseball data from online sources such as 'Baseball Reference' <https://www.baseball-reference.com/>,\n'FanGraphs' <https://www.fangraphs.com/>, and the 'MLB Stats' API <https://www.mlb.com/>.",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/BillPetti/baseballr",
+            "cran": "https://cran.r-project.org/package=baseballr",
+            "website": "billpetti.github.io/baseballr"
+        },
+        "contributors": [
+            "BillPetti",
+            "saiemgilani",
+            "beanumber",
+            "keberwein",
+            "robert-frey",
+            "afeierman",
+            "darh78",
+            "jonathan-inwt",
+            "bdilday",
+            "mmcgowan13",
+            "begavett",
+            "ChristianH00k",
+            "hadley",
+            "lawwu",
+            "markromanmiller",
+            "sboysel",
+            "shanepiesik",
+            "TravisRPetersen",
+            "a-meyers",
+            "apapanico"
+        ],
+        "sports": [
+            "Baseball"
+        ],
+        "categories": [
+            "Scraper/API",
+            "Model/Calculations"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:14Z",
+            "updated": "2023-04-25T04:16:14Z",
+            "lastChecked": "2023-04-25T04:16:14Z"
+        }
+    },
+    {
+        "name": "softballR",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "0.5.2",
+        "lastCommit": {
+            "sha": "3f585e02959f01dcae41420952e77b2c272622a8",
+            "date": "2023-04-18T18:03:23Z",
+            "message": "updated to include new data"
+        },
+        "type": "github_package",
+        "logoUrl": "https://raw.githubusercontent.com/tmking2002/softballR/main/logo.png",
+        "description": "A tool for accessing the data hidden on ESPN<https://www.espn.com>,\nNCAA<https://www.ncaa.com>, and a few others. Scrapes player boxes, team boxes,\nplay-by-play, rankings, team stats, individual stats, and whatever else I can find\nonline.",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/sportsdataverse/softballR"
+        },
+        "contributors": [
+            "tmking2002"
+        ],
+        "sports": [],
+        "categories": [
+            "Scraper/API"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:16Z",
+            "updated": "2023-04-25T04:16:16Z",
+            "lastChecked": "2023-04-25T04:16:16Z"
+        }
+    },
+    {
+        "name": "worldfootballR",
+        "language": "R",
+        "license": "GPL-3",
+        "latestVersion": "0.6.2",
+        "lastCommit": {
+            "sha": "e154a3cb8c72c094ffd494dae3610a22ff8750f3",
+            "date": "2023-04-20T09:43:18Z",
+            "message": "Merge pull request #272 from JaseZiv/fix-fotmob-team-color\n\nFix fotmob team color in `fotmob_get_match_details()`"
+        },
+        "type": "package",
+        "logoUrl": "https://raw.githubusercontent.com/JaseZiv/worldfootballR/main/man/figures/logo.png",
+        "description": "Allow users to obtain clean and tidy\nfootball (soccer) game, team and player data. Data is collected from a\nnumber of popular sites, including 'FBref',\ntransfer and valuations data from\n'Transfermarkt'<https://www.transfermarkt.com/> and shooting location\nand other match stats data from 'Understat'<https://understat.com/>\nand 'fotmob'<https://www.fotmob.com/>. It gives users the\nability to access data more efficiently, rather than having to export\ndata tables to files before being able to complete their analysis.",
+        "images": [
+            {
+                "url": "https://github.com/JaseZiv/worldfootballR_data/blob/master/man/figures/logo.png?raw=true"
+            }
+        ],
+        "urls": {
+            "github": "https://github.com/JaseZiv/worldfootballR",
+            "cran": "https://cran.r-project.org/package=worldfootballR",
+            "website": "https://jaseziv.github.io/worldfootballR/"
+        },
+        "contributors": [
+            "JaseZiv",
+            "tonyelhabr",
+            "szfh",
+            "nepito",
+            "francescozonaro",
+            "rvdmaazen",
+            "tanho63"
+        ],
+        "sports": [
+            "Soccer"
+        ],
+        "categories": [
+            "Scraper/API"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:18Z",
+            "updated": "2023-04-25T04:16:18Z",
+            "lastChecked": "2023-04-25T04:16:18Z"
+        }
+    },
+    {
+        "name": "hockeyR",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "1.3.1",
+        "lastCommit": {
+            "sha": "30037519eec3abd90a1bb5d18be6ffa65d235e14",
+            "date": "2022-11-03T04:55:21Z",
+            "message": "updated news for 1.3.1"
+        },
+        "type": "github_package",
+        "logoUrl": "https://raw.githubusercontent.com/danmorse314/hockeyR/master/man/figures/logo.png",
+        "description": "Various functions to scrape hockey play-by-play data from the\n<https://www.nhl.com/>. It also contains functions to scrape data from <https://www.hockey-reference.com/>,\nincluding standings, player stats, and jersey number history.",
+        "images": [
+            {
+                "url": "https://raw.githubusercontent.com/danmorse314/hockeyR/master/man/figures/README-shot-plot-example-1.png"
+            }
+        ],
+        "urls": {
+            "github": "https://github.com/danmorse314/hockeyR",
+            "website": "https://hockeyr.netlify.app/"
+        },
+        "contributors": [
+            "danmorse314"
+        ],
+        "sports": [
+            "American Football",
+            "Ice Hockey"
+        ],
+        "categories": [
+            "Scraper/API"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:20Z",
+            "updated": "2023-04-25T04:16:20Z",
+            "lastChecked": "2023-04-25T04:16:20Z"
+        }
+    },
+    {
+        "name": "sportyR",
+        "language": "R",
+        "license": "GPL (\u2265 3)",
+        "latestVersion": "2.1.0",
+        "lastCommit": {
+            "sha": "ade832d962754e7df27298d357b9b0b7c8fb2ea2",
+            "date": "2022-10-20T08:35:25Z",
+            "message": "Added feature outline color to field apron"
+        },
+        "type": "package",
+        "logoUrl": "https://raw.githubusercontent.com/sportsdataverse/sportyR/main/logos/sportyr-logo-hex.png",
+        "description": "Create scaled 'ggplot' representations of playing surfaces.\nPlaying surfaces are drawn pursuant to rule-book specifications.\nThis package should be used as a baseline plot for displaying any type of\ntracking data.",
+        "images": [
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/sportyR/main/man/figures/README-readme-display-range-demo-1.png"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/sportyR/main/man/figures/README-readme-display-range-curling-demo-1.png"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/sportyR/main/man/figures/README-readme-mlb-example-1.png"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/sportyR/main/man/figures/README-readme-fifa-example-1.png"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/sportyR/main/man/figures/README-readme-nhl-example-1.png"
+            }
+        ],
+        "urls": {
+            "github": "https://github.com/sportsdataverse/sportyR",
+            "cran": "https://cran.r-project.org/package=sportyR",
+            "website": "https://sportyR.sportsdataverse.org"
+        },
+        "contributors": [
+            "rossdrucker",
+            "saiemgilani"
+        ],
+        "sports": [
+            "American Football",
+            "Basketball",
+            "Baseball",
+            "Soccer",
+            "Ice Hockey"
+        ],
+        "categories": [
+            "Visualization"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:22Z",
+            "updated": "2023-04-25T04:16:22Z",
+            "lastChecked": "2023-04-25T04:16:22Z"
+        }
+    },
+    {
+        "name": "cfbplotR",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "0.0.1.9000",
+        "lastCommit": {
+            "sha": "1c75cbfbd3fd95001b89531ea19b90e7b7a7ac1b",
+            "date": "2023-04-17T15:25:34Z",
+            "message": "Update tutorial.Rmd"
+        },
+        "type": "github_package",
+        "logoUrl": "https://raw.githubusercontent.com/sportsdataverse/cfbplotR/main/man/figures/logo.png",
+        "description": "A set of functions to visualize College Football analysis in 'ggplot2'.",
+        "images": [
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/cfbplotR/main/man/figures/README-example-1.png"
+            }
+        ],
+        "urls": {
+            "github": "https://github.com/sportsdataverse/cfbplotR",
+            "website": "https://cfbplotR.sportsdataverse.org"
+        },
+        "contributors": [
+            "Kazink36",
+            "saiemgilani",
+            "HansenRatings",
+            "tanho63"
+        ],
+        "sports": [
+            "American Football"
+        ],
+        "categories": [
+            "Visualization"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:24Z",
+            "updated": "2023-04-25T04:16:24Z",
+            "lastChecked": "2023-04-25T04:16:24Z"
+        }
+    },
+    {
+        "name": "mlbplotR",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "1.0.1",
+        "lastCommit": {
+            "sha": "835423a6bbd50be96a0747fad1b1cb052f043c00",
+            "date": "2023-03-14T17:28:20Z",
+            "message": "Fix D-Backs in `mlb_team_factor()`"
+        },
+        "type": "package",
+        "logoUrl": "https://raw.githubusercontent.com/camdenk/mlbplotR/main/man/figures/logo.png",
+        "description": "Tools to help visualize Major League Baseball analysis in 'ggplot2'\nand 'gt'. You provide team/player information and 'mlbplotR' will transform\nthat information into team colors, logos, or player headshots for graphics.",
+        "images": [
+            {
+                "url": "https://raw.githubusercontent.com/camdenk/mlbplotR/main/man/figures/README-every-team-1.png"
+            }
+        ],
+        "urls": {
+            "github": "https://github.com/camdenk/mlbplotR",
+            "cran": "https://cran.r-project.org/package=mlbplotR",
+            "website": "https://camdenk.github.io/mlbplotR/"
+        },
+        "contributors": [
+            "camdenk"
+        ],
+        "sports": [
+            "American Football",
+            "Baseball"
+        ],
+        "categories": [
+            "Visualization"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:26Z",
+            "updated": "2023-04-25T04:16:26Z",
+            "lastChecked": "2023-04-25T04:16:26Z"
+        }
+    },
+    {
+        "name": "soccerAnimate",
+        "language": "R",
+        "license": "GPL-2",
+        "latestVersion": "0.1.0",
+        "lastCommit": {
+            "sha": "7537df6f24280f42da99dc66960295224714a194",
+            "date": "2023-04-11T18:59:25Z",
+            "message": "Merge pull request #7 from Dato-Futbol/players-velocity\n\nPlayers velocity"
+        },
+        "type": "github_package",
+        "logoUrl": "https://raw.githubusercontent.com/Dato-Futbol/soccerAnimate/master/man/soccerAnimate.png",
+        "description": "This packages allows you to create 2D animations of soccer tracking data in addition to do some player calculations.",
+        "images": [
+            {
+                "url": "https://raw.githubusercontent.com/Dato-Futbol/soccerAnimate/master/man/goals_info.png"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/Dato-Futbol/soccerAnimate/master/man/plot.png"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/Dato-Futbol/soccerAnimate/master/man/example_A.gif"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/Dato-Futbol/soccerAnimate/master/man/example_B.gif"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/Dato-Futbol/soccerAnimate/master/man/example_C.gif"
+            }
+        ],
+        "urls": {
+            "github": "https://github.com/Dato-Futbol/soccerAnimate"
+        },
+        "contributors": [
+            "Bustami"
+        ],
+        "sports": [
+            "Soccer"
+        ],
+        "categories": [
+            "Visualization"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:27Z",
+            "updated": "2023-04-25T04:16:27Z",
+            "lastChecked": "2023-04-25T04:16:27Z"
+        }
+    },
+    {
+        "name": "ggshakeR",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "0.2.0.9001",
+        "lastCommit": {
+            "sha": "ea92e197c1425972f1f57ea98b9a01cd93e1db19",
+            "date": "2023-03-14T22:36:25Z",
+            "message": "update pizza plot code (#122)\n\n* update pizza plot code\r\n\r\n* update roxygen version\r\n\r\n* update man\r\n\r\n* update docs\r\n\r\n- closes #121"
+        },
+        "type": "github_package",
+        "logoUrl": "https://raw.githubusercontent.com/abhiamishra/ggshakeR/main/man/figures/logo.png",
+        "description": "ggshakeR is an analysis and visualization R package that works with publically available soccer data. The datasets (for now) include FBref, StatsBomb, and understat.",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/abhiamishra/ggshakeR",
+            "website": "https://abhiamishra.github.io/ggshakeR/"
+        },
+        "contributors": [
+            "abhiamishra",
+            "Ryo-N7",
+            "harshkrishna17",
+            "rithwikrajendran",
+            "szfh"
+        ],
+        "sports": [
+            "Soccer"
+        ],
+        "categories": [
+            "Visualization"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:29Z",
+            "updated": "2023-04-25T04:16:29Z",
+            "lastChecked": "2023-04-25T04:16:29Z"
+        }
+    },
+    {
+        "name": "cfb4th",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "0.1.2",
+        "lastCommit": {
+            "sha": "4df8d635b6736feba1a87475c847097187de2241",
+            "date": "2023-04-18T02:13:29Z",
+            "message": "Update pkgdown.yaml"
+        },
+        "type": "github_package",
+        "logoUrl": "https://raw.githubusercontent.com/sportsdataverse/cfb4th/main/man/figures/logo.png",
+        "description": "A set of functions to estimate outcomes of fourth down\nplays in NCAA football and obtain fourth down plays\nfrom <https://www.espn.com/>.",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/sportsdataverse/cfb4th",
+            "website": "http://cfb4th.sportsdataverse.org/"
+        },
+        "contributors": [
+            "saiemgilani",
+            "Kazink36"
+        ],
+        "sports": [
+            "American Football"
+        ],
+        "categories": [
+            "Model/Calculations"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:31Z",
+            "updated": "2023-04-25T04:16:31Z",
+            "lastChecked": "2023-04-25T04:16:31Z"
+        }
+    },
+    {
+        "name": "puntr",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "1.3",
+        "lastCommit": {
+            "sha": "ad40d0b4c8770803f1b1331bec7f3c3f7a63d11a",
+            "date": "2022-02-07T04:40:10Z",
+            "message": "Update pkgdown_test.yaml"
+        },
+        "type": "github_package",
+        "logoUrl": null,
+        "description": "A package for importing, manipulating, analyzing, and visualizing data\nrelated to football punting. Uses play-by-play dataframes in the format used\nby nflscrapR and nflfastR.",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/puntalytics/puntr",
+            "website": "https://puntalytics.github.io/puntr"
+        },
+        "contributors": [
+            "dennisbrookner",
+            "Raphael-lg",
+            "Kazink36"
+        ],
+        "sports": [
+            "American Football"
+        ],
+        "categories": [
+            "Model/Calculations"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:33Z",
+            "updated": "2023-04-25T04:16:33Z",
+            "lastChecked": "2023-04-25T04:16:33Z"
+        }
+    },
+    {
+        "name": "oddsapiR",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "0.0.3",
+        "lastCommit": {
+            "sha": "6b31254ff0a36ba3ba8eaa3af1ccb2c5c37aaa2b",
+            "date": "2023-03-19T12:46:07Z",
+            "message": "Update cran-comments.md"
+        },
+        "type": "package",
+        "logoUrl": "https://raw.githubusercontent.com/sportsdataverse/oddsapiR/main/logo.png",
+        "description": "A utility to quickly obtain clean and tidy sports\nodds from The Odds API <https://the-odds-api.com>.",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/sportsdataverse/oddsapiR",
+            "cran": "https://cran.r-project.org/package=oddsapiR",
+            "website": "https://oddsapir.sportsdataverse.org"
+        },
+        "contributors": [
+            "saiemgilani"
+        ],
+        "sports": [
+            "Motorsport"
+        ],
+        "categories": [
+            "Scraper/API"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:35Z",
+            "updated": "2023-04-25T04:16:35Z",
+            "lastChecked": "2023-04-25T04:16:35Z"
+        }
+    },
+    {
+        "name": "gamezoneR",
+        "language": "R",
+        "license": "Apache License (>= 2)",
+        "latestVersion": "0.1.1",
+        "lastCommit": {
+            "sha": "067d63bc192b664e9a46c2c37bd00fe6369e527a",
+            "date": "2023-04-11T12:59:03Z",
+            "message": "rid of dupes in `mbb_team_info`"
+        },
+        "type": "github_package",
+        "logoUrl": "https://raw.githubusercontent.com/JackLich10/gamezoneR/master/man/figures/gamezoneR_40trans.png",
+        "description": "An R package for working with NCAA Men's Basketball play-by-play data",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/JackLich10/gamezoneR"
+        },
+        "contributors": [
+            "JackLich10"
+        ],
+        "sports": [
+            "Basketball"
+        ],
+        "categories": [
+            "Scraper/API"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:37Z",
+            "updated": "2023-04-25T04:16:37Z",
+            "lastChecked": "2023-04-25T04:16:37Z"
+        }
+    },
+    {
+        "name": "nwslR",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "0.0.0.9002",
+        "lastCommit": {
+            "sha": "637452080e1bc36ba40a4205a6d6bef0a84d5329",
+            "date": "2023-03-26T21:36:25Z",
+            "message": "Merge pull request #7 from nwslR/adror1/9002-patch\n\nAdd New Season"
+        },
+        "type": "github_package",
+        "logoUrl": "https://raw.githubusercontent.com/nwslR/nwslR/main/man/figures/nwslR.png",
+        "description": "nwslR is an R package that allows users to access datasets for the National Women\u2019s Soccer League (NWSL). Founded in 2013, the NWSL is the United States\u2019 top professional women\u2019s soccer league, featuring players from all over the world.",
+        "images": [
+            {
+                "url": "https://raw.githubusercontent.com/nwslR/nwslR/main/man/figures/README-plot-1.png"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/nwslR/nwslR/main/man/figures/README-unnamed-chunk-4-1.png"
+            }
+        ],
+        "urls": {
+            "github": "https://github.com/nwslR/nwslR"
+        },
+        "contributors": [
+            "adror1"
+        ],
+        "sports": [
+            "Soccer"
+        ],
+        "categories": [
+            "Scraper/API"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:39Z",
+            "updated": "2023-04-25T04:16:39Z",
+            "lastChecked": "2023-04-25T04:16:39Z"
+        }
+    },
+    {
+        "name": "recruitR",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "0.0.3",
+        "lastCommit": {
+            "sha": "2ba46f81e6563577400082de3989f6b84b885a7f",
+            "date": "2022-12-13T03:58:43Z",
+            "message": "tidyselect"
+        },
+        "type": "github_package",
+        "logoUrl": "https://raw.githubusercontent.com/sportsdataverse/recruitR/main/logo.png",
+        "description": "As a college sports recruiting package, recruitR provides\nusers with the access to 247 Composite rankings and recruit\ninformation from the CollegeFootballData API.",
+        "images": [
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/recruitR/main/man/figures/README-plot_OTs-1.png"
+            }
+        ],
+        "urls": {
+            "github": "https://github.com/sportsdataverse/recruitR",
+            "website": "https://recruitR.sportsdataverse.org/"
+        },
+        "contributors": [
+            "saiemgilani"
+        ],
+        "sports": [
+            "Motorsport",
+            "American Football"
+        ],
+        "categories": [
+            "Scraper/API"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:40Z",
+            "updated": "2023-04-25T04:16:40Z",
+            "lastChecked": "2023-04-25T04:16:40Z"
+        }
+    },
+    {
+        "name": "usfootballR",
+        "language": "R",
+        "license": "MIT",
+        "latestVersion": "0.0.1",
+        "lastCommit": {
+            "sha": "adf61b45c3bef305ab497a6c1b38ce9568465836",
+            "date": "2022-06-29T00:53:36Z",
+            "message": "usfootballR"
+        },
+        "type": "github_package",
+        "logoUrl": "https://raw.githubusercontent.com/sportsdataverse/usfootballR/master/man/figures/logo.png",
+        "description": "A utility for working with American soccer data. A scraping and aggregating interface for ESPN's <https://www.espn.com> MLS and NWSL statistics.",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/sportsdataverse/usfootballR",
+            "website": "https://usfootballR.sportsdataverse.org"
+        },
+        "contributors": [
+            "saiemgilani"
+        ],
+        "sports": [
+            "Soccer"
+        ],
+        "categories": [
+            "Scraper/API"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:42Z",
+            "updated": "2023-04-25T04:16:42Z",
+            "lastChecked": "2023-04-25T04:16:42Z"
+        }
+    },
+    {
+        "name": "chessR",
+        "language": "R",
+        "license": "GPL-3",
+        "latestVersion": "1.5.2",
+        "lastCommit": {
+            "sha": "7d6633c06d2f37f8a6875445f534c162b10d3d81",
+            "date": "2022-12-14T10:15:23Z",
+            "message": "update actions"
+        },
+        "type": "github_package",
+        "logoUrl": "https://raw.githubusercontent.com/JaseZiv/chessR/master/man/figures/logo.png",
+        "description": "A set of functions to enable users to extract chess game data from\npopular chess sites, including 'Lichess'<https://lichess.org/> and\n'Chess.com' <https://www.chess.com/> and then perform analysis on that game data.",
+        "images": [
+            {
+                "url": "https://raw.githubusercontent.com/JaseZiv/chessR/master/img/Hikaru_Naroditsky.gif"
+            }
+        ],
+        "urls": {
+            "github": "https://github.com/JaseZiv/chessR",
+            "website": "https://jaseziv.github.io/chessR/"
+        },
+        "contributors": [
+            "JaseZiv",
+            "jonocarroll",
+            "dibbles21"
+        ],
+        "sports": [
+            "American Football",
+            "Chess"
+        ],
+        "categories": [
+            "Scraper/API",
+            "Model/Calculations",
+            "Visualization"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:44Z",
+            "updated": "2023-04-25T04:16:44Z",
+            "lastChecked": "2023-04-25T04:16:44Z"
+        }
+    },
+    {
+        "name": "sportsdataverse",
+        "language": "Python",
+        "license": "MIT",
+        "latestVersion": "0.0.33",
+        "lastCommit": {
+            "sha": "6007d3d8ffed2df0c41d6f6157f81b4c85b43cc5",
+            "date": "2023-04-19T05:27:07Z",
+            "message": "update pd.groupby(..., group_keys = False)"
+        },
+        "type": "package",
+        "logoUrl": "https://raw.githubusercontent.com/sportsdataverse/sportsdataverse-py/master/sdv-py-logo.png",
+        "description": "Retrieve Sports data in Python",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/sportsdataverse/sportsdataverse-py",
+            "pypi": "https://pypi.org/project/sportsdataverse/",
+            "website": "https://py.sportsdataverse.org"
+        },
+        "contributors": [
+            "saiemgilani",
+            "akeaswaran",
+            "armstjc",
+            "Kazink36"
+        ],
+        "sports": [
+            "American Football"
+        ],
+        "categories": [
+            "Scraper/API",
+            "Model/Calculations"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:46Z",
+            "updated": "2023-04-25T04:16:46Z",
+            "lastChecked": "2023-04-25T04:16:46Z"
+        }
+    },
+    {
+        "name": "sportypy",
+        "language": "Python",
+        "license": "GPL 3.0",
+        "latestVersion": "1.0.0",
+        "lastCommit": {
+            "sha": "53575a1d5fb1347e666a7c00b79147bb754e4ef9",
+            "date": "2022-10-30T23:06:19Z",
+            "message": "Updated docs"
+        },
+        "type": "package",
+        "logoUrl": "https://raw.githubusercontent.com/sportsdataverse/sportypy/main/logos/sportypy-logo-200.png",
+        "description": "Draw sports surfaces according to rulebook specifications",
+        "images": [
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/sportypy/main/img/nhl-rink.png"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/sportypy/main/img/nfl-red-zone.png"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/sportypy/main/img/curling-house.png"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/sportypy/main/img/custom-ncaa-court.png"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/sportypy/main/img/phf-shots-scatterplot.png"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/sportypy/main/img/phf-passes-arrowplot.png"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/sportypy/main/img/nhl-matplotlib-demo.png"
+            },
+            {
+                "url": "https://raw.githubusercontent.com/sportsdataverse/sportypy/main/img/ayo-dosunmu-rookie-shot-chart.png"
+            }
+        ],
+        "urls": {
+            "github": "https://github.com/sportsdataverse/sportypy",
+            "pypi": "https://pypi.org/project/sportypy/",
+            "website": "https://sportypy.sportsdataverse.org"
+        },
+        "contributors": [
+            "rossdrucker",
+            "saiemgilani"
+        ],
+        "sports": [
+            "American Football",
+            "Basketball",
+            "Baseball",
+            "Soccer",
+            "Ice Hockey"
+        ],
+        "categories": [
+            "Visualization"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:48Z",
+            "updated": "2023-04-25T04:16:48Z",
+            "lastChecked": "2023-04-25T04:16:48Z"
+        }
+    },
+    {
+        "name": "collegebaseball",
+        "language": "Python",
+        "license": "MIT",
+        "latestVersion": null,
+        "lastCommit": {
+            "sha": "51e209dc5e9b7eea290e3775ea9d27ae568b75ec",
+            "date": "2023-03-15T01:36:11Z",
+            "message": "Merge pull request #29 from nathanblumenfeld/career_stats"
+        },
+        "type": "github_package",
+        "logoUrl": "https://raw.githubusercontent.com/nathanblumenfeld/collegebaseball/main/collegebaseball.png",
+        "description": "An open-source college baseball analysis package for Python. Includes functionality for data acquisition and calculation of advanced metrics.",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/nathanblumenfeld/collegebaseball",
+            "website": "https://collegebaseball.readthedocs.io/en/latest/index.html"
+        },
+        "contributors": [
+            "nathanblumenfeld",
+            "benhowell71",
+            "armstjc"
+        ],
+        "sports": [
+            "Baseball"
+        ],
+        "categories": [
+            "Scraper/API"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:49Z",
+            "updated": "2023-04-25T04:16:49Z",
+            "lastChecked": "2023-04-25T04:16:49Z"
+        }
+    },
+    {
+        "name": "nwslpy",
+        "language": "Python",
+        "license": "MIT",
+        "latestVersion": "0.0.0.7000",
+        "lastCommit": {
+            "sha": "14dd558a8f43f5f99c3d7cd79823c3e87a115a9d",
+            "date": "2023-04-10T17:27:58Z",
+            "message": "Merge pull request #2 from nwslR/agale123-release\n\nAdd handling for TBA game times"
+        },
+        "type": "package",
+        "logoUrl": "https://raw.githubusercontent.com/nwslR/nwslpy/main/nwslR.png",
+        "description": "Python wrapper around the nwslR library",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/nwslR/nwslpy",
+            "pypi": "https://pypi.org/project/nwslpy/"
+        },
+        "contributors": [
+            "agale123"
+        ],
+        "sports": [],
+        "categories": [
+            "Scraper/API"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:51Z",
+            "updated": "2023-04-25T04:16:51Z",
+            "lastChecked": "2023-04-25T04:16:51Z"
+        }
+    },
+    {
+        "name": "recruitr",
+        "language": "Python",
+        "license": "MIT",
+        "latestVersion": null,
+        "lastCommit": {
+            "sha": "da89136d01f7e772155eabacc81227a2860f0ae3",
+            "date": "2022-03-13T01:24:57Z",
+            "message": "updated docs"
+        },
+        "type": "github_package",
+        "logoUrl": null,
+        "description": "A college football and basketball recruiting package",
+        "images": [],
+        "urls": {
+            "github": "https://github.com/sportsdataverse/recruitR-py"
+        },
+        "contributors": [
+            "saiemgilani"
+        ],
+        "sports": [],
+        "categories": [
+            "Visualization"
+        ],
+        "dates": {
+            "created": "2023-04-25T04:16:53Z",
+            "updated": "2023-04-25T04:16:53Z",
+            "lastChecked": "2023-04-25T04:16:53Z"
+        }
+    }
+]

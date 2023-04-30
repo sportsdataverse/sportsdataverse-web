@@ -1,0 +1,36 @@
+on:
+  workflow_dispatch:
+  #push:
+  #  branches:
+  #    - main
+  schedule:
+    - cron: '0 4 * * *'
+
+name: Update data
+
+jobs:
+  build:
+    name: Update data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: with-data
+      - uses: actions/setup-python@v2
+        with:
+            python-version: 3.9
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Update data
+        run: cd python && TOKEN=${{ secrets.GITHUB_TOKEN }} python data_fetcher.py
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Update ${{ steps.date.outputs.date }}
+          branch: with-data
+          commit_author: Auto fetch <actions@github.com> # defaults to author of the commit that triggered the run
+          add_options: '-u'
