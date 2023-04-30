@@ -19,7 +19,6 @@ This is the code for the homepage of the [sportsdataverse](https://sportsdataver
 Generally would describe the stack as Next.js, React.js using TypeScript and Material UI.
 
 
-
 ## Executing this project
 
 First, run the development server:
