@@ -2,7 +2,7 @@
 <p align="center">
 <img
     width=160px
-    src="public/logo/logo.png"
+    src="frontend/public/logo/logo.png"
     alt="sportsdataverse.org"
 />
 </p>
