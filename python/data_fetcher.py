@@ -4,6 +4,7 @@ import re
 import time
 import urllib.error
 from datetime import datetime
+from supabase import create_client, Client
 
 import marko
 from bs4 import BeautifulSoup
@@ -15,6 +16,9 @@ import luigi.format
 
 
 BASE_DIR = "data"
+supabase_url: str = os.environ.get("SUPABASE_URL")
+supabase_key: str = os.environ.get("SUPABASE_KEY")
+supabase: Client = create_client(supabase_url, supabase_key)
 
 
 def download_to(url, fp):
