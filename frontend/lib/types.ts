@@ -110,6 +110,7 @@ export type PageData = {
 
 export type PageMeta = {
   home: PageData;
+  packages: PageData;
   stats: PageData;
   blog: PageData;
   bookmark: PageData;

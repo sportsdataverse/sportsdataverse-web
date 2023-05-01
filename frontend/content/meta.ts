@@ -8,7 +8,13 @@ const pageMeta: PageMeta = {
     image: "https://raw.githubusercontent.com/sportsdataverse/sportsdataverse-web/main/frontend/public/logo/cover.png",
     keywords: "portfolio sportsdataverse, portfolio sdv, SDV blogs",
   },
-
+  packages: {
+    title: "Packages",
+    description:
+      "These are the packages in the SportsDataverse.",
+    image: "https://raw.githubusercontent.com/sportsdataverse/sportsdataverse-web/main/frontend/public/logo/cover.png",
+    keywords: "packages, R, Python, Node.js",
+  },
   stats: {
     title: "Statistics",
     description:

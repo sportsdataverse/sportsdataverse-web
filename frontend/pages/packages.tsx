@@ -10,6 +10,8 @@ import {
   popUp,
 } from "@content/FramerMotionVariants";
 import { motion } from "framer-motion";
+import MetaData from "@components/MetaData";
+import pageMeta from "@content/meta";
 
 export default function Index({
     rPackages,
@@ -25,6 +27,12 @@ export default function Index({
         <Head>
             <title>{`SportsDataverse`}</title>
         </Head>
+        <MetaData
+        title={pageMeta.packages.title}
+        description={pageMeta.packages.description}
+        previewImage={pageMeta.packages.image}
+        keywords={pageMeta.packages.keywords}
+      />
         <div className="relative max-w-4xl mx-auto dark:bg-darkPrimary dark:text-gray-100 2xl:max-w-5xl 3xl:max-w-7xl">
         <motion.section
           initial="hidden"
