@@ -8,8 +8,6 @@
 </p>
 <h1 align="center"><a href="https://sportsdataverse.org">SportsDataverse.org</a></h1>
 
-<h3 align="center">Website built by Saiem Gilani</h3>
-
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](/LICENSE)
 
 This is the code for the homepage of the [sportsdataverse](https://sportsdataverse.org).
