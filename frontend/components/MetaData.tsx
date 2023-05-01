@@ -58,19 +58,19 @@ export default function MetaData({
       />
 
       {/* Og */}
-      <meta property="og:title" content={`${title || "The SDV Blog"}`} />
+      <meta property="og:title" content={`${title || "SportsDataverse"}`} />
       <meta property="og:description" content={description || "The musings of the contributors to the SportsDataverse"} />
-      <meta property="og:site_name" content="The SDV Blog" />
+      <meta property="og:site_name" content="SportsDataverse" />
       <meta property="og:url" content={currentURL} key="ogurl" />
       <meta property="og:image" content={previewImage || ""} />
 
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:creator" content="@SportsDataverse" />
-      <meta name="twitter:title" content={`${title || "The SportsDataverse Blog"}`} />
+      <meta name="twitter:title" content={`${title || "SportsDataverse"}`} />
       <meta name="twitter:description" content={description || "The musings of the contributors to the SportsDataverse"} />
       <meta name="twitter:image" content={previewImage || ""} />
-      <meta name="twitter:image:alt" content={title || "The SportsDataverse Blog"}></meta>
+      <meta name="twitter:image:alt" content={title || "SportsDataverse"}></meta>
       <meta name="twitter:domain" content={currentURL} />
     </Head>
   );
