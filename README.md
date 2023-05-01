@@ -11,13 +11,10 @@
 <h3 align="center">Website built by Saiem Gilani</h3>
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](/LICENSE)
-[![Deployment Status](https://img.shields.io/endpoint?url=https%3A%2F%2Fsportsdataverse.org%2Fapi%2Fdeployment)](https://sportsdataverse.org)
-
 
 This is the code for the homepage of the [sportsdataverse](https://sportsdataverse.org).
 
-Generally would describe the stack as Next.js, React.js using TypeScript and Material UI.
-
+Generally would describe the stack as Next.js, React.js using TypeScript.
 
 ## Executing this project
 
