@@ -36,7 +36,7 @@ function MyApp({ Component, pageProps }: AppProps) {
   }, [router.events]);
 
   return (
-    <PlausibleProvider domain="sportsdatavers.org">
+    <PlausibleProvider domain="sportsdataverse.org">
       <DarkModeProvider>
         <Layout>
           {process.env.NODE_ENV === "production" && (
