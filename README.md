@@ -6,9 +6,7 @@
     alt="sportsdataverse.org"
 />
 </p>
-<h1 align="center"><a href="https://sportsdataverse.org">SportsDataverse.org</a></h1>
-
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](/LICENSE)
+<h3 align="center"><a href="https://sportsdataverse.org">SportsDataverse.org</a></h3>
 
 This is the code for the homepage of the [sportsdataverse](https://sportsdataverse.org).
 
