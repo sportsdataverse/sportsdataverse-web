@@ -65,6 +65,7 @@ export default function Document() {
           type="font/woff2"
           crossOrigin="anonymous"
         />
+        <script defer data-domain="sportsdataverse.org" src="https://plausible.io/js/script.js"></script>
       </Head>
       <body>
         <Main />
