@@ -1,14 +1,10 @@
-# [SportsDataverse.org](https://SportsDataverse.org)
+## [SportsDataverse.org](https://SportsDataverse.org)
 
 The homepage of the [SportsDataverse](https://github.com/sportsdataverse) ([Twitter](https://twitter.com/sportsdataverse))
 
 <div align="center">
 
-
   ![Github stars](https://img.shields.io/github/stars/sportsdataverse/sportsdataverse-web?style=flat-square)
-  ![Github Forks](https://img.shields.io/github/forks/sportsdataverse/sportsdataverse-web?style=flat-square)
-  ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/sportsdataverse/sportsdataverse-web?style=flat-square)
-  ![GitHub repo size](https://img.shields.io/github/repo-size/sportsdataverse/sportsdataverse-web?style=flat-square)
 
 </div>
 
@@ -50,7 +46,7 @@ git clone https://github.com/sportsdataverse/sportsdataverse-web.git
 Go to the project directory:
 
 ```bash
-cd sportsdataverse-web
+cd sportsdataverse-web/frontend
 ```
 
 Install dependencies
