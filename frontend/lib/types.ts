@@ -13,14 +13,21 @@ export type AnimatedTAGProps = {
 };
 
 export type ProjectType = {
-  id: string;
+  // MongoDB document id; `id` retained as an optional legacy alias.
+  _id?: string;
+  id?: string;
   name: string;
-  coverImage: string;
+  coverImage?: string;
   description: string;
   githubURL: string;
   previewURL?: string;
   tools?: string[];
   pinned?: boolean;
+  // Server-managed metadata (createdBy is the owner / GitHub login).
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type SkillType = {

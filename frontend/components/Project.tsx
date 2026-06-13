@@ -5,9 +5,11 @@ import OgImage from "@components/OgImage";
 import { ProjectType } from "@lib/types";
 
 export default function Project({ project }: { project: ProjectType }) {
+  const cover = project.coverImage || "/images/sdv-blue-1200x1200.png";
+  const tools = project.tools ?? [];
   return (
     <div className="card">
-      <OgImage src={project?.coverImage as string} alt={project.name} />
+      <OgImage src={cover} alt={project.name} />
 
       <div className="flex flex-col justify-start gap-3">
         <h1 className="font-bold text-neutral-900 dark:text-neutral-200">
@@ -18,7 +20,7 @@ export default function Project({ project }: { project: ProjectType }) {
         </p>
 
         <div className="flex flex-wrap items-center gap-1">
-          {project.tools!.map((tool, index) => {
+          {tools.map((tool, index) => {
             return (
               <span
                 key={`${tool}-${index}`}
