@@ -17,7 +17,7 @@ tags:
     'sportsdataverse',
   ]
 published: true
-excerpt: 'Retrieves sports data from ESPN, the NCAA website, and 247.'
+excerpt: 'Tidy, polars-powered access to play-by-play, box score, schedule, and roster data across the NBA, WNBA, NFL, MLB, NHL, college football, and college basketball.'
 image: '/blog/sportsdataverse-python-module/cover.png'
 ogImage:
   url: '/blog/sportsdataverse-python-module/cover.png'
@@ -25,7 +25,7 @@ ogImage:
 
 # sportsdataverse-py <a href='https://py.sportsdataverse.org'><img src='https://raw.githubusercontent.com/sportsdataverse/sportsdataverse-py/master/sdv-py-logo.png' align="right"  width="20%" min-width="100px" /></a>
 
-![Lifecycle:experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg?style=for-the-badge&logo=github)
+![Lifecycle:maturing](https://img.shields.io/badge/lifecycle-maturing-blue.svg?style=for-the-badge&logo=github)
 [![PyPI](https://img.shields.io/pypi/v/sportsdataverse?label=sportsdataverse&logo=python&style=for-the-badge)](https://pypi.org/project/sportsdataverse/)
 ![Contributors](https://img.shields.io/github/contributors/sportsdataverse/sportsdataverse-py?style=for-the-badge)
 [![Twitter
@@ -33,7 +33,9 @@ Follow](https://img.shields.io/twitter/follow/sportsdataverse?color=blue&label=%
 
 See [CHANGELOG.md](https://py.sportsdataverse.org/CHANGELOG) for details.
 
-The goal of [sportsdataverse-py](https://py.sportsdataverse.org) is to provide the community with a python package for working with sports data as a companion to the [cfbfastR](https://cfbfastR.sportsdataverse.org/), [hoopR](https://hoopR.sportsdataverse.org/), and [wehoop](https://wehoop.sportsdataverse.org/) R packages. Beyond data aggregation and tidying ease, one of the multitude of services that [sportsdataverse-py](https://py.sportsdataverse.org) provides is for benchmarking open-source expected points and win probability metrics for American Football.
+The goal of [sportsdataverse-py](https://py.sportsdataverse.org) is to provide the community with a Python package for working with sports data as a companion to the [cfbfastR](https://cfbfastR.sportsdataverse.org/), [hoopR](https://hoopR.sportsdataverse.org/), and [wehoop](https://wehoop.sportsdataverse.org/) R packages. It delivers tidy, [polars](https://pola.rs/)-powered access to play-by-play, box score, schedule, roster, and betting data across the **NBA, WNBA, NFL, MLB, NHL, college football, and men's and women's college basketball**.
+
+Recent releases add a near drop-in [nflreadpy](https://github.com/nflverse/nflreadpy)-parity NFL surface (with its own caching + config layer), a cross-league ESPN wrapper architecture spanning hundreds of endpoints, and dedicated parser modules that turn raw ESPN, NHL, and MLB Stats API payloads into clean DataFrames. Every loader returns a `polars.DataFrame` by default and a `pandas.DataFrame` on request via `return_as_pandas=True`. Beyond data aggregation and tidying, the package also supports benchmarking open-source expected points and win probability metrics for American football.
 
 ## Installation
 
