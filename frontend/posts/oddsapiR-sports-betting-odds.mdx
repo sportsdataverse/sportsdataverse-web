@@ -65,6 +65,26 @@ toa_sports_odds(
 Each request returns one row per outcome with the bookmaker, market, and price,
 so a single `dplyr` pipeline gets you the best available number on any side.
 
+## More endpoints
+
+`oddsapiR` 1.0.0 wraps the full Odds API surface, not just pre-match
+moneylines. A few of the most useful functions:
+
+``` r
+toa_sports()                 # catalog of available sports + their keys
+toa_sports_odds()            # featured h2h / spreads / totals for a sport
+toa_sports_events()          # upcoming + live events (with event ids)
+toa_event_odds()             # per-event odds, including player props
+toa_event_markets()          # which markets a given event offers
+toa_sports_odds_history()    # historical odds snapshots (paid tiers)
+toa_sports_scores()          # live + recently completed scores
+toa_sports_participants()    # teams / participants for a sport
+toa_quota()                  # remaining + used API requests
+```
+
+Because every call shares The Odds API's credit model, `toa_quota()` lets
+you keep an eye on your remaining requests as you page through events.
+
 ## Learn more
 
 - Documentation: [oddsapiR.sportsdataverse.org](https://oddsapiR.sportsdataverse.org/)

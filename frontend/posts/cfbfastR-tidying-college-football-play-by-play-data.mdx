@@ -48,11 +48,11 @@ You can install the released version of
 [GitHub](https://github.com/sportsdataverse/cfbfastR) with:
 
 ``` r
-# You can install using the pacman package using the following code:
-if (!requireNamespace('pacman', quietly = TRUE)){
-  install.packages('pacman')
+# You can install the development version from GitHub with remotes:
+if (!requireNamespace('remotes', quietly = TRUE)){
+  install.packages('remotes', repos = "https://cloud.r-project.org")
 }
-pacman::p_load_current_gh("sportsdataverse/cfbfastR", dependencies = TRUE, update = TRUE)
+remotes::install_github("sportsdataverse/cfbfastR")
 ```
 
 ## **Breaking Changes**
@@ -95,6 +95,24 @@ functions without any other changes.
 ``` r
 Sys.setenv(CFBD_API_KEY = "YOUR-API-KEY-HERE")
 ```
+
+## **Proxy support**
+
+If you run `cfbfastR` from behind a corporate proxy, set it once per
+session and every `cfbd_*()` / `espn_cfb_*()` call routes through it:
+
+``` r
+options(cfbfastR.proxy = "http://proxy.host.example:8080")
+# or, for an authenticated proxy:
+options(cfbfastR.proxy = list(
+  url = "http://proxy.host.example", port = 8080,
+  username = "me", password = "pw", auth = "basic"
+))
+```
+
+The resolution order is: explicit `proxy =` argument →
+`getOption("cfbfastR.proxy")` → `http_proxy` / `https_proxy` environment
+variables.
 
 ## Follow [cfbfastR](https://twitter.com/cfbfastR) and the [SportsDataverse](https://twitter.com/SportsDataverse) on Twitter and star this repo
 
