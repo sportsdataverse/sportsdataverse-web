@@ -19,7 +19,6 @@ import PackagesAuthNav from "./PackagesAuthNav";
 /* TopNavbar Component */
 export default function TopNavbar() {
   const navRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
   /*  Using to control animation as I'll show the name to the mobile navbar when you scroll a bit
    */
   const control = useAnimation();
