@@ -15,12 +15,17 @@ import { getFormattedDate } from "@utils/date";
 import { PostType } from "@lib/types";
 import { RxPencil2 } from "react-icons/rx";
 import TableOfContents from "@components/TableOfContents";
+import PostNavigation, { type PostNavLink } from "@components/PostNavigation";
 
 export default function BlogLayout({
   post,
+  prev = null,
+  next = null,
   children,
 }: {
   post: PostType;
+  prev?: PostNavLink;
+  next?: PostNavLink;
   children: JSX.Element;
 }) {
   const { currentURL } = useWindowLocation();
@@ -117,6 +122,7 @@ export default function BlogLayout({
         >
           {children}
         </AnimatedDiv>
+        <PostNavigation prev={prev} next={next} />
         <Newsletter />
         <div className="flex flex-col items-center w-full gap-4 my-10 print:hidden">
           <h3

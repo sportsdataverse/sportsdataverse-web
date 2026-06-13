@@ -8,25 +8,26 @@ import MDXContent from "@lib/MDXContent";
 import { MDXRemote } from "next-mdx-remote";
 import { GetStaticPropsContext } from "next";
 import { PostType } from "@lib/types";
+import type { PostNavLink } from "@components/PostNavigation";
 
 export default function Post({
   post,
   error,
+  prev,
+  next,
 }: {
-  post: PostType;
+  post: PostType | null;
   error: boolean;
+  prev: PostNavLink;
+  next: PostNavLink;
 }) {
-  // Adding Views to the supabase database
+  // Register a view for this post (no-op until the post is available).
   useEffect(() => {
-    const registerView = () =>
-      fetch(`/api/views/${post.meta.slug}`, {
-        method: "POST",
-      });
-
-    post != null && registerView();
+    if (!post) return;
+    fetch(`/api/views/${post.meta.slug}`, { method: "POST" });
   }, [post]);
 
-  if (error) return <PageNotFound />;
+  if (error || !post) return <PageNotFound />;
 
   const authorName = post.meta.author?.name  ? post.meta.author.name : "SportsDataverse Contributor";
   const authorPicture = post.meta.author?.picture ? post.meta.author.picture : homeProfileImage;
@@ -41,7 +42,7 @@ export default function Post({
         keywords={post.meta.keywords}
       />
 
-      <BlogLayout post={post}>
+      <BlogLayout post={post} prev={prev} next={next}>
         <MDXRemote
           {...post.source}
           frontmatter={{
@@ -68,13 +69,17 @@ type StaticProps = GetStaticPropsContext & {
 
 export async function getStaticProps({ params }: StaticProps) {
   const { slug } = params;
-  const { post } = await new MDXContent("posts").getPostFromSlug(slug);
+  const content = new MDXContent("posts");
+  const { post } = await content.getPostFromSlug(slug);
 
   if (post != null) {
+    const { prev, next } = content.getAdjacentPosts(slug);
     return {
       props: {
         error: false,
         post,
+        prev,
+        next,
       },
     };
   } else {
@@ -82,6 +87,8 @@ export async function getStaticProps({ params }: StaticProps) {
       props: {
         error: true,
         post: null,
+        prev: null,
+        next: null,
       },
     };
   }
