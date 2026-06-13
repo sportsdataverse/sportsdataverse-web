@@ -8,6 +8,7 @@ export default function Newsletter() {
     <>
       <iframe
         title="SportsDataverse newsletter"
+        loading="lazy"
         className="my-10 flex w-full flex-col gap-4 rounded-lg bg-white p-4 font-barlow ring-1 ring-primary/20 dark:bg-black dark:ring-primary/30 print:hidden"
         src="https://saiemgilani.substack.com/embed"
         width="480"

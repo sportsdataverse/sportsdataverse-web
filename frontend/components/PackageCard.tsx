@@ -14,10 +14,20 @@ export default function PackageCard({ pkg }: { pkg: any }) {
           {pkg.repoType == "R" ? `{${pkg.title}}` : pkg.title}
         </h3>
         {pkg.logoHref ? (
-          <Link
-            href={pkg.docsHref}
-            className="transition-transform duration-300 group-hover:scale-105"
-          >
+          pkg.docsHref ? (
+            <Link
+              href={pkg.docsHref}
+              className="transition-transform duration-300 group-hover:scale-105"
+            >
+              <Image
+                src={pkg.logoHref}
+                alt={pkg.title}
+                width={120}
+                height={139}
+                className="h-auto w-auto"
+              />
+            </Link>
+          ) : (
             <Image
               src={pkg.logoHref}
               alt={pkg.title}
@@ -25,7 +35,7 @@ export default function PackageCard({ pkg }: { pkg: any }) {
               height={139}
               className="h-auto w-auto"
             />
-          </Link>
+          )
         ) : null}
         {pkg.repoType ? (
           <span className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary dark:bg-white/10 dark:text-sky-300">

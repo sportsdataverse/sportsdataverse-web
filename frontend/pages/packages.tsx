@@ -133,17 +133,27 @@ export default function Index({
 
 export async function getServerSideProps(_ctx: any) {
   // get the current environment
-  let dev = process.env.NODE_ENV !== 'production'
-  let { DEV_URL, PROD_URL } = process.env
+  const dev = process.env.NODE_ENV !== 'production'
+  const { DEV_URL, PROD_URL } = process.env
 
-  // request packages from the internal api (MongoDB-backed)
-  let response = await fetch(`${dev ? DEV_URL : PROD_URL}/api/packages`)
-  // extract the data
-  let data = await response.json()
-  let pyPackages = data['message'].filter((pkg: any)  => pkg.repoType == 'Python')
-  let rPackages = data['message'].filter((pkg: any) => pkg.repoType == 'R' && pkg.title != 'sportsdataverse')
-  let rversePackages = data['message'].filter((pkg: any) => pkg.repoType == 'R' && pkg.title == 'sportsdataverse')
-  let jsPackages = data['message'].filter((pkg: any) => pkg.repoType == 'Node.js')
+  // Request packages from the internal API (MongoDB-backed). Harden against a
+  // failed request / non-array payload so an API hiccup renders empty sections
+  // instead of throwing a 500 in getServerSideProps.
+  let pkgs: any[] = []
+  try {
+    const response = await fetch(`${dev ? DEV_URL : PROD_URL}/api/packages`)
+    if (response.ok) {
+      const data = await response.json()
+      if (Array.isArray(data?.message)) pkgs = data.message
+    }
+  } catch {
+    pkgs = []
+  }
+
+  const pyPackages = pkgs.filter((pkg: any) => pkg.repoType == 'Python')
+  const rPackages = pkgs.filter((pkg: any) => pkg.repoType == 'R' && pkg.title != 'sportsdataverse')
+  const rversePackages = pkgs.filter((pkg: any) => pkg.repoType == 'R' && pkg.title == 'sportsdataverse')
+  const jsPackages = pkgs.filter((pkg: any) => pkg.repoType == 'Node.js')
   return {
     props: {
       rPackages: rPackages,
