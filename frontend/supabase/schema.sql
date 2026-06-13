@@ -22,6 +22,10 @@
 -- identifiers would fold to lowercase and break the mapping.
 -- ---------------------------------------------------------------------------
 
+-- gen_random_uuid() is built into Postgres 13+ core, but enable pgcrypto
+-- explicitly so this also runs cleanly on older/stripped Postgres images.
+create extension if not exists pgcrypto;
+
 -- 1. Per-post view counter --------------------------------------------------
 create table if not exists public.views (
   slug       text primary key,
@@ -41,10 +45,10 @@ create table if not exists public.projects (
   id            uuid primary key default gen_random_uuid(),
   name          text not null default '',
   description   text not null default '',
-  "coverImage"  text,
+  "coverImage"  text not null default '',
   "githubURL"   text not null default '',
   "previewURL"  text,
-  tools         text[] default '{}',
+  tools         text[] not null default '{}',
   pinned        boolean not null default false,
   created_at    timestamptz not null default now()
 );
@@ -66,4 +70,8 @@ create index if not exists projects_pinned_created_at_idx
 -- create policy "views updatable"   on public.views    for update using (true);
 -- create policy "projects readable" on public.projects for select using (true);
 --
+-- Policies gate row access, but the roles still need table-level privileges or
+-- PostgREST returns a permission error even with policies in place:
+-- grant select, insert, update on public.views    to anon, authenticated;
+-- grant select                 on public.projects to anon, authenticated;
 -- grant execute on function public.views_sum() to anon, authenticated;
