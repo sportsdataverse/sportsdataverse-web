@@ -9,7 +9,7 @@ jobs:
     name: Merge with-data to main
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
         with:
           ref: with-data
       - uses: mtanzi/action-automerge@v1
