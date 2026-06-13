@@ -16,22 +16,18 @@ export default function Post({
   prev,
   next,
 }: {
-  post: PostType;
+  post: PostType | null;
   error: boolean;
   prev: PostNavLink;
   next: PostNavLink;
 }) {
-  // Adding Views to the supabase database
+  // Register a view for this post (no-op until the post is available).
   useEffect(() => {
-    const registerView = () =>
-      fetch(`/api/views/${post.meta.slug}`, {
-        method: "POST",
-      });
-
-    post != null && registerView();
+    if (!post) return;
+    fetch(`/api/views/${post.meta.slug}`, { method: "POST" });
   }, [post]);
 
-  if (error) return <PageNotFound />;
+  if (error || !post) return <PageNotFound />;
 
   const authorName = post.meta.author?.name  ? post.meta.author.name : "SportsDataverse Contributor";
   const authorPicture = post.meta.author?.picture ? post.meta.author.picture : homeProfileImage;
