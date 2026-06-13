@@ -1,4 +1,4 @@
-import { Variants } from "framer-motion";
+import { Variants } from "motion/react";
 import { MDXRemoteSerializeResult } from "next-mdx-remote";
 import React from "react";
 import { IconType } from "react-icons/lib";

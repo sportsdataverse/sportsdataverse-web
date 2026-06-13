@@ -1,15 +1,13 @@
 import Head from 'next/head'
 import PackageCard from '@components/PackageCard'
-import Grid from '@mui/material/Grid'
 import Image from 'next/image'
 import sdvBlue from '@public/images/sdv-blue-banner.png'
 import {
   FadeContainer,
   headingFromLeft,
-  opacityVariant,
   popUp,
 } from "@content/FramerMotionVariants";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import MetaData from "@components/MetaData";
 import pageMeta from "@content/meta";
 
@@ -51,10 +49,6 @@ export default function Index({
                 alt="cover Profile Image"
                 quality={75}
                 priority
-                // style={{
-                //   maxWidth: "100%",
-                //   height: "auto",
-                // }}
               />
             </motion.div>
             <motion.h2
@@ -70,13 +64,11 @@ export default function Index({
                     No added Python packages
                 </h3>
                 ) : (
-                <Grid container spacing={1}>
+                <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {pyPackages.map((pkg: any, i: number) => (
-                    <Grid item xs={12} sm={6} md={6} lg={4} key={i}>
                         <PackageCard pkg={pkg} key={i} />
-                    </Grid>
                     ))}
-                </Grid>
+                </div>
                 )}
             </motion.div>
             <motion.h2
@@ -92,14 +84,11 @@ export default function Index({
                     No added R packages
                 </h3>
                 ) : (
-                <Grid container
-                    spacing={1}>
+                <div className="grid w-full grid-cols-1 gap-2">
                     {rversePackages.map((pkg: any, i: number) => (
-                    <Grid item xs={12} sm={12} md={12} lg={12} key={i}>
-                    <PackageCard pkg={pkg} key={i} />
-                    </Grid>
+                        <PackageCard pkg={pkg} key={i} />
                     ))}
-                </Grid>
+                </div>
                 )}
             </motion.div>
             <motion.div variants={headingFromLeft}
@@ -109,14 +98,11 @@ export default function Index({
                     No added R packages
                 </h3>
                 ) : (
-                <Grid container
-                    spacing={1}>
+                <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {rPackages.map((pkg: any, i: number) => (
-                    <Grid item xs={12} sm={6} md={6} lg={4} key={i}>
-                    <PackageCard pkg={pkg} key={i} />
-                    </Grid>
+                        <PackageCard pkg={pkg} key={i} />
                     ))}
-                </Grid>
+                </div>
                 )}
             </motion.div>
             <motion.h2
@@ -132,14 +118,11 @@ export default function Index({
                     No added Node.js packages
                 </h3>
                 ) : (
-                <Grid container
-                    spacing={1}>
+                <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {jsPackages.map((pkg: any, i: number) => (
-                    <Grid item xs={12} sm={6} md={6} lg={4} key={i}>
-                    <PackageCard pkg={pkg} key={i} />
-                    </Grid>
+                        <PackageCard pkg={pkg} key={i} />
                     ))}
-                </Grid>
+                </div>
                 )}
             </motion.div>
         </motion.section>
@@ -153,7 +136,7 @@ export async function getServerSideProps(_ctx: any) {
   let dev = process.env.NODE_ENV !== 'production'
   let { DEV_URL, PROD_URL } = process.env
 
-  // request posts from api
+  // request packages from the internal api (MongoDB-backed)
   let response = await fetch(`${dev ? DEV_URL : PROD_URL}/api/packages`)
   // extract the data
   let data = await response.json()
@@ -161,7 +144,6 @@ export async function getServerSideProps(_ctx: any) {
   let rPackages = data['message'].filter((pkg: any) => pkg.repoType == 'R' && pkg.title != 'sportsdataverse')
   let rversePackages = data['message'].filter((pkg: any) => pkg.repoType == 'R' && pkg.title == 'sportsdataverse')
   let jsPackages = data['message'].filter((pkg: any) => pkg.repoType == 'Node.js')
-  // console.log(rversePackages)
   return {
     props: {
       rPackages: rPackages,

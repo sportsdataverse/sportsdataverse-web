@@ -1,6 +1,6 @@
 import { BsFileEarmarkCodeFill } from "react-icons/bs";
 import {
-  SiCss3,
+  SiCss,
   SiPython,
   SiGnubash,
   SiHtml5,
@@ -26,7 +26,7 @@ export default function CodeTitle({ title, lang }: Props) {
       Icon = SiHtml5;
       break;
     case "css":
-      Icon = SiCss3;
+      Icon = SiCss;
       break;
     case "js":
       Icon = IoLogoJavascript;
@@ -58,7 +58,8 @@ export default function CodeTitle({ title, lang }: Props) {
     case "vercel":
       Icon = SiVercel;
       break;
-    case "ts" || "tsx":
+    case "ts":
+    case "tsx":
       Icon = SiTypescript;
       break;
     default:

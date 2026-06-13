@@ -4,7 +4,7 @@ import { FrontMatter } from "@lib/types";
 import { useRef } from "react";
 import Image from "next/image";
 import { homeProfileImage } from "@utils/utils";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { BlogCardAnimation } from "@content/FramerMotionVariants";
 
 export default function Blog({

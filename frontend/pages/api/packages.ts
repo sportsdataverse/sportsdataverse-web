@@ -4,6 +4,18 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from '@lib/mongodb';
 import { ObjectId } from 'mongodb';
 
+/**
+ * Fail-closed authorization for mutating requests. Writes (POST/PUT/DELETE)
+ * require the `x-api-key` header to match the `PACKAGES_SECRET` env var. If the
+ * secret is unset, all writes are denied. GET remains public (read-only).
+ */
+function isWriteAuthorized(req: NextApiRequest): boolean {
+  const secret = process.env.PACKAGES_SECRET;
+  if (!secret) return false;
+  const provided = req.headers["x-api-key"];
+  return typeof provided === "string" && provided === secret;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -14,16 +26,23 @@ export default async function handler(
       return getPkgs(req, res)
     }
 
-    case 'POST': {
-      return addPkg(req, res)
-    }
-
-    case 'PUT': {
-      return updatePkg(req, res)
-    }
-
+    case 'POST':
+    case 'PUT':
     case 'DELETE': {
+      if (!isWriteAuthorized(req)) {
+        return res.status(401).json({
+          message: 'Unauthorized: a valid x-api-key header is required to modify packages.',
+          success: false,
+        })
+      }
+      if (req.method === 'POST') return addPkg(req, res)
+      if (req.method === 'PUT') return updatePkg(req, res)
       return deletePkg(req, res)
+    }
+
+    default: {
+      res.setHeader('Allow', 'GET, POST, PUT, DELETE')
+      return res.status(405).json({ message: 'Method not allowed', success: false })
     }
   }
 }

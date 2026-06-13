@@ -13,7 +13,7 @@ import AnimatedHeading from "@components/FramerMotion/AnimatedHeading";
 import { homeProfileImage } from "@utils/utils";
 import getRSS from "@lib/generateRSS";
 import generateSitemap from "@lib/sitemap";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import MDXContent from "@lib/MDXContent";
 import pageMeta from "@content/meta";
 import React from "react";

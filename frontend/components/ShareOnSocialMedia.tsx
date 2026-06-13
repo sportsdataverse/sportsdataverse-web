@@ -75,7 +75,7 @@ export default function ShareOnSocialMedia({
   return (
     <>
       <div className={`${className} transform sm:scale-150 my-5`}>
-        <FacebookShareButton quote={title} url={url}>
+        <FacebookShareButton url={url}>
           <div className="p-2 text-white bg-gray-700 rounded-full">
             <GrFacebookOption className="w-4 h-4" />
           </div>

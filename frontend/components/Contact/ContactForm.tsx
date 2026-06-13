@@ -2,12 +2,11 @@ import React from "react";
 import { ToastContainer, toast } from "react-toastify";
 import { useDarkMode } from "@context/darkModeContext";
 import emailjs from "@emailjs/browser";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import {
   FadeContainer,
   mobileNavItemSideways,
 } from "@content/FramerMotionVariants";
-import Ripples from "react-ripples";
 import { useRef } from "react";
 import { FormInput } from "@lib/types";
 
@@ -197,18 +196,13 @@ export default function Form() {
           variants={mobileNavItemSideways}
           className="w-full overflow-hidden rounded-lg shadow-lg sm:max-w-sm"
         >
-          <Ripples
-            className="flex justify-center w-full"
-            color="rgba(225, 225,225,0.2)"
+          <button
+            ref={sendButtonRef}
+            type="submit"
+            className="relative w-full px-4 py-3 overflow-hidden text-sm font-medium text-center text-white transition duration-300 rounded-lg outline-none bg-neutral-800 dark:bg-darkSecondary active:scale-95 hover:brightness-110 disabled:opacity-50 disabled:active:scale-100"
           >
-            <button
-              ref={sendButtonRef}
-              type="submit"
-              className="relative w-full px-4 py-3 overflow-hidden text-sm font-medium text-center text-white transition duration-300 rounded-lg outline-none bg-neutral-800 dark:bg-darkSecondary active:scale-95 disabled:opacity-50 disabled:active:scale-100"
-            >
-              Send
-            </button>
-          </Ripples>
+            Send
+          </button>
         </motion.div>
       </motion.form>
       <ToastContainer

@@ -1,61 +1,44 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import GitHubIcon from '@mui/icons-material/GitHub'
-import DescriptionIcon from '@mui/icons-material/Description'
-import StorageIcon from '@mui/icons-material/Storage'
+import { Github, FileText, Database } from 'lucide-react'
+import { Card, CardContent } from '@components/ui/card'
 
-export default function PackageCard({ pkg }: { pkg: any}) {
-
+export default function PackageCard({ pkg }: { pkg: any }) {
   return (
-    <>
-      {pkg.repoType == 'R' ?
-        <h3 className=" font-barlow text-center text-3xl mb-3 leading-snug">
-          {`{`+pkg.title+`}`}
-        </h3> :
-        <h3 className=" font-barlow text-center text-3xl mb-3 leading-snug">
-          {pkg.title}
+    <Card className="h-full bg-white dark:bg-darkSecondary dark:text-gray-100">
+      <CardContent className="flex flex-col gap-2 p-5">
+        <h3 className="font-barlow text-center text-3xl leading-snug">
+          {pkg.repoType == 'R' ? `{${pkg.title}}` : pkg.title}
         </h3>
-      }
-      {pkg.logoHref ? (
-              <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-              }}
-            >
-        <Link href={pkg.docsHref} passHref>
-          <Image src={pkg.logoHref} alt={pkg.title} width={"150"} height={"174"}/>
-        </Link>
+        {pkg.logoHref ? (
+          <div className="flex justify-center">
+            <Link href={pkg.docsHref} passHref>
+              <Image src={pkg.logoHref} alt={pkg.title} width={150} height={174} />
+            </Link>
+          </div>
+        ) : null}
+        <div className="flex items-center justify-center gap-2 text-gray-900 dark:text-gray-100">
+          {pkg.sourceHref ? (
+            <Link href={pkg.sourceHref} aria-label="Source code" passHref>
+              <Github className="h-6 w-6" />
+            </Link>
+          ) : null}
+          {pkg.docsHref ? (
+            <Link href={pkg.docsHref} aria-label="Documentation" passHref>
+              <FileText className="h-6 w-6" />
+            </Link>
+          ) : null}
+          {pkg.dataRepoHref ? (
+            <Link href={pkg.dataRepoHref} aria-label="Data repository" passHref>
+              <Database className="h-6 w-6" />
+            </Link>
+          ) : null}
         </div>
-      ) : (
-        ''
-      )}
-      <div className="text-center text-gray-900 dark:text-gray-100 ">
-        {pkg.sourceHref ? (
-          <Link href={pkg.sourceHref} className="text-center text-gray-900 dark:text-gray-100 " passHref>
-            <GitHubIcon />
-          </Link>
-        ) : (
-          ''
-        )}
-        {pkg.docsHref ? (
-          <Link href={pkg.docsHref} className="text-center text-gray-900 dark:text-gray-100 " passHref>
-            <DescriptionIcon />
-          </Link>
-        ) : (
-          ''
-        )}
-        {pkg.dataRepoHref ? (
-          <Link href={pkg.dataRepoHref} className="text-center text-gray-900 dark:text-gray-100 " passHref>
-            <StorageIcon />
-          </Link>
-        ) : (
-          ''
-        )}
-      </div>
-      <p className="font-medium font-inter text-center">{pkg.repoType ? `${pkg.sports}` + ' - ' + `${pkg.repoType}` : ''}</p>
-      <p className="font-medium font-inter max-w-2xl mx-auto">{pkg.content}</p>
-      <br />
-    </>
+        <p className="font-inter text-center font-medium">
+          {pkg.repoType ? `${pkg.sports} - ${pkg.repoType}` : ''}
+        </p>
+        <p className="font-inter mx-auto max-w-2xl font-medium">{pkg.content}</p>
+      </CardContent>
+    </Card>
   )
 }

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ToastContainer, toast, useToast } from "react-toastify";
+import { ToastContainer, toast } from "react-toastify";
 import { AiOutlineSend } from "react-icons/ai";
 import { useDarkMode } from "@context/darkModeContext";
 

@@ -1,4 +1,4 @@
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "motion/react";
 import { FadeContainer } from "@content/FramerMotionVariants";
 import Blog from "@components/Blog";
 import Metadata from "@components/MetaData";

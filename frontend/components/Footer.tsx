@@ -7,7 +7,7 @@ import {
   popUp,
 } from "@content/FramerMotionVariants";
 import { navigationRoutes } from "@utils/utils";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { SiSpotify } from "react-icons/si";
 import useSWR from "swr";
 import fetcher from "@lib/fetcher";
