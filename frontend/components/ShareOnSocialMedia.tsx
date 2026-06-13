@@ -75,13 +75,13 @@ export default function ShareOnSocialMedia({
   return (
     <>
       <div className={`${className} transform sm:scale-150 my-5`}>
-        <FacebookShareButton quote={title} url={url}>
-          <div className="p-2 text-white bg-gray-700 rounded-full">
+        <FacebookShareButton url={url}>
+          <div className="p-2 text-white bg-gray-700 transition-all duration-200 hover:bg-primary hover:scale-110 rounded-full">
             <GrFacebookOption className="w-4 h-4" />
           </div>
         </FacebookShareButton>
         <TwitterShareButton title={title} url={url} related={["@saiemgilani"]}>
-          <div className="p-2 text-white bg-gray-700 rounded-full">
+          <div className="p-2 text-white bg-gray-700 transition-all duration-200 hover:bg-primary hover:scale-110 rounded-full">
             <GrTwitter className="w-4 h-4" />
           </div>
         </TwitterShareButton>
@@ -91,16 +91,16 @@ export default function ShareOnSocialMedia({
           url={url}
           source={url}
         >
-          <div className="p-2 text-white bg-gray-700 rounded-full">
+          <div className="p-2 text-white bg-gray-700 transition-all duration-200 hover:bg-primary hover:scale-110 rounded-full">
             <FiLinkedin className="w-4 h-4 " />
           </div>
         </LinkedinShareButton>
         <WhatsappShareButton title={title} url={url}>
-          <div className="bg-gray-700 text-white p-1.5 rounded-full">
+          <div className="bg-gray-700 transition-all duration-200 hover:bg-primary hover:scale-110 text-white p-1.5 rounded-full">
             <FaWhatsapp className="w-5 h-5 " />
           </div>
         </WhatsappShareButton>
-        <div className="p-2 text-white bg-gray-700 rounded-full cursor-pointer">
+        <div className="p-2 text-white bg-gray-700 transition-all duration-200 hover:bg-primary hover:scale-110 rounded-full cursor-pointer">
           <FiCopy
             className="w-4 h-4 "
             onClick={() => copyTextToClipboard(url)}
@@ -112,7 +112,7 @@ export default function ShareOnSocialMedia({
 
         {isShareSupported && (
           <div
-            className="p-2 text-white bg-gray-700 rounded-full cursor-pointer"
+            className="p-2 text-white bg-gray-700 transition-all duration-200 hover:bg-primary hover:scale-110 rounded-full cursor-pointer"
             onClick={handleShare}
           >
             <BsThreeDots className="w-4 h-4" />

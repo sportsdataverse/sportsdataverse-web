@@ -18,7 +18,7 @@ jobs:
           ref: with-data
       - uses: actions/setup-python@v6
         with:
-            python-version: 3.9
+            python-version: '3.12'
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -27,8 +27,8 @@ jobs:
         run: cd python && TOKEN=${{ secrets.GITHUB_TOKEN }} python data_fetcher.py
       - name: Get current date
         id: date
-        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
-      - uses: stefanzweifel/git-auto-commit-action@v4
+        run: echo "date=$(date +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
+      - uses: stefanzweifel/git-auto-commit-action@778341af668090896ca464160c2def5d1d1a3eb0 # v6
         with:
           commit_message: Update ${{ steps.date.outputs.date }}
           branch: with-data

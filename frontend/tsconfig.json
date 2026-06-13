@@ -1,8 +1,26 @@
 {
   "compilerOptions": {
-    "target": "ES5",          /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */ // "lib": [],                                        /* Specify a set of bundled library declaration files that describe the target runtime environment. */
-    "module": "commonjs",     /* Specify what module code is generated. */ // "rootDir": "./",                                  /* Specify the root folder within your source files. */
-    "baseUrl": ".",           /* Specify the base directory to resolve non-relative module names. */
+    "target": "ES2020",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedParameters": true,
+    "baseUrl": ".",
     "paths": {
       "@components/*": [
         "components/*"
@@ -34,32 +52,20 @@
       "@posts/*": [
         "posts/*"
       ]
-    },                                        /* Specify a set of entries that re-map imports to additional lookup locations. */
-    "checkJs": true,                          /* Enable error reporting in type-checked JavaScript files. */
-    "esModuleInterop": true,                  /* Emit additional JavaScript to ease support for importing CommonJS modules. This enables 'allowSyntheticDefaultImports' for type compatibility. */ // "preserveSymlinks": true,                         /* Disable resolving symlinks to their realpath. This correlates to the same flag in node. */
-    "forceConsistentCasingInFileNames": true, /* Ensure that casing is correct in imports. */ /* Type Checking */
-    "strict": true,                           /* Enable all strict type-checking options. */ // "noImplicitAny": true,                            /* Enable error reporting for expressions and declarations with an implied 'any' type. */
-    "noUnusedLocals": false,                   /* Enable error reporting when local variables aren't read. */
-    "noUnusedParameters": true,               /* Raise an error when a function parameter isn't read. */
-    "skipLibCheck": true                      /* Skip type checking all .d.ts files. */,
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
-    "allowJs": true,
-    "noEmit": true,
-    "incremental": true,
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve"
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
-    "**/*.tsx"
-, "pages/sitemap.xml.jsx"  ],
+    "**/*.tsx",
+    "**/*.jsx",
+    ".next/types/**/*.ts"
+  ],
   "exclude": [
     "node_modules"
   ]

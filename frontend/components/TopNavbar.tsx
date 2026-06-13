@@ -1,8 +1,9 @@
+"use client";
 /* Importing Modules */
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { motion, useAnimation, AnimatePresence } from "framer-motion";
+import { motion, useAnimation, AnimatePresence } from "motion/react";
 import {
   FadeContainer,
   hamFastFadeContainer,
@@ -17,9 +18,7 @@ import { DarkModeSwitch } from "react-toggle-dark-mode";
 /* TopNavbar Component */
 export default function TopNavbar() {
   const navRef = useRef<HTMLDivElement>(null);
-
   /*  Using to control animation as I'll show the name to the mobile navbar when you scroll a bit
-   * demo: https://i.imgur.com/5LKI5DY.gif
    */
   const control = useAnimation();
   const [navOpen, setNavOpen] = useState(false);
@@ -230,7 +229,7 @@ const MobileMenu = ({
               href={navlink}
               key={`mobileNav-${index}`}
               onClick={handleClick}
-              className="flex w-auto py-4 text-base font-semibold text-gray-900 capitalize border-b border-gray-300 cursor-pointer dark:border-gray-700 dark:text-gray-100"
+              className="flex w-auto py-4 text-base font-semibold  bg-white dark:bg-darkPrimary text-gray-900 capitalize border-b border-gray-300 cursor-pointer dark:border-gray-700 dark:text-gray-100"
             >
               <motion.p variants={mobileNavItemSideways}>
                 {link === "rss" ? link.toUpperCase() : link}

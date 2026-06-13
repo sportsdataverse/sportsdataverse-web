@@ -1,7 +1,6 @@
+import { TbBrandVscode } from "react-icons/tb";
 import {
-  SiVisualstudiocode,
-  SiRstudio,
-  SiMicrosoftedge,
+  SiRstudioide,
   SiGooglechrome,
   SiVercel,
   SiPrettier,
@@ -40,13 +39,13 @@ const utilities: Utilities = {
         {
           name: "VSCode",
           description: "Primary Code editor",
-          Icon: SiVisualstudiocode,
+          Icon: TbBrandVscode,
           link: "https://code.visualstudio.com/download",
         },
         {
           name: "RStudio",
           description: "Text editor",
-          Icon: SiRstudio,
+          Icon: SiRstudioide,
           link: "https://posit.co/download/rstudio-desktop/",
         },
         {

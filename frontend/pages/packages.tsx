@@ -1,15 +1,13 @@
 import Head from 'next/head'
 import PackageCard from '@components/PackageCard'
-import Grid from '@mui/material/Grid'
 import Image from 'next/image'
 import sdvBlue from '@public/images/sdv-blue-banner.png'
 import {
   FadeContainer,
   headingFromLeft,
-  opacityVariant,
   popUp,
 } from "@content/FramerMotionVariants";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import MetaData from "@components/MetaData";
 import pageMeta from "@content/meta";
 
@@ -51,15 +49,11 @@ export default function Index({
                 alt="cover Profile Image"
                 quality={75}
                 priority
-                // style={{
-                //   maxWidth: "100%",
-                //   height: "auto",
-                // }}
               />
             </motion.div>
             <motion.h2
                   variants={headingFromLeft}
-                  className="flex justify-center text-3xl font-bold lg:text-4xl font-sarina"
+                  className="flex justify-center bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-3xl font-bold text-transparent lg:text-4xl font-sarina"
                 >
                 Python Packages
             </motion.h2>
@@ -70,18 +64,16 @@ export default function Index({
                     No added Python packages
                 </h3>
                 ) : (
-                <Grid container spacing={1}>
+                <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {pyPackages.map((pkg: any, i: number) => (
-                    <Grid item xs={12} sm={6} md={6} lg={4} key={i}>
                         <PackageCard pkg={pkg} key={i} />
-                    </Grid>
                     ))}
-                </Grid>
+                </div>
                 )}
             </motion.div>
             <motion.h2
                   variants={headingFromLeft}
-                  className="flex justify-center text-3xl font-bold lg:text-4xl font-sarina"
+                  className="flex justify-center bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-3xl font-bold text-transparent lg:text-4xl font-sarina"
                 >
                 R Packages
             </motion.h2>
@@ -92,14 +84,11 @@ export default function Index({
                     No added R packages
                 </h3>
                 ) : (
-                <Grid container
-                    spacing={1}>
+                <div className="grid w-full grid-cols-1 gap-2">
                     {rversePackages.map((pkg: any, i: number) => (
-                    <Grid item xs={12} sm={12} md={12} lg={12} key={i}>
-                    <PackageCard pkg={pkg} key={i} />
-                    </Grid>
+                        <PackageCard pkg={pkg} key={i} />
                     ))}
-                </Grid>
+                </div>
                 )}
             </motion.div>
             <motion.div variants={headingFromLeft}
@@ -109,19 +98,16 @@ export default function Index({
                     No added R packages
                 </h3>
                 ) : (
-                <Grid container
-                    spacing={1}>
+                <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {rPackages.map((pkg: any, i: number) => (
-                    <Grid item xs={12} sm={6} md={6} lg={4} key={i}>
-                    <PackageCard pkg={pkg} key={i} />
-                    </Grid>
+                        <PackageCard pkg={pkg} key={i} />
                     ))}
-                </Grid>
+                </div>
                 )}
             </motion.div>
             <motion.h2
                   variants={headingFromLeft}
-                  className="flex justify-center text-3xl font-bold lg:text-4xl font-sarina"
+                  className="flex justify-center bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-3xl font-bold text-transparent lg:text-4xl font-sarina"
                 >
                 Node.js Packages
             </motion.h2>
@@ -132,14 +118,11 @@ export default function Index({
                     No added Node.js packages
                 </h3>
                 ) : (
-                <Grid container
-                    spacing={1}>
+                <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {jsPackages.map((pkg: any, i: number) => (
-                    <Grid item xs={12} sm={6} md={6} lg={4} key={i}>
-                    <PackageCard pkg={pkg} key={i} />
-                    </Grid>
+                        <PackageCard pkg={pkg} key={i} />
                     ))}
-                </Grid>
+                </div>
                 )}
             </motion.div>
         </motion.section>
@@ -150,18 +133,27 @@ export default function Index({
 
 export async function getServerSideProps(_ctx: any) {
   // get the current environment
-  let dev = process.env.NODE_ENV !== 'production'
-  let { DEV_URL, PROD_URL } = process.env
+  const dev = process.env.NODE_ENV !== 'production'
+  const { DEV_URL, PROD_URL } = process.env
 
-  // request posts from api
-  let response = await fetch(`${dev ? DEV_URL : PROD_URL}/api/packages`)
-  // extract the data
-  let data = await response.json()
-  let pyPackages = data['message'].filter((pkg: any)  => pkg.repoType == 'Python')
-  let rPackages = data['message'].filter((pkg: any) => pkg.repoType == 'R' && pkg.title != 'sportsdataverse')
-  let rversePackages = data['message'].filter((pkg: any) => pkg.repoType == 'R' && pkg.title == 'sportsdataverse')
-  let jsPackages = data['message'].filter((pkg: any) => pkg.repoType == 'Node.js')
-  // console.log(rversePackages)
+  // Request packages from the internal API (MongoDB-backed). Harden against a
+  // failed request / non-array payload so an API hiccup renders empty sections
+  // instead of throwing a 500 in getServerSideProps.
+  let pkgs: any[] = []
+  try {
+    const response = await fetch(`${dev ? DEV_URL : PROD_URL}/api/packages`)
+    if (response.ok) {
+      const data = await response.json()
+      if (Array.isArray(data?.message)) pkgs = data.message
+    }
+  } catch {
+    pkgs = []
+  }
+
+  const pyPackages = pkgs.filter((pkg: any) => pkg.repoType == 'Python')
+  const rPackages = pkgs.filter((pkg: any) => pkg.repoType == 'R' && pkg.title != 'sportsdataverse')
+  const rversePackages = pkgs.filter((pkg: any) => pkg.repoType == 'R' && pkg.title == 'sportsdataverse')
+  const jsPackages = pkgs.filter((pkg: any) => pkg.repoType == 'Node.js')
   return {
     props: {
       rPackages: rPackages,

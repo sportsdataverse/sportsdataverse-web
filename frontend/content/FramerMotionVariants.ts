@@ -1,4 +1,4 @@
-import { Variants } from "framer-motion";
+import { Variants } from "motion/react";
 
 export const popUp: Variants = {
   hidden: { scale: 0, opacity: 0 },
@@ -127,7 +127,7 @@ export const searchBarSlideAnimation: Variants = {
     width: "100%",
     opacity: 1,
     transition: {
-      type: "linear",
+      ease: "linear",
       duration: 1,
     },
   },

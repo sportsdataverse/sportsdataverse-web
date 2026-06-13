@@ -53,16 +53,16 @@ You can install the released version of
 [GitHub](https://github.com/sportsdataverse/wehoop) with:
 
 ``` r
-# You can install using the pacman package using the following code:
-if (!requireNamespace('pacman', quietly = TRUE)){
-  install.packages('pacman')
+# You can install using the pak package using the following code:
+if (!requireNamespace('pak', quietly = TRUE)){
+  install.packages('pak')
 }
-pacman::p_load_current_gh("sportsdataverse/wehoop", dependencies = TRUE, update = TRUE)
+pak::pak("sportsdataverse/wehoop")
 ```
 
 ## **Quick Start**
 
-### **WNBA full play-by-play seasons (2002-2022) \~ 1-2 minutes**
+### **WNBA full play-by-play seasons (2002-2026) \~ 1-2 minutes**
 
 ``` r
 tictoc::tic()
@@ -76,7 +76,7 @@ tictoc::toc()
 
     ## 93166 rows of WNBA play-by-play data from 241 games.
 
-### **Women’s college basketball full play-by-play seasons (2004-2023) \~ 2-3 minutes**
+### **Women’s college basketball full play-by-play seasons (2004-2026) \~ 2-3 minutes**
 
 ``` r
 tictoc::tic()
@@ -86,9 +86,20 @@ progressr::with_progress({
 tictoc::toc()
 ```
 
-    ## 14.53 sec elapsed
+    ## 10.58 sec elapsed
 
-    ## 1883014 rows of women's college basketball play-by-play data from 5700 games.
+    ## 2824090 rows of women's college basketball play-by-play data from 6011 games.
+
+## **ESPN endpoint wrappers**
+
+`wehoop` 3.0.0 ships **80 ESPN basketball endpoint wrappers** (39
+`espn_wbb_*` + 41 `espn_wnba_*`) covering reference and catalog data,
+team detail, athlete coverage, event-level enrichments (odds, win
+probability, officials, broadcasts), WNBA-only artifacts (draft, free
+agents, transactions), and league-wide catalogs. See the [ESPN
+basketball endpoints
+vignette](https://wehoop.sportsdataverse.org/articles/espn-endpoints.html)
+for a full walkthrough.
 
 ## **Documentation**
 

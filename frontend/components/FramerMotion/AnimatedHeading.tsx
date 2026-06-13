@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { AnimatedTAGProps } from "@lib/types";
 
 export default function AnimatedHeading({

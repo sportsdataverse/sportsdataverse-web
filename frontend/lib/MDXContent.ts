@@ -1,6 +1,5 @@
 import path from "path";
-import { readFileSync } from "fs";
-import { sync } from "glob";
+import { readFileSync, readdirSync } from "fs";
 import matter from "gray-matter";
 import { serialize } from "next-mdx-remote/serialize";
 import rehypeSlug from "rehype-slug";
@@ -16,13 +15,9 @@ export default class MDXContent {
   }
 
   getSlugs() {
-    const paths = sync(`${this.POST_PATH}/*.mdx`);
-    return paths.map((path) => {
-      const parts = path.split("/");
-      const fileName = parts[parts.length - 1];
-      const [slug, _ext] = fileName.split(".");
-      return slug;
-    });
+    return readdirSync(this.POST_PATH)
+      .filter((fileName) => fileName.endsWith(".mdx"))
+      .map((fileName) => fileName.replace(/\.mdx$/, ""));
   }
 
   getFrontMatter(slug: string): FrontMatter | null {
@@ -53,23 +48,11 @@ export default class MDXContent {
 
     const frontMatter = this.getFrontMatter(slug);
 
+    // rehype-pretty-code 0.14 (shiki 1.x): the onVisit* callbacks were removed;
+    // line/word highlighting is now emitted as data-* attributes and styled via CSS.
     const prettyCodeOptions = {
-      // https://github.com/shikijs/shiki/blob/main/docs/themes.md
-      theme: 'one-dark-pro',
-      onVisitLine(node: any) {
-        // Prevent lines from collapsing in `display: grid` mode, and
-        // allow empty lines to be copy/pasted
-        if (node.children.length === 0) {
-          node.children = [{ type: "text", value: " " }];
-        }
-      },
-      // Feel free to add classNames that suit your docs
-      onVisitHighlightedLine(node: any) {
-        node.properties.className.push("highlighted");
-      },
-      onVisitHighlightedWord(node: any) {
-        node.properties.className = ["word"];
-      },
+      theme: "one-dark-pro",
+      keepBackground: false,
     };
     const mdxSource = await serialize(content, {
       mdxOptions: {

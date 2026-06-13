@@ -26,6 +26,10 @@ export default function PageTop({
       >
         {pageTitle}
       </AnimatedHeading>
+      <span
+        aria-hidden
+        className="block h-1 w-16 rounded-full bg-gradient-to-r from-primary to-accent"
+      />
       <AnimatedText
         variants={opacityVariant}
         className="text-lg text-gray-600 dark:text-gray-400"

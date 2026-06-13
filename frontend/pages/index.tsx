@@ -13,12 +13,13 @@ import AnimatedHeading from "@components/FramerMotion/AnimatedHeading";
 import { homeProfileImage } from "@utils/utils";
 import getRSS from "@lib/generateRSS";
 import generateSitemap from "@lib/sitemap";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import MDXContent from "@lib/MDXContent";
 import pageMeta from "@content/meta";
 import React from "react";
 import { FrontMatter } from "@lib/types";
 import Link from "next/link";
+import { Button } from "@components/ui/button";
 
 export default function Home({ blogs }: { blogs: FrontMatter[] }) {
   return (
@@ -61,7 +62,7 @@ export default function Home({ blogs }: { blogs: FrontMatter[] }) {
               <div className="flex flex-col gap-1">
                 <motion.h1
                   variants={opacityVariant}
-                  className="text-3xl font-bold lg:text-5xl font-sarina"
+                  className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-3xl font-bold text-transparent lg:text-5xl font-sarina"
                 >
                   SportsDataverse
                 </motion.h1>
@@ -80,14 +81,18 @@ export default function Home({ blogs }: { blogs: FrontMatter[] }) {
                 We provide utilities in Python, R, Node.js, etc.
               </motion.p>
 
-              <motion.p
+              <motion.div
                 variants={opacityVariant}
-                className=" text-[#474747] dark:text-gray-300 text-sm md:text-base text-center font-bold hover:underline"
+                className="flex justify-center pt-1"
               >
-                <Link href={"/packages"} className="text-center text-gray-900 dark:text-gray-100  font-bold hover:underline" passHref>
-                  Take a look at our packages
-                </Link>
-              </motion.p>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="border-primary/40 text-primary transition-colors hover:bg-primary hover:text-primary-foreground dark:text-sky-300 dark:hover:text-primary-foreground"
+                >
+                  <Link href="/packages">Explore our packages &rarr;</Link>
+                </Button>
+              </motion.div>
             </div>
           </div>
         </motion.section>

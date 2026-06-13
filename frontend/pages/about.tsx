@@ -3,7 +3,7 @@ import pageMeta from "@content/meta";
 import { PostType } from "@lib/types";
 import StaticPage from "@components/StaticPage";
 import Contact from "@components/Contact";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { FadeContainer, opacityVariant } from "@content/FramerMotionVariants";
 import AnimatedDiv from "@components/FramerMotion/AnimatedDiv";
 
