@@ -1,18 +1,14 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({ baseDirectory: __dirname });
+// Next 16 removed `next lint`; this is the flat ESLint config. We use
+// @next/eslint-plugin-next's native flat `core-web-vitals` config directly
+// (the full eslint-config-next bundle trips a circular-config bug under
+// FlatCompat). Expand with typescript-eslint / react-hooks flat configs later.
+import nextPlugin from "@next/eslint-plugin-next";
 
 const eslintConfig = [
   { ignores: [".next/**", "node_modules/**", "public/**", "out/**"] },
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  nextPlugin.configs["core-web-vitals"],
   {
     rules: {
-      "react/no-unescaped-entities": "off",
       "@next/next/no-img-element": "off",
     },
   },
