@@ -8,9 +8,9 @@ module.exports = {
   ],
   theme: {
     fontFamily: {
-      inter: ["Inter", "sans-serif"],
-      sarina: ["Sarina", "cursive"],
-      barlow: ["Barlow", "sans-serif"],
+      inter: ["var(--font-inter)", "Inter", "sans-serif"],
+      sarina: ["var(--font-sarina)", "Sarina", "cursive"],
+      barlow: ["var(--font-barlow)", "Barlow", "sans-serif"],
       mono: ["monospace"],
     },
     container: {
