@@ -80,3 +80,7 @@ After that server should be running on [localhost:3000](http://localhost:3000)
 > I am using [yarn](https://yarnpkg.com/) but you can use [pnpm](https://pnpm.io/) or [npm](https://www.npmjs.com/)
 
 > Warning: You could run into errors if you don't populate the `.env.local` with the correct values
+
+> Database: the Supabase schema the app expects (the `views` + `projects` tables
+> and the `views_sum()` function) lives in [`frontend/supabase/schema.sql`](frontend/supabase/schema.sql).
+> Run it once in the Supabase SQL editor against your `SUPABASE_URL` project.
