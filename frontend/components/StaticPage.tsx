@@ -30,7 +30,7 @@ export default function StaticPage({
         </PageTop>
         <AnimatedDiv
           variants={opacityVariant}
-          className="max-w-full prose dark:prose-invert"
+          className="max-w-full prose font-barlow dark:prose-invert prose-headings:scroll-mt-24 prose-a:text-primary prose-a:no-underline hover:prose-a:text-accent prose-a:transition-colors dark:prose-a:text-sky-300 prose-li:marker:text-primary dark:prose-li:marker:text-sky-300"
         >
           <MDXRemote
             {...page.source}

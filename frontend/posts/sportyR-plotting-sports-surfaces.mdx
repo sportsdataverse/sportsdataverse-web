@@ -1,0 +1,72 @@
+---
+slug: sportyR-plotting-sports-surfaces
+title: "{sportyR} for Plotting Sports Surfaces"
+date: '2026-06-12'
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+tags: ['r', 'ggplot2', 'visualization', 'sportyR', 'sportsdataverse']
+published: true
+excerpt: 'Draw scaled, rule-book-accurate ggplot2 representations of playing surfaces across a dozen sports.'
+image: '/images/Sportsdataverse_r_gh.png'
+ogImage:
+  url: '/images/Sportsdataverse_r_gh.png'
+---
+
+# sportyR
+
+[**`sportyR`**](https://sportyR.sportsdataverse.org/) is an R package, authored by
+Ross Drucker, for drawing scaled [`ggplot2`](https://ggplot2.tidyverse.org/)
+representations of sports playing surfaces. Every surface is rendered directly
+from the governing body's rule-book specifications, so the geometry — line
+widths, arc radii, court and field dimensions — is correct by construction.
+
+That accuracy matters: when you plot tracking data, shot locations, or pass maps
+on top of a `sportyR` surface, the coordinates line up with reality instead of an
+approximation.
+
+## Supported surfaces
+
+`sportyR` ships `geom_*` helpers for basketball, football, hockey, baseball,
+soccer, tennis, volleyball, curling, and lacrosse, with league-specific presets
+(NBA, WNBA, NCAA, NFL, NHL, MLB, FIFA, and more) selectable via a single
+argument.
+
+## Installation
+
+Install the released version from [CRAN](https://cran.r-project.org/package=sportyR):
+
+``` r
+install.packages("sportyR")
+```
+
+Or the development version from the SportsDataverse r-universe:
+
+``` r
+install.packages("sportyR", repos = c("https://sportsdataverse.r-universe.dev", getOption("repos")))
+```
+
+## Quick start
+
+Drawing a regulation surface is a single call, and the result is an ordinary
+`ggplot` object you can layer onto:
+
+``` r
+library(sportyR)
+
+# An NBA half-court...
+geom_basketball(league = "NBA", display_range = "offense")
+
+# ...or a full NHL rink
+geom_hockey(league = "NHL")
+```
+
+Because the output is a `ggplot`, you add your data with the usual
+`geom_point()`, `geom_path()`, or `geom_density_2d()` layers — shot charts, skater
+tracks, and expected-goals maps all compose naturally on top of the surface.
+
+## Learn more
+
+- Documentation: [sportyR.sportsdataverse.org](https://sportyR.sportsdataverse.org/)
+- Python sibling: [**`sportypy`**](https://sportypy.sportsdataverse.org/) brings the
+  same surfaces to `matplotlib`.

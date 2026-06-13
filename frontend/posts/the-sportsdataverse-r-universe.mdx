@@ -1,0 +1,75 @@
+---
+slug: the-sportsdataverse-r-universe
+title: "Install the Whole SportsDataverse at Once"
+date: '2026-06-13'
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+tags: ['r', 'r-universe', 'sportsdataverse', 'meta-package']
+published: true
+excerpt: 'The sportsdataverse umbrella package and r-universe let you install and load every core SportsDataverse R package in a single step.'
+image: '/images/sdv-blue-1200x1200.png'
+ogImage:
+  url: '/images/sdv-blue-1200x1200.png'
+---
+
+# The SportsDataverse, in one command
+
+The SportsDataverse spans a lot of ground — college football, men's and women's
+basketball, baseball, hockey, betting markets, and the tools to chart them.
+Rather than install each package one at a time, you can pull in the whole core
+set the way the `tidyverse` does: through an umbrella package.
+
+## The `sportsdataverse` meta-package
+
+[**`sportsdataverse`**](https://r.sportsdataverse.org/) is a lightweight meta-package
+modelled on the `tidyverse` and `nflverse`. Installing it brings in the core
+CRAN-published SportsDataverse packages, and a single `library()` call attaches
+them all:
+
+``` r
+# install the umbrella package from the SportsDataverse r-universe
+install.packages(
+  "sportsdataverse",
+  repos = c("https://sportsdataverse.r-universe.dev", getOption("repos"))
+)
+
+library(sportsdataverse)
+#> ── Attaching packages ──────────────── sportsdataverse ──
+#> ✔ baseballr     ✔ oddsapiR
+#> ✔ cfbfastR      ✔ sportyR
+#> ✔ fastRhockey   ✔ wehoop
+#> ✔ hoopR
+```
+
+It also ships a few quality-of-life helpers:
+
+``` r
+sportsdataverse_packages()   # what's in the SportsDataverse
+sportsdataverse_update()     # check for updates (add devel = TRUE for r-universe builds)
+sportsdataverse_sitrep()     # versions of R + every SportsDataverse package
+```
+
+## The r-universe
+
+Every SportsDataverse package — plus a number of community projects — is built
+continuously at [**sportsdataverse.r-universe.dev**](https://sportsdataverse.r-universe.dev/).
+r-universe gives you prebuilt **binaries of the development versions** without
+needing to compile from GitHub:
+
+``` r
+install.packages(
+  "hoopR",
+  repos = c("https://sportsdataverse.r-universe.dev", getOption("repos"))
+)
+```
+
+You can point `install.packages()` at the r-universe for any one package, or set
+it as a repo for your whole session to stay on the bleeding edge.
+
+## Where to next
+
+- R meta-package: [r.sportsdataverse.org](https://r.sportsdataverse.org/)
+- r-universe: [sportsdataverse.r-universe.dev](https://sportsdataverse.r-universe.dev/)
+- The organization: [sportsdataverse.org](https://sportsdataverse.org/)
+- Python: [py.sportsdataverse.org](https://py.sportsdataverse.org/) &nbsp;·&nbsp; Node.js: [js.sportsdataverse.org](https://js.sportsdataverse.org/)

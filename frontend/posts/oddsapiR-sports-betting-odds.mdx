@@ -1,0 +1,71 @@
+---
+slug: oddsapiR-sports-betting-odds
+title: "{oddsapiR} for Sports Betting Odds"
+date: '2026-06-12'
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+tags: ['r', 'betting', 'odds', 'oddsapiR', 'sportsdataverse']
+published: true
+excerpt: 'Pull live and historical sportsbook odds — moneylines, spreads, and totals — into tidy R data frames.'
+image: '/images/Sportsdataverse_r_gh.png'
+ogImage:
+  url: '/images/Sportsdataverse_r_gh.png'
+---
+
+# oddsapiR
+
+[**`oddsapiR`**](https://oddsapiR.sportsdataverse.org/) is an R package that wraps
+[The Odds API](https://the-odds-api.com/), giving you tidy access to bookmaker
+odds across dozens of sports and sportsbooks. Moneylines, point spreads, and
+totals all come back as clean data frames ready for modelling, line-shopping, or
+backtesting.
+
+## Installation
+
+From [CRAN](https://cran.r-project.org/package=oddsapiR):
+
+``` r
+install.packages("oddsapiR")
+```
+
+Or the development version from the SportsDataverse r-universe:
+
+``` r
+install.packages("oddsapiR", repos = c("https://sportsdataverse.r-universe.dev", getOption("repos")))
+```
+
+## Get an API key
+
+`oddsapiR` reads your key from the `ODDS_API_KEY` environment variable. Sign up
+for a free tier at [the-odds-api.com](https://the-odds-api.com/) and store the
+key in your `.Renviron`:
+
+``` r
+usethis::edit_r_environ()
+# ODDS_API_KEY=your_key_here
+```
+
+## Quick start
+
+``` r
+library(oddsapiR)
+
+# Which sports are available?
+toa_sports()
+
+# Current odds for upcoming NFL games
+toa_sports_odds(
+  sport_key = "americanfootball_nfl",
+  markets   = "h2h,spreads,totals",
+  odds_format = "american"
+)
+```
+
+Each request returns one row per outcome with the bookmaker, market, and price,
+so a single `dplyr` pipeline gets you the best available number on any side.
+
+## Learn more
+
+- Documentation: [oddsapiR.sportsdataverse.org](https://oddsapiR.sportsdataverse.org/)
+- The Odds API: [the-odds-api.com](https://the-odds-api.com/)

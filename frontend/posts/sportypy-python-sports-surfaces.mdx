@@ -1,0 +1,58 @@
+---
+slug: sportypy-python-sports-surfaces
+title: "sportypy for Python Sports Surfaces"
+date: '2026-06-11'
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+tags: ['python', 'matplotlib', 'visualization', 'sportypy', 'sportsdataverse']
+published: true
+excerpt: 'The Python sibling of sportyR — rule-book-accurate matplotlib playing surfaces for your analysis.'
+image: '/images/Sportsdataverse_py_gh.png'
+ogImage:
+  url: '/images/Sportsdataverse_py_gh.png'
+---
+
+# sportypy
+
+[**`sportypy`**](https://sportypy.sportsdataverse.org/) is the Python counterpart
+to [**`sportyR`**](https://sportyR.sportsdataverse.org/), also authored by Ross
+Drucker. It draws scaled, rule-book-accurate representations of sports playing
+surfaces with [`matplotlib`](https://matplotlib.org/), so your shot charts,
+tracking plots, and heatmaps sit on geometry that matches the real thing.
+
+If you live in the PyData stack — `pandas`, `matplotlib`, `seaborn` — `sportypy`
+gives you the same surface fidelity that `sportyR` brings to `ggplot2`.
+
+## Installation
+
+``` bash
+pip install sportypy
+```
+
+## Quick start
+
+Every surface is a class you instantiate and `draw()`. Pass an existing
+`matplotlib` `Axes` to layer your own data on top:
+
+``` python
+import matplotlib.pyplot as plt
+from sportypy.surfaces.basketball import NBACourt
+
+fig, ax = plt.subplots(figsize=(12, 6.5))
+
+# Draw a regulation NBA court...
+NBACourt().draw(ax=ax)
+
+# ...then add your data
+ax.scatter(shots["x"], shots["y"], c="#024F84", alpha=0.6)
+plt.show()
+```
+
+Basketball, football, hockey, baseball, soccer, tennis, volleyball, and curling
+surfaces are all included, with league presets selectable per surface.
+
+## Learn more
+
+- Documentation: [sportypy.sportsdataverse.org](https://sportypy.sportsdataverse.org/)
+- R sibling: [**`sportyR`**](https://sportyR.sportsdataverse.org/)
