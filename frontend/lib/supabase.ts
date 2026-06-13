@@ -7,23 +7,6 @@ export const supabase = createClient(
 );
 
 /**
- * Asynchronously fetches all projects from the database where the 'pinned' column is set to true.
- * The results are sorted by the 'created_at' column in descending order.
- */
-export async function getProjects() {
-  let { data: projects, error } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("pinned", "true")
-    .order("created_at", { ascending: false });
-
-  return {
-    projects,
-    error: error !== null,
-  };
-}
-
-/**
  * This function is used to add a view to the specified blog post. It first retrieves the blog post from the database
  * by its slug value. If the post exists, it increments the view count by 1 and updates it in the database.
  * If the post does not exist, it creates a new record with the slug and views set to 1.
