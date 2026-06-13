@@ -8,13 +8,18 @@ import MDXContent from "@lib/MDXContent";
 import { MDXRemote } from "next-mdx-remote";
 import { GetStaticPropsContext } from "next";
 import { PostType } from "@lib/types";
+import type { PostNavLink } from "@components/PostNavigation";
 
 export default function Post({
   post,
   error,
+  prev,
+  next,
 }: {
   post: PostType;
   error: boolean;
+  prev: PostNavLink;
+  next: PostNavLink;
 }) {
   // Adding Views to the supabase database
   useEffect(() => {
@@ -41,7 +46,7 @@ export default function Post({
         keywords={post.meta.keywords}
       />
 
-      <BlogLayout post={post}>
+      <BlogLayout post={post} prev={prev} next={next}>
         <MDXRemote
           {...post.source}
           frontmatter={{
@@ -68,13 +73,17 @@ type StaticProps = GetStaticPropsContext & {
 
 export async function getStaticProps({ params }: StaticProps) {
   const { slug } = params;
-  const { post } = await new MDXContent("posts").getPostFromSlug(slug);
+  const content = new MDXContent("posts");
+  const { post } = await content.getPostFromSlug(slug);
 
   if (post != null) {
+    const { prev, next } = content.getAdjacentPosts(slug);
     return {
       props: {
         error: false,
         post,
+        prev,
+        next,
       },
     };
   } else {
@@ -82,6 +91,8 @@ export async function getStaticProps({ params }: StaticProps) {
       props: {
         error: true,
         post: null,
+        prev: null,
+        next: null,
       },
     };
   }

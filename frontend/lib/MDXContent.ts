@@ -87,6 +87,24 @@ export default class MDXContent {
     return length === undefined ? allPosts : allPosts.slice(0, length);
   }
 
+  /**
+   * Adjacent posts for tail navigation. `getAllPosts()` is sorted newest-first,
+   * so the *older* (chronologically previous) post sits one slot further down
+   * and the *newer* (next) post one slot up. Returns minimal {slug, title}
+   * link data (or null at the ends of the list).
+   */
+  getAdjacentPosts(slug: string) {
+    const all = this.getAllPosts();
+    const index = all.findIndex((post) => post?.slug === slug);
+    if (index === -1) return { prev: null, next: null };
+    const toLink = (post: FrontMatter | null | undefined) =>
+      post ? { slug: post.slug, title: post.title } : null;
+    return {
+      prev: toLink(all[index + 1]), // older post
+      next: toLink(all[index - 1]), // newer post
+    };
+  }
+
   getTableOfContents(markdown: string) {
     const regXHeader = /#{2,6}.+/g;
     const headingArray = markdown.match(regXHeader)
