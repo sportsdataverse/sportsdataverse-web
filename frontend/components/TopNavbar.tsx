@@ -14,6 +14,7 @@ import { useDarkMode } from "@context/darkModeContext";
 import { navigationRoutes } from "@utils/utils";
 import Logo from "./SVG/Logo";
 import { DarkModeSwitch } from "react-toggle-dark-mode";
+import PackagesAuthNav from "./PackagesAuthNav";
 
 /* TopNavbar Component */
 export default function TopNavbar() {
@@ -114,20 +115,23 @@ export default function TopNavbar() {
         </motion.div>
       </motion.nav>
 
-      {/* DarkMode Container */}
-      <motion.div
-        initial="hidden"
-        animate="visible"
-        variants={popUp}
-        className="cursor-pointer"
-        title="Toggle Theme"
-      >
-        <DarkModeSwitch
-          checked={isDarkMode}
-          onChange={changeDarkMode}
-          size={24}
-        />
-      </motion.div>
+      {/* Right cluster: org-member CMS link + theme toggle */}
+      <div className="flex items-center gap-2">
+        <PackagesAuthNav />
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={popUp}
+          className="cursor-pointer"
+          title="Toggle Theme"
+        >
+          <DarkModeSwitch
+            checked={isDarkMode}
+            onChange={changeDarkMode}
+            size={24}
+          />
+        </motion.div>
+      </div>
     </div>
   );
 }

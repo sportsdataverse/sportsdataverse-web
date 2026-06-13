@@ -1,4 +1,5 @@
 import Head from 'next/head'
+import Link from 'next/link'
 import PackageCard from '@components/PackageCard'
 import Image from 'next/image'
 import sdvBlue from '@public/images/sdv-blue-banner.png'
@@ -124,6 +125,17 @@ export default function Index({
                     ))}
                 </div>
                 )}
+            </motion.div>
+            <motion.div
+              variants={headingFromLeft}
+              className="flex items-center justify-center px-5 pb-10 pt-4"
+            >
+              <Link
+                href="/packages/manage"
+                className="font-inter text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline dark:text-gray-400"
+              >
+                SportsDataverse developer? Add or update your package &rarr;
+              </Link>
             </motion.div>
         </motion.section>
         </div>
