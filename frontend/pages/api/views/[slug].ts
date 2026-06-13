@@ -42,7 +42,18 @@ export default async function viewsSlug(
   // check if the app in the production and req method is post only then add the view to the database
   if (req.method === "POST" && process.env.NODE_ENV === "production") {
     const supabaseResponse = await addView(slug);
-    res.status(supabaseResponse?.status!).json(supabaseResponse);
+    // Supabase returns status 0 on a failed request (and addView can return
+    // undefined if it threw). `res.status(0)` / `res.status(undefined)` crash
+    // with ERR_HTTP_INVALID_STATUS_CODE, so clamp to a valid HTTP status:
+    // pass through a real 1xx–5xx code, otherwise treat it as a 500.
+    const status = supabaseResponse?.status;
+    const httpStatus =
+      typeof status === "number" && status >= 100 && status <= 599
+        ? status
+        : 500;
+    return res
+      .status(httpStatus)
+      .json(supabaseResponse ?? { message: "View could not be recorded." });
   } else {
     return res.status(401).json({
       message: "In Development, Can't add views",

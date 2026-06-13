@@ -58,7 +58,10 @@ export async function getViewBySlug(slug: string) {
       .from("views")
       .select("views")
       .eq("slug", slug);
-    return data![0];
+    // `data` is null when the request fails (e.g. Supabase unreachable / RLS),
+    // and `[]` when the slug has no row yet. Use optional chaining so neither
+    // case throws "Cannot read properties of null (reading '0')".
+    return data?.[0];
   } catch (error) {
     console.error(error);
   }
