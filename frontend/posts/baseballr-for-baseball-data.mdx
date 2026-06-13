@@ -24,12 +24,16 @@ downloads](https://img.shields.io/badge/dynamic/json?style=for-the-badge&color=s
 [![Contributors](https://img.shields.io/github/contributors/BillPetti/baseballr?style=for-the-badge)](https://github.com/BillPetti/baseballr/graphs/contributors)
 
 `baseballr` is a package written for R focused on baseball analysis. It
-includes functions for scraping various data from websites, such as
+includes functions for acquiring data from a range of sources — the [MLB
+Stats API](https://statsapi.mlb.com/), [ESPN](https://www.espn.com/)
+(MLB and NCAA college baseball), [Fox Sports](https://www.foxsports.com/),
 [FanGraphs.com](https://www.fangraphs.com/),
-[Baseball-Reference.com](https://www.baseball-reference.com/), and
-[baseballsavant.mlb.com](https://baseballsavant.mlb.com/). It also
-includes functions for calculating metrics, such as wOBA, FIP, and
-team-level consistency over custom time frames.
+[Baseball-Reference.com](https://www.baseball-reference.com/),
+[baseballsavant.mlb.com](https://baseballsavant.mlb.com/), the
+[NCAA stats site](https://stats.ncaa.org/), Spotrac, the Chadwick Bureau
+register, and Retrosheet. It also includes functions for calculating
+metrics, such as wOBA, FIP, and team-level consistency over custom time
+frames.
 
 You can read more about some of the functions and how to use them at its
 [official site](https://billpetti.github.io/baseballr/) as well as this
@@ -50,11 +54,11 @@ You can install the released version of
 [GitHub](https://github.com/BillPetti/baseballr) with:
 
 ``` r
-# You can install using the pacman package using the following code:
-if (!requireNamespace('pacman', quietly = TRUE)){
-  install.packages('pacman')
+# You can install using the pak package using the following code:
+if (!requireNamespace('pak', quietly = TRUE)){
+  install.packages('pak')
 }
-pacman::p_load_current_gh("BillPetti/baseballr")
+pak::pak("BillPetti/baseballr")
 ```
 
 ``` r
@@ -90,7 +94,7 @@ bref_standings_on_date("2015-08-01", "NL East", from = FALSE)
 ```
 
 ```
-    ## ── MLB Standings on Date data from baseball-reference.com ─── baseballr 1.5.0 ──
+    ## ── MLB Standings on Date data from baseball-reference.com ─── baseballr 2.0.0 ──
 
     ## ℹ Data updated: 2023-02-16 04:22:33 EST
 
@@ -215,7 +219,7 @@ bref_daily_pitcher("2015-04-05", "2015-04-30") %>%
 ```
 
 ```
-    ## ── MLB Daily Pitcher data from baseball-reference.com ─────── baseballr 1.5.0 ──
+    ## ── MLB Daily Pitcher data from baseball-reference.com ─────── baseballr 2.0.0 ──
 
     ## ℹ Data updated: 2023-02-16 04:25:41 EST
 
