@@ -7,6 +7,7 @@ import "nprogress/nprogress.css";
 import { DarkModeProvider } from "@context/darkModeContext";
 import { GoogleAnalytics } from "nextjs-google-analytics";
 import PlausibleProvider from 'next-plausible'
+import { SessionProvider } from "next-auth/react";
 import { AppProps } from "next/app";
 import localFont from "next/font/local";
 
@@ -42,7 +43,7 @@ NProgress.configure({
   showSpinner: false,
 });
 
-function MyApp({ Component, pageProps }: AppProps) {
+function MyApp({ Component, pageProps: { session, ...pageProps } }: AppProps) {
   const router = useRouter();
 
   useEffect(() => {
@@ -63,18 +64,20 @@ function MyApp({ Component, pageProps }: AppProps) {
   }, [router.events]);
 
   return (
-    <PlausibleProvider domain="sportsdataverse.org">
-      <DarkModeProvider>
-        <div className={`${inter.variable} ${barlow.variable} ${sarina.variable} font-inter`}>
-          <Layout>
-            {process.env.NODE_ENV === "production" && (
-              <GoogleAnalytics strategy="lazyOnload" />
-            )}
-            <Component {...pageProps} />
-          </Layout>
-        </div>
-      </DarkModeProvider>
-    </PlausibleProvider>
+    <SessionProvider session={session}>
+      <PlausibleProvider domain="sportsdataverse.org">
+        <DarkModeProvider>
+          <div className={`${inter.variable} ${barlow.variable} ${sarina.variable} font-inter`}>
+            <Layout>
+              {process.env.NODE_ENV === "production" && (
+                <GoogleAnalytics strategy="lazyOnload" />
+              )}
+              <Component {...pageProps} />
+            </Layout>
+          </div>
+        </DarkModeProvider>
+      </PlausibleProvider>
+    </SessionProvider>
   );
 }
 
