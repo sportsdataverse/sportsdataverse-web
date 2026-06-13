@@ -84,4 +84,4 @@ After that server should be running on [localhost:3000](http://localhost:3000)
 > Database: the Supabase schema the app expects (the `views` table and the
 > `views_sum()` function) lives in [`frontend/supabase/schema.sql`](frontend/supabase/schema.sql).
 > Run it once in the Supabase SQL editor against your `SUPABASE_URL` project.
-> Packages and projects are stored in MongoDB (`MONGODB_URI`), not Supabase.
+> Packages and projects are stored in MongoDB (`MONGODB_URI` + `DB_NAME`), not Supabase.

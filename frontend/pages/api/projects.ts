@@ -134,7 +134,7 @@ async function authorizeMutation(
     return {
       ok: false,
       status: 403,
-      message: "You can only edit projects you created.",
+      message: "You can only modify projects you created.",
     };
   }
   return { ok: true };

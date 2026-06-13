@@ -170,6 +170,9 @@ export default function ManageProjects({
               {editing ? `Edit ${editing.name}` : "Add a new project"}
             </h2>
             <ProjectForm
+              // Remount on target change so the form never shows stale values
+              // when switching Add -> Edit or between different projects.
+              key={editing?._id ?? "new-project"}
               initial={editing ?? undefined}
               submitting={submitting}
               onSubmit={handleSubmit}
