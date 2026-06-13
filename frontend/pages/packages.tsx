@@ -53,7 +53,7 @@ export default function Index({
             </motion.div>
             <motion.h2
                   variants={headingFromLeft}
-                  className="flex justify-center text-3xl font-bold lg:text-4xl font-sarina"
+                  className="flex justify-center bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-3xl font-bold text-transparent lg:text-4xl font-sarina"
                 >
                 Python Packages
             </motion.h2>
@@ -73,7 +73,7 @@ export default function Index({
             </motion.div>
             <motion.h2
                   variants={headingFromLeft}
-                  className="flex justify-center text-3xl font-bold lg:text-4xl font-sarina"
+                  className="flex justify-center bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-3xl font-bold text-transparent lg:text-4xl font-sarina"
                 >
                 R Packages
             </motion.h2>
@@ -107,7 +107,7 @@ export default function Index({
             </motion.div>
             <motion.h2
                   variants={headingFromLeft}
-                  className="flex justify-center text-3xl font-bold lg:text-4xl font-sarina"
+                  className="flex justify-center bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-3xl font-bold text-transparent lg:text-4xl font-sarina"
                 >
                 Node.js Packages
             </motion.h2>
