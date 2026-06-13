@@ -28,5 +28,7 @@ declare module "next-auth/jwt" {
     role?: "admin" | "member" | null;
     /** GitHub OAuth access token — kept on the JWT only, never on the client session. */
     accessToken?: string;
+    /** Epoch ms of the last org-membership re-validation (for TTL refresh). */
+    membershipCheckedAt?: number;
   }
 }

@@ -4,6 +4,13 @@ import GitHubProvider from "next-auth/providers/github";
 /** The GitHub organization whose members may manage package entries. */
 export const SDV_ORG = "sportsdataverse";
 
+/**
+ * How long a cached org-membership decision stays trusted on the JWT before we
+ * re-validate against GitHub. Bounds how long a user who was removed from the
+ * org keeps write access (instead of only losing it when the JWT expires).
+ */
+const MEMBERSHIP_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
 type OrgMembership = { state?: string; role?: string };
 
 /**
@@ -53,15 +60,24 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, account, profile }) {
       // `account` is only present on the initial sign-in, when the freshly
-      // issued access token is available. Resolve org membership once here so
-      // every subsequent request reads it cheaply off the JWT.
+      // issued access token is available — capture it (and the login) then.
       if (account?.access_token) {
         token.accessToken = account.access_token;
         const login = (profile as { login?: string } | null)?.login;
         if (login) token.login = login;
-        const { isMember, role } = await fetchOrgMembership(account.access_token);
+      }
+      // Resolve membership on sign-in and re-validate periodically thereafter,
+      // so revoking a user's org membership revokes their write access within
+      // MEMBERSHIP_TTL_MS rather than only at JWT expiry.
+      const isInitialSignIn = Boolean(account?.access_token);
+      const isStale =
+        typeof token.membershipCheckedAt !== "number" ||
+        Date.now() - token.membershipCheckedAt > MEMBERSHIP_TTL_MS;
+      if (token.accessToken && (isInitialSignIn || isStale)) {
+        const { isMember, role } = await fetchOrgMembership(token.accessToken);
         token.isOrgMember = isMember;
         token.role = role;
+        token.membershipCheckedAt = Date.now();
       }
       return token;
     },
