@@ -1,0 +1,20 @@
+[project]
+name = "sportsdataverse-web-backend"
+version = "0.2.0"
+description = "Data-fetcher backend for sportsdataverse.org (scrapes package/project metadata into the site DB)."
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.2,<3",
+    "requests>=2.32",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.2",
+    "html5lib>=1.1",
+    "python-dateutil>=2.9",
+    "luigi>=3.5",
+    "supabase>=2.4",
+    "PyGithub>=2.3",
+    "marko>=2.1",
+]
+
+[tool.uv]
+package = false

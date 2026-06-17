@@ -85,3 +85,25 @@ After that server should be running on [localhost:3000](http://localhost:3000)
 > `views_sum()` function) lives in [`frontend/supabase/schema.sql`](frontend/supabase/schema.sql).
 > Run it once in the Supabase SQL editor against your `SUPABASE_URL` project.
 > Packages and projects are stored in MongoDB (`MONGODB_URI` + `DB_NAME`), not Supabase.
+
+### Backend (data fetcher)
+
+The Python data-fetcher in `python/` uses [uv](https://docs.astral.sh/uv/) for packaging
+and dependency management (requires uv 0.4+):
+
+```bash
+cd python
+uv sync
+uv run python data_fetcher.py
+```
+
+Environment variables required at runtime: `SUPABASE_URL`, `SUPABASE_KEY`, and `TOKEN`
+(GitHub personal access token for authenticated API calls).
+
+The lockfile (`python/uv.lock`) is committed for reproducible installs. To update deps:
+
+```bash
+cd python
+uv lock --upgrade
+uv sync
+```
