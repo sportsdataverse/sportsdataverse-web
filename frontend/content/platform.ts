@@ -33,7 +33,7 @@ const R = (
   kind: PlatformRepoKind,
   sport: string,
   extra: Partial<PlatformRepo> = {}
-): PlatformRepo => ({ repo: `sportsdataverse/${repo}`, kind, sport, ...extra });
+): PlatformRepo => ({ repo: `${SDV_ORG_SLUG}/${repo}`, kind, sport, ...extra });
 
 export const PLATFORM_REPOS: PlatformRepo[] = [
   // --- football ---------------------------------------------------------
