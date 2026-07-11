@@ -100,6 +100,7 @@ export default function PlatformShell({ session, title, children }: ShellProps) 
               <Link
                 key={tab.href}
                 href={tab.href}
+                aria-current={active ? "page" : undefined}
                 className={`-mb-px border-b-2 px-4 py-2 font-inter text-sm font-medium transition-colors ${
                   active
                     ? "border-primary text-primary"

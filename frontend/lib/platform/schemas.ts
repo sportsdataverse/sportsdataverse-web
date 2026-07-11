@@ -78,7 +78,10 @@ export const dbStatusSchema = z.object({
       z.object({
         name: z.string().max(120),
         rows: z.number().nonnegative().optional(),
+        /** When the dataset last gained rows (max of its event/load timestamp). */
         last_updated: z.string().datetime({ offset: true }).optional(),
+        /** Human-readable identity of the newest row, e.g. "game_id=401628 (2026-01-13)". */
+        latest_row: z.string().max(300).optional(),
       })
     )
     .max(200)

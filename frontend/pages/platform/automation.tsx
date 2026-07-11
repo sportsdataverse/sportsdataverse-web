@@ -22,7 +22,7 @@ export default function PlatformAutomation({ session }: { session: PlatformSessi
     { refreshInterval: 60_000, revalidateOnFocus: false }
   );
   const [dispatching, setDispatching] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
   async function dispatch(repo: string, workflow: string) {
     if (!window.confirm(`Trigger ${workflow} on ${repo}?`)) return;
@@ -37,11 +37,11 @@ export default function PlatformAutomation({ session }: { session: PlatformSessi
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "Dispatch failed");
-      setNotice(data.message);
+      setNotice({ kind: "ok", text: data.message });
       // Give GitHub a beat to register the queued run, then refresh.
       setTimeout(() => mutate(), 3000);
     } catch (e) {
-      setNotice(e instanceof Error ? e.message : "Dispatch failed");
+      setNotice({ kind: "error", text: e instanceof Error ? e.message : "Dispatch failed" });
     } finally {
       setDispatching(null);
     }
@@ -60,8 +60,14 @@ export default function PlatformAutomation({ session }: { session: PlatformSessi
       </div>
 
       {notice ? (
-        <div className="mb-4 rounded-md border border-sky-300 bg-sky-50 px-4 py-3 font-inter text-sm text-sky-800 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200">
-          {notice}
+        <div
+          className={`mb-4 rounded-md border px-4 py-3 font-inter text-sm ${
+            notice.kind === "ok"
+              ? "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200"
+              : "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300"
+          }`}
+        >
+          {notice.text}
         </div>
       ) : null}
       {error ? (

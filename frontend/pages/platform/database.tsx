@@ -92,6 +92,7 @@ export default function PlatformDatabase({ session, statuses }: DatabaseProps) {
                         <th className="px-4 py-2">Dataset</th>
                         <th className="px-4 py-2">Rows</th>
                         <th className="px-4 py-2">Last updated</th>
+                        <th className="px-4 py-2">Latest row</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -106,6 +107,12 @@ export default function PlatformDatabase({ session, statuses }: DatabaseProps) {
                           </td>
                           <td className="px-4 py-2 text-muted-foreground">
                             {timeAgo(dataset.last_updated)}
+                          </td>
+                          <td
+                            className="max-w-[16rem] truncate px-4 py-2 font-mono text-xs text-muted-foreground"
+                            title={dataset.latest_row ?? undefined}
+                          >
+                            {dataset.latest_row ?? "–"}
                           </td>
                         </tr>
                       ))}

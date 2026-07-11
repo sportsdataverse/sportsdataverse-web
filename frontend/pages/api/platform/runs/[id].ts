@@ -9,16 +9,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const id = typeof req.query.id === "string" ? req.query.id : "";
 
-  if (req.method === "GET") {
-    const run = await getRun(id);
-    if (!run) return res.status(404).json({ message: "Run not found", success: false });
-    return res.json({ message: run, success: true });
-  }
+  try {
+    if (req.method === "GET") {
+      const run = await getRun(id);
+      if (!run) return res.status(404).json({ message: "Run not found", success: false });
+      return res.json({ message: run, success: true });
+    }
 
-  if (req.method === "DELETE") {
-    const deleted = await deleteRun(id);
-    if (!deleted) return res.status(404).json({ message: "Run not found", success: false });
-    return res.json({ message: "Run deleted", success: true });
+    if (req.method === "DELETE") {
+      const deleted = await deleteRun(id);
+      if (!deleted) return res.status(404).json({ message: "Run not found", success: false });
+      return res.json({ message: "Run deleted", success: true });
+    }
+  } catch (error) {
+    return res.status(500).json({
+      message: error instanceof Error ? error.message : "Database error",
+      success: false,
+    });
   }
 
   res.setHeader("Allow", "GET, DELETE");

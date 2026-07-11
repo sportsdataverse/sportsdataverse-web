@@ -29,8 +29,14 @@ export class GithubError extends Error {
   }
 }
 
+/** Hard cap on any single GitHub call so a slow upstream can't hang a page render. */
+const GH_TIMEOUT_MS = 15_000;
+
 async function ghGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${GH_API}${path}`, { headers: ghHeaders() });
+  const res = await fetch(`${GH_API}${path}`, {
+    headers: ghHeaders(),
+    signal: AbortSignal.timeout(GH_TIMEOUT_MS),
+  });
   if (!res.ok) {
     throw new GithubError(res.status, `GitHub ${path} -> ${res.status}`);
   }
@@ -127,6 +133,7 @@ export async function dispatchWorkflow(
       method: "POST",
       headers: { ...ghHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ ref }),
+      signal: AbortSignal.timeout(GH_TIMEOUT_MS),
     }
   );
   if (res.status !== 204) {

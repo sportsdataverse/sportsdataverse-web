@@ -12,9 +12,11 @@ const COLLECTION = "db_status";
 
 export async function upsertDbStatus(status: DbStatusInput, actor: string): Promise<void> {
   const { db } = await connectToDatabase();
-  await db.collection(COLLECTION).updateOne(
+  // replaceOne (not $set) so optional fields absent from THIS heartbeat —
+  // e.g. a stale `error` after recovery — don't linger from the previous one.
+  await db.collection(COLLECTION).replaceOne(
     { source: status.source },
-    { $set: { ...status, reported_by: actor, received_at: new Date().toISOString() } },
+    { ...status, reported_by: actor, received_at: new Date().toISOString() },
     { upsert: true }
   );
 }

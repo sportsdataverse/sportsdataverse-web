@@ -56,7 +56,7 @@ GitHub-OAuth (NextAuth) layer, covering four pillars:
 
 ## Architecture
 
-```
+```text
 frontend/
   content/platform.ts            # tracked-repo config (single source of truth)
   lib/platform/schemas.ts        # zod: ModelRun ingest/query schemas + TS types

@@ -42,7 +42,7 @@ without `PLATFORM_INGEST_TOKEN` token ingest is disabled (session-only writes).
 ## Recording a model run from CI / a training script
 
 ```sh
-curl -sS -X POST "$PROD_URL/api/platform/runs" \
+curl -sS -X POST "$SDV_PLATFORM_URL/api/platform/runs" \
   -H "Authorization: Bearer $PLATFORM_INGEST_TOKEN" \
   -H "Content-Type: application/json" \
   -d @- << 'JSON'
@@ -95,31 +95,41 @@ timestamps are ISO-8601 with offset.
 
 The site never dials Postgres — the droplet's DB ports stay closed to the
 public internet. A daily cron on the droplet pushes a snapshot instead
-(anything older than 26 h renders as **stale**):
+(anything older than 26 h renders as **stale**).
 
-```sh
-#!/usr/bin/env bash
-# /opt/sdv-db/heartbeat.sh — cron: 15 6 * * *
-set -euo pipefail
-PSQL="psql -U postgres -d sdv -tA"
-curl -sS -X POST "$SDV_PLATFORM_URL/api/platform/db-status" \
-  -H "Authorization: Bearer $PLATFORM_INGEST_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -n \
-    --arg version "$($PSQL -c 'show server_version')" \
-    --argjson size "$($PSQL -c "select pg_database_size('sdv')")" \
-    --argjson tables "$($PSQL -c "select count(*) from information_schema.tables where table_schema not in ('pg_catalog','information_schema')")" \
-    --argjson rows "$($PSQL -c "select coalesce(sum(n_live_tup),0) from pg_stat_user_tables")" \
-    '{source: "sdv-db", ok: true, host_label: "sdv-data droplet",
-      postgres_version: $version, db_size_bytes: $size,
-      table_count: $tables, row_estimate: $rows,
-      collected_at: (now | todate)}')"
+The canonical heartbeat lives in the **sdv-db** repo as a CLI command
+(`sdv_db/heartbeat.py`, run as `uv run sdv-db heartbeat`; `--dry-run` prints
+the payload without POSTing). It reports the global stats plus a per-dataset
+`datasets[]` array (≤200 entries) the Database tab renders as a freshness
+table:
+
+```jsonc
+{
+  "source": "sdv-db", "ok": true, "host_label": "sdv-data droplet",
+  "postgres_version": "17.x", "db_size_bytes": 63350000000,
+  "table_count": 79, "row_estimate": 112800000,
+  "datasets": [
+    { "name": "nfl.pbp", "rows": 1200000,
+      "last_updated": "2026-07-11T06:15:00+00:00",   // when it last gained rows
+      "latest_row": "game_id=2026_01_KC_BUF (2026-01-13)" }  // newest row identity
+  ],
+  "collected_at": "2026-07-11T06:15:02+00:00"
+}
 ```
 
-Optionally add a `datasets: [{name, rows, last_updated}]` array (≤200 entries)
-for per-dataset freshness — the Database tab renders it as a table. On failure,
-POST `{"source": "sdv-db", "ok": false, "error": "...", "collected_at": ...}`
-so the outage is visible rather than silently stale.
+`last_updated` is the max of the table's event/load timestamp column;
+`latest_row` is a short human-readable identity of the newest row (key +
+event date). On failure the script POSTs
+`{"source": "sdv-db", "ok": false, "error": "...", "collected_at": ...}` so an
+outage is visible rather than silently stale.
+
+Cron wiring on the droplet:
+
+```sh
+# /etc/cron.d/sdv-platform-heartbeat
+15 6 * * * sdv cd /opt/sdv-db/python && SDV_PLATFORM_URL=https://sportsdataverse.org \
+  PLATFORM_INGEST_TOKEN=<token> uv run sdv-db heartbeat >> /var/log/sdv-heartbeat.log 2>&1
+```
 
 ## GitHub PAT for the Automation/Datasets tabs
 
