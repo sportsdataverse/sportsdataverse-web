@@ -15,7 +15,7 @@ const fetcher = async (url: string) => {
   return data.message as AutomationRepo[];
 };
 
-export default function PlatformAutomation({ session }: { session: PlatformSessionProps }) {
+export default function PlatformAutomation({ platformSession: session }: { platformSession: PlatformSessionProps }) {
   const { data, error, isLoading, mutate, isValidating } = useSWR(
     session.authorized ? "/api/platform/automation" : null,
     fetcher,
@@ -170,5 +170,5 @@ export default function PlatformAutomation({ session }: { session: PlatformSessi
 }
 
 export async function getServerSideProps(ctx: GetServerSidePropsContext) {
-  return { props: { session: await getPlatformSessionProps(ctx) } };
+  return { props: { platformSession: await getPlatformSessionProps(ctx) } };
 }

@@ -6,7 +6,7 @@ import { listDbStatuses } from "@lib/platform/dbStatus";
 import type { DbStatusDoc } from "@lib/platform/schemas";
 
 type DatabaseProps = {
-  session: PlatformSessionProps;
+  platformSession: PlatformSessionProps;
   statuses: DbStatusDoc[];
 };
 
@@ -19,7 +19,7 @@ function statusOf(status: DbStatusDoc): string {
   return Number.isNaN(age) || age > STALE_AFTER_MS ? "stale" : "ok";
 }
 
-export default function PlatformDatabase({ session, statuses }: DatabaseProps) {
+export default function PlatformDatabase({ platformSession: session, statuses }: DatabaseProps) {
   return (
     <PlatformShell session={session} title="Database">
       <p className="mb-6 font-inter text-sm text-muted-foreground">
@@ -131,8 +131,8 @@ export default function PlatformDatabase({ session, statuses }: DatabaseProps) {
 export async function getServerSideProps(ctx: GetServerSidePropsContext) {
   const session = await getPlatformSessionProps(ctx);
   if (!session.authorized) {
-    return { props: { session, statuses: [] } };
+    return { props: { platformSession: session, statuses: [] } };
   }
   const statuses = await listDbStatuses().catch(() => []);
-  return { props: { session, statuses } };
+  return { props: { platformSession: session, statuses } };
 }

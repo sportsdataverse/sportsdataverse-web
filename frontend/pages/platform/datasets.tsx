@@ -14,11 +14,11 @@ type RepoReleases = {
 };
 
 type DatasetsProps = {
-  session: PlatformSessionProps;
+  platformSession: PlatformSessionProps;
   repos: RepoReleases[];
 };
 
-export default function PlatformDatasets({ session, repos }: DatasetsProps) {
+export default function PlatformDatasets({ platformSession: session, repos }: DatasetsProps) {
   return (
     <PlatformShell session={session} title="Datasets">
       <p className="mb-6 font-inter text-sm text-muted-foreground">
@@ -98,7 +98,7 @@ export default function PlatformDatasets({ session, repos }: DatasetsProps) {
 export async function getServerSideProps(ctx: GetServerSidePropsContext) {
   const session = await getPlatformSessionProps(ctx);
   if (!session.authorized) {
-    return { props: { session, repos: [] } };
+    return { props: { platformSession: session, repos: [] } };
   }
   const tracked = PLATFORM_REPOS.filter((r) => r.hasReleases);
   const settled = await Promise.allSettled(tracked.map((r) => listRepoReleases(r.repo)));
@@ -116,5 +116,5 @@ export async function getServerSideProps(ctx: GetServerSidePropsContext) {
           : null,
     };
   });
-  return { props: { session, repos } };
+  return { props: { platformSession: session, repos } };
 }
