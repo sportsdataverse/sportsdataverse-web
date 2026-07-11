@@ -10,6 +10,7 @@ export const navigationRoutes: string[] = [
   "stats",
   // "projects",
   "snippets",
+  "platform",
 ];
 
 export const snippetsImages: { [key: string]: string } = {
