@@ -10,14 +10,14 @@ import { listModels, listRuns } from "@lib/platform/runs";
 import type { DbStatusDoc, ModelRunDoc, ModelSummary } from "@lib/platform/schemas";
 
 type OverviewProps = {
-  session: PlatformSessionProps;
+  platformSession: PlatformSessionProps;
   models: ModelSummary[];
   recentRuns: ModelRunDoc[];
   dbStatuses: DbStatusDoc[];
 };
 
 export default function PlatformOverview({
-  session,
+  platformSession: session,
   models,
   recentRuns,
   dbStatuses,
@@ -104,7 +104,7 @@ export default function PlatformOverview({
 export async function getServerSideProps(ctx: GetServerSidePropsContext) {
   const session = await getPlatformSessionProps(ctx);
   if (!session.authorized) {
-    return { props: { session, models: [], recentRuns: [], dbStatuses: [] } };
+    return { props: { platformSession: session, models: [], recentRuns: [], dbStatuses: [] } };
   }
   // Mongo-only reads (fast); GitHub calls stay on their own tabs.
   const [models, recentRuns, dbStatuses] = await Promise.all([
@@ -112,5 +112,5 @@ export async function getServerSideProps(ctx: GetServerSidePropsContext) {
     listRuns({ limit: 8 }).catch(() => []),
     listDbStatuses().catch(() => []),
   ]);
-  return { props: { session, models, recentRuns, dbStatuses } };
+  return { props: { platformSession: session, models, recentRuns, dbStatuses } };
 }

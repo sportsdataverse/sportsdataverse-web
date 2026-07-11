@@ -11,7 +11,7 @@ import { getRun } from "@lib/platform/runs";
 import type { ModelRunDoc } from "@lib/platform/schemas";
 
 type RunDetailProps = {
-  session: PlatformSessionProps;
+  platformSession: PlatformSessionProps;
   run: ModelRunDoc | null;
 };
 
@@ -38,7 +38,7 @@ function KeyValueTable({ data }: { data: Record<string, string | number | boolea
   );
 }
 
-export default function PlatformRunDetail({ session, run }: RunDetailProps) {
+export default function PlatformRunDetail({ platformSession: session, run }: RunDetailProps) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -215,8 +215,8 @@ export async function getServerSideProps(ctx: GetServerSidePropsContext) {
   const session = await getPlatformSessionProps(ctx);
   const id = typeof ctx.params?.id === "string" ? ctx.params.id : "";
   if (!session.authorized) {
-    return { props: { session, run: null } };
+    return { props: { platformSession: session, run: null } };
   }
   const run = await getRun(id).catch(() => null);
-  return { props: { session, run } };
+  return { props: { platformSession: session, run } };
 }

@@ -12,7 +12,7 @@ import { listRuns } from "@lib/platform/runs";
 import type { ModelRunDoc } from "@lib/platform/schemas";
 
 type ModelDetailProps = {
-  session: PlatformSessionProps;
+  platformSession: PlatformSessionProps;
   modelId: string;
   /** Newest-first, capped at 50. */
   runs: ModelRunDoc[];
@@ -20,7 +20,7 @@ type ModelDetailProps = {
 
 const MAX_GATE_COLUMNS = 10;
 
-export default function PlatformModelDetail({ session, modelId, runs }: ModelDetailProps) {
+export default function PlatformModelDetail({ platformSession: session, modelId, runs }: ModelDetailProps) {
   // Chronological order for trends; newest-first everywhere else.
   const chrono = runs.slice().reverse();
   const metricKeys = Array.from(new Set(chrono.flatMap((r) => Object.keys(r.metrics ?? {}))));
@@ -162,8 +162,8 @@ export async function getServerSideProps(ctx: GetServerSidePropsContext) {
   const session = await getPlatformSessionProps(ctx);
   const modelId = typeof ctx.params?.modelId === "string" ? ctx.params.modelId : "";
   if (!session.authorized) {
-    return { props: { session, modelId, runs: [] } };
+    return { props: { platformSession: session, modelId, runs: [] } };
   }
   const runs = await listRuns({ model_id: modelId, limit: 50 }).catch(() => []);
-  return { props: { session, modelId, runs } };
+  return { props: { platformSession: session, modelId, runs } };
 }

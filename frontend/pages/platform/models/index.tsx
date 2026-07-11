@@ -7,11 +7,11 @@ import { listModels } from "@lib/platform/runs";
 import type { ModelSummary } from "@lib/platform/schemas";
 
 type ModelsProps = {
-  session: PlatformSessionProps;
+  platformSession: PlatformSessionProps;
   models: ModelSummary[];
 };
 
-export default function PlatformModels({ session, models }: ModelsProps) {
+export default function PlatformModels({ platformSession: session, models }: ModelsProps) {
   return (
     <PlatformShell session={session} title="Models">
       <p className="mb-6 font-inter text-sm text-muted-foreground">
@@ -82,8 +82,8 @@ export default function PlatformModels({ session, models }: ModelsProps) {
 export async function getServerSideProps(ctx: GetServerSidePropsContext) {
   const session = await getPlatformSessionProps(ctx);
   if (!session.authorized) {
-    return { props: { session, models: [] } };
+    return { props: { platformSession: session, models: [] } };
   }
   const models = await listModels().catch(() => []);
-  return { props: { session, models } };
+  return { props: { platformSession: session, models } };
 }
