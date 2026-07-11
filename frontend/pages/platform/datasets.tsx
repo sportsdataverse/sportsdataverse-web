@@ -3,7 +3,7 @@ import PlatformShell, { formatBytes, timeAgo } from "@components/platform/Platfo
 import { PLATFORM_REPOS } from "@content/platform";
 import type { PlatformSessionProps } from "@lib/platform/auth";
 import { getPlatformSessionProps } from "@lib/platform/auth";
-import { listRepoReleases } from "@lib/platform/github";
+import { listRepoReleases, settlePool } from "@lib/platform/github";
 import type { ReleaseSummary } from "@lib/platform/github";
 
 type RepoReleases = {
@@ -101,7 +101,7 @@ export async function getServerSideProps(ctx: GetServerSidePropsContext) {
     return { props: { platformSession: session, repos: [] } };
   }
   const tracked = PLATFORM_REPOS.filter((r) => r.hasReleases);
-  const settled = await Promise.allSettled(tracked.map((r) => listRepoReleases(r.repo)));
+  const settled = await settlePool(tracked, (r) => listRepoReleases(r.repo));
   const repos: RepoReleases[] = tracked.map((entry, i) => {
     const outcome = settled[i];
     return {
