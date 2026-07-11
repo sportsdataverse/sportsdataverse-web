@@ -95,3 +95,54 @@ export function isDispatchAllowed(repo: string, workflowFile: string): boolean {
   const entry = PLATFORM_REPOS.find((r) => r.repo === repo);
   return Boolean(entry?.dispatchable?.includes(workflowFile));
 }
+
+// ---------------------------------------------------------------------------
+// sportsdataverse-data release classification
+// ---------------------------------------------------------------------------
+
+export type ReleaseGroup = {
+  /** League/sport bucket the release belongs to (Datasets-page grouping key). */
+  sport: string;
+  /** Upstream data provider the release is scraped/derived from. */
+  provider: string;
+  /** owner/name of the repo whose jobs produce/refresh this release ("" = unknown). */
+  producer: string;
+};
+
+/**
+ * Ordered longest-prefix-first rules mapping sportsdataverse-data release
+ * tags to (sport, provider, producer). Grounded in the 154-tag inventory of
+ * 2026-07-11; a tag matching no rule lands in the "other" bucket, which is a
+ * signal to extend this table.
+ */
+const RELEASE_RULES: ({ prefix: string } & ReleaseGroup)[] = [
+  { prefix: "espn_cfb_model_", sport: "cfb", provider: "espn", producer: "sportsdataverse/cfbfastR-cfb-data" },
+  { prefix: "espn_cfb_adv_", sport: "cfb", provider: "espn", producer: "sportsdataverse/cfbfastR-cfb-data" },
+  { prefix: "espn_cfb_", sport: "cfb", provider: "espn", producer: "sportsdataverse/cfbfastR-data" },
+  { prefix: "cfbfastR_cfb_", sport: "cfb", provider: "cfbfastR", producer: "sportsdataverse/cfbfastR-data" },
+  { prefix: "espn_mens_college_basketball_", sport: "mbb", provider: "espn", producer: "sportsdataverse/hoopR-mbb-data" },
+  { prefix: "espn_womens_college_basketball_", sport: "wbb", provider: "espn", producer: "sportsdataverse/wehoop-wbb-data" },
+  { prefix: "espn_nba_", sport: "nba", provider: "espn", producer: "sportsdataverse/hoopR-nba-data" },
+  { prefix: "espn_wnba_", sport: "wnba", provider: "espn", producer: "sportsdataverse/wehoop-wnba-data" },
+  { prefix: "nba_stats_", sport: "nba", provider: "stats.nba.com", producer: "sportsdataverse/hoopR-nba-stats-data" },
+  { prefix: "wnba_stats_", sport: "wnba", provider: "stats.wnba.com", producer: "sportsdataverse/wehoop-wnba-stats-data" },
+  { prefix: "ncaa_baseball_", sport: "baseball", provider: "ncaa", producer: "sportsdataverse/baseballr-data" },
+  { prefix: "nfl_", sport: "nfl", provider: "nflverse/espn", producer: "sportsdataverse/nfl-data" },
+  { prefix: "nhl_", sport: "nhl", provider: "nhl api", producer: "sportsdataverse/fastRhockey-nhl-data" },
+  { prefix: "pwhl_", sport: "pwhl", provider: "hockeytech", producer: "sportsdataverse/fastRhockey-pwhl-data" },
+  { prefix: "phf_", sport: "phf", provider: "archived (league defunct)", producer: "sportsdataverse/fastRhockey-pwhl-data" },
+];
+
+export function classifyReleaseTag(tag: string): ReleaseGroup {
+  // Crosswalks: "<sport>_crosswalk", built by sportsdataverse-py tooling.
+  const crosswalk = tag.match(/^([a-z]+)_crosswalk$/);
+  if (crosswalk) {
+    return {
+      sport: crosswalk[1],
+      provider: "sportsdataverse",
+      producer: "sportsdataverse/sportsdataverse-py",
+    };
+  }
+  const rule = RELEASE_RULES.find((r) => tag.startsWith(r.prefix));
+  return rule ?? { sport: "other", provider: "—", producer: "" };
+}
