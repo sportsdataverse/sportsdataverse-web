@@ -120,7 +120,14 @@ export default function PlatformAutomation({ platformSession: session }: { platf
                       const canDispatch = repo.dispatchable.includes(wf.file);
                       return (
                         <tr key={wf.id} className="border-t border-gray-200 dark:border-gray-700">
-                          <td className="px-4 py-2 font-medium">{wf.name}</td>
+                          <td className="px-4 py-2 font-medium">
+                            {wf.name}
+                            {wf.state !== "active" ? (
+                              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                {wf.state.replace(/_/g, " ")}
+                              </span>
+                            ) : null}
+                          </td>
                           <td className="px-4 py-2">
                             {run ? (
                               <a

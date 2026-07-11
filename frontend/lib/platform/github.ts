@@ -21,6 +21,24 @@ function ghHeaders(): HeadersInit {
   return headers;
 }
 
+/**
+ * allSettled with bounded concurrency — 40+ tracked repos × 2 calls each
+ * fired at once can trip GitHub's secondary (abuse) rate limit; ~10 in
+ * flight stays comfortably under it.
+ */
+export async function settlePool<T, R>(
+  items: T[],
+  worker: (item: T) => Promise<R>,
+  concurrency = 10
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = [];
+  for (let i = 0; i < items.length; i += concurrency) {
+    const chunk = items.slice(i, i + concurrency);
+    results.push(...(await Promise.allSettled(chunk.map(worker))));
+  }
+  return results;
+}
+
 export class GithubError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -179,12 +197,26 @@ type GhRelease = {
 };
 
 /**
- * A repo's releases, newest first. Assets are truncated to the newest 20 per
- * release to keep payloads sane (sportsdataverse-data releases carry hundreds
- * of assets); `asset_count`/`total_size` always reflect the full set.
+ * A repo's releases — ALL of them (paginated up to `maxPages`×100; the org's
+ * biggest repo, sportsdataverse-data, has ~150), sorted by newest-asset
+ * activity rather than the API's created-at order: the org's data releases
+ * are long-lived tags whose assets get re-uploaded, so creation order buries
+ * the freshest data. Assets are truncated to the newest 20 per release;
+ * `asset_count`/`total_size` always reflect the full set.
  */
-export async function listRepoReleases(repo: string, perPage = 15): Promise<ReleaseSummary[]> {
-  const releases = await ghGet<GhRelease[]>(`/repos/${repo}/releases?per_page=${perPage}`);
+export async function listRepoReleases(repo: string, maxPages = 3): Promise<ReleaseSummary[]> {
+  const releases: GhRelease[] = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const batch = await ghGet<GhRelease[]>(`/repos/${repo}/releases?per_page=100&page=${page}`);
+    releases.push(...batch);
+    if (batch.length < 100) break;
+  }
+  const newestAssetAt = (rel: GhRelease): string =>
+    rel.assets.reduce(
+      (max, a) => (a.updated_at > max ? a.updated_at : max),
+      rel.published_at ?? ""
+    );
+  releases.sort((a, b) => (newestAssetAt(a) < newestAssetAt(b) ? 1 : -1));
   return releases.map((rel) => ({
     tag: rel.tag_name,
     name: rel.name,

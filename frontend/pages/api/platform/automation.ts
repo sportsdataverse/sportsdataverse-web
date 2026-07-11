@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { PLATFORM_REPOS, isDispatchAllowed } from "@content/platform";
 import { requireMember } from "@lib/platform/auth";
-import { GithubError, dispatchWorkflow, listRepoWorkflows } from "@lib/platform/github";
+import { GithubError, dispatchWorkflow, listRepoWorkflows, settlePool } from "@lib/platform/github";
 import type { WorkflowSummary } from "@lib/platform/github";
 
 export type AutomationRepo = {
@@ -23,10 +23,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!actor) return;
 
   if (req.method === "GET") {
-    // One failing repo must not blank the dashboard -> allSettled per repo.
-    const settled = await Promise.allSettled(
-      PLATFORM_REPOS.map((entry) => listRepoWorkflows(entry.repo))
-    );
+    // One failing repo must not blank the dashboard -> settled per repo;
+    // bounded concurrency keeps 40+ repos under GitHub's abuse limits.
+    const settled = await settlePool(PLATFORM_REPOS, (entry) => listRepoWorkflows(entry.repo));
     const repos: AutomationRepo[] = PLATFORM_REPOS.map((entry, i) => {
       const outcome = settled[i];
       return {
