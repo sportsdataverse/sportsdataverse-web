@@ -30,7 +30,7 @@ function ProducerLink({ producer }: { producer: string }) {
       <a
         href={`https://github.com/${producer}`}
         target="_blank"
-        rel="noreferrer"
+        rel="noreferrer noopener"
         className="hover:text-primary"
       >
         {short}
@@ -38,7 +38,7 @@ function ProducerLink({ producer }: { producer: string }) {
       <a
         href={`https://github.com/${producer}/actions`}
         target="_blank"
-        rel="noreferrer"
+        rel="noreferrer noopener"
         title={`${short} workflow runs (logs)`}
         aria-label={`${short} workflow logs`}
         className="text-muted-foreground hover:text-primary"
@@ -73,7 +73,7 @@ function ReleaseTable({ releases, grouped }: { releases: ReleaseSummary[]; group
                   <a
                     href={rel.html_url}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noreferrer noopener"
                     className="hover:text-primary"
                     title={rel.assets[0] ? `newest asset: ${rel.assets[0].name}` : undefined}
                   >
@@ -132,7 +132,7 @@ export default function PlatformDatasets({ platformSession: session, repos }: Da
               <a
                 href={`https://github.com/${entry.repo}/releases`}
                 target="_blank"
-                rel="noreferrer"
+                rel="noreferrer noopener"
                 className="font-barlow text-lg font-semibold hover:text-primary"
               >
                 {entry.repo}
