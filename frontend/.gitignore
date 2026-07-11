@@ -55,3 +55,5 @@ public/sitemap.xml
 /store
 
 tsconfig.tsbuildinfo
+# oh-my-claudecode plugin state
+.omc/
