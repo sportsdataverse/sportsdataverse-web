@@ -19,6 +19,14 @@ GitHub-OAuth (NextAuth) layer, covering four pillars:
    artifacts, git provenance); the UI lists models and their runs.
 4. **Evaluation** — per-model views: metric history across runs, oracle-gate
    pass/fail matrix, run detail with full payload.
+5. **Database** (added mid-build per user request) — status of the Postgres
+   warehouse on the sdv-data droplet. Its ports are deliberately closed to the
+   public internet (post-incident hardening, 2026-07-08), so the site never
+   dials the DB: a daily cron on the droplet PUSHES a heartbeat
+   (`POST /api/platform/db-status`, ingest bearer token) with size/table/row
+   stats + per-dataset freshness; the UI renders the latest snapshot per
+   `source` (Mongo `db_status` collection, upserted) and flags heartbeats
+   older than 26 h as stale.
 
 ## Non-goals (YAGNI)
 
