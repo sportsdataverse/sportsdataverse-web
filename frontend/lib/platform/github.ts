@@ -177,6 +177,8 @@ export type ReleaseSummary = {
   name: string | null;
   html_url: string;
   published_at: string | null;
+  /** Newest asset upload time — the real "last refreshed" for long-lived data releases. */
+  latest_asset_at: string | null;
   asset_count: number;
   total_size: number;
   assets: ReleaseAssetSummary[];
@@ -222,6 +224,7 @@ export async function listRepoReleases(repo: string, maxPages = 3): Promise<Rele
     name: rel.name,
     html_url: rel.html_url,
     published_at: rel.published_at,
+    latest_asset_at: newestAssetAt(rel) || null,
     asset_count: rel.assets.length,
     total_size: rel.assets.reduce((sum, a) => sum + a.size, 0),
     assets: rel.assets
