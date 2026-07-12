@@ -2,7 +2,8 @@
  * Win-probability chart config for /platform/wp — which pbp release backs
  * each sport and the column map for the game picker + WP series. Column
  * names verified against the live parquet schemas (2026-07-12). MBB/WBB pbp
- * carries no WP columns, so v1 is CFB + NFL.
+ * is now enriched in place with home_win_prob + pregame_home_prob (the
+ * espn_*_college_basketball_pbp releases), so all four sports are wired.
  */
 
 export type WpSport = {
@@ -63,6 +64,42 @@ export const WP_SPORTS: WpSport[] = [
       homeName: "home_team",
       awayName: "away_team",
       week: "week",
+    },
+  },
+  {
+    key: "mbb",
+    label: "MBB",
+    tag: "espn_mens_college_basketball_pbp",
+    assetPrefix: "play_by_play_",
+    cols: {
+      gameId: "game_id",
+      order: "game_play_number",
+      wp: "home_win_prob",
+      period: "period_number",
+      clock: "clock_display_value",
+      text: "text",
+      homeName: "home_team_name",
+      awayName: "away_team_name",
+      homeScore: "home_score",
+      awayScore: "away_score",
+    },
+  },
+  {
+    key: "wbb",
+    label: "WBB",
+    tag: "espn_womens_college_basketball_pbp",
+    assetPrefix: "play_by_play_",
+    cols: {
+      gameId: "game_id",
+      order: "game_play_number",
+      wp: "home_win_prob",
+      period: "period_number",
+      clock: "clock_display_value",
+      text: "text",
+      homeName: "home_team_name",
+      awayName: "away_team_name",
+      homeScore: "home_score",
+      awayScore: "away_score",
     },
   },
 ];
