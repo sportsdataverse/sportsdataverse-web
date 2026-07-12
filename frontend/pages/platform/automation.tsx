@@ -19,7 +19,11 @@ export default function PlatformAutomation({ platformSession: session }: { platf
   const { data, error, isLoading, mutate, isValidating } = useSWR(
     session.authorized ? "/api/platform/automation" : null,
     fetcher,
-    { refreshInterval: 60_000, revalidateOnFocus: false }
+    // Each refresh fans out over 40+ repos x 2 GitHub calls. At 60s an open tab
+    // alone burned ~85+ calls/min against the 5,000/h budget. The server now
+    // uses ETag/304 + a freshness window (lib/platform/github.ts), and 15 min is
+    // plenty fresh for workflow status. Use the manual refresh for immediacy.
+    { refreshInterval: 900_000, revalidateOnFocus: false }
   );
   const [dispatching, setDispatching] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);

@@ -50,15 +50,65 @@ export class GithubError extends Error {
 /** Hard cap on any single GitHub call so a slow upstream can't hang a page render. */
 const GH_TIMEOUT_MS = 15_000;
 
+/**
+ * Response cache keyed by path. Three things make the /platform polling cheap:
+ *
+ * 1. **ETag / `If-None-Match`** — GitHub does NOT charge the rate limit for a
+ *    `304 Not Modified`. The Automation pillar fans out over 40+ repos × 2 calls
+ *    on every refresh; without conditional requests that is ~85+ calls a minute
+ *    per open tab, which alone can exhaust the 5,000/h budget in ~17 minutes.
+ * 2. **Freshness window** — inside `FRESH_MS` we skip the network entirely.
+ * 3. **In-flight dedupe** — N concurrent callers collapse to one fetch.
+ *
+ * On an error (notably a 403 rate-limit) we serve the stale body rather than
+ * failing the page.
+ *
+ * Note: on serverless this is per-instance memory, so it is a big win but not a
+ * shared cache; the ETag path is what actually protects the rate limit.
+ */
+type GhCacheEntry = { etag?: string; data: unknown; ts: number };
+const _ghCache = new Map<string, GhCacheEntry>();
+const _ghInflight = new Map<string, Promise<unknown>>();
+const FRESH_MS = 120_000;
+
 async function ghGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${GH_API}${path}`, {
-    headers: ghHeaders(),
-    signal: AbortSignal.timeout(GH_TIMEOUT_MS),
-  });
-  if (!res.ok) {
-    throw new GithubError(res.status, `GitHub ${path} -> ${res.status}`);
-  }
-  return (await res.json()) as T;
+  const now = Date.now();
+  const hit = _ghCache.get(path);
+  if (hit && now - hit.ts < FRESH_MS) return hit.data as T;
+
+  const existing = _ghInflight.get(path);
+  if (existing) return existing as Promise<T>;
+
+  const inflight = (async () => {
+    const headers = { ...(ghHeaders() as Record<string, string>) };
+    if (hit?.etag) headers["If-None-Match"] = hit.etag;
+
+    const res = await fetch(`${GH_API}${path}`, {
+      headers,
+      signal: AbortSignal.timeout(GH_TIMEOUT_MS),
+    });
+
+    // 304: unchanged, and free of rate-limit cost — refresh freshness, reuse body.
+    if (res.status === 304 && hit) {
+      hit.ts = now;
+      return hit.data as T;
+    }
+    if (!res.ok) {
+      if (hit) return hit.data as T; // serve stale (e.g. through a 403 rate-limit)
+      throw new GithubError(res.status, `GitHub ${path} -> ${res.status}`);
+    }
+
+    const data = (await res.json()) as T;
+    _ghCache.set(path, {
+      etag: res.headers.get("etag") ?? undefined,
+      data,
+      ts: now,
+    });
+    return data;
+  })().finally(() => _ghInflight.delete(path));
+
+  _ghInflight.set(path, inflight);
+  return inflight as Promise<T>;
 }
 
 // ---------------------------------------------------------------------------
