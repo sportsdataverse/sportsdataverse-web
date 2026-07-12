@@ -17,6 +17,7 @@ export const PLATFORM_TABS = [
   { href: "/platform/automation", label: "Automation" },
   { href: "/platform/datasets", label: "Datasets" },
   { href: "/platform/explore", label: "Explore" },
+  { href: "/platform/lookups", label: "Lookups" },
   { href: "/platform/models", label: "Models" },
   { href: "/platform/database", label: "Database" },
 ] as const;
