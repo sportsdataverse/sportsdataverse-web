@@ -19,6 +19,7 @@ export const PLATFORM_TABS = [
   { href: "/platform/explore", label: "Explore" },
   { href: "/platform/lookups", label: "Lookups" },
   { href: "/platform/wp", label: "Win Prob" },
+  { href: "/platform/trends", label: "Trends" },
   { href: "/platform/models", label: "Models" },
   { href: "/platform/database", label: "Database" },
 ] as const;
