@@ -155,6 +155,25 @@ a code change — deliberate, reviewable.
 - Status/gate badges: green/amber/red chips (lucide icons); sparklines are
   inline SVG. SWR for data with refresh intervals on the automation page.
 
+## Explore (added 2026-07-12 — CFBD-exporter emulation)
+
+Sixth surface: **`/platform/explore`** emulates collegefootballdata.com's
+exporter (recon 2026-07-11: searchable category catalog → parameter form →
+query → grid → CSV) over OUR release datasets:
+
+- **Engine:** DuckDB-WASM in the browser (jsDelivr bundles, lazy). Queries
+  parquet/csv release assets with HTTP range reads — only touched row groups
+  download; no server compute.
+- **CORS reality (verified by harness):** `github.com/releases/download` and
+  the signed `release-assets.githubusercontent.com` target send NO CORS
+  headers (OPTIONS → 405), so browsers cannot read release assets directly.
+  `/api/platform/datasets/file` is a member-gated same-origin Range-passthrough
+  proxy (server-side signed-URL resolve w/ 60 s cache, streams 206 ranges).
+- **Flow:** dataset picker (sportsdataverse-data tags grouped by sport via
+  `classifyReleaseTag`) → asset multi-select (`/api/platform/datasets/assets`,
+  full paginated list) → schema-aware filter builder (column/op/value + limit)
+  or free SQL mode → 500-row preview grid → full-result CSV download client-side.
+
 ## Phases (implementation order)
 
 1. **Foundation** — config, schemas, platform auth helper, PlatformShell,
