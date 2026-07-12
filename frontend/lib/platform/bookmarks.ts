@@ -14,7 +14,17 @@ export async function listBookmarks(owner: string): Promise<BookmarkDoc[]> {
     .sort({ created_at: -1 })
     .limit(200)
     .toArray();
-  return docs.map((d: any) => ({ ...d, _id: String(d._id) }));
+  // Whitelist the contract fields — a spread would leak anything else that
+  // ever lands on the doc.
+  return docs.map((d: any) => ({
+    _id: String(d._id),
+    name: d.name,
+    tag: d.tag,
+    assets: d.assets,
+    sql: d.sql,
+    owner: d.owner,
+    created_at: d.created_at,
+  }));
 }
 
 export async function insertBookmark(bookmark: BookmarkInput, owner: string): Promise<string> {
