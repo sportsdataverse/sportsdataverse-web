@@ -185,6 +185,7 @@ export type ReleaseSummary = {
 };
 
 type GhRelease = {
+  id: number;
   tag_name: string;
   name: string | null;
   html_url: string;
@@ -197,6 +198,36 @@ type GhRelease = {
     browser_download_url: string;
   }[];
 };
+
+/**
+ * FULL asset list for one release tag (the release object's embedded assets
+ * cap at ~100; the assets endpoint paginates). Feeds the explore asset picker.
+ */
+export async function listReleaseAssets(repo: string, tag: string): Promise<ReleaseAssetSummary[]> {
+  const release = await ghGet<GhRelease>(
+    `/repos/${repo}/releases/tags/${encodeURIComponent(tag)}`
+  );
+  let raw = release.assets;
+  if (raw.length >= 100) {
+    raw = [];
+    for (let page = 1; page <= 5; page++) {
+      const batch = await ghGet<GhRelease["assets"]>(
+        `/repos/${repo}/releases/${release.id}/assets?per_page=100&page=${page}`
+      );
+      raw.push(...batch);
+      if (batch.length < 100) break;
+    }
+  }
+  return raw
+    .map((a) => ({
+      name: a.name,
+      size: a.size,
+      download_count: a.download_count,
+      updated_at: a.updated_at,
+      browser_download_url: a.browser_download_url,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
 
 /**
  * A repo's releases — ALL of them (paginated up to `maxPages`×100; the org's

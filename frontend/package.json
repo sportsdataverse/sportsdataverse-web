@@ -11,6 +11,7 @@
     "tsc": "tsc --noEmit"
   },
   "dependencies": {
+    "@duckdb/duckdb-wasm": "^1.33.1-dev57.0",
     "@emailjs/browser": "^4.4.1",
     "@google-analytics/data": "^5.1.0",
     "@mailchimp/mailchimp_marketing": "^3.0.80",
