@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { GetServerSidePropsContext } from "next";
-import useSWR from "swr";
-import { Download, Play, Plus, X } from "lucide-react";
+import useSWR, { mutate as swrMutate } from "swr";
+import { Bookmark, Download, Play, Plus, X } from "lucide-react";
 import PlatformShell, { formatBytes, timeAgo } from "@components/platform/PlatformShell";
 import { Button } from "@components/ui/button";
 import { classifyReleaseTag } from "@content/platform";
@@ -10,6 +10,7 @@ import { getPlatformSessionProps } from "@lib/platform/auth";
 import { listRepoReleases } from "@lib/platform/github";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
 import type { QueryResult } from "@lib/platform/duckdb";
+import type { BookmarkDoc } from "@lib/platform/schemas";
 
 /**
  * CFBD-exporter-style data exploration: pick a dataset (release tag) → pick
@@ -84,6 +85,61 @@ export default function PlatformExplore({ platformSession: session, datasets, er
   );
 
   const queryable = useMemo(() => (assets ?? []).filter((a) => QUERYABLE.test(a.name)), [assets]);
+
+  const { data: bookmarks } = useSWR(
+    session.authorized ? "/api/platform/bookmarks" : null,
+    async (url: string) => {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || "Request failed");
+      return data.message as BookmarkDoc[];
+    }
+  );
+  const [pendingBookmark, setPendingBookmark] = useState<BookmarkDoc | null>(null);
+
+  // Applying a bookmark is two-phase: select its tag, then once that tag's
+  // asset list arrives, restore the picked files + SQL (in SQL mode).
+  useEffect(() => {
+    if (!pendingBookmark || pendingBookmark.tag !== tag || !assets) return;
+    const names = new Set(queryable.map((a) => a.name));
+    setPicked(new Set(pendingBookmark.assets.filter((a) => names.has(a))));
+    setSqlMode(true);
+    setSql(pendingBookmark.sql);
+    setPendingBookmark(null);
+  }, [pendingBookmark, tag, assets, queryable]);
+
+  async function saveBookmark() {
+    const name = window.prompt("Name this query:");
+    if (!name) return;
+    const statement = sqlMode
+      ? sql
+      : buildSql(
+          (await import("@lib/platform/duckdb")).sourceFor(pickedUrls),
+          filters,
+          limit
+        );
+    const res = await fetch("/api/platform/bookmarks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, tag, assets: Array.from(picked), sql: statement }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      setQueryError(data.message || "Save failed");
+      return;
+    }
+    await swrMutate("/api/platform/bookmarks");
+  }
+
+  function applyBookmark(bookmark: BookmarkDoc) {
+    setPendingBookmark(bookmark);
+    if (bookmark.tag !== tag) selectTag(bookmark.tag);
+  }
+
+  async function removeBookmark(id: string) {
+    await fetch(`/api/platform/bookmarks?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    await swrMutate("/api/platform/bookmarks");
+  }
 
   const grouped = useMemo(() => {
     const bySport = new Map<string, DatasetOption[]>();
@@ -195,6 +251,29 @@ export default function PlatformExplore({ platformSession: session, datasets, er
         </div>
       ) : null}
 
+      {bookmarks && bookmarks.length > 0 ? (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <span className="font-inter text-sm text-muted-foreground">Saved:</span>
+          {bookmarks.map((b) => (
+            <span
+              key={b._id}
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary dark:bg-white/10 dark:text-sky-300"
+            >
+              <button onClick={() => applyBookmark(b)} title={`${b.tag} · ${b.assets.length} file(s)`}>
+                {b.name}
+              </button>
+              <button
+                onClick={() => removeBookmark(b._id)}
+                aria-label={`Delete saved query ${b.name}`}
+                className="text-muted-foreground hover:text-red-600"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
       {/* Step 1 — dataset */}
       <h2 className="mb-2 font-barlow text-lg font-semibold">1 · Dataset</h2>
       <select
@@ -254,7 +333,7 @@ export default function PlatformExplore({ platformSession: session, datasets, er
       {pickedUrls.length > 0 ? (
         <>
           <h2 className="mb-2 font-barlow text-lg font-semibold">3 · Query &amp; export</h2>
-          {columns.length === 0 ? (
+          {columns.length === 0 && !sqlMode ? (
             <Button onClick={loadSchema} disabled={busy !== null}>
               {busy ?? "Load schema"}
             </Button>
@@ -350,6 +429,9 @@ export default function PlatformExplore({ platformSession: session, datasets, er
                 </Button>
                 <Button variant="outline" onClick={downloadCsv} disabled={busy !== null}>
                   <Download className="mr-1 h-4 w-4" /> Download CSV
+                </Button>
+                <Button variant="ghost" onClick={saveBookmark} disabled={busy !== null}>
+                  <Bookmark className="mr-1 h-4 w-4" /> Save query
                 </Button>
               </div>
             </div>

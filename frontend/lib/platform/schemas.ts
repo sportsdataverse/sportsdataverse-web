@@ -97,6 +97,21 @@ export type DbStatusDoc = DbStatusInput & {
   received_at: string;
 };
 
+/** A saved Explore query (Mongo `explore_bookmarks`, owner-scoped). */
+export const bookmarkSchema = z.object({
+  name: z.string().min(1).max(120),
+  tag: z.string().min(1).max(120),
+  assets: z.array(z.string().max(200)).min(1).max(50),
+  sql: z.string().min(1).max(10_000),
+});
+
+export type BookmarkInput = z.infer<typeof bookmarkSchema>;
+export type BookmarkDoc = BookmarkInput & {
+  _id: string;
+  owner: string;
+  created_at: string;
+};
+
 /** Registry aggregation row: one line per model_id. */
 export type ModelSummary = {
   model_id: string;
