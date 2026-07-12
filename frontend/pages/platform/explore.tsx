@@ -5,6 +5,7 @@ import { Bookmark, Download, Play, Plus, X } from "lucide-react";
 import PlatformShell, { formatBytes, timeAgo } from "@components/platform/PlatformShell";
 import { Button } from "@components/ui/button";
 import { classifyReleaseTag } from "@content/platform";
+import { EXPLORE_PRESETS, quickWhere } from "@content/presets";
 import type { PlatformSessionProps } from "@lib/platform/auth";
 import { getPlatformSessionProps } from "@lib/platform/auth";
 import { listRepoReleases } from "@lib/platform/github";
@@ -167,8 +168,47 @@ export default function PlatformExplore({ platformSession: session, datasets, er
     [queryable, picked, tag]
   );
 
+  const preset = tag ? EXPLORE_PRESETS[tag] : undefined;
+  const [quickValues, setQuickValues] = useState<Record<string, string>>({});
+  const quickSeasons = useMemo(
+    () =>
+      preset
+        ? queryable
+            .map((a) => a.name)
+            .filter((n) => n.startsWith(preset.assetPrefix) && n.endsWith(".parquet"))
+            .sort()
+            .reverse()
+        : [],
+    [preset, queryable]
+  );
+  const [quickSeason, setQuickSeason] = useState("");
+
+  async function quickRun() {
+    if (!preset) return;
+    const asset = quickSeason || quickSeasons[0];
+    if (!asset) return;
+    const { runQuery } = await import("@lib/platform/duckdb");
+    const url = `${window.location.origin}/api/platform/datasets/file?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(tag)}&asset=${encodeURIComponent(asset)}`;
+    const where = quickWhere(preset.fields, quickValues);
+    const statement = [
+      `SELECT * FROM read_parquet('${url}')`,
+      where ? `WHERE ${where}` : null,
+      `LIMIT ${Math.max(1, limit)}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    setPicked(new Set([asset]));
+    setSqlMode(true);
+    setSql(statement);
+    await withEngine("Querying…", async () => {
+      setResult(await runQuery(statement, 500));
+    });
+  }
+
   function selectTag(next: string) {
     setTag(next);
+    setQuickValues({});
+    setQuickSeason("");
     setPicked(new Set());
     setColumns([]);
     setFilters([]);
@@ -292,6 +332,51 @@ export default function PlatformExplore({ platformSession: session, datasets, er
           </optgroup>
         ))}
       </select>
+
+      {preset && quickSeasons.length > 0 ? (
+        <div className="mb-8 rounded-lg border border-primary/30 bg-primary/5 p-4 dark:border-sky-800 dark:bg-sky-950/20">
+          <h2 className="mb-3 font-barlow text-lg font-semibold">Quick query</h2>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 font-inter text-xs text-muted-foreground">
+              Season
+              <select
+                value={quickSeason || quickSeasons[0]}
+                onChange={(e) => setQuickSeason(e.target.value)}
+                className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-foreground dark:border-gray-600 dark:bg-darkSecondary"
+              >
+                {quickSeasons.map((asset) => (
+                  <option key={asset} value={asset}>
+                    {asset.replace(preset.assetPrefix, "").replace(".parquet", "")}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {preset.fields.map((field) => (
+              <label
+                key={field.label}
+                className="flex flex-col gap-1 font-inter text-xs text-muted-foreground"
+              >
+                {field.label}
+                <input
+                  value={quickValues[field.label] ?? ""}
+                  onChange={(e) =>
+                    setQuickValues({ ...quickValues, [field.label]: e.target.value })
+                  }
+                  placeholder={field.placeholder}
+                  className="w-36 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-foreground dark:border-gray-600 dark:bg-darkSecondary"
+                />
+              </label>
+            ))}
+            <Button onClick={quickRun} disabled={busy !== null}>
+              <Play className="mr-1 h-4 w-4" /> {busy ?? "Run quick query"}
+            </Button>
+          </div>
+          <p className="mt-2 font-inter text-xs text-muted-foreground">
+            Runs against one season file with a 500-row preview; the generated SQL lands
+            in SQL mode below for tweaking or export.
+          </p>
+        </div>
+      ) : null}
 
       {/* Step 2 — assets */}
       {tag ? (
