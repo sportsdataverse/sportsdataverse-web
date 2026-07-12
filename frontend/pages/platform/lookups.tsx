@@ -55,9 +55,11 @@ export default function PlatformLookups({ platformSession: session }: { platform
           .filter(Boolean)
           .join("\n");
       } else {
-        sql = `SELECT "${sport.teamCol}" AS team, count(*)::INT AS players FROM ${source} GROUP BY 1 ORDER BY 1 LIMIT 400`;
+        // No LIMIT: ESPN college roster files carry 900+ teams and a cap
+        // silently truncated the directory mid-alphabet.
+        sql = `SELECT "${sport.teamCol}" AS team, count(*)::INT AS players FROM ${source} GROUP BY 1 ORDER BY 1`;
       }
-      setResult(await runQuery(sql, 400));
+      setResult(await runQuery(sql, 2000));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
