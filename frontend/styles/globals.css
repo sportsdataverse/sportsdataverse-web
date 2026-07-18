@@ -1,54 +1,145 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
-/* shadcn/ui design tokens, themed to the SportsDataverse blue palette
-   (primary ~#024F84, accent ~#0580AD). Variables only, so the existing global
-   body/look is preserved; shadcn components reference these directly. */
+@custom-variant dark (&:is(.dark *));
+
+/* --- Design tokens (Tailwind v4 CSS-first) ------------------------------- */
+@theme {
+  /* new type utilities */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-barlow), var(--font-inter), sans-serif;
+  --font-script: var(--font-sarina), cursive;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* brand ramp */
+  --color-brand-300: #67c3e8;
+  --color-brand-400: #22a5d4;
+  --color-brand-500: #0580ad;   /* SDV accent */
+  --color-brand-600: #02679c;
+  --color-brand-700: #024f84;   /* legacy primary */
+
+  /* status ramp (shared: workflows, freshness, run states) */
+  --color-status-success: #10b981;
+  --color-status-running: #f59e0b;
+  --color-status-failed: #f43f5e;
+  --color-status-scheduled: #38bdf8;
+  --color-status-cancelled: #a1a1aa;
+
+  --radius: 0.5rem;
+  --breakpoint-xs: 30rem;
+  --breakpoint-3xl: 125rem;
+
+  /* custom animations ported from the old tailwind.config.js */
+  --animate-wiggle: wiggle 1s ease-in-out infinite;
+  --animate-photo-spin: photo-spin 2s 1 linear forwards;
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(-3deg); }
+    50% { transform: rotate(3deg); }
+  }
+  @keyframes photo-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+  }
+}
+
+/* Legacy font utilities kept during migration. Defined as @utility (not @theme)
+   so they reference next/font's own --font-* vars without a circular token. */
+@utility font-inter { font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif; }
+@utility font-barlow { font-family: var(--font-barlow), var(--font-inter), sans-serif; }
+@utility font-sarina { font-family: var(--font-sarina), cursive; }
+
+/* shadcn semantic tokens — light in :root, dark-first values in .dark */
+:root {
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(222 47% 11%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222 47% 11%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(222 47% 11%);
+  --primary: hsl(205 96% 26%);
+  --primary-foreground: hsl(210 40% 98%);
+  --secondary: hsl(210 40% 96%);
+  --secondary-foreground: hsl(222 47% 11%);
+  --muted: hsl(210 40% 96%);
+  --muted-foreground: hsl(215 16% 47%);
+  --accent: hsl(196 94% 35%);
+  --accent-foreground: hsl(210 40% 98%);
+  --destructive: hsl(350 89% 60%);
+  --destructive-foreground: hsl(210 40% 98%);
+  --border: hsl(214 32% 91%);
+  --input: hsl(214 32% 91%);
+  --ring: hsl(199 92% 62%);
+}
+.dark {
+  --background: hsl(222 18% 7%);
+  --foreground: hsl(210 20% 96%);
+  --card: hsl(222 16% 10%);
+  --card-foreground: hsl(210 20% 96%);
+  --popover: hsl(222 16% 9%);
+  --popover-foreground: hsl(210 20% 96%);
+  --primary: hsl(199 92% 62%);
+  --primary-foreground: hsl(222 47% 8%);
+  --secondary: hsl(220 14% 15%);
+  --secondary-foreground: hsl(210 20% 96%);
+  --muted: hsl(220 14% 14%);
+  --muted-foreground: hsl(218 11% 65%);
+  --accent: hsl(196 94% 43%);
+  --accent-foreground: hsl(210 20% 98%);
+  --destructive: hsl(350 89% 60%);
+  --destructive-foreground: hsl(210 20% 98%);
+  --border: hsl(220 13% 18%);
+  --input: hsl(220 13% 18%);
+  --ring: hsl(199 92% 62%);
+}
+
+/* Map the palette vars to Tailwind color tokens so the bg- and text-
+   utilities resolve. Legacy SDV aliases (darkPrimary/…) are kept until the
+   Phase 7 cleanup. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+  /* legacy aliases (removed in Phase 7 cleanup) — values from old config */
+  --color-darkPrimary: #303338;
+  --color-darkSecondary: #2b2d31;
+  --color-darkWhite: #f2f5fa;
+  --color-dark-3: #b8b8b8;
+}
+
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 205 96% 26%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 205 40% 96%;
-    --secondary-foreground: 205 96% 20%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 196 94% 35%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 205 96% 34%;
-    --radius: 0.5rem;
-  }
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 199 92% 62%;
-    --primary-foreground: 205 96% 12%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 196 84% 48%;
-    --accent-foreground: 205 96% 12%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 199 92% 62%;
-  }
+  * { border-color: var(--border); }
+  body { @apply bg-background text-foreground font-sans antialiased; }
 }
 
 /* Inter / Barlow / Sarina are now loaded + optimized via next/font (see
@@ -176,19 +267,6 @@ code > .line::before {
   filter: saturate(1.5);
 }
 /* Code Line Highlighting ENDS */
-
-/* Nprogress bar Custom Styling (force) : STARTS */
-#nprogress .bar {
-  background-color: rgba(0, 89, 255, 0.7) !important;
-  height: 3px !important;
-}
-.dark #nprogress .bar {
-  background: #fff !important;
-}
-#nprogress .peg {
-  box-shadow: none !important;
-}
-/* Nprogress bar Custom Styling (force) : ENDS */
 
 .blogGrid {
   display: grid;
