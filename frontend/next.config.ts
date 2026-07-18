@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname),
   },
   reactStrictMode: true,
+  // next-auth v5 (beta) ships ESM that imports `next/server`; as an
+  // externalized package Node can't resolve that subpath, so bundle it.
+  transpilePackages: ["next-auth"],
   images: {
     // Next 16: `domains` is deprecated; use remotePatterns (scoped to hosts we
     // actually render). Pruned the unused portfolio-template hosts.
