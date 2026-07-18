@@ -1,4 +1,4 @@
-import { HomeHeading } from "../../pages";
+import { HomeHeading } from "@components/HomeHeading";
 import Link from "next/link";
 import Blog from "../Blog";
 import { FrontMatter } from "@lib/types";
