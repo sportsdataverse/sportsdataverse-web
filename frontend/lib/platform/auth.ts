@@ -1,8 +1,9 @@
 import { timingSafeEqual } from "crypto";
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { GetServerSidePropsContext } from "next";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@lib/auth";
+import { NextResponse } from "next/server";
+import type { Session } from "next-auth";
+import { auth } from "@lib/auth";
 
 /**
  * Auth helpers for the members-only /platform area.
@@ -19,11 +20,11 @@ export type PlatformSessionProps = {
   login: string | null;
 };
 
-/** Page-side gate: resolve session → props consumed by PlatformShell. */
+/** Page-side gate for legacy Pages-Router pages (removed with them). */
 export async function getPlatformSessionProps(
   ctx: GetServerSidePropsContext
 ): Promise<PlatformSessionProps> {
-  const session = await getServerSession(ctx.req, ctx.res, authOptions);
+  const session = await auth(ctx);
   return {
     authorized: Boolean(session?.isOrgMember),
     signedIn: Boolean(session),
@@ -32,14 +33,15 @@ export async function getPlatformSessionProps(
 }
 
 /**
- * API-side gate: returns the acting login, or responds 401 and returns null.
- * Callers must `return` immediately when null.
+ * Pages-API gate: returns the acting login, or responds 401 and returns null.
+ * Callers must `return` immediately when null. (Legacy — App Router handlers
+ * use `requireMemberApp` instead.)
  */
 export async function requireMember(
   req: NextApiRequest,
   res: NextApiResponse
 ): Promise<string | null> {
-  const session = await getServerSession(req, res, authOptions);
+  const session = await auth(req, res);
   if (!session?.isOrgMember) {
     res.status(401).json({
       message:
@@ -52,13 +54,40 @@ export async function requireMember(
 }
 
 /**
+ * Route-handler gate: `const { session, deny } = await requireMemberApp();
+ * if (deny) return deny;` — deny is a ready 401 JSON response.
+ */
+export async function requireMemberApp(): Promise<
+  | { session: Session; deny: null }
+  | { session: null; deny: NextResponse }
+> {
+  const session = await auth();
+  if (!session?.isOrgMember) {
+    return {
+      session: null,
+      deny: NextResponse.json(
+        {
+          message:
+            "Unauthorized: sign in with a sportsdataverse GitHub org account to use the platform.",
+          success: false,
+        },
+        { status: 401 }
+      ),
+    };
+  }
+  return { session, deny: null };
+}
+
+/**
  * CI ingest auth: `Authorization: Bearer <PLATFORM_INGEST_TOKEN>`.
  * Fails closed when the env var is unset. Timing-safe comparison.
+ * Accepts the raw Authorization header value so both Pages API routes
+ * (`req.headers.authorization`) and route handlers
+ * (`req.headers.get("authorization")`) can use it.
  */
-export function checkIngestToken(req: NextApiRequest): boolean {
+export function checkIngestToken(header: string | null | undefined): boolean {
   const expected = process.env.PLATFORM_INGEST_TOKEN;
   if (!expected) return false;
-  const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) return false;
   const given = header.slice("Bearer ".length);
   const a = Buffer.from(given);

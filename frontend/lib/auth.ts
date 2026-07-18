@@ -1,5 +1,5 @@
-import type { NextAuthOptions } from "next-auth";
-import GitHubProvider from "next-auth/providers/github";
+import NextAuth from "next-auth";
+import GitHub from "next-auth/providers/github";
 
 /** The GitHub organization whose members may manage package entries. */
 export const SDV_ORG = "sportsdataverse";
@@ -46,9 +46,11 @@ async function fetchOrgMembership(
   }
 }
 
-export const authOptions: NextAuthOptions = {
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
   providers: [
-    GitHubProvider({
+    GitHub({
       clientId: process.env.GITHUB_ID ?? "",
       clientSecret: process.env.GITHUB_SECRET ?? "",
       // `read:org` lets us read the caller's org membership; `read:user`
@@ -89,4 +91,4 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-};
+});

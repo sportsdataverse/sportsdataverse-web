@@ -3,10 +3,9 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
 import type { GetServerSidePropsContext } from "next";
-import { getServerSession } from "next-auth/next";
 import { signIn, signOut } from "next-auth/react";
 import { Github, Pencil, Trash2, Plus } from "lucide-react";
-import { authOptions } from "@lib/auth";
+import { auth } from "@lib/auth";
 import { Button } from "@components/ui/button";
 import ProjectForm from "@components/ProjectForm";
 import type { ProjectInput, ProjectDoc } from "@lib/projectSchema";
@@ -254,7 +253,7 @@ export default function ManageProjects({
 }
 
 export async function getServerSideProps(ctx: GetServerSidePropsContext) {
-  const session = await getServerSession(ctx.req, ctx.res, authOptions);
+  const session = await auth(ctx);
   const signedIn = Boolean(session);
   const authorized = Boolean(session?.isOrgMember);
 

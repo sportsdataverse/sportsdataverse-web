@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@lib/auth";
+import { auth } from "@lib/auth";
 import { checkIngestToken, requireMember } from "@lib/platform/auth";
 import { insertRun, listRuns } from "@lib/platform/runs";
 import { modelRunSchema } from "@lib/platform/schemas";
@@ -34,10 +33,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === "POST") {
     // CI token first (no session round trip); fall back to member session.
     let actor: string | null = null;
-    if (checkIngestToken(req)) {
+    if (checkIngestToken(req.headers.authorization)) {
       actor = "ci";
     } else {
-      const session = await getServerSession(req, res, authOptions);
+      const session = await auth(req, res);
       if (session?.isOrgMember) actor = session.login ?? "unknown";
     }
     if (!actor) {

@@ -3,8 +3,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import { connectToDatabase } from "@lib/mongodb";
 import { ObjectId } from "mongodb";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@lib/auth";
+import { auth } from "@lib/auth";
 import { projectSchema, projectUpdateSchema } from "@lib/projectSchema";
 
 /**
@@ -35,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     case "PUT":
     case "DELETE": {
       // Writes require an authenticated sportsdataverse GitHub org member.
-      const session = await getServerSession(req, res, authOptions);
+      const session = await auth(req, res);
       if (!session?.isOrgMember) {
         return res.status(401).json({
           message:
