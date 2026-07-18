@@ -9,9 +9,9 @@ import ContactForm from "./ContactForm";
 
 export default function Contact() {
   return (
-    <div id="contact" className="dark:bg-darkPrimary !relative">
+    <div id="contact" className="!relative">
       {/* Get in touch top section */}
-      <section className="pt-6 text-center w-full-width dark:bg-darkPrimary dark:text-white">
+      <section className="pt-6 text-center w-full-width">
         <AnimatedHeading
           variants={popUpFromBottomForText}
           className="text-4xl font-bold"
@@ -21,7 +21,7 @@ export default function Contact() {
 
         <AnimatedText
           variants={popUpFromBottomForText}
-          className="px-4 py-2 font-medium dark:text-gray-300"
+          className="px-4 py-2 font-medium text-muted-foreground"
         >
           Is there something you would like to work on in the SportsDataverse? Whether it's
           related to work or just a casual conversation, we are here and ready to
@@ -30,7 +30,7 @@ export default function Contact() {
       </section>
 
       {/* Wrapper Container */}
-      <section className="flex flex-col w-full px-5 mx-auto lg:flex-row dark:bg-darkPrimary dark:text-white lg:pb-10">
+      <section className="flex flex-col w-full px-5 mx-auto lg:flex-row lg:pb-10">
         {/* Left Contact form section */}
         <div className="w-full mx-auto mt-10">
           <AnimatedHeading

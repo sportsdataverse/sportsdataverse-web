@@ -32,7 +32,7 @@ export default function DatabaseClient({ statuses }: { statuses: DbStatusDoc[] }
           {statuses.map((status) => (
             <section
               key={status.source}
-              className="rounded-lg border border-gray-200 bg-white/70 p-5 dark:border-gray-700 dark:bg-darkSecondary/70"
+              className="rounded-lg border border-border bg-card/70 p-5"
             >
               <div className="mb-4 flex flex-wrap items-center gap-3">
                 <h2 className="font-barlow text-xl font-semibold">
@@ -45,7 +45,7 @@ export default function DatabaseClient({ statuses }: { statuses: DbStatusDoc[] }
               </div>
 
               {status.error ? (
-                <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 font-inter text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+                <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 font-inter text-sm text-destructive">
                   {status.error}
                 </div>
               ) : null}
@@ -81,9 +81,9 @@ export default function DatabaseClient({ statuses }: { statuses: DbStatusDoc[] }
               </div>
 
               {status.datasets.length > 0 ? (
-                <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="overflow-x-auto rounded-lg border border-border">
                   <table className="w-full text-left font-inter text-sm">
-                    <thead className="bg-gray-50 text-xs uppercase text-muted-foreground dark:bg-gray-800/60">
+                    <thead className="bg-muted text-xs uppercase text-muted-foreground">
                       <tr>
                         <th className="px-4 py-2">Dataset</th>
                         <th className="px-4 py-2">Rows</th>
@@ -95,7 +95,7 @@ export default function DatabaseClient({ statuses }: { statuses: DbStatusDoc[] }
                       {status.datasets.map((dataset) => (
                         <tr
                           key={dataset.name}
-                          className="border-t border-gray-200 dark:border-gray-700"
+                          className="border-t border-border"
                         >
                           <td className="px-4 py-2 font-medium">{dataset.name}</td>
                           <td className="px-4 py-2">

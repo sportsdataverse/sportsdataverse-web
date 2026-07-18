@@ -14,11 +14,11 @@ function KeyValueTable({ data }: { data: Record<string, string | number | boolea
     return <p className="font-inter text-sm text-muted-foreground">None recorded.</p>;
   }
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+    <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-left font-inter text-sm">
         <tbody>
           {entries.map(([key, value]) => (
-            <tr key={key} className="border-t border-gray-200 first:border-t-0 dark:border-gray-700">
+            <tr key={key} className="border-t border-border first:border-t-0">
               <td className="px-4 py-2 font-medium">{key}</td>
               <td className="px-4 py-2 font-mono text-xs">
                 {typeof value === "number" ? value.toPrecision(6) : String(value)}
@@ -84,13 +84,13 @@ export default function RunDetailClient({ run }: { run: ModelRunDoc | null }) {
           <StatusBadge status={run.status} />
         </div>
         <Button variant="outline" size="sm" onClick={handleDelete} disabled={deleting}>
-          <Trash2 className="mr-1 h-4 w-4 text-red-600 dark:text-red-400" />
+          <Trash2 className="mr-1 h-4 w-4 text-destructive" />
           {deleting ? "Deleting…" : "Delete run"}
         </Button>
       </div>
 
       {error ? (
-        <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 font-inter text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 font-inter text-sm text-destructive">
           {error}
         </div>
       ) : null}
@@ -120,7 +120,7 @@ export default function RunDetailClient({ run }: { run: ModelRunDoc | null }) {
           {run.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary dark:bg-white/10 dark:text-sky-300"
+              className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary"
             >
               {tag}
             </span>
@@ -131,9 +131,9 @@ export default function RunDetailClient({ run }: { run: ModelRunDoc | null }) {
       {run.gates.length > 0 ? (
         <>
           <h3 className="mb-3 font-barlow text-lg font-semibold">Oracle gates</h3>
-          <div className="mb-8 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="mb-8 overflow-x-auto rounded-lg border border-border">
             <table className="w-full text-left font-inter text-sm">
-              <thead className="bg-gray-50 text-xs uppercase text-muted-foreground dark:bg-gray-800/60">
+              <thead className="bg-muted text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="px-4 py-2">Gate</th>
                   <th className="px-4 py-2">Observed</th>
@@ -143,7 +143,7 @@ export default function RunDetailClient({ run }: { run: ModelRunDoc | null }) {
               </thead>
               <tbody>
                 {run.gates.map((gate) => (
-                  <tr key={gate.name} className="border-t border-gray-200 dark:border-gray-700">
+                  <tr key={gate.name} className="border-t border-border">
                     <td className="px-4 py-2 font-medium">{gate.name}</td>
                     <td className="px-4 py-2 font-mono text-xs">{gate.observed}</td>
                     <td className="px-4 py-2 font-mono text-xs">
@@ -151,9 +151,9 @@ export default function RunDetailClient({ run }: { run: ModelRunDoc | null }) {
                     </td>
                     <td className="px-4 py-2">
                       {gate.passed ? (
-                        <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        <Check className="h-4 w-4 text-status-success" />
                       ) : (
-                        <X className="h-4 w-4 text-red-600 dark:text-red-400" />
+                        <X className="h-4 w-4 text-destructive" />
                       )}
                     </td>
                   </tr>

@@ -24,7 +24,7 @@ export default function Blog({
       initial={animate && "hidden"}
       whileInView={animate ? "visible" : ""}
       viewport={{ once: true }}
-      className="group bg-white dark:bg-darkSecondary rounded-2xl p-2 flex flex-col sm:flex-row items-center w-full sm:w-[95%] mx-auto gap-2 md:gap-7 shadow-md md:shadow-lg ring-1 ring-transparent transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-primary/30"
+      className="group bg-card rounded-2xl p-2 flex flex-col sm:flex-row items-center w-full sm:w-[95%] mx-auto gap-2 md:gap-7 shadow-md md:shadow-lg ring-1 ring-transparent transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-primary/30"
     >
       <div className="w-full overflow-hidden rounded-xl">
         <Image
@@ -42,11 +42,11 @@ export default function Blog({
       <div className="flex flex-col w-full h-full px-2 pb-2 mt-2 sm:mt-0 sm:p-1 lg:py-5 md:pr-5">
         <Link
           href={`/blog/${blog.slug}`}
-          className="font-bold text-neutral-900 md:text-xl dark:text-neutral-200 transition-colors hover:text-primary dark:hover:text-sky-300"
+          className="font-bold text-foreground md:text-xl transition-colors hover:text-primary"
         >
           {blog.title}
         </Link>
-        <p className="mt-3 text-sm sm:text-xs md:text-sm  text-gray-600 dark:text-[#b5b7ba] line-clamp-3 sm:line-clamp-2 md:line-clamp-4 mb-2">
+        <p className="mt-3 text-sm sm:text-xs md:text-sm  text-muted-foreground line-clamp-3 sm:line-clamp-2 md:line-clamp-4 mb-2">
           {blog.excerpt}
         </p>
 
@@ -70,7 +70,7 @@ export default function Blog({
               </span>
             </div>
           </div>
-          <p className="flex items-center justify-between text-xs font-medium text-gray-500 dark:text-dark-3 md:text-sm">
+          <p className="flex items-center justify-between text-xs font-medium text-muted-foreground md:text-sm">
             <span>{blog.readingTime.text}</span>
           </p>
         </div>

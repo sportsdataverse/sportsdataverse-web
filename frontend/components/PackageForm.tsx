@@ -5,9 +5,9 @@ import { Button } from "@components/ui/button";
 import { REPO_TYPES, type PackageInput, type PackageDoc } from "@lib/packageSchema";
 
 const fieldClass =
-  "w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 dark:border-gray-700 dark:bg-darkSecondary dark:text-gray-100";
+  "w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30";
 const labelClass =
-  "mb-1 block font-barlow text-sm font-semibold text-gray-700 dark:text-gray-200";
+  "mb-1 block font-barlow text-sm font-semibold text-foreground";
 
 type FormState = {
   title: string;
@@ -72,7 +72,7 @@ export default function PackageForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-xl border border-gray-200 bg-white/80 p-6 shadow-sm dark:border-gray-700 dark:bg-darkSecondary/80"
+      className="space-y-4 rounded-xl border border-border bg-card/80 p-6 shadow-sm"
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
@@ -193,10 +193,10 @@ export default function PackageForm({
         </div>
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+      <label className="flex items-center gap-2 text-sm text-foreground">
         <input
           type="checkbox"
-          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/30"
+          className="h-4 w-4 rounded border-input text-primary focus:ring-primary/30"
           checked={form.published}
           onChange={(e) => update("published", e.target.checked)}
         />

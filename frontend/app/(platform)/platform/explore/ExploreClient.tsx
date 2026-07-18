@@ -334,7 +334,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
       </p>
 
       {error ? (
-        <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 font-inter text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 font-inter text-sm text-destructive">
           Failed to load the dataset catalog: {error}
         </div>
       ) : null}
@@ -345,7 +345,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
           {bookmarks.map((b) => (
             <span
               key={b._id}
-              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary dark:bg-white/10 dark:text-sky-300"
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
             >
               <button onClick={() => applyBookmark(b)} title={`${b.tag} · ${b.assets.length} file(s)`}>
                 {b.name}
@@ -353,7 +353,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
               <button
                 onClick={() => removeBookmark(b._id)}
                 aria-label={`Delete saved query ${b.name}`}
-                className="text-muted-foreground hover:text-red-600"
+                className="text-muted-foreground hover:text-destructive"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -367,7 +367,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
       <select
         value={tag}
         onChange={(e) => selectTag(e.target.value)}
-        className="mb-6 w-full max-w-xl rounded-md border border-gray-300 bg-white px-3 py-2 font-inter text-sm dark:border-gray-600 dark:bg-darkSecondary"
+        className="mb-6 w-full max-w-xl rounded-md border border-input bg-card px-3 py-2 font-inter text-sm"
       >
         <option value="">Select a dataset…</option>
         {grouped.map(([sport, options]) => (
@@ -386,7 +386,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
         <>
           <h2 className="mb-2 font-barlow text-lg font-semibold">2 · Season</h2>
           {assetsError ? (
-            <p className="mb-4 font-inter text-sm text-red-600 dark:text-red-400">
+            <p className="mb-4 font-inter text-sm text-destructive">
               {assetsError.message}
             </p>
           ) : assetsLoading ? (
@@ -403,7 +403,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
                   <select
                     value={stem}
                     onChange={(e) => setStem(e.target.value)}
-                    className="rounded-md border border-gray-300 bg-white px-2 py-1.5 font-mono text-sm text-foreground dark:border-gray-600 dark:bg-darkSecondary"
+                    className="rounded-md border border-input bg-card px-2 py-1.5 font-mono text-sm text-foreground"
                   >
                     {stems.map((s) => (
                       <option key={s} value={s}>
@@ -419,7 +419,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
                   value={partition}
                   onChange={(e) => setPartition(e.target.value)}
                   disabled={partitions.length === 0}
-                  className="rounded-md border border-gray-300 bg-white px-2 py-1.5 font-mono text-sm text-foreground dark:border-gray-600 dark:bg-darkSecondary"
+                  className="rounded-md border border-input bg-card px-2 py-1.5 font-mono text-sm text-foreground"
                 >
                   {partitions.length === 0 ? (
                     <option value="">full file</option>
@@ -465,7 +465,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
                     min={1}
                     max={1_000_000}
                     onChange={(e) => setLimit(Number(e.target.value) || 100)}
-                    className="w-24 rounded-md border border-gray-300 bg-white px-2 py-1 dark:border-gray-600 dark:bg-darkSecondary"
+                    className="w-24 rounded-md border border-input bg-card px-2 py-1"
                     disabled={sqlMode}
                   />
                 </label>
@@ -477,7 +477,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
                   onChange={(e) => setSql(e.target.value)}
                   rows={6}
                   spellCheck={false}
-                  className="w-full rounded-md border border-gray-300 bg-white p-3 font-mono text-xs dark:border-gray-600 dark:bg-darkSecondary"
+                  className="w-full rounded-md border border-input bg-card p-3 font-mono text-xs"
                 />
               ) : (
                 <div className="space-y-2">
@@ -488,7 +488,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
                         onChange={(e) =>
                           setFilters(filters.map((x, j) => (j === i ? { ...x, column: e.target.value } : x)))
                         }
-                        className="rounded-md border border-gray-300 bg-white px-2 py-1 font-mono text-xs dark:border-gray-600 dark:bg-darkSecondary"
+                        className="rounded-md border border-input bg-card px-2 py-1 font-mono text-xs"
                       >
                         <option value="">column…</option>
                         {columns.map((c) => (
@@ -502,7 +502,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
                         onChange={(e) =>
                           setFilters(filters.map((x, j) => (j === i ? { ...x, op: e.target.value } : x)))
                         }
-                        className="rounded-md border border-gray-300 bg-white px-2 py-1 font-mono text-xs dark:border-gray-600 dark:bg-darkSecondary"
+                        className="rounded-md border border-input bg-card px-2 py-1 font-mono text-xs"
                       >
                         {OPS.map((op) => (
                           <option key={op}>{op}</option>
@@ -514,7 +514,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
                           setFilters(filters.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))
                         }
                         placeholder="value"
-                        className="w-44 rounded-md border border-gray-300 bg-white px-2 py-1 font-mono text-xs dark:border-gray-600 dark:bg-darkSecondary"
+                        className="w-44 rounded-md border border-input bg-card px-2 py-1 font-mono text-xs"
                       />
                       <Button
                         variant="ghost"
@@ -551,7 +551,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
           )}
 
           {queryError ? (
-            <div className="mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 font-mono text-xs text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+            <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 font-mono text-xs text-destructive">
               {queryError}
             </div>
           ) : null}
@@ -564,9 +564,9 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
                   ? ` (showing first ${result.rows.length})`
                   : ""}
               </p>
-              <div className="max-h-[32rem] overflow-auto rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="max-h-[32rem] overflow-auto rounded-lg border border-border">
                 <table className="w-full text-left font-mono text-xs">
-                  <thead className="sticky top-0 bg-gray-50 uppercase text-muted-foreground dark:bg-gray-800">
+                  <thead className="sticky top-0 bg-muted uppercase text-muted-foreground">
                     <tr>
                       {result.columns.map((c) => (
                         <th key={c} className="whitespace-nowrap px-3 py-2">
@@ -577,7 +577,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
                   </thead>
                   <tbody>
                     {result.rows.map((row, i) => (
-                      <tr key={i} className="border-t border-gray-200 dark:border-gray-700">
+                      <tr key={i} className="border-t border-border">
                         {row.map((cell, j) => (
                           <td key={j} className="max-w-[16rem] truncate whitespace-nowrap px-3 py-1" title={cell ?? ""}>
                             {cell ?? ""}

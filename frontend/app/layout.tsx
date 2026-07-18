@@ -1,6 +1,6 @@
 import "@styles/globals.css";
 import type { Metadata } from "next";
-import { inter, barlow, sarina } from "@lib/fonts";
+import { inter, barlow, sarina, barlowCondensed } from "@lib/fonts";
 import { baseMetadata } from "@lib/metadata";
 import { Providers } from "./providers";
 
@@ -15,7 +15,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${barlow.variable} ${sarina.variable}`}
+      className={`${inter.variable} ${barlow.variable} ${sarina.variable} ${barlowCondensed.variable}`}
     >
       <body>
         <Providers>{children}</Providers>

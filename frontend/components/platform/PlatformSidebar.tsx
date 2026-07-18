@@ -2,78 +2,72 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Workflow,
-  Database,
-  Search,
-  Braces,
-  BookOpen,
-  Percent,
-  TrendingUp,
-  Boxes,
-  HardDrive,
-  KeyRound,
-  ArrowLeft,
-} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { cn } from "@lib/utils";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@components/ui/tooltip";
+import { PLATFORM_NAV } from "./widgets";
 
-const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  "/platform": LayoutDashboard,
-  "/platform/automation": Workflow,
-  "/platform/datasets": Database,
-  "/platform/query": Braces,
-  "/platform/explore": Search,
-  "/platform/lookups": BookOpen,
-  "/platform/wp": Percent,
-  "/platform/trends": TrendingUp,
-  "/platform/models": Boxes,
-  "/platform/database": HardDrive,
-  "/platform/api-key": KeyRound,
-};
+export function isPlatformActive(pathname: string, href: string): boolean {
+  return href === "/platform" ? pathname === "/platform" : pathname.startsWith(href);
+}
 
-import { PLATFORM_TABS } from "./widgets";
-
-export default function PlatformSidebar() {
+/** Shared grouped nav list — used by the desktop sidebar and the mobile drawer. */
+export function PlatformNavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname() ?? "";
   return (
-    <aside className="sticky top-0 z-30 flex h-dvh w-14 shrink-0 flex-col items-center gap-1 border-r border-border/60 bg-card/50 py-3">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Link
-            href="/"
-            className="mb-2 flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" />
-          </Link>
-        </TooltipTrigger>
-        <TooltipContent side="right">Back to site</TooltipContent>
-      </Tooltip>
-      {PLATFORM_TABS.map((tab) => {
-        const Icon = ICONS[tab.href] ?? LayoutDashboard;
-        const active =
-          tab.href === "/platform"
-            ? pathname === "/platform"
-            : pathname.startsWith(tab.href);
-        return (
-          <Tooltip key={tab.href}>
-            <TooltipTrigger asChild>
-              <Link
-                href={tab.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
-                  active && "bg-primary/15 text-primary"
-                )}
-              >
-                <Icon className="size-4" />
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="right">{tab.label}</TooltipContent>
-          </Tooltip>
-        );
-      })}
+    <nav className="flex-1 overflow-y-auto px-2 py-3">
+      {PLATFORM_NAV.map((g, gi) => (
+        <div key={gi} className={cn(gi > 0 && "mt-5")}>
+          {g.title ? (
+            <p className="px-2 pb-1.5 font-display text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              {g.title}
+            </p>
+          ) : null}
+          <ul className="space-y-0.5">
+            {g.items.map((item) => {
+              const active = isPlatformActive(pathname, item.href);
+              const Icon = item.icon;
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={onNavigate}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
+                      active && "bg-secondary font-semibold text-foreground"
+                    )}
+                  >
+                    <Icon className={cn("size-4 shrink-0", active && "text-score-ink")} />
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+export default function PlatformSidebar() {
+  return (
+    <aside className="sticky top-0 z-30 hidden h-dvh w-56 shrink-0 flex-col border-r border-border bg-card md:flex">
+      <div className="flex h-12 items-center gap-2 border-b border-border px-4">
+        <span className="font-script text-base leading-none text-primary">SDV</span>
+        <span className="font-display text-sm font-bold uppercase tracking-wide">
+          Platform
+        </span>
+      </div>
+      <PlatformNavList />
+      <div className="border-t border-border p-2">
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" /> Back to site
+        </Link>
+      </div>
     </aside>
   );
 }

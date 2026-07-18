@@ -69,15 +69,15 @@ export default function AutomationClient() {
         <div
           className={`mb-4 rounded-md border px-4 py-3 font-inter text-sm ${
             notice.kind === "ok"
-              ? "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200"
-              : "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300"
+              ? "border-accent/40 bg-accent/10 text-accent"
+              : "border-destructive/40 bg-destructive/10 text-destructive"
           }`}
         >
           {notice.text}
         </div>
       ) : null}
       {error ? (
-        <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 font-inter text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 font-inter text-sm text-destructive">
           {error.message}
         </div>
       ) : null}
@@ -97,20 +97,20 @@ export default function AutomationClient() {
               >
                 {repo.repo}
               </a>
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary dark:bg-white/10 dark:text-sky-300">
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
                 {repo.sport} · {repo.kind}
               </span>
             </div>
             {repo.error ? (
-              <p className="font-inter text-sm text-red-600 dark:text-red-400">
+              <p className="font-inter text-sm text-destructive">
                 Failed to load: {repo.error}
               </p>
             ) : repo.workflows.length === 0 ? (
               <p className="font-inter text-sm text-muted-foreground">No workflows.</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="overflow-x-auto rounded-lg border border-border">
                 <table className="w-full text-left font-inter text-sm">
-                  <thead className="bg-gray-50 text-xs uppercase text-muted-foreground dark:bg-gray-800/60">
+                  <thead className="bg-muted text-xs uppercase text-muted-foreground">
                     <tr>
                       <th className="px-4 py-2">Workflow</th>
                       <th className="px-4 py-2">Last run</th>
@@ -125,7 +125,7 @@ export default function AutomationClient() {
                       const key = `${repo.repo}/${wf.file}`;
                       const canDispatch = repo.dispatchable.includes(wf.file);
                       return (
-                        <tr key={wf.id} className="border-t border-gray-200 dark:border-gray-700">
+                        <tr key={wf.id} className="border-t border-border">
                           <td className="px-4 py-2 font-medium">
                             {wf.name}
                             {wf.state !== "active" ? (

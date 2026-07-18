@@ -57,7 +57,7 @@ function WpChart({ points, home, away }: { points: WpPoint[]; home: string; away
             x2={W - pad.r}
             y1={y(tick)}
             y2={y(tick)}
-            className="stroke-gray-200 dark:stroke-gray-700"
+            className="stroke-border"
             strokeDasharray={tick === 0.5 ? "0" : "4 4"}
             strokeWidth={tick === 0.5 ? 1.5 : 1}
           />
@@ -73,7 +73,7 @@ function WpChart({ points, home, away }: { points: WpPoint[]; home: string; away
             x2={x(b.i)}
             y1={pad.t}
             y2={H - pad.b}
-            className="stroke-gray-300 dark:stroke-gray-600"
+            className="stroke-border"
             strokeDasharray="2 4"
           />
           <text x={x(b.i) + 3} y={H - pad.b + 14} className="fill-current font-inter text-[10px] text-muted-foreground">
@@ -218,8 +218,8 @@ export default function WpClient() {
             onClick={() => resetForSport(s.key)}
             className={`rounded-full px-3 py-1 font-inter text-sm font-medium transition-colors ${
               s.key === sportKey
-                ? "bg-primary text-white dark:bg-white/20"
-                : "bg-primary/10 text-primary hover:bg-primary/20 dark:bg-white/10 dark:text-sky-300"
+                ? "bg-primary text-primary-foreground"
+                : "bg-primary/10 text-primary hover:bg-primary/20"
             }`}
           >
             {s.label}
@@ -228,7 +228,7 @@ export default function WpClient() {
         <select
           value={season}
           onChange={(e) => (e.target.value ? void loadGames(e.target.value) : setSeason(""))}
-          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 font-inter text-sm dark:border-gray-600 dark:bg-darkSecondary"
+          className="rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
         >
           <option value="">Season…</option>
           {seasons.map((s) => (
@@ -241,7 +241,7 @@ export default function WpClient() {
           <select
             value={gameId}
             onChange={(e) => (e.target.value ? void loadGame(e.target.value) : setGameId(""))}
-            className="min-w-[20rem] rounded-md border border-gray-300 bg-white px-3 py-1.5 font-inter text-sm dark:border-gray-600 dark:bg-darkSecondary"
+            className="min-w-[20rem] rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
           >
             <option value="">Game… ({games.length})</option>
             {games.map((g) => (
@@ -255,20 +255,20 @@ export default function WpClient() {
       </div>
 
       {error ? (
-        <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 font-mono text-xs text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 font-mono text-xs text-destructive">
           {error}
         </div>
       ) : null}
 
       {points.length > 1 ? (
         <>
-          <div className="mb-6 rounded-lg border border-gray-200 bg-white/70 p-4 dark:border-gray-700 dark:bg-darkSecondary/70">
+          <div className="mb-6 rounded-lg border border-border bg-card/70 p-4">
             <WpChart points={points} home={teams.home} away={teams.away} />
           </div>
           <h3 className="mb-2 font-barlow text-lg font-semibold">Play log</h3>
-          <div className="max-h-[28rem] overflow-auto rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="max-h-[28rem] overflow-auto rounded-lg border border-border">
             <table className="w-full text-left font-inter text-sm">
-              <thead className="sticky top-0 bg-gray-50 text-xs uppercase text-muted-foreground dark:bg-gray-800">
+              <thead className="sticky top-0 bg-muted text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2">Period</th>
                   <th className="px-3 py-2">Clock</th>
@@ -279,7 +279,7 @@ export default function WpClient() {
               </thead>
               <tbody>
                 {points.map((p, i) => (
-                  <tr key={i} className="border-t border-gray-200 dark:border-gray-700">
+                  <tr key={i} className="border-t border-border">
                     <td className="whitespace-nowrap px-3 py-1">{p.period > 4 ? "OT" : p.period}</td>
                     <td className="whitespace-nowrap px-3 py-1">{p.clock}</td>
                     <td className="whitespace-nowrap px-3 py-1">{p.score}</td>

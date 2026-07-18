@@ -4,21 +4,27 @@ import { popUp } from "@content/FramerMotionVariants";
 export default function StatsCard({
   title,
   value,
+  error,
 }: {
   title: string;
-  value: string;
+  value: string | number | null | undefined;
+  error?: boolean;
 }) {
   return (
     <motion.div
-      className="flex-col justify-center py-4 origin-center transform bg-white border border-transparent rounded-md shadow select-none px-7 dark:bg-darkSecondary dark:shadow-md hover:border-gray-400 dark:hover:border-neutral-600 group"
+      className="flex-col justify-center py-4 origin-center transform bg-card border border-border/60 rounded-md shadow-sm select-none px-7 hover:border-border group"
       variants={popUp}
     >
-      <h1 className="my-2 text-3xl font-bold text-gray-600 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">
-        {value ?? (
-          <div className="h-8 bg-gray-300 rounded-sm w-28 dark:bg-neutral-700 animate-pulse" />
+      <p className="my-2 font-display text-4xl font-bold tracking-tight text-foreground">
+        {error ? (
+          <span className="text-muted-foreground">—</span>
+        ) : value != null ? (
+          value
+        ) : (
+          <span className="block h-9 w-28 animate-pulse rounded-sm bg-muted" />
         )}
-      </h1>
-      <p className="text-base font-medium text-gray-600 dark:text-gray-400 group-hover:text-black dark:group-hover:text-white">
+      </p>
+      <p className="text-base font-medium text-muted-foreground group-hover:text-foreground">
         {title}
       </p>
     </motion.div>

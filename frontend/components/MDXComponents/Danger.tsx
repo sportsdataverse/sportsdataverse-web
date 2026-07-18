@@ -2,7 +2,7 @@ type Props = { title?: string; text: string };
 
 export default function Danger({ title, text }: Props) {
   return (
-    <div className="w-full p-6 my-4 bg-red-100 border-l-4 border-red-700 dark:border-red-500 dark:bg-red-700/30">
+    <div className="w-full p-6 my-4 rounded-md border border-red-600/50 bg-red-100 dark:bg-red-950/50">
       <div className="flex items-center gap-2 mb-2 text-2xl font-medium leading-tight text-red-700 dark:text-red-500">
         <svg
           aria-hidden="true"
@@ -20,7 +20,7 @@ export default function Danger({ title, text }: Props) {
         </svg>
         {title || "Danger"}
       </div>
-      <p className="mt-4 text-red-700/80 dark:text-red-400/50">{text}</p>
+      <p className="mt-4 text-red-800 dark:text-red-300">{text}</p>
     </div>
   );
 }

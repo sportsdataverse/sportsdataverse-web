@@ -6,7 +6,7 @@ type Props = {
 
 export default function Warning({ text, title, children }: Props) {
   return (
-    <div className="w-full p-6 my-4 bg-yellow-100 border-l-4 border-yellow-700 dark:border-yellow-500 dark:bg-yellow-900">
+    <div className="w-full p-6 my-4 rounded-md border border-yellow-600/50 bg-yellow-100 dark:bg-yellow-950/50">
       <div className="flex items-center gap-2 mb-2 text-2xl font-medium leading-tight text-yellow-700 dark:text-yellow-500">
         <svg
           aria-hidden="true"
@@ -22,7 +22,7 @@ export default function Warning({ text, title, children }: Props) {
         </svg>
         {title || "Warning"}
       </div>
-      <p className="mt-4 text-yellow-700/80 dark:text-yellow-400/50">
+      <p className="mt-4 text-yellow-800 dark:text-yellow-300">
         {text || children}
       </p>
     </div>

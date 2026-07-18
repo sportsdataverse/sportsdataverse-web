@@ -91,11 +91,11 @@ export default function Form() {
         whileInView="visible"
         variants={FadeContainer}
         viewport={{ once: true }}
-        className="flex flex-col items-center w-full max-w-xl mx-auto my-10 dark:text-gray-300"
+        className="flex flex-col items-center w-full max-w-xl mx-auto my-10"
         onSubmit={sendEmail}
       >
         {/* First Name And Last Name */}
-        <div className="grid w-full grid-cols-2 gap-6">
+        <div className="grid w-full grid-cols-1 sm:grid-cols-2 gap-6">
           <motion.div
             variants={mobileNavItemSideways}
             className="relative z-0 w-full mb-6 group"
@@ -104,13 +104,13 @@ export default function Form() {
               type="text"
               name="first_name"
               id="floating_first_name"
-              className="block w-full px-0 py-2 mt-2 text-sm bg-transparent border-0 border-b-2 appearance-none text-white-900 border-slate-500 dark:text-white dark:border-gray-400 dark:focus:border-white focus:outline-none focus:ring-0 focus:border-black peer"
+              className="block w-full px-0 py-2 mt-2 text-sm bg-transparent border-0 border-b-2 appearance-none text-foreground border-input focus:outline-none focus:ring-0 focus:border-primary peer"
               placeholder=" "
               required
             />
             <label
               htmlFor="floating_first_name"
-              className="peer-focus:font-medium absolute text-sm text-slate-600 dark:text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-focus:text-black dark:peer-focus:text-white peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
+              className="peer-focus:font-medium absolute text-sm text-muted-foreground duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-focus:text-foreground peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
             >
               First name
             </label>
@@ -123,13 +123,13 @@ export default function Form() {
               type="text"
               name="last_name"
               id="floating_last_name"
-              className="block w-full px-0 py-2 mt-2 text-sm text-gray-900 bg-transparent border-0 border-b-2 appearance-none border-slate-500 dark:text-white dark:border-gray-400 dark:focus:border-white focus:outline-none focus:ring-0 focus:border-black peer"
+              className="block w-full px-0 py-2 mt-2 text-sm text-foreground bg-transparent border-0 border-b-2 appearance-none border-input focus:outline-none focus:ring-0 focus:border-primary peer"
               placeholder=" "
               required
             />
             <label
               htmlFor="floating_last_name"
-              className="peer-focus:font-medium absolute text-sm text-slate-600 dark:text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-focus:text-black dark:peer-focus:text-white peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
+              className="peer-focus:font-medium absolute text-sm text-muted-foreground duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-focus:text-foreground peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
             >
               Last name
             </label>
@@ -143,13 +143,13 @@ export default function Form() {
             type="email"
             name="email"
             id="floating_email"
-            className="block w-full px-0 py-2 mt-2 text-sm text-gray-900 bg-transparent border-0 border-b-2 appearance-none border-slate-500 dark:text-white dark:border-gray-400 focus:outline-none focus:ring-0 focus:dark:border-white focus:border-black peer"
+            className="block w-full px-0 py-2 mt-2 text-sm text-foreground bg-transparent border-0 border-b-2 appearance-none border-input focus:outline-none focus:ring-0 focus:border-primary peer"
             placeholder=" "
             required
           />
           <label
             htmlFor="floating_email"
-            className="peer-focus:font-medium absolute text-sm text-slate-600 dark:text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-focus:text-black dark:peer-focus:text-white peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
+            className="peer-focus:font-medium absolute text-sm text-muted-foreground duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-focus:text-foreground peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
           >
             Email address
           </label>
@@ -162,13 +162,13 @@ export default function Form() {
             type="subject"
             name="subject"
             id="floating_subject"
-            className="block w-full px-0 py-2 mt-2 text-sm text-gray-900 bg-transparent border-0 border-b-2 appearance-none border-slate-500 dark:text-white dark:border-gray-400 dark:focus:border-white focus:outline-none focus:ring-0 focus:border-black peer"
+            className="block w-full px-0 py-2 mt-2 text-sm text-foreground bg-transparent border-0 border-b-2 appearance-none border-input focus:outline-none focus:ring-0 focus:border-primary peer"
             placeholder=" "
             required
           />
           <label
             htmlFor="floating_subject"
-            className="peer-focus:font-medium absolute text-sm text-slate-600 dark:text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-focus:text-black dark:peer-focus:text-white peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
+            className="peer-focus:font-medium absolute text-sm text-muted-foreground duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-focus:text-foreground peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
           >
             Subject
           </label>
@@ -180,13 +180,13 @@ export default function Form() {
           <textarea
             name="message"
             id="floating_message"
-            className="block py-2 mt-2 px-0 w-full text-sm text-gray-900 bg-transparent border-0 border-b-2 border-slate-500 appearance-none dark:text-white dark:border-gray-400 dark:focus:border-white focus:outline-none focus:ring-0  peer min-h-[100px] resize-y focus:border-black"
+            className="block py-2 mt-2 px-0 w-full text-sm text-foreground bg-transparent border-0 border-b-2 border-input appearance-none focus:outline-none focus:ring-0  peer min-h-[100px] resize-y focus:border-primary"
             placeholder=" "
             required
           />
           <label
             htmlFor="floating_message"
-            className="peer-focus:font-medium absolute text-sm text-slate-600 dark:text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-focus:text-black dark:peer-focus:text-white peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
+            className="peer-focus:font-medium absolute text-sm text-muted-foreground duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-focus:text-foreground peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
           >
             Message
           </label>
@@ -199,7 +199,7 @@ export default function Form() {
           <button
             ref={sendButtonRef}
             type="submit"
-            className="relative w-full px-4 py-3 overflow-hidden text-sm font-medium text-center text-white transition duration-300 rounded-lg outline-none bg-neutral-800 dark:bg-darkSecondary active:scale-95 hover:brightness-110 disabled:opacity-50 disabled:active:scale-100"
+            className="relative w-full px-4 py-3 overflow-hidden text-sm font-medium text-center text-primary-foreground transition duration-300 rounded-lg outline-none bg-primary active:scale-95 hover:brightness-110 disabled:opacity-50 disabled:active:scale-100"
           >
             Send
           </button>

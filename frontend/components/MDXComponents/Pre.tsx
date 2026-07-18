@@ -76,7 +76,7 @@ const Pre = ({ children }: { children?: ReactNode }) => {
         </button>
       )}
 
-      <pre className="blog-pre !my-0 !rounded-md  !w-full !p-0 !py-3 border border-black dark:border-gray-200/60">
+      <pre className="blog-pre !my-0 !rounded-md  !w-full !p-0 !py-3 border border-border">
         {children}
       </pre>
     </div>

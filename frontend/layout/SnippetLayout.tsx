@@ -17,7 +17,7 @@ export default function SnippetLayout({
     <section className="mt-[44px] md:mt-[60px]  relative !overflow-hidden">
       <section className="relative max-w-3xl p-5 mx-auto prose sm:pt-10 font-barlow dark:prose-invert">
         <div className="flex items-center justify-between">
-          <h1 className="m-0 text-3xl font-bold tracking-tight text-black md:text-5xl dark:text-white">
+          <h1 className="m-0 text-3xl font-bold tracking-tight text-foreground md:text-5xl">
             {snippet.meta.title}
           </h1>
 
@@ -36,7 +36,7 @@ export default function SnippetLayout({
 
         <AnimatedDiv
           variants={opacityVariant}
-          className="max-w-full prose-sm blog-container sm:prose-base prose-pre:bg-white prose-pre:shadow dark:prose-pre:shadow-black/80 dark:prose-pre:bg-darkSecondary prose-pre:saturate-150 dark:prose-pre:saturate-100 marker:text-black dark:marker:text-white"
+          className="max-w-full prose-sm blog-container sm:prose-base prose-pre:shadow marker:text-foreground"
         >
           {children}
         </AnimatedDiv>
