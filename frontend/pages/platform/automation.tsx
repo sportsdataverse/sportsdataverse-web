@@ -6,7 +6,7 @@ import PlatformShell, { StatusBadge, timeAgo } from "@components/platform/Platfo
 import { Button } from "@components/ui/button";
 import type { PlatformSessionProps } from "@lib/platform/auth";
 import { getPlatformSessionProps } from "@lib/platform/auth";
-import type { AutomationRepo } from "../api/platform/automation";
+import type { AutomationRepo } from "../../app/api/platform/automation/route";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);

@@ -1,4 +1,4 @@
-import { NextApiRequest, NextApiResponse } from "next";
+import { NextResponse } from "next/server";
 
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import { connectToDatabase } from "@lib/mongodb";
@@ -24,42 +24,57 @@ function parseBody(body: unknown): Record<string, any> {
   return {};
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  switch (req.method) {
-    case "GET": {
-      return getProjects(req, res);
-    }
-
-    case "POST":
-    case "PUT":
-    case "DELETE": {
-      // Writes require an authenticated sportsdataverse GitHub org member.
-      const session = await auth(req, res);
-      if (!session?.isOrgMember) {
-        return res.status(401).json({
+// Writes require an authenticated sportsdataverse GitHub org member.
+async function requireWriter(): Promise<
+  | { actor: string; isAdmin: boolean; deny: null }
+  | { actor: null; isAdmin: false; deny: NextResponse }
+> {
+  const session = await auth();
+  if (!session?.isOrgMember) {
+    return {
+      actor: null,
+      isAdmin: false,
+      deny: NextResponse.json(
+        {
           message:
             "Unauthorized: sign in with a sportsdataverse GitHub org account to manage projects.",
           success: false,
-        });
-      }
-      const actor = session.login ?? "unknown";
-      const isAdmin = session.role === "admin";
-      if (req.method === "POST") return addProject(req, res, actor);
-      if (req.method === "PUT") return updateProject(req, res, actor, isAdmin);
-      return deleteProject(req, res, actor, isAdmin);
-    }
-
-    default: {
-      res.setHeader("Allow", "GET, POST, PUT, DELETE");
-      return res
-        .status(405)
-        .json({ message: "Method not allowed", success: false });
-    }
+        },
+        { status: 401 }
+      ),
+    };
   }
+  return {
+    actor: session.login ?? "unknown",
+    isAdmin: session.role === "admin",
+    deny: null,
+  };
+}
+
+export async function GET() {
+  return getProjects();
+}
+
+export async function POST(req: Request) {
+  const { actor, deny } = await requireWriter();
+  if (deny) return deny;
+  return addProject(await req.json().catch(() => ({})), actor);
+}
+
+export async function PUT(req: Request) {
+  const { actor, isAdmin, deny } = await requireWriter();
+  if (deny) return deny;
+  return updateProject(await req.json().catch(() => ({})), actor, isAdmin);
+}
+
+export async function DELETE(req: Request) {
+  const { actor, isAdmin, deny } = await requireWriter();
+  if (deny) return deny;
+  return deleteProject(await req.json().catch(() => ({})), actor, isAdmin);
 }
 
 // Getting all projects (public, read-only).
-async function getProjects(_req: NextApiRequest, res: NextApiResponse) {
+async function getProjects() {
   try {
     const { db } = await connectToDatabase();
     const projects = await db
@@ -67,30 +82,30 @@ async function getProjects(_req: NextApiRequest, res: NextApiResponse) {
       .find({})
       .sort({ createdAt: -1 })
       .toArray();
-    return res.json({
+    return NextResponse.json({
       message: JSON.parse(JSON.stringify(projects)),
       success: true,
     });
   } catch (error: any) {
-    return res
-      .status(500)
-      .json({ message: new Error(error).message, success: false });
+    return NextResponse.json(
+      { message: new Error(error).message, success: false },
+      { status: 500 }
+    );
   }
 }
 
 // Adding a new project (owned by the creator).
-async function addProject(
-  req: NextApiRequest,
-  res: NextApiResponse,
-  actor: string
-) {
-  const parsed = projectSchema.safeParse(parseBody(req.body));
+async function addProject(rawBody: unknown, actor: string) {
+  const parsed = projectSchema.safeParse(parseBody(rawBody));
   if (!parsed.success) {
-    return res.status(400).json({
-      message: "Validation failed",
-      errors: parsed.error.flatten(),
-      success: false,
-    });
+    return NextResponse.json(
+      {
+        message: "Validation failed",
+        errors: parsed.error.flatten(),
+        success: false,
+      },
+      { status: 400 }
+    );
   }
   try {
     const { db } = await connectToDatabase();
@@ -105,15 +120,16 @@ async function addProject(
       updatedAt: now,
     };
     const result = await db.collection("projects").insertOne(doc);
-    return res.json({
+    return NextResponse.json({
       message: "Project added successfully",
       id: result.insertedId,
       success: true,
     });
   } catch (error: any) {
-    return res
-      .status(500)
-      .json({ message: new Error(error).message, success: false });
+    return NextResponse.json(
+      { message: new Error(error).message, success: false },
+      { status: 500 }
+    );
   }
 }
 
@@ -140,76 +156,78 @@ async function authorizeMutation(
 }
 
 // Updating a project by _id (owner or admin; validated fields only).
-async function updateProject(
-  req: NextApiRequest,
-  res: NextApiResponse,
-  actor: string,
-  isAdmin: boolean
-) {
-  const { _id, ...rest } = parseBody(req.body);
+async function updateProject(rawBody: unknown, actor: string, isAdmin: boolean) {
+  const { _id, ...rest } = parseBody(rawBody);
   if (!_id || typeof _id !== "string" || !ObjectId.isValid(_id)) {
-    return res.status(400).json({
-      message: "A valid _id is required to update a project.",
-      success: false,
-    });
+    return NextResponse.json(
+      {
+        message: "A valid _id is required to update a project.",
+        success: false,
+      },
+      { status: 400 }
+    );
   }
   const parsed = projectUpdateSchema.safeParse(rest);
   if (!parsed.success) {
-    return res.status(400).json({
-      message: "Validation failed",
-      errors: parsed.error.flatten(),
-      success: false,
-    });
+    return NextResponse.json(
+      {
+        message: "Validation failed",
+        errors: parsed.error.flatten(),
+        success: false,
+      },
+      { status: 400 }
+    );
   }
   if (Object.keys(parsed.data).length === 0) {
-    return res
-      .status(400)
-      .json({ message: "No valid fields to update.", success: false });
+    return NextResponse.json(
+      { message: "No valid fields to update.", success: false },
+      { status: 400 }
+    );
   }
   try {
     const { db } = await connectToDatabase();
     const auth = await authorizeMutation(db, _id, actor, isAdmin);
     if (!auth.ok) {
-      return res.status(auth.status).json({ message: auth.message, success: false });
+      return NextResponse.json({ message: auth.message, success: false }, { status: auth.status });
     }
     await db.collection("projects").updateOne(
       { _id: new ObjectId(_id) },
       { $set: { ...parsed.data, updatedBy: actor, updatedAt: new Date().toISOString() } }
     );
-    return res.json({ message: "Project updated successfully", success: true });
+    return NextResponse.json({ message: "Project updated successfully", success: true });
   } catch (error: any) {
-    return res
-      .status(500)
-      .json({ message: new Error(error).message, success: false });
+    return NextResponse.json(
+      { message: new Error(error).message, success: false },
+      { status: 500 }
+    );
   }
 }
 
 // Deleting a project by _id (owner or admin).
-async function deleteProject(
-  req: NextApiRequest,
-  res: NextApiResponse,
-  actor: string,
-  isAdmin: boolean
-) {
-  const body = parseBody(req.body);
+async function deleteProject(rawBody: unknown, actor: string, isAdmin: boolean) {
+  const body = parseBody(rawBody);
   const id = typeof body._id === "string" ? body._id : undefined;
   if (!id || !ObjectId.isValid(id)) {
-    return res.status(400).json({
-      message: "A valid _id is required to delete a project.",
-      success: false,
-    });
+    return NextResponse.json(
+      {
+        message: "A valid _id is required to delete a project.",
+        success: false,
+      },
+      { status: 400 }
+    );
   }
   try {
     const { db } = await connectToDatabase();
     const auth = await authorizeMutation(db, id, actor, isAdmin);
     if (!auth.ok) {
-      return res.status(auth.status).json({ message: auth.message, success: false });
+      return NextResponse.json({ message: auth.message, success: false }, { status: auth.status });
     }
     await db.collection("projects").deleteOne({ _id: new ObjectId(id) });
-    return res.json({ message: "Project deleted successfully", success: true });
+    return NextResponse.json({ message: "Project deleted successfully", success: true });
   } catch (error: any) {
-    return res
-      .status(500)
-      .json({ message: new Error(error).message, success: false });
+    return NextResponse.json(
+      { message: new Error(error).message, success: false },
+      { status: 500 }
+    );
   }
 }

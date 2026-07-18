@@ -1,6 +1,6 @@
 import mailchimp from '@mailchimp/mailchimp_marketing';
 import md5 from 'md5';
-import { NextApiRequest, NextApiResponse } from "next";
+import { NextResponse } from "next/server";
 
 interface ResponseData {
   message: string;
@@ -8,12 +8,8 @@ interface ResponseData {
 
 
 
-// eslint-disable-next-line import/no-anonymous-default-export
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<ResponseData>
-) {
-  const { url, email } = req.body;
+export async function POST(req: Request) {
+  const { url, email } = await req.json().catch(() => ({}));
 
   // Set the mailchimp config with your API key and server prefix
   mailchimp.setConfig({
@@ -33,10 +29,13 @@ export default async function handler(
       }
     );
     console.log(response)
-    res.status(200).json({
-      message: `You will receive article updates at ${email}`,
-    });
+    return NextResponse.json<ResponseData>(
+      {
+        message: `You will receive article updates at ${email}`,
+      },
+      { status: 200 }
+    );
   } catch (err) {
-    return res.send({message: "Error adding user to list"});
+    return NextResponse.json<ResponseData>({ message: "Error adding user to list" });
   }
 }
