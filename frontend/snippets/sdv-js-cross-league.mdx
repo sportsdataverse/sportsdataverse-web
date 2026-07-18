@@ -1,0 +1,35 @@
+---
+slug: sdv-js-cross-league
+title: One-token league switching
+date: 2026-07-18
+excerpt: The same method names exist on every league namespace — switching sports is a one-token change.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: node
+---
+
+The cross-league ESPN endpoints follow one naming rule —
+`espn<League><Endpoint>` — and the same methods exist on every league
+namespace. Multi-sport tooling stops being special-cased.
+
+<CodeTitle title="cross-league.mjs" lang="js" />
+
+```js
+import sdv from "sportsdataverse";
+
+await sdv.nfl.espnNflScoreboard({ week: 1, season_type: 2 });
+await sdv.nhl.espnNhlScoreboard({});
+await sdv.cfb.espnCfbRankings({});
+await sdv.wnba.espnWnbaStandings({ season: 2024 });
+
+// Multi-league sports (soccer, cricket) take a league slug
+await sdv.soccer.espnSoccerScoreboard({ league: "eng.1" }); // Premier League
+
+// Parameters accept snake_case or camelCase — these are identical
+await sdv.nfl.espnNflTeamSchedule({ team_id: 12, season: 2024 });
+await sdv.nfl.espnNflTeamSchedule({ teamId: 12, season: 2024 });
+```
+
+Full docs: [js.sportsdataverse.org](https://js.sportsdataverse.org/)

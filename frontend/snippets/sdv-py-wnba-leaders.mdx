@@ -1,0 +1,40 @@
+---
+slug: sdv-py-wnba-leaders
+title: WNBA per-game leaders
+date: 2026-07-18
+excerpt: Season scoring leaders from WNBA player box scores in a dozen lines of polars.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: python
+---
+
+Player box score releases make leaderboards a one-expression job.
+
+<CodeTitle title="wnba_leaders.py" lang="py" />
+
+```python
+import polars as pl
+import sportsdataverse as sdv
+
+box = sdv.wnba.load_wnba_player_boxscore(seasons=[2024])
+
+(
+    box
+    .group_by("athlete_id", "athlete_display_name")
+    .agg(
+        gp=pl.len(),
+        ppg=pl.col("points").mean(),
+    )
+    .filter(pl.col("gp") >= 20)
+    .sort("ppg", descending=True)
+    .head(10)
+)
+```
+
+The same pattern works across leagues — swap in
+`sdv.nba.load_nba_player_boxscore(...)` or
+`sdv.wbb.load_wbb_player_boxscore(...)` and the column names hold.
+
+Full docs: [py.sportsdataverse.org](https://py.sportsdataverse.org/)

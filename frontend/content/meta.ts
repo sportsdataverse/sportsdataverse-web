@@ -60,9 +60,9 @@ const pageMeta: PageMeta = {
   snippets: {
     title: "Code Snippets",
     description:
-      "These are a collection of code snippets we have used in the past and saved. These could be useful for you as well.",
+      "Copy-paste starters for the SportsDataverse — load play-by-play, box scores, and models in R, Python, or Node.js in a dozen lines.",
     image: "https://raw.githubusercontent.com/sportsdataverse/sportsdataverse-web/main/frontend/public/logo/cover.png",
-    keywords: "Code, Code Snippets, Snippets",
+    keywords: "Code, Snippets, R, Python, Node.js, sportsdataverse, play-by-play",
   },
 };
 

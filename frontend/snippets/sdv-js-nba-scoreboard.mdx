@@ -1,0 +1,37 @@
+---
+slug: sdv-js-nba-scoreboard
+title: Scoreboard to box score
+date: 2026-07-18
+excerpt: Today's NBA scoreboard, then the full game summary for any game — in Node.js.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: node
+---
+
+`sportsdataverse` on npm puts every league behind one default export. The
+scoreboard-to-summary flow is the game-day workhorse: list today's games,
+then pull everything about one of them.
+
+<CodeTitle title="scoreboard.mjs" lang="js" />
+
+```js
+// npm install sportsdataverse   (Node ≥ 20.18, ESM-only)
+import sdv from "sportsdataverse";
+
+// Today's NBA scoreboard
+const board = await sdv.nba.espnNbaScoreboard({});
+
+// Full summary for the first game — box score, plays, win probability
+const [game] = board.events ?? [];
+if (game) {
+  const summary = await sdv.nba.espnNbaSummary({ event_id: game.id });
+  console.log(Object.keys(summary)); // boxscore, plays, winprobability, ...
+}
+```
+
+Every method also has a snake_case alias (`sdv.nba.espn_nba_scoreboard`) for
+parity with the Python and R packages.
+
+Full docs: [js.sportsdataverse.org](https://js.sportsdataverse.org/)

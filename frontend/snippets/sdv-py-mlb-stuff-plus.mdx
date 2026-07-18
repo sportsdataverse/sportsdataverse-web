@@ -1,0 +1,34 @@
+---
+slug: sdv-py-mlb-stuff-plus
+title: MLB Stuff+ pitching models
+date: 2026-07-18
+excerpt: Load modeled pitching metrics — Stuff+, expected stats, catcher framing — from the MLB releases.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: python
+---
+
+Beyond raw play-by-play, the data releases include modeled metrics. The MLB
+namespace ships pitching-model outputs ready to join onto anything.
+
+<CodeTitle title="mlb_models.py" lang="py" />
+
+```python
+import sportsdataverse as sdv
+
+# Stuff+ style pitching-model scores by pitcher
+stuff = sdv.mlb.load_mlb_stuff_plus(seasons=[2024])
+stuff.head()
+```
+
+Siblings in the same namespace cover the rest of the Statcast-derived world:
+
+```python
+sdv.mlb.load_mlb_expected_stats(seasons=[2024])   # xBA / xSLG / xwOBA
+sdv.mlb.load_mlb_oaa(seasons=[2024])              # outs above average
+sdv.mlb.load_mlb_catcher_framing(seasons=[2024])  # framing runs
+```
+
+Full docs: [py.sportsdataverse.org](https://py.sportsdataverse.org/)

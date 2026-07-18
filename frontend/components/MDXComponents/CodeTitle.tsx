@@ -4,6 +4,7 @@ import {
   SiPython,
   SiGnubash,
   SiHtml5,
+  SiR,
   SiReact,
   SiMarkdown,
   SiNextdotjs,
@@ -36,6 +37,9 @@ export default function CodeTitle({ title, lang }: Props) {
       break;
     case "py":
       Icon = SiPython;
+      break;
+    case "r":
+      Icon = SiR;
       break;
     case "json":
       Icon = VscJson;

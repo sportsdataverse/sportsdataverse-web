@@ -1,0 +1,34 @@
+---
+slug: sdv-py-espn-live
+title: Live ESPN endpoints
+date: 2026-07-18
+excerpt: Hit ESPN's live API for any league — game play-by-play, schedules, scoreboards — no key required.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: python
+---
+
+Two families of functions, one rule: `load_*` reads prebuilt season releases
+(fast, historical), `espn_*` hits the live ESPN API on every call (fresh,
+game-day). Both exist for every league.
+
+<CodeTitle title="espn_live.py" lang="py" />
+
+```python
+import sportsdataverse as sdv
+
+# Live/near-live ESPN endpoints — no key required
+cfb_pbp = sdv.cfb.espn_cfb_pbp(game_id=401628334)
+nba_schedule = sdv.nba.espn_nba_schedule(season=2024)
+wnba_pbp = sdv.wnba.espn_wnba_pbp(game_id=401620238)
+
+# Game-day scoreboard for any date
+board = sdv.cfb.espn_cfb_scoreboard(dates=20241005)
+```
+
+Reach for `espn_*` while games are in progress; switch to the `load_*`
+releases for anything historical — they're faster and kinder to ESPN.
+
+Full docs: [py.sportsdataverse.org](https://py.sportsdataverse.org/)

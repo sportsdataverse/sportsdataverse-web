@@ -1,0 +1,40 @@
+---
+slug: baseballr-statcast-exit-velocity
+title: Statcast exit-velocity leaders
+date: 2026-07-18
+excerpt: Pull a week of Statcast pitches from Baseball Savant and rank the hardest-hit balls.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: r
+---
+
+`statcast_search()` queries Baseball Savant directly — every pitch, with
+launch speed, launch angle, and outcome. Keep date ranges to about a week per
+call (Savant's own limit) and bind rows for longer spans.
+
+<CodeTitle title="statcast_ev.R" lang="r" />
+
+```r
+# install.packages("baseballr")
+library(baseballr)
+library(dplyr)
+
+sc <- statcast_search(
+  start_date  = "2024-06-03",
+  end_date    = "2024-06-09",
+  player_type = "batter"
+)
+
+sc |>
+  filter(!is.na(launch_speed)) |>
+  arrange(desc(launch_speed)) |>
+  select(player_name, events, launch_speed, launch_angle) |>
+  head(10)
+```
+
+baseballr also wraps the MLB Stats API (`mlb_pbp()` for gumbo play-by-play),
+FanGraphs, and Baseball Reference — one package, four data sources.
+
+Full docs: [billpetti.github.io/baseballr](https://BillPetti.github.io/baseballr/)

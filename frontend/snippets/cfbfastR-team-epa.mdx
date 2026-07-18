@@ -1,0 +1,44 @@
+---
+slug: cfbfastR-team-epa
+title: College football team EPA
+date: 2026-07-18
+excerpt: Rank every FBS offense by expected points added per play from a full season of play-by-play.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: r
+---
+
+Expected points added per play is the backbone of modern college football
+analysis. `load_cfb_pbp()` pulls a full season of processed play-by-play from
+the sportsdataverse-data releases — no scraping, no API key — so ranking every
+offense takes one pipe.
+
+<CodeTitle title="team_epa.R" lang="r" />
+
+```r
+# install.packages("cfbfastR")
+library(cfbfastR)
+library(dplyr)
+
+pbp <- load_cfb_pbp(seasons = 2024)
+
+pbp |>
+  filter(!is.na(EPA), rush == 1 | pass == 1) |>
+  group_by(pos_team) |>
+  summarise(
+    plays    = n(),
+    epa_play = mean(EPA),
+    success  = mean(success, na.rm = TRUE),
+    .groups  = "drop"
+  ) |>
+  arrange(desc(epa_play)) |>
+  head(10)
+```
+
+Columns worth knowing on the way out: `EPA`, `success`, `pos_team`, `down`,
+`distance`. Pass a vector of seasons (`seasons = 2014:2024`) to load a decade
+at once.
+
+Full docs: [cfbfastR.sportsdataverse.org](https://cfbfastR.sportsdataverse.org/)
