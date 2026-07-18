@@ -1,18 +1,11 @@
+"use client";
+
 import Link from "next/link";
-import type { GetServerSidePropsContext } from "next";
 import { Check, X } from "lucide-react";
-import PlatformShell, {
-  Sparkline,
-  StatusBadge,
-  timeAgo,
-} from "@components/platform/PlatformShell";
-import type { PlatformSessionProps } from "@lib/platform/auth";
-import { getPlatformSessionProps } from "@lib/platform/auth";
-import { listRuns } from "@lib/platform/runs";
+import { Sparkline, StatusBadge, timeAgo } from "@components/platform/widgets";
 import type { ModelRunDoc } from "@lib/platform/schemas";
 
 type ModelDetailProps = {
-  platformSession: PlatformSessionProps;
   modelId: string;
   /** Newest-first, capped at 50. */
   runs: ModelRunDoc[];
@@ -20,7 +13,7 @@ type ModelDetailProps = {
 
 const MAX_GATE_COLUMNS = 10;
 
-export default function PlatformModelDetail({ platformSession: session, modelId, runs }: ModelDetailProps) {
+export default function ModelDetailClient({ modelId, runs }: ModelDetailProps) {
   // Chronological order for trends; newest-first everywhere else.
   const chrono = runs.slice().reverse();
   const metricKeys = Array.from(new Set(chrono.flatMap((r) => Object.keys(r.metrics ?? {}))));
@@ -30,14 +23,16 @@ export default function PlatformModelDetail({ platformSession: session, modelId,
   const gateRuns = runs.slice(0, MAX_GATE_COLUMNS);
 
   return (
-    <PlatformShell session={session} title={modelId}>
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h2 className="font-barlow text-2xl font-semibold">{modelId}</h2>
-        {runs[0] ? <StatusBadge status={runs[0].status} /> : null}
-        <span className="font-inter text-sm text-muted-foreground">
-          {runs.length} run{runs.length === 1 ? "" : "s"}
-          {runs[0] ? ` · latest ${timeAgo(runs[0].created_at)}` : ""}
-        </span>
+    <>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-display text-2xl font-bold tracking-tight">{modelId}</h1>
+          {runs[0] ? <StatusBadge status={runs[0].status} /> : null}
+          <span className="font-inter text-sm text-muted-foreground">
+            {runs.length} run{runs.length === 1 ? "" : "s"}
+            {runs[0] ? ` · latest ${timeAgo(runs[0].created_at)}` : ""}
+          </span>
+        </div>
       </div>
 
       {runs.length === 0 ? (
@@ -154,16 +149,6 @@ export default function PlatformModelDetail({ platformSession: session, modelId,
           </div>
         </>
       )}
-    </PlatformShell>
+    </>
   );
-}
-
-export async function getServerSideProps(ctx: GetServerSidePropsContext) {
-  const session = await getPlatformSessionProps(ctx);
-  const modelId = typeof ctx.params?.modelId === "string" ? ctx.params.modelId : "";
-  if (!session.authorized) {
-    return { props: { platformSession: session, modelId, runs: [] } };
-  }
-  const runs = await listRuns({ model_id: modelId, limit: 50 }).catch(() => []);
-  return { props: { platformSession: session, modelId, runs } };
 }

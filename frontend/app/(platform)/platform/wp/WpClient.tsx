@@ -1,13 +1,11 @@
+"use client";
+
 import { useMemo, useState } from "react";
-import type { GetServerSidePropsContext } from "next";
 import useSWR from "swr";
 import { LineChart } from "lucide-react";
-import PlatformShell from "@components/platform/PlatformShell";
 import { Button } from "@components/ui/button";
 import { WP_SPORTS } from "@content/wp";
 import type { WpSport } from "@content/wp";
-import type { PlatformSessionProps } from "@lib/platform/auth";
-import { getPlatformSessionProps } from "@lib/platform/auth";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
 
 /**
@@ -91,7 +89,7 @@ function WpChart({ points, home, away }: { points: WpPoint[]; home: string; away
   );
 }
 
-export default function PlatformWp({ platformSession: session }: { platformSession: PlatformSessionProps }) {
+export default function WpClient() {
   const [sportKey, setSportKey] = useState(WP_SPORTS[0].key);
   const [season, setSeason] = useState("");
   const [games, setGames] = useState<GameOption[]>([]);
@@ -107,9 +105,7 @@ export default function PlatformWp({ platformSession: session }: { platformSessi
   );
 
   const { data: assets } = useSWR(
-    session.authorized
-      ? `/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}`
-      : null,
+    `/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}`,
     assetsFetcher
   );
 
@@ -206,7 +202,10 @@ export default function PlatformWp({ platformSession: session }: { platformSessi
   }
 
   return (
-    <PlatformShell session={session} title="Win probability">
+    <>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="font-display text-2xl font-bold tracking-tight">Win probability</h1>
+      </div>
       <p className="mb-6 font-inter text-sm text-muted-foreground">
         Game win-probability charts from the model pbp releases — pick a sport, season,
         and game. Rendered from the home team&apos;s WP on every play.
@@ -301,10 +300,6 @@ export default function PlatformWp({ platformSession: session }: { platformSessi
           <LineChart className="mr-1 inline h-4 w-4" /> No win-probability data for this game.
         </p>
       ) : null}
-    </PlatformShell>
+    </>
   );
-}
-
-export async function getServerSideProps(ctx: GetServerSidePropsContext) {
-  return { props: { platformSession: await getPlatformSessionProps(ctx) } };
 }

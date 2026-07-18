@@ -1,27 +1,18 @@
+"use client";
+
 import Link from "next/link";
-import type { GetServerSidePropsContext } from "next";
 import { Bot, Database, FlaskConical, HardDrive } from "lucide-react";
-import PlatformShell, { StatusBadge, timeAgo } from "@components/platform/PlatformShell";
+import { StatusBadge, timeAgo } from "@components/platform/widgets";
 import { PLATFORM_REPOS } from "@content/platform";
-import type { PlatformSessionProps } from "@lib/platform/auth";
-import { getPlatformSessionProps } from "@lib/platform/auth";
-import { listDbStatuses } from "@lib/platform/dbStatus";
-import { listModels, listRuns } from "@lib/platform/runs";
 import type { DbStatusDoc, ModelRunDoc, ModelSummary } from "@lib/platform/schemas";
 
 type OverviewProps = {
-  platformSession: PlatformSessionProps;
   models: ModelSummary[];
   recentRuns: ModelRunDoc[];
   dbStatuses: DbStatusDoc[];
 };
 
-export default function PlatformOverview({
-  platformSession: session,
-  models,
-  recentRuns,
-  dbStatuses,
-}: OverviewProps) {
+export default function OverviewClient({ models, recentRuns, dbStatuses }: OverviewProps) {
   const cards = [
     {
       href: "/platform/automation",
@@ -52,7 +43,10 @@ export default function PlatformOverview({
   ];
 
   return (
-    <PlatformShell session={session} title="Overview">
+    <>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="font-display text-2xl font-bold tracking-tight">Overview</h1>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         {cards.map((card) => (
           <Link
@@ -97,20 +91,6 @@ export default function PlatformOverview({
           ))}
         </div>
       )}
-    </PlatformShell>
+    </>
   );
-}
-
-export async function getServerSideProps(ctx: GetServerSidePropsContext) {
-  const session = await getPlatformSessionProps(ctx);
-  if (!session.authorized) {
-    return { props: { platformSession: session, models: [], recentRuns: [], dbStatuses: [] } };
-  }
-  // Mongo-only reads (fast); GitHub calls stay on their own tabs.
-  const [models, recentRuns, dbStatuses] = await Promise.all([
-    listModels().catch(() => []),
-    listRuns({ limit: 8 }).catch(() => []),
-    listDbStatuses().catch(() => []),
-  ]);
-  return { props: { platformSession: session, models, recentRuns, dbStatuses } };
 }

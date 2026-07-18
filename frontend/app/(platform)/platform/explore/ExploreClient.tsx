@@ -1,14 +1,11 @@
+"use client";
+
 import { useEffect, useMemo, useState } from "react";
-import type { GetServerSidePropsContext } from "next";
 import useSWR, { mutate as swrMutate } from "swr";
 import { Bookmark, Download, Play, Plus, X } from "lucide-react";
-import PlatformShell, { formatBytes, timeAgo } from "@components/platform/PlatformShell";
+import { formatBytes, timeAgo } from "@components/platform/widgets";
 import { Button } from "@components/ui/button";
-import { classifyReleaseTag } from "@content/platform";
 import { EXPLORE_PRESETS, quickWhere } from "@content/presets";
-import type { PlatformSessionProps } from "@lib/platform/auth";
-import { getPlatformSessionProps } from "@lib/platform/auth";
-import { listRepoReleases } from "@lib/platform/github";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
 import type { QueryResult } from "@lib/platform/duckdb";
 import type { BookmarkDoc } from "@lib/platform/schemas";
@@ -23,10 +20,9 @@ import type { BookmarkDoc } from "@lib/platform/schemas";
 const DATA_REPO = "sportsdataverse/sportsdataverse-data";
 const QUERYABLE = /\.(parquet|csv|csv\.gz)$/i;
 
-type DatasetOption = { tag: string; sport: string; updated: string | null };
+export type DatasetOption = { tag: string; sport: string; updated: string | null };
 
 type ExploreProps = {
-  platformSession: PlatformSessionProps;
   datasets: DatasetOption[];
   error: string | null;
 };
@@ -66,7 +62,7 @@ const fetcher = async (url: string) => {
   return data.message as ReleaseAssetSummary[];
 };
 
-export default function PlatformExplore({ platformSession: session, datasets, error }: ExploreProps) {
+export default function ExploreClient({ datasets, error }: ExploreProps) {
   const [tag, setTag] = useState<string>("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [columns, setColumns] = useState<{ name: string; type: string }[]>([]);
@@ -79,7 +75,7 @@ export default function PlatformExplore({ platformSession: session, datasets, er
   const [result, setResult] = useState<QueryResult | null>(null);
 
   const { data: assets, error: assetsError, isLoading: assetsLoading } = useSWR(
-    session.authorized && tag
+    tag
       ? `/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(tag)}`
       : null,
     fetcher
@@ -88,7 +84,7 @@ export default function PlatformExplore({ platformSession: session, datasets, er
   const queryable = useMemo(() => (assets ?? []).filter((a) => QUERYABLE.test(a.name)), [assets]);
 
   const { data: bookmarks } = useSWR(
-    session.authorized ? "/api/platform/bookmarks" : null,
+    "/api/platform/bookmarks",
     async (url: string) => {
       const res = await fetch(url);
       const data = await res.json();
@@ -278,7 +274,10 @@ export default function PlatformExplore({ platformSession: session, datasets, er
   }
 
   return (
-    <PlatformShell session={session} title="Explore">
+    <>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="font-display text-2xl font-bold tracking-tight">Explore</h1>
+      </div>
       <p className="mb-6 font-inter text-sm text-muted-foreground">
         Query and export the org&apos;s release datasets — pick a dataset, choose season
         files, filter, preview, download CSV. Queries run in your browser via DuckDB;
@@ -564,30 +563,6 @@ export default function PlatformExplore({ platformSession: session, datasets, er
           ) : null}
         </>
       ) : null}
-    </PlatformShell>
+    </>
   );
-}
-
-export async function getServerSideProps(ctx: GetServerSidePropsContext) {
-  const session = await getPlatformSessionProps(ctx);
-  if (!session.authorized) {
-    return { props: { platformSession: session, datasets: [], error: null } };
-  }
-  try {
-    const releases = await listRepoReleases(DATA_REPO);
-    const datasets: DatasetOption[] = releases.map((rel) => ({
-      tag: rel.tag,
-      sport: classifyReleaseTag(rel.tag).sport,
-      updated: rel.latest_asset_at,
-    }));
-    return { props: { platformSession: session, datasets, error: null } };
-  } catch (error) {
-    return {
-      props: {
-        platformSession: session,
-        datasets: [],
-        error: error instanceof Error ? error.message : "GitHub error",
-      },
-    };
-  }
 }

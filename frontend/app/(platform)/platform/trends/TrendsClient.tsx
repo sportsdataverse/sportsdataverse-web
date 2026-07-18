@@ -1,13 +1,11 @@
+"use client";
+
 import { useEffect, useMemo, useState } from "react";
-import type { GetServerSidePropsContext } from "next";
 import useSWR from "swr";
 import { TrendingUp } from "lucide-react";
-import PlatformShell from "@components/platform/PlatformShell";
 import { Button } from "@components/ui/button";
 import { TREND_SPORTS } from "@content/trends";
 import type { TrendSport } from "@content/trends";
-import type { PlatformSessionProps } from "@lib/platform/auth";
-import { getPlatformSessionProps } from "@lib/platform/auth";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
 
 /**
@@ -90,7 +88,7 @@ function TrendChart({ points, label }: { points: TrendPoint[]; label: string }) 
   );
 }
 
-export default function PlatformTrends({ platformSession: session }: { platformSession: PlatformSessionProps }) {
+export default function TrendsClient() {
   const [sportKey, setSportKey] = useState(TREND_SPORTS[0].key);
   const [teams, setTeams] = useState<string[]>([]);
   const [stats, setStats] = useState<{ name: string; label: string }[]>([]);
@@ -106,9 +104,7 @@ export default function PlatformTrends({ platformSession: session }: { platformS
   );
 
   const { data: assets } = useSWR(
-    session.authorized
-      ? `/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}`
-      : null,
+    `/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}`,
     assetsFetcher
   );
 
@@ -186,7 +182,10 @@ export default function PlatformTrends({ platformSession: session }: { platformS
   const statLabel = stats.find((s) => s.name === stat)?.label ?? stat;
 
   return (
-    <PlatformShell session={session} title="Trends">
+    <>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="font-display text-2xl font-bold tracking-tight">Trends</h1>
+      </div>
       <p className="mb-6 font-inter text-sm text-muted-foreground">
         Team stat trends across every available season ({seasonAssets.length} season
         files) — the first chart touches all of them, so give it a few seconds.
@@ -261,10 +260,6 @@ export default function PlatformTrends({ platformSession: session }: { platformS
           {points[0].display}).
         </p>
       ) : null}
-    </PlatformShell>
+    </>
   );
-}
-
-export async function getServerSideProps(ctx: GetServerSidePropsContext) {
-  return { props: { platformSession: await getPlatformSessionProps(ctx) } };
 }

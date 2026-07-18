@@ -1,12 +1,10 @@
+"use client";
+
 import { useMemo, useState } from "react";
-import type { GetServerSidePropsContext } from "next";
 import { Search } from "lucide-react";
-import PlatformShell from "@components/platform/PlatformShell";
 import { Button } from "@components/ui/button";
 import { LOOKUP_SPORTS } from "@content/lookups";
 import type { LookupSport } from "@content/lookups";
-import type { PlatformSessionProps } from "@lib/platform/auth";
-import { getPlatformSessionProps } from "@lib/platform/auth";
 import type { QueryResult } from "@lib/platform/duckdb";
 
 /**
@@ -21,7 +19,7 @@ function proxyUrl(sport: LookupSport): string {
   return `${window.location.origin}/api/platform/datasets/file?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}&asset=${encodeURIComponent(sport.asset)}`;
 }
 
-export default function PlatformLookups({ platformSession: session }: { platformSession: PlatformSessionProps }) {
+export default function LookupsClient() {
   const [sportKey, setSportKey] = useState(LOOKUP_SPORTS[0].key);
   const [mode, setMode] = useState<"players" | "teams">("players");
   const [term, setTerm] = useState("");
@@ -70,7 +68,10 @@ export default function PlatformLookups({ platformSession: session }: { platform
   const headshotIdx = mode === "players" && sport.headshotCol && result ? 0 : -1;
 
   return (
-    <PlatformShell session={session} title="Lookups">
+    <>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="font-display text-2xl font-bold tracking-tight">Lookups</h1>
+      </div>
       <p className="mb-6 font-inter text-sm text-muted-foreground">
         Player search and team directory per sport — current-season rosters, queried
         in your browser. For historical seasons use the Explore tab.
@@ -182,10 +183,6 @@ export default function PlatformLookups({ platformSession: session }: { platform
           </table>
         </div>
       ) : null}
-    </PlatformShell>
+    </>
   );
-}
-
-export async function getServerSideProps(ctx: GetServerSidePropsContext) {
-  return { props: { platformSession: await getPlatformSessionProps(ctx) } };
 }

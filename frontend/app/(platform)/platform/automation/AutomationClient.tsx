@@ -1,12 +1,11 @@
+"use client";
+
 import { useState } from "react";
-import type { GetServerSidePropsContext } from "next";
 import useSWR from "swr";
 import { ExternalLink, Play, RefreshCw } from "lucide-react";
-import PlatformShell, { StatusBadge, timeAgo } from "@components/platform/PlatformShell";
+import { StatusBadge, timeAgo } from "@components/platform/widgets";
 import { Button } from "@components/ui/button";
-import type { PlatformSessionProps } from "@lib/platform/auth";
-import { getPlatformSessionProps } from "@lib/platform/auth";
-import type { AutomationRepo } from "../../app/api/platform/automation/route";
+import type { AutomationRepo } from "../../../api/platform/automation/route";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -15,9 +14,9 @@ const fetcher = async (url: string) => {
   return data.message as AutomationRepo[];
 };
 
-export default function PlatformAutomation({ platformSession: session }: { platformSession: PlatformSessionProps }) {
+export default function AutomationClient() {
   const { data, error, isLoading, mutate, isValidating } = useSWR(
-    session.authorized ? "/api/platform/automation" : null,
+    "/api/platform/automation",
     fetcher,
     // Each refresh fans out over 40+ repos x 2 GitHub calls. At 60s an open tab
     // alone burned ~85+ calls/min against the 5,000/h budget. The server now
@@ -52,7 +51,10 @@ export default function PlatformAutomation({ platformSession: session }: { platf
   }
 
   return (
-    <PlatformShell session={session} title="Automation">
+    <>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="font-display text-2xl font-bold tracking-tight">Automation</h1>
+      </div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="font-inter text-sm text-muted-foreground">
           Workflow status across the tracked org repos — refreshes every minute.
@@ -176,10 +178,6 @@ export default function PlatformAutomation({ platformSession: session }: { platf
           </section>
         ))}
       </div>
-    </PlatformShell>
+    </>
   );
-}
-
-export async function getServerSideProps(ctx: GetServerSidePropsContext) {
-  return { props: { platformSession: await getPlatformSessionProps(ctx) } };
 }

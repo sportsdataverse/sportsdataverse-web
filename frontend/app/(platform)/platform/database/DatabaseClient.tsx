@@ -1,14 +1,7 @@
-import type { GetServerSidePropsContext } from "next";
-import PlatformShell, { StatusBadge, formatBytes, timeAgo } from "@components/platform/PlatformShell";
-import type { PlatformSessionProps } from "@lib/platform/auth";
-import { getPlatformSessionProps } from "@lib/platform/auth";
-import { listDbStatuses } from "@lib/platform/dbStatus";
-import type { DbStatusDoc } from "@lib/platform/schemas";
+"use client";
 
-type DatabaseProps = {
-  platformSession: PlatformSessionProps;
-  statuses: DbStatusDoc[];
-};
+import { StatusBadge, formatBytes, timeAgo } from "@components/platform/widgets";
+import type { DbStatusDoc } from "@lib/platform/schemas";
 
 /** A heartbeat older than this is flagged stale (droplet cron is daily). */
 const STALE_AFTER_MS = 26 * 60 * 60 * 1000;
@@ -19,9 +12,12 @@ function statusOf(status: DbStatusDoc): string {
   return Number.isNaN(age) || age > STALE_AFTER_MS ? "stale" : "ok";
 }
 
-export default function PlatformDatabase({ platformSession: session, statuses }: DatabaseProps) {
+export default function DatabaseClient({ statuses }: { statuses: DbStatusDoc[] }) {
   return (
-    <PlatformShell session={session} title="Database">
+    <>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="font-display text-2xl font-bold tracking-tight">Database</h1>
+      </div>
       <p className="mb-6 font-inter text-sm text-muted-foreground">
         Postgres warehouse heartbeats, pushed by the sdv-data droplet cron. The site
         never dials the database — its ports stay closed to the public internet.
@@ -124,15 +120,6 @@ export default function PlatformDatabase({ platformSession: session, statuses }:
           ))}
         </div>
       )}
-    </PlatformShell>
+    </>
   );
-}
-
-export async function getServerSideProps(ctx: GetServerSidePropsContext) {
-  const session = await getPlatformSessionProps(ctx);
-  if (!session.authorized) {
-    return { props: { platformSession: session, statuses: [] } };
-  }
-  const statuses = await listDbStatuses().catch(() => []);
-  return { props: { platformSession: session, statuses } };
 }

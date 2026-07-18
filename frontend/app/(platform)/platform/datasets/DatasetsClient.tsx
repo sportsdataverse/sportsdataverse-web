@@ -1,22 +1,15 @@
-import type { GetServerSidePropsContext } from "next";
+"use client";
+
 import { ScrollText } from "lucide-react";
-import PlatformShell, { formatBytes, timeAgo } from "@components/platform/PlatformShell";
-import { PLATFORM_REPOS, classifyReleaseTag } from "@content/platform";
-import type { PlatformSessionProps } from "@lib/platform/auth";
-import { getPlatformSessionProps } from "@lib/platform/auth";
-import { listRepoReleases, settlePool } from "@lib/platform/github";
+import { formatBytes, timeAgo } from "@components/platform/widgets";
+import { classifyReleaseTag } from "@content/platform";
 import type { ReleaseSummary } from "@lib/platform/github";
 
-type RepoReleases = {
+export type RepoReleases = {
   repo: string;
   sport: string;
   releases: ReleaseSummary[];
   error: string | null;
-};
-
-type DatasetsProps = {
-  platformSession: PlatformSessionProps;
-  repos: RepoReleases[];
 };
 
 /** The one repo whose releases are per-dataset (grouped by sport + producer-linked). */
@@ -117,9 +110,12 @@ function groupBySport(releases: ReleaseSummary[]): [string, ReleaseSummary[]][] 
   );
 }
 
-export default function PlatformDatasets({ platformSession: session, repos }: DatasetsProps) {
+export default function DatasetsClient({ repos }: { repos: RepoReleases[] }) {
   return (
-    <PlatformShell session={session} title="Datasets">
+    <>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="font-display text-2xl font-bold tracking-tight">Datasets</h1>
+      </div>
       <p className="mb-6 font-inter text-sm text-muted-foreground">
         Release artifacts across the org&apos;s data repos — the distribution surface the
         loaders (<code>load_*</code>) read from. sportsdataverse-data is grouped by
@@ -170,32 +166,6 @@ export default function PlatformDatasets({ platformSession: session, repos }: Da
           </section>
         ))}
       </div>
-    </PlatformShell>
+    </>
   );
-}
-
-export async function getServerSideProps(ctx: GetServerSidePropsContext) {
-  const session = await getPlatformSessionProps(ctx);
-  if (!session.authorized) {
-    return { props: { platformSession: session, repos: [] } };
-  }
-  const tracked = PLATFORM_REPOS.filter((r) => r.hasReleases);
-  const settled = await settlePool(tracked, (r) => listRepoReleases(r.repo));
-  const repos: RepoReleases[] = tracked.map((entry, i) => {
-    const outcome = settled[i];
-    return {
-      repo: entry.repo,
-      sport: entry.sport,
-      releases: outcome.status === "fulfilled" ? outcome.value : [],
-      error:
-        outcome.status === "rejected"
-          ? outcome.reason instanceof Error
-            ? outcome.reason.message
-            : String(outcome.reason)
-          : null,
-    };
-  });
-  // The data monorepo carries the canonical per-dataset releases — list it first.
-  repos.sort((a, b) => Number(b.repo === DATA_MONOREPO) - Number(a.repo === DATA_MONOREPO));
-  return { props: { platformSession: session, repos } };
 }

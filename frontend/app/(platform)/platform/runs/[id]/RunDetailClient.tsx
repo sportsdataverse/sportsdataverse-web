@@ -1,19 +1,12 @@
+"use client";
+
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/router";
-import type { GetServerSidePropsContext } from "next";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, ExternalLink, Trash2, X } from "lucide-react";
-import PlatformShell, { StatusBadge, timeAgo } from "@components/platform/PlatformShell";
+import { StatusBadge, timeAgo } from "@components/platform/widgets";
 import { Button } from "@components/ui/button";
-import type { PlatformSessionProps } from "@lib/platform/auth";
-import { getPlatformSessionProps } from "@lib/platform/auth";
-import { getRun } from "@lib/platform/runs";
 import type { ModelRunDoc } from "@lib/platform/schemas";
-
-type RunDetailProps = {
-  platformSession: PlatformSessionProps;
-  run: ModelRunDoc | null;
-};
 
 function KeyValueTable({ data }: { data: Record<string, string | number | boolean> }) {
   const entries = Object.entries(data);
@@ -38,7 +31,7 @@ function KeyValueTable({ data }: { data: Record<string, string | number | boolea
   );
 }
 
-export default function PlatformRunDetail({ platformSession: session, run }: RunDetailProps) {
+export default function RunDetailClient({ run }: { run: ModelRunDoc | null }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +45,7 @@ export default function PlatformRunDetail({ platformSession: session, run }: Run
       const res = await fetch(`/api/platform/runs/${run._id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "Delete failed");
-      await router.push(`/platform/models/${run.model_id}`);
+      router.push(`/platform/models/${run.model_id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Delete failed");
       setDeleting(false);
@@ -61,20 +54,23 @@ export default function PlatformRunDetail({ platformSession: session, run }: Run
 
   if (!run) {
     return (
-      <PlatformShell session={session} title="Run not found">
+      <>
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <h1 className="font-display text-2xl font-bold tracking-tight">Run not found</h1>
+        </div>
         <p className="font-inter text-sm text-muted-foreground">
           Run not found.{" "}
           <Link href="/platform/models" className="text-primary hover:underline">
             Back to models
           </Link>
         </p>
-      </PlatformShell>
+      </>
     );
   }
 
   return (
-    <PlatformShell session={session} title={`${run.model_id} run`}>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <>
+      <div className="mb-6 flex items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href={`/platform/models/${run.model_id}`}
@@ -82,9 +78,9 @@ export default function PlatformRunDetail({ platformSession: session, run }: Run
           >
             <ArrowLeft className="h-4 w-4" /> {run.model_id}
           </Link>
-          <h2 className="font-barlow text-2xl font-semibold">
+          <h1 className="font-display text-2xl font-bold tracking-tight">
             {run.run_name ?? run._id.slice(-8)}
-          </h2>
+          </h1>
           <StatusBadge status={run.status} />
         </div>
         <Button variant="outline" size="sm" onClick={handleDelete} disabled={deleting}>
@@ -207,16 +203,6 @@ export default function PlatformRunDetail({ platformSession: session, run }: Run
           </p>
         </>
       ) : null}
-    </PlatformShell>
+    </>
   );
-}
-
-export async function getServerSideProps(ctx: GetServerSidePropsContext) {
-  const session = await getPlatformSessionProps(ctx);
-  const id = typeof ctx.params?.id === "string" ? ctx.params.id : "";
-  if (!session.authorized) {
-    return { props: { platformSession: session, run: null } };
-  }
-  const run = await getRun(id).catch(() => null);
-  return { props: { platformSession: session, run } };
 }
