@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Contact from "@components/Contact";
+import SupportCallout from "@components/site/SupportCallout";
 import { connectToDatabase } from "@lib/mongodb";
 
 export const metadata: Metadata = {
@@ -90,6 +91,27 @@ export default async function AboutPage() {
             all fresh every night.
           </p>
           <p>
+            The initiative made its public debut at the{" "}
+            <a
+              href="https://www.stat.cmu.edu/cmsac/conference/2021/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-accent hover:underline"
+            >
+              2021 Carnegie Mellon Sports Analytics Conference
+            </a>
+            , where{" "}
+            <a
+              href="https://www.stat.cmu.edu/cmsac/conference/2021/assets/pdf/SaiemGilani.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-accent hover:underline"
+            >
+              the SportsDataverse Initiative paper
+            </a>{" "}
+            won the open-track reproducible research competition.
+          </p>
+          <p>
             If you&apos;ve computed EPA for a college football game in R,
             pulled women&apos;s basketball play-by-play in Python, or built a
             win-probability chart from free data — there&apos;s a good chance
@@ -174,6 +196,20 @@ export default async function AboutPage() {
             </a>
           </li>
         </ul>
+      </section>
+
+      <section className="mt-14">
+        <SupportCallout />
+        <p className="mt-4 text-sm text-muted-foreground">
+          Looking for the wider world — nflverse, CollegeFootballData,
+          conferences and courses?{" "}
+          <Link
+            href="/resources"
+            className="font-medium text-accent hover:underline"
+          >
+            Browse resources →
+          </Link>
+        </p>
       </section>
 
       <section className="mt-10">

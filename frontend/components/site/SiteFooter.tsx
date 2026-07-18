@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DO_REFERRAL_URL, KOFI_URL, PAYPAL_URL } from "@content/support";
 
 const GROUPS: { title: string; links: { href: string; label: string; external?: boolean }[] }[] = [
   {
@@ -10,6 +11,7 @@ const GROUPS: { title: string; links: { href: string; label: string; external?: 
       { href: "/about", label: "About" },
       { href: "/stats", label: "Stats" },
       { href: "/snippets", label: "Snippets" },
+      { href: "/resources", label: "Resources" },
     ],
   },
   {
@@ -28,12 +30,20 @@ const GROUPS: { title: string; links: { href: string; label: string; external?: 
       { href: "https://twitter.com/sportsdataverse", label: "Twitter / X", external: true },
     ],
   },
+  {
+    title: "Support",
+    links: [
+      { href: KOFI_URL, label: "Donate — Ko-fi", external: true },
+      { href: PAYPAL_URL, label: "PayPal", external: true },
+      { href: DO_REFERRAL_URL, label: "DigitalOcean credit", external: true },
+    ],
+  },
 ];
 
 export default function SiteFooter() {
   return (
     <footer className="border-t border-border bg-card">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 md:grid-cols-4">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 md:grid-cols-5">
         <div>
           <span className="font-script text-xl text-primary">SportsDataverse</span>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
@@ -71,7 +81,15 @@ export default function SiteFooter() {
         ))}
       </div>
       <div className="border-t border-border py-4 text-center font-mono text-xs text-muted-foreground">
-        © {new Date().getFullYear()} SportsDataverse · MIT-licensed code, open data
+        © {new Date().getFullYear()} SportsDataverse · MIT-licensed code, open data ·{" "}
+        <a
+          href={KOFI_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="transition-colors hover:text-primary"
+        >
+          Donate
+        </a>
       </div>
     </footer>
   );
