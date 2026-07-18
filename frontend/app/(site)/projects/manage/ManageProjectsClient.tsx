@@ -1,11 +1,11 @@
+"use client";
+
 import { useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
-import type { GetServerSidePropsContext } from "next";
 import { signIn, signOut } from "next-auth/react";
 import { Github, Pencil, Trash2, Plus } from "lucide-react";
-import { auth } from "@lib/auth";
 import { Button } from "@components/ui/button";
 import ProjectForm from "@components/ProjectForm";
 import type { ProjectInput, ProjectDoc } from "@lib/projectSchema";
@@ -18,7 +18,7 @@ type ManageProps = {
   projects: ProjectDoc[];
 };
 
-export default function ManageProjects({
+export default function ManageProjectsClient({
   authorized,
   signedIn,
   login,
@@ -250,49 +250,4 @@ export default function ManageProjects({
       </div>
     </>
   );
-}
-
-export async function getServerSideProps(ctx: GetServerSidePropsContext) {
-  const session = await auth(ctx);
-  const signedIn = Boolean(session);
-  const authorized = Boolean(session?.isOrgMember);
-
-  if (!authorized) {
-    return {
-      props: { authorized: false, signedIn, login: null, isAdmin: false, projects: [] },
-    };
-  }
-
-  // Read the listing from the public API on the SAME deployment (host-derived
-  // base URL — Vercel previews report NODE_ENV "production", so a DEV/PROD env
-  // switch would read prod while writes target the preview).
-  const host = ctx.req.headers.host;
-  const proto =
-    (ctx.req.headers["x-forwarded-proto"] as string | undefined) ||
-    (host?.startsWith("localhost") ? "http" : "https");
-  const baseUrl = host
-    ? `${proto}://${host}`
-    : process.env.NODE_ENV !== "production"
-      ? process.env.DEV_URL
-      : process.env.PROD_URL;
-  let projects: ProjectDoc[] = [];
-  try {
-    const response = await fetch(`${baseUrl}/api/projects`);
-    if (response.ok) {
-      const data = await response.json();
-      projects = Array.isArray(data?.message) ? data.message : [];
-    }
-  } catch {
-    projects = [];
-  }
-
-  return {
-    props: {
-      authorized: true,
-      signedIn,
-      login: session?.login ?? null,
-      isAdmin: session?.role === "admin",
-      projects,
-    },
-  };
 }

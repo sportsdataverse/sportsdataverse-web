@@ -1,10 +1,10 @@
+"use client";
+
 import { useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import type { GetServerSidePropsContext } from "next";
 import { signIn, signOut } from "next-auth/react";
 import { Github, Pencil, Trash2, Plus } from "lucide-react";
-import { auth } from "@lib/auth";
 import { Button } from "@components/ui/button";
 import PackageForm from "@components/PackageForm";
 import type { PackageInput, PackageDoc } from "@lib/packageSchema";
@@ -16,7 +16,7 @@ type ManageProps = {
   packages: PackageDoc[];
 };
 
-export default function ManagePackages({
+export default function ManagePackagesClient({
   authorized,
   signedIn,
   login,
@@ -231,48 +231,4 @@ export default function ManagePackages({
       </div>
     </>
   );
-}
-
-export async function getServerSideProps(ctx: GetServerSidePropsContext) {
-  const session = await auth(ctx);
-  const signedIn = Boolean(session);
-  const authorized = Boolean(session?.isOrgMember);
-
-  if (!authorized) {
-    return { props: { authorized: false, signedIn, login: null, packages: [] } };
-  }
-
-  // Reuse the public read endpoint for the listing. Derive the base URL from
-  // the incoming request host so the page always reads from the SAME
-  // deployment it's served from — on Vercel previews NODE_ENV is "production",
-  // so a DEV_URL/PROD_URL switch would otherwise read prod data while writes
-  // target the preview. Fall back to the env URLs if the host is unavailable.
-  const host = ctx.req.headers.host;
-  const proto =
-    (ctx.req.headers["x-forwarded-proto"] as string | undefined) ||
-    (host?.startsWith("localhost") ? "http" : "https");
-  const baseUrl = host
-    ? `${proto}://${host}`
-    : process.env.NODE_ENV !== "production"
-      ? process.env.DEV_URL
-      : process.env.PROD_URL;
-  let packages: PackageDoc[] = [];
-  try {
-    const response = await fetch(`${baseUrl}/api/packages`);
-    if (response.ok) {
-      const data = await response.json();
-      packages = Array.isArray(data?.message) ? data.message : [];
-    }
-  } catch {
-    packages = [];
-  }
-
-  return {
-    props: {
-      authorized: true,
-      signedIn,
-      login: session?.login ?? null,
-      packages,
-    },
-  };
 }
