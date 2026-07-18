@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useRef, ReactNode } from "react";
 
 const Pre = ({ children }: { children?: ReactNode }) => {

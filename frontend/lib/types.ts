@@ -77,7 +77,7 @@ export type FrontMatter = {
 
 export type PostType = {
   meta: FrontMatter;
-  source: MDXRemoteSerializeResult;
+  source?: MDXRemoteSerializeResult;
   tableOfContents: TableOfContents[];
 };
 

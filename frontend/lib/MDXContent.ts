@@ -79,6 +79,25 @@ export default class MDXContent {
     };
   }
 
+  /**
+   * Raw (unserialized) MDX for the App Router path: `next-mdx-remote/rsc`
+   * compiles the source itself, so this returns the body + frontmatter + TOC
+   * without going through `serialize`.
+   */
+  getRawSource(slug: string, force: boolean = false) {
+    const postPath = path.join(this.POST_PATH, `${slug}.mdx`);
+    const source = readFileSync(postPath);
+    const { content, data } = matter(source);
+    if (!data.published && !force) return null;
+    const meta = this.getFrontMatter(slug);
+    if (!meta) return null;
+    return {
+      content,
+      meta,
+      tableOfContents: this.getTableOfContents(content) ?? [],
+    };
+  }
+
   getAllPosts(length?: number | undefined) {
     const isProd = process.env.NODE_ENV === "production";
     const cached = isProd ? _allPostsCache.get(this.POST_PATH) : undefined;

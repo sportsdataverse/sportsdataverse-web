@@ -1,3 +1,5 @@
+"use client";
+
 import { opacityVariant } from "@content/FramerMotionVariants";
 import AnimatedDiv from "@components/FramerMotion/AnimatedDiv";
 import { PostType } from "@lib/types";

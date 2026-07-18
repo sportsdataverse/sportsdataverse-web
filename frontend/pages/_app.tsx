@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import NProgress from "nprogress";
 import "nprogress/nprogress.css";
-import { DarkModeProvider } from "@context/darkModeContext";
+import { ThemeProvider } from "next-themes";
 import { GoogleAnalytics } from "nextjs-google-analytics";
 import PlausibleProvider from 'next-plausible'
 import { SessionProvider } from "next-auth/react";
@@ -66,7 +66,7 @@ function MyApp({ Component, pageProps: { session, ...pageProps } }: AppProps) {
   return (
     <SessionProvider session={session}>
       <PlausibleProvider domain="sportsdataverse.org">
-        <DarkModeProvider>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <div className={`${inter.variable} ${barlow.variable} ${sarina.variable} font-inter`}>
             <Layout>
               {process.env.NODE_ENV === "production" && (
@@ -75,7 +75,7 @@ function MyApp({ Component, pageProps: { session, ...pageProps } }: AppProps) {
               <Component {...pageProps} />
             </Layout>
           </div>
-        </DarkModeProvider>
+        </ThemeProvider>
       </PlausibleProvider>
     </SessionProvider>
   );

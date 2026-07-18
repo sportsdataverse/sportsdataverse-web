@@ -1,3 +1,5 @@
+"use client";
+
 import { homeProfileImage } from "@utils/utils";
 import Image from "next/image";
 import ShareOnSocialMedia from "@components/ShareOnSocialMedia";
