@@ -19,12 +19,14 @@ export default async function PackagesPage() {
   let pkgs: any[] = [];
   try {
     const { db } = await connectToDatabase();
+    // No published filter: the legacy docs all carry published: false (the
+    // field predates the manage form's published-true default), so it is not
+    // a usable visibility flag for this collection.
     pkgs = JSON.parse(
       JSON.stringify(
         await db.collection("packages").find({}).sort({ title: 1 }).toArray()
       )
-      // Hidden entries (published: false) are manage-only — never public.
-    ).filter((p: any) => p.published !== false);
+    );
   } catch {
     pkgs = [];
   }
