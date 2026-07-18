@@ -30,12 +30,14 @@ export default function TriggerForm({ pipelines }: { pipelines: Pipeline[] }) {
   const [end, setEnd] = useState<number | "">("");
   const [backfill, setBackfill] = useState(false);
   const [rescrape, setRescrape] = useState(false);
+  const [refreshWarehouse, setRefreshWarehouse] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const selectedStages = stages ?? pipe?.default_stages ?? [];
   const rescrapeAvailable = pipe?.stages.some(
     (s) => selectedStages.includes(s.key) && s.supports_rescrape
   );
+  const warehouseAvailable = !!pipe?.warehouse_sport;
 
   function toggleStage(key: string) {
     const next = new Set(selectedStages);
@@ -59,6 +61,7 @@ export default function TriggerForm({ pipelines }: { pipelines: Pipeline[] }) {
           stages: stages, // null -> registry defaults
           rescrape: rescrapeAvailable ? rescrape : null,
           backfill,
+          refresh_warehouse: warehouseAvailable ? refreshWarehouse : false,
         }),
       });
       if (!res.ok) {
@@ -164,6 +167,20 @@ export default function TriggerForm({ pipelines }: { pipelines: Pipeline[] }) {
               className="accent-[var(--primary)]"
             />
             rescrape
+          </label>
+        ) : null}
+        {warehouseAvailable ? (
+          <label
+            className="flex items-center gap-2 pb-2 font-mono text-xs text-muted-foreground"
+            title={`After the run, re-ingest ${pipe.warehouse_sport} into the warehouse (data.sportsdataverse.org)`}
+          >
+            <input
+              type="checkbox"
+              checked={refreshWarehouse}
+              onChange={(e) => setRefreshWarehouse(e.target.checked)}
+              className="accent-[var(--primary)]"
+            />
+            refresh warehouse
           </label>
         ) : null}
         <Button onClick={submit} disabled={busy || start === ""} className="gap-2">

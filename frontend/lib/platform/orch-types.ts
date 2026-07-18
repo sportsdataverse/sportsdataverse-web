@@ -19,6 +19,12 @@ export interface Pipeline {
   label: string;
   season_min: number;
   season_max: number;
+  /** Daily schedule (paused deployment) if the pipeline has one, else null. */
+  cron: string | null;
+  /** SDV package clones this pipeline's scripts depend on (preflight targets). */
+  packages: string[];
+  /** sdv-db ingest slice refreshed when refresh_warehouse is set, else null. */
+  warehouse_sport: string | null;
   default_stages: string[];
   stages: PipelineStage[];
 }
@@ -71,6 +77,21 @@ export interface TriggerRequest {
   stages?: string[] | null;
   rescrape?: boolean | null;
   backfill?: boolean;
+  /** Chain an sdv-db warehouse refresh of this sport's slice after the run. */
+  refresh_warehouse?: boolean;
+  /** Override the package-freshness preflight mode: warn | strict | off. */
+  preflight?: string | null;
+}
+
+export interface PreflightPackage {
+  ok: boolean;
+  findings: string[];
+}
+
+export interface PreflightReport {
+  packages: Record<string, PreflightPackage>;
+  ok: boolean;
+  known: string[];
 }
 
 /** Prefect state names that mean a run is finished. */
