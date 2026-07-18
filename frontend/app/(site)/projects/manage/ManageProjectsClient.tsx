@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/router";
-import Head from "next/head";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn, signOut } from "next-auth/react";
 import { Github, Pencil, Trash2, Plus } from "lucide-react";
@@ -37,9 +36,6 @@ export default function ManageProjectsClient({
   if (!authorized) {
     return (
       <>
-        <Head>
-          <title>Manage Projects · SportsDataverse</title>
-        </Head>
         <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center gap-5 px-6 text-center">
           <h1 className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text font-sarina text-3xl font-bold text-transparent">
             Manage Projects
@@ -76,7 +72,7 @@ export default function ManageProjectsClient({
 
   // --- Mutations -----------------------------------------------------------
   async function refresh() {
-    await router.replace(router.asPath, undefined, { scroll: false });
+    router.refresh(); // re-run the server page's data fetch
   }
 
   async function handleSubmit(values: ProjectInput) {
@@ -128,9 +124,6 @@ export default function ManageProjectsClient({
   // --- Authorized view -----------------------------------------------------
   return (
     <>
-      <Head>
-        <title>Manage Projects · SportsDataverse</title>
-      </Head>
       <div className="mx-auto max-w-4xl px-6 py-24">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
