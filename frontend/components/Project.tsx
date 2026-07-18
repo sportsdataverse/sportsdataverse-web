@@ -11,10 +11,10 @@ export default function Project({ project }: { project: ProjectType }) {
     <div className="card">
       <OgImage src={cover} alt={project.name} />
 
-      <div className="flex flex-col justify-start gap-3">
-        <h1 className="font-bold text-foreground">
+      <div className="flex min-w-0 flex-1 flex-col justify-start gap-3">
+        <h2 className="font-bold text-foreground">
           {project.name}
-        </h1>
+        </h2>
         <p className="text-sm text-muted-foreground line-clamp-5">
           {project.description}
         </p>
