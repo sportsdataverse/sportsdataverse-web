@@ -13,6 +13,7 @@ export const PLATFORM_TABS = [
   { href: "/platform/trends", label: "Trends" },
   { href: "/platform/models", label: "Models" },
   { href: "/platform/database", label: "Database" },
+  { href: "/platform/api-key", label: "API Key" },
 ] as const;
 
 /** Colored chip for workflow conclusions / run statuses / booleans, on the

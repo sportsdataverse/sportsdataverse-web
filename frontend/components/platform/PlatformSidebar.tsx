@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Boxes,
   HardDrive,
+  KeyRound,
   ArrowLeft,
 } from "lucide-react";
 import { cn } from "@lib/utils";
@@ -27,6 +28,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   "/platform/trends": TrendingUp,
   "/platform/models": Boxes,
   "/platform/database": HardDrive,
+  "/platform/api-key": KeyRound,
 };
 
 import { PLATFORM_TABS } from "./widgets";
