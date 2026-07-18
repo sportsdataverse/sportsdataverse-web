@@ -3,22 +3,32 @@
 import { useEffect, useMemo, useState } from "react";
 import useSWR, { mutate as swrMutate } from "swr";
 import { Bookmark, Download, Play, Plus, X } from "lucide-react";
-import { formatBytes, timeAgo } from "@components/platform/widgets";
+import { timeAgo } from "@components/platform/widgets";
 import { Button } from "@components/ui/button";
-import { EXPLORE_PRESETS, quickWhere } from "@content/presets";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
 import type { QueryResult } from "@lib/platform/duckdb";
 import type { BookmarkDoc } from "@lib/platform/schemas";
 
 /**
  * CFBD-exporter-style data exploration: pick a dataset (release tag) → pick
- * season assets → filter/query → preview grid → export CSV. Queries run
- * entirely in the browser (DuckDB-WASM over release parquet/csv via HTTP
- * range reads) — imported dynamically so none of it touches SSR.
+ * the table + partition (season) → filterable preview grid → export CSV.
+ * Queries run entirely in the browser (DuckDB-WASM over release parquet via
+ * HTTP range reads) — imported dynamically so none of it touches SSR.
  */
 
 const DATA_REPO = "sportsdataverse/sportsdataverse-data";
 const QUERYABLE = /\.(parquet|csv|csv\.gz)$/i;
+
+/** `<stem>_<partition>.<ext>` → {stem, partition}; unpartitioned files keep
+ *  their whole basename as the stem. Partitions are season-like tokens
+ *  (2024, 2024_25, 20242025). */
+const PARTITION_RE = /^(.*?)_(\d{4}(?:_\d{2}|\d{4})?)\.(parquet|csv|csv\.gz)$/i;
+
+function parseAsset(name: string): { stem: string; partition: string | null } {
+  const m = PARTITION_RE.exec(name);
+  if (m) return { stem: m[1], partition: m[2] };
+  return { stem: name.replace(QUERYABLE, ""), partition: null };
+}
 
 export type DatasetOption = { tag: string; sport: string; updated: string | null };
 
@@ -164,64 +174,76 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
     [queryable, picked, tag]
   );
 
-  const preset = tag ? EXPLORE_PRESETS[tag] : undefined;
-  const [quickValues, setQuickValues] = useState<Record<string, string>>({});
-  const quickSeasons = useMemo(
-    () =>
-      preset
-        ? queryable
-            .map((a) => a.name)
-            .filter((n) => n.startsWith(preset.assetPrefix) && n.endsWith(".parquet"))
-            .sort()
-            .reverse()
-        : [],
-    [preset, queryable]
-  );
-  const [quickSeason, setQuickSeason] = useState("");
+  // --- table (stem) + partition (season) selection over the release assets --
+  const [stem, setStem] = useState("");
+  const [partition, setPartition] = useState("");
 
-  async function quickRun() {
-    if (!preset) return;
-    const asset = quickSeason || quickSeasons[0];
-    if (!asset) return;
-    const { runQuery } = await import("@lib/platform/duckdb");
-    const url = `${window.location.origin}/api/platform/datasets/file?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(tag)}&asset=${encodeURIComponent(asset)}`;
-    const where = quickWhere(preset.fields, quickValues);
-    const statement = [
-      `SELECT * FROM read_parquet('${url}')`,
-      where ? `WHERE ${where}` : null,
-      `LIMIT ${Math.max(1, limit)}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-    setPicked(new Set([asset]));
-    setSqlMode(true);
-    setSql(statement);
-    await withEngine("Querying…", async () => {
-      setResult(await runQuery(statement, 500));
-    });
-  }
+  const parsed = useMemo(
+    () =>
+      queryable.map((a) => ({ asset: a, ...parseAsset(a.name) })),
+    [queryable]
+  );
+  const stems = useMemo(
+    () => Array.from(new Set(parsed.map((p) => p.stem))).sort(),
+    [parsed]
+  );
+  const partitions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          parsed
+            .filter((p) => p.stem === stem && p.partition)
+            .map((p) => p.partition as string)
+        )
+      )
+        .sort()
+        .reverse(),
+    [parsed, stem]
+  );
+
+  /** Best asset for the current stem+partition (parquet preferred). */
+  const selectedAsset = useMemo(() => {
+    const candidates = parsed.filter(
+      (p) => p.stem === stem && (p.partition ?? "") === partition
+    );
+    const pq = candidates.find((p) => p.asset.name.endsWith(".parquet"));
+    return (pq ?? candidates[0])?.asset.name ?? null;
+  }, [parsed, stem, partition]);
+
+  // Default the dropdowns as data arrives: first stem, newest partition.
+  useEffect(() => {
+    if (stems.length && !stems.includes(stem)) setStem(stems[0]);
+  }, [stems, stem]);
+  useEffect(() => {
+    if (!stem) return;
+    if (partitions.length) {
+      if (!partitions.includes(partition)) setPartition(partitions[0]);
+    } else if (partition !== "") {
+      setPartition(""); // unpartitioned release: single whole-file "season"
+    }
+  }, [stem, partitions, partition]);
+
+  // Selection drives everything: pick the asset, then auto-load its schema and
+  // an initial preview so the user lands straight in a filterable grid.
+  useEffect(() => {
+    if (!selectedAsset || pendingBookmark) return;
+    setPicked(new Set([selectedAsset]));
+    setColumns([]);
+    setResult(null);
+    setSqlMode(false);
+    setSql("");
+  }, [selectedAsset, pendingBookmark]);
 
   function selectTag(next: string) {
     setTag(next);
-    setQuickValues({});
-    setQuickSeason("");
+    setStem("");
+    setPartition("");
     setPicked(new Set());
     setColumns([]);
     setFilters([]);
     setResult(null);
     setSql("");
     setQueryError(null);
-  }
-
-  function togglePicked(name: string) {
-    setPicked((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-    setColumns([]);
-    setResult(null);
   }
 
   async function withEngine<T>(label: string, fn: () => Promise<T>): Promise<T | null> {
@@ -249,6 +271,33 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
       setFilters([{ column: "", op: "=", value: "" }]);
     });
   }
+
+  // Auto flow: whenever the selected season file changes, load its schema and
+  // an unfiltered preview in one pass — the grid is immediately filterable.
+  useEffect(() => {
+    if (pickedUrls.length !== 1 || sqlMode || columns.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      const { runQuery, sourceFor } = await import("@lib/platform/duckdb");
+      const source = sourceFor(pickedUrls);
+      await withEngine("Loading season…", async () => {
+        const described = await runQuery(`DESCRIBE SELECT * FROM ${source}`, 1000);
+        if (cancelled) return;
+        const nameIdx = described.columns.indexOf("column_name");
+        const typeIdx = described.columns.indexOf("column_type");
+        setColumns(
+          described.rows.map((r) => ({ name: r[nameIdx] ?? "", type: r[typeIdx] ?? "" }))
+        );
+        setFilters([{ column: "", op: "=", value: "" }]);
+        const preview = await runQuery(buildSql(source, [], limit), 500);
+        if (!cancelled) setResult(preview);
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rerun only on file change
+  }, [pickedUrls, sqlMode]);
 
   async function run() {
     const { runQuery, sourceFor } = await import("@lib/platform/duckdb");
@@ -332,82 +381,62 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
         ))}
       </select>
 
-      {preset && quickSeasons.length > 0 ? (
-        <div className="mb-8 rounded-lg border border-primary/30 bg-primary/5 p-4 dark:border-sky-800 dark:bg-sky-950/20">
-          <h2 className="mb-3 font-barlow text-lg font-semibold">Quick query</h2>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 font-inter text-xs text-muted-foreground">
-              Season
-              <select
-                value={quickSeason || quickSeasons[0]}
-                onChange={(e) => setQuickSeason(e.target.value)}
-                className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-foreground dark:border-gray-600 dark:bg-darkSecondary"
-              >
-                {quickSeasons.map((asset) => (
-                  <option key={asset} value={asset}>
-                    {asset.replace(preset.assetPrefix, "").replace(".parquet", "")}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {preset.fields.map((field) => (
-              <label
-                key={field.label}
-                className="flex flex-col gap-1 font-inter text-xs text-muted-foreground"
-              >
-                {field.label}
-                <input
-                  value={quickValues[field.label] ?? ""}
-                  onChange={(e) =>
-                    setQuickValues({ ...quickValues, [field.label]: e.target.value })
-                  }
-                  placeholder={field.placeholder}
-                  className="w-36 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-foreground dark:border-gray-600 dark:bg-darkSecondary"
-                />
-              </label>
-            ))}
-            <Button onClick={quickRun} disabled={busy !== null}>
-              <Play className="mr-1 h-4 w-4" /> {busy ?? "Run quick query"}
-            </Button>
-          </div>
-          <p className="mt-2 font-inter text-xs text-muted-foreground">
-            Runs against one season file with a 500-row preview; the generated SQL lands
-            in SQL mode below for tweaking or export.
-          </p>
-        </div>
-      ) : null}
-
-      {/* Step 2 — assets */}
+      {/* Step 2 — table + season (partition) */}
       {tag ? (
         <>
-          <h2 className="mb-2 font-barlow text-lg font-semibold">2 · Files</h2>
+          <h2 className="mb-2 font-barlow text-lg font-semibold">2 · Season</h2>
           {assetsError ? (
             <p className="mb-4 font-inter text-sm text-red-600 dark:text-red-400">
               {assetsError.message}
             </p>
           ) : assetsLoading ? (
-            <p className="mb-4 font-inter text-sm text-muted-foreground">Loading files…</p>
+            <p className="mb-4 font-inter text-sm text-muted-foreground">Loading release…</p>
           ) : queryable.length === 0 ? (
             <p className="mb-4 font-inter text-sm text-muted-foreground">
               No parquet/csv assets in this release.
             </p>
           ) : (
-            <div className="mb-6 grid max-h-56 gap-1 overflow-y-auto rounded-lg border border-gray-200 p-3 dark:border-gray-700 sm:grid-cols-2 lg:grid-cols-3">
-              {queryable.map((a) => (
-                <label key={a.name} className="flex items-center gap-2 font-mono text-xs">
-                  <input
-                    type="checkbox"
-                    checked={picked.has(a.name)}
-                    onChange={() => togglePicked(a.name)}
-                  />
-                  <span className="truncate" title={a.name}>
-                    {a.name}
-                  </span>
-                  <span className="ml-auto whitespace-nowrap text-muted-foreground">
-                    {formatBytes(a.size)}
-                  </span>
+            <div className="mb-6 flex flex-wrap items-end gap-3">
+              {stems.length > 1 ? (
+                <label className="flex flex-col gap-1 font-inter text-xs text-muted-foreground">
+                  Table
+                  <select
+                    value={stem}
+                    onChange={(e) => setStem(e.target.value)}
+                    className="rounded-md border border-gray-300 bg-white px-2 py-1.5 font-mono text-sm text-foreground dark:border-gray-600 dark:bg-darkSecondary"
+                  >
+                    {stems.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
                 </label>
-              ))}
+              ) : null}
+              <label className="flex flex-col gap-1 font-inter text-xs text-muted-foreground">
+                Season
+                <select
+                  value={partition}
+                  onChange={(e) => setPartition(e.target.value)}
+                  disabled={partitions.length === 0}
+                  className="rounded-md border border-gray-300 bg-white px-2 py-1.5 font-mono text-sm text-foreground dark:border-gray-600 dark:bg-darkSecondary"
+                >
+                  {partitions.length === 0 ? (
+                    <option value="">full file</option>
+                  ) : (
+                    partitions.map((p) => (
+                      <option key={p} value={p}>
+                        {p.replace("_", "-")}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+              {selectedAsset ? (
+                <span className="pb-1.5 font-mono text-xs text-muted-foreground">
+                  {selectedAsset}
+                </span>
+              ) : null}
             </div>
           )}
         </>
