@@ -87,8 +87,8 @@ export default function LookupsClient() {
             }}
             className={`rounded-full px-3 py-1 font-inter text-sm font-medium transition-colors ${
               s.key === sportKey
-                ? "bg-primary text-white dark:bg-white/20"
-                : "bg-primary/10 text-primary hover:bg-primary/20 dark:bg-white/10 dark:text-sky-300"
+                ? "bg-primary text-primary-foreground"
+                : "bg-primary/10 text-primary hover:bg-primary/20"
             }`}
           >
             {s.label}
@@ -104,8 +104,8 @@ export default function LookupsClient() {
             }}
             className={`rounded-full px-3 py-1 font-inter text-sm font-medium capitalize transition-colors ${
               m === mode
-                ? "bg-primary text-white dark:bg-white/20"
-                : "bg-primary/10 text-primary hover:bg-primary/20 dark:bg-white/10 dark:text-sky-300"
+                ? "bg-primary text-primary-foreground"
+                : "bg-primary/10 text-primary hover:bg-primary/20"
             }`}
           >
             {m}
@@ -125,7 +125,7 @@ export default function LookupsClient() {
             value={term}
             onChange={(e) => setTerm(e.target.value)}
             placeholder={`Search ${sport.label} players…`}
-            className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 font-inter text-sm dark:border-gray-600 dark:bg-darkSecondary"
+            className="flex-1 rounded-md border border-input bg-card px-3 py-2 font-inter text-sm"
           />
         ) : null}
         <Button type="submit" disabled={busy}>
@@ -135,15 +135,15 @@ export default function LookupsClient() {
       </form>
 
       {error ? (
-        <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 font-mono text-xs text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 font-mono text-xs text-destructive">
           {error}
         </div>
       ) : null}
 
       {result ? (
-        <div className="max-h-[36rem] overflow-auto rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="max-h-[36rem] overflow-auto rounded-lg border border-border">
           <table className="w-full text-left font-inter text-sm">
-            <thead className="sticky top-0 bg-gray-50 text-xs uppercase text-muted-foreground dark:bg-gray-800">
+            <thead className="sticky top-0 bg-muted text-xs uppercase text-muted-foreground">
               <tr>
                 {headshotIdx === 0 ? <th className="px-3 py-2" /> : null}
                 {(mode === "players"
@@ -158,7 +158,7 @@ export default function LookupsClient() {
             </thead>
             <tbody>
               {result.rows.map((row, i) => (
-                <tr key={i} className="border-t border-gray-200 dark:border-gray-700">
+                <tr key={i} className="border-t border-border">
                   {headshotIdx === 0 ? (
                     <td className="px-3 py-1">
                       {row[0] ? (

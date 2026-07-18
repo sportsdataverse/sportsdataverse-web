@@ -3,34 +3,84 @@
  * remaining Pages-Router consumers (via PlatformShell re-exports).
  */
 
-export const PLATFORM_TABS = [
-  { href: "/platform", label: "Overview" },
-  { href: "/platform/automation", label: "Automation" },
-  { href: "/platform/datasets", label: "Datasets" },
-  { href: "/platform/query", label: "Query" },
-  { href: "/platform/explore", label: "Explore" },
-  { href: "/platform/lookups", label: "Lookups" },
-  { href: "/platform/wp", label: "Win Prob" },
-  { href: "/platform/trends", label: "Trends" },
-  { href: "/platform/models", label: "Models" },
-  { href: "/platform/database", label: "Database" },
-  { href: "/platform/api-key", label: "API Key" },
-] as const;
+import {
+  LayoutDashboard,
+  Workflow,
+  Database,
+  Search,
+  Braces,
+  BookOpen,
+  Percent,
+  TrendingUp,
+  Boxes,
+  HardDrive,
+  KeyRound,
+} from "lucide-react";
+
+export type PlatformNavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+/** THE platform nav — single source for the sidebar, the mobile drawer, the
+ *  ⌘K palette, and the topbar crumb. */
+export const PLATFORM_NAV: { title: string | null; items: PlatformNavItem[] }[] = [
+  {
+    title: null,
+    items: [{ href: "/platform", label: "Overview", icon: LayoutDashboard }],
+  },
+  {
+    title: "Data",
+    items: [
+      { href: "/platform/datasets", label: "Datasets", icon: Database },
+      { href: "/platform/query", label: "Query", icon: Braces },
+      { href: "/platform/explore", label: "Explore", icon: Search },
+      { href: "/platform/lookups", label: "Lookups", icon: BookOpen },
+    ],
+  },
+  {
+    title: "Operations",
+    items: [{ href: "/platform/automation", label: "Automation", icon: Workflow }],
+  },
+  {
+    title: "Models",
+    items: [
+      { href: "/platform/models", label: "Models", icon: Boxes },
+      { href: "/platform/wp", label: "Win Prob", icon: Percent },
+      { href: "/platform/trends", label: "Trends", icon: TrendingUp },
+    ],
+  },
+  {
+    title: "System",
+    items: [
+      { href: "/platform/database", label: "Database", icon: HardDrive },
+      { href: "/platform/api-key", label: "API Key", icon: KeyRound },
+    ],
+  },
+];
+
+/** Flat view of PLATFORM_NAV (⌘K palette, crumb resolution, legacy consumers). */
+export const PLATFORM_TABS = PLATFORM_NAV.flatMap((g) =>
+  g.items.map(({ href, label }) => ({ href, label }))
+);
 
 /** Colored chip for workflow conclusions / run statuses / booleans, on the
- *  shared status-token ramp (see globals.css `--color-status-*`). */
+ *  shared status-token ramp: `-ink` variants for light-mode text, bare colors
+ *  in dark (see globals.css). Unrecognized values read as neutral, not as
+ *  failure — only explicit failure states go red. */
 export function StatusBadge({ status }: { status: string | null | undefined }) {
   const value = (status ?? "unknown").toLowerCase();
   const tone =
     value === "success" || value === "completed" || value === "ok" || value === "passed"
-      ? "bg-status-success/15 text-status-success"
+      ? "bg-status-success/15 text-status-success-ink dark:text-status-success"
       : value === "in_progress" || value === "queued" || value === "running" || value === "pending" || value === "stale"
-        ? "bg-status-running/15 text-status-running"
+        ? "bg-status-running/15 text-status-running-ink dark:text-status-running"
         : value === "scheduled" || value === "late"
-          ? "bg-status-scheduled/15 text-status-scheduled"
-          : value === "cancelled" || value === "cancelling" || value === "unknown" || value === "none"
-            ? "bg-status-cancelled/20 text-status-cancelled"
-            : "bg-status-failed/15 text-status-failed";
+          ? "bg-status-scheduled/15 text-status-scheduled-ink dark:text-status-scheduled"
+          : value === "failure" || value === "failed" || value === "error" || value === "crashed" || value === "timed_out" || value === "startup_failure" || value === "action_required"
+            ? "bg-status-failed/15 text-status-failed-ink dark:text-status-failed"
+            : "bg-status-cancelled/20 text-status-cancelled-ink dark:text-status-cancelled";
   return (
     <span
       className={`inline-block rounded-full px-2 py-0.5 font-mono text-xs font-semibold uppercase tracking-wide ${tone}`}

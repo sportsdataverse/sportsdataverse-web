@@ -53,7 +53,7 @@ export default function ModelDetailClient({ modelId, runs }: ModelDetailProps) {
                   return (
                     <div
                       key={key}
-                      className="rounded-lg border border-gray-200 bg-white/70 px-4 py-3 dark:border-gray-700 dark:bg-darkSecondary/70"
+                      className="rounded-lg border border-border bg-card/70 px-4 py-3"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate font-inter text-sm text-muted-foreground">
@@ -76,9 +76,9 @@ export default function ModelDetailClient({ modelId, runs }: ModelDetailProps) {
               <h3 className="mb-3 font-barlow text-lg font-semibold">
                 Oracle gates <span className="font-inter text-sm font-normal text-muted-foreground">(newest {gateRuns.length} runs, newest first)</span>
               </h3>
-              <div className="mb-8 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="mb-8 overflow-x-auto rounded-lg border border-border">
                 <table className="w-full text-left font-inter text-sm">
-                  <thead className="bg-gray-50 text-xs uppercase text-muted-foreground dark:bg-gray-800/60">
+                  <thead className="bg-muted text-xs uppercase text-muted-foreground">
                     <tr>
                       <th className="px-4 py-2">Gate</th>
                       {gateRuns.map((run) => (
@@ -92,7 +92,7 @@ export default function ModelDetailClient({ modelId, runs }: ModelDetailProps) {
                   </thead>
                   <tbody>
                     {gateNames.map((name) => (
-                      <tr key={name} className="border-t border-gray-200 dark:border-gray-700">
+                      <tr key={name} className="border-t border-border">
                         <td className="px-4 py-2 font-medium">{name}</td>
                         {gateRuns.map((run) => {
                           const gate = (run.gates ?? []).find((g) => g.name === name);
@@ -104,9 +104,9 @@ export default function ModelDetailClient({ modelId, runs }: ModelDetailProps) {
                             }>
                               {gate ? (
                                 gate.passed ? (
-                                  <Check className="inline h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                  <Check className="inline h-4 w-4 text-status-success" />
                                 ) : (
-                                  <X className="inline h-4 w-4 text-red-600 dark:text-red-400" />
+                                  <X className="inline h-4 w-4 text-destructive" />
                                 )
                               ) : (
                                 <span className="text-muted-foreground">–</span>
@@ -128,7 +128,7 @@ export default function ModelDetailClient({ modelId, runs }: ModelDetailProps) {
               <Link
                 key={run._id}
                 href={`/platform/runs/${run._id}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white/70 px-4 py-3 hover:border-primary dark:border-gray-700 dark:bg-darkSecondary/70"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card/70 px-4 py-3 hover:border-primary"
               >
                 <div className="flex items-center gap-3">
                   <StatusBadge status={run.status} />

@@ -3,7 +3,7 @@
 // hostname, which would 500 the whole /projects page for one bad cover URL.
 function OgImage({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="relative -mt-[35%] sm:-mt-0 md:-ml-[35%] w-full sm:w-1/2 md:w-8/12 shrink-0 rounded-xl overflow-hidden shadow-2xl before:absolute before:inset-0 dark:before:bg-black/20 before:z-10">
+    <div className="relative -mt-10 sm:-mt-0 md:-ml-[35%] w-full sm:w-1/2 md:w-8/12 shrink-0 rounded-xl overflow-hidden shadow-2xl before:absolute before:inset-0 dark:before:bg-black/20 before:z-10">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         title={alt}

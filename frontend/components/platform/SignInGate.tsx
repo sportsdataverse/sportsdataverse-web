@@ -10,7 +10,7 @@ export default function SignInGate({ signedIn }: { signedIn: boolean }) {
   const pathname = usePathname();
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center gap-5 px-6 text-center">
-      <h1 className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text font-script text-3xl font-bold text-transparent">
+      <h1 className="font-display text-4xl font-bold uppercase tracking-tight">
         SportsDataverse Platform
       </h1>
       {signedIn ? (

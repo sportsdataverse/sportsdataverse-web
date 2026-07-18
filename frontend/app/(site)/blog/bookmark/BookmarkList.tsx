@@ -11,7 +11,7 @@ export default function BookmarkList() {
   const { bookmarkedBlogs } = useBookmarkBlogs("blogs", []);
 
   return (
-    <section className="flex flex-col gap-2 pageTop text-neutral-900 dark:text-neutral-200">
+    <section className="flex flex-col gap-2 pageTop text-foreground">
       <PageTop pageTitle="Bookmarks">
         Here you can find article bookmarked by you for later use.
       </PageTop>
@@ -28,7 +28,7 @@ export default function BookmarkList() {
               })}
             </AnimatedDiv>
           ) : (
-            <div className="mt-10 font-medium text-center font-inter dark:text-gray-400">
+            <div className="mt-10 font-medium text-center font-inter text-muted-foreground">
               Nothing to see here.
             </div>
           )}

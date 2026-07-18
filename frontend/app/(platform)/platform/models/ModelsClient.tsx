@@ -20,9 +20,9 @@ export default function ModelsClient({ models }: { models: ModelSummary[] }) {
           SETUP-platform.md.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-left font-inter text-sm">
-            <thead className="bg-gray-50 text-xs uppercase text-muted-foreground dark:bg-gray-800/60">
+            <thead className="bg-muted text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-4 py-2">Model</th>
                 <th className="px-4 py-2">Sport</th>
@@ -34,7 +34,7 @@ export default function ModelsClient({ models }: { models: ModelSummary[] }) {
             </thead>
             <tbody>
               {models.map((model) => (
-                <tr key={model.model_id} className="border-t border-gray-200 dark:border-gray-700">
+                <tr key={model.model_id} className="border-t border-border">
                   <td className="px-4 py-2 font-medium">
                     <Link
                       href={`/platform/models/${model.model_id}`}

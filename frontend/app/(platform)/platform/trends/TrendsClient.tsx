@@ -54,7 +54,7 @@ function TrendChart({ points, label }: { points: TrendPoint[]; label: string }) 
             x2={W - pad.r}
             y1={y(tick)}
             y2={y(tick)}
-            className="stroke-gray-200 dark:stroke-gray-700"
+            className="stroke-border"
             strokeDasharray="4 4"
           />
           <text x={4} y={y(tick) + 4} className="fill-current font-inter text-[11px] text-muted-foreground">
@@ -206,8 +206,8 @@ export default function TrendsClient() {
               }}
               className={`rounded-full px-3 py-1 font-inter text-sm font-medium transition-colors ${
                 s.key === sportKey
-                  ? "bg-primary text-white dark:bg-white/20"
-                  : "bg-primary/10 text-primary hover:bg-primary/20 dark:bg-white/10 dark:text-sky-300"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-primary/10 text-primary hover:bg-primary/20"
               }`}
             >
               {s.label}
@@ -217,7 +217,7 @@ export default function TrendsClient() {
         <select
           value={team}
           onChange={(e) => setTeam(e.target.value)}
-          className="min-w-[16rem] rounded-md border border-gray-300 bg-white px-3 py-1.5 font-inter text-sm dark:border-gray-600 dark:bg-darkSecondary"
+          className="min-w-[16rem] rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
         >
           <option value="">Team… ({teams.length})</option>
           {teams.map((t) => (
@@ -227,7 +227,7 @@ export default function TrendsClient() {
         <select
           value={stat}
           onChange={(e) => setStat(e.target.value)}
-          className="min-w-[14rem] rounded-md border border-gray-300 bg-white px-3 py-1.5 font-inter text-sm dark:border-gray-600 dark:bg-darkSecondary"
+          className="min-w-[14rem] rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
         >
           <option value="">Stat… ({stats.length})</option>
           {stats.map((s) => (
@@ -242,13 +242,13 @@ export default function TrendsClient() {
       </div>
 
       {error ? (
-        <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 font-mono text-xs text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 font-mono text-xs text-destructive">
           {error}
         </div>
       ) : null}
 
       {points.length > 1 ? (
-        <div className="rounded-lg border border-gray-200 bg-white/70 p-4 dark:border-gray-700 dark:bg-darkSecondary/70">
+        <div className="rounded-lg border border-border bg-card/70 p-4">
           <h3 className="mb-2 font-barlow text-lg font-semibold">
             {team} — {statLabel}
           </h3>

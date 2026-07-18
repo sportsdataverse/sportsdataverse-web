@@ -44,9 +44,9 @@ function ProducerLink({ producer }: { producer: string }) {
 
 function ReleaseTable({ releases, grouped }: { releases: ReleaseSummary[]; grouped: boolean }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+    <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-left font-inter text-sm">
-        <thead className="bg-gray-50 text-xs uppercase text-muted-foreground dark:bg-gray-800/60">
+        <thead className="bg-muted text-xs uppercase text-muted-foreground">
           <tr>
             <th className="px-4 py-2">Release</th>
             {grouped ? <th className="px-4 py-2">Provider</th> : null}
@@ -61,7 +61,7 @@ function ReleaseTable({ releases, grouped }: { releases: ReleaseSummary[]; group
           {releases.map((rel) => {
             const group = grouped ? classifyReleaseTag(rel.tag) : null;
             return (
-              <tr key={rel.tag} className="border-t border-gray-200 dark:border-gray-700">
+              <tr key={rel.tag} className="border-t border-border">
                 <td className="px-4 py-2 font-medium">
                   <a
                     href={rel.html_url}
@@ -133,7 +133,7 @@ export default function DatasetsClient({ repos }: { repos: RepoReleases[] }) {
               >
                 {entry.repo}
               </a>
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary dark:bg-white/10 dark:text-sky-300">
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
                 {entry.sport}
               </span>
               <span className="font-inter text-xs text-muted-foreground">
@@ -141,7 +141,7 @@ export default function DatasetsClient({ repos }: { repos: RepoReleases[] }) {
               </span>
             </div>
             {entry.error ? (
-              <p className="font-inter text-sm text-red-600 dark:text-red-400">
+              <p className="font-inter text-sm text-destructive">
                 Failed to load: {entry.error}
               </p>
             ) : entry.releases.length === 0 ? (

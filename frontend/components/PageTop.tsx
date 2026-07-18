@@ -21,18 +21,19 @@ export default function PageTop({
       className={`w-full flex flex-col gap-3 py-5 select-none mb-10 ${containerClass}`}
     >
       <AnimatedHeading
+        as="h1"
         variants={fromLeftVariant}
-        className={`text-4xl  md:text-5xl font-bold text-neutral-900 dark:text-neutral-200 ${headingClass}`}
+        className={`text-4xl  md:text-5xl font-bold text-foreground ${headingClass}`}
       >
         {pageTitle}
       </AnimatedHeading>
       <span
         aria-hidden
-        className="block h-1 w-16 rounded-full bg-gradient-to-r from-primary to-accent"
+        className="block h-1 w-16 rounded-full bg-score"
       />
       <AnimatedText
         variants={opacityVariant}
-        className="text-lg text-gray-600 dark:text-gray-400"
+        className="text-lg text-muted-foreground"
       >
         {children}
       </AnimatedText>

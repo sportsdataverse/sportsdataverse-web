@@ -1,0 +1,42 @@
+---
+slug: sdv-py-cfb-epa-polars
+title: CFB team EPA with polars
+date: 2026-07-18
+excerpt: One season of college football play-by-play as a polars DataFrame, ranked by EPA per play.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: python
+---
+
+`sportsdataverse-py` loaders return polars DataFrames by default — a full
+season of college football play-by-play loads in seconds from the
+sportsdataverse-data parquet releases.
+
+<CodeTitle title="cfb_epa.py" lang="py" />
+
+```python
+# pip install sportsdataverse
+import polars as pl
+import sportsdataverse as sdv
+
+pbp = sdv.cfb.load_cfb_pbp(seasons=[2024])  # polars DataFrame
+
+(
+    pbp
+    .filter(pl.col("EPA").is_not_null())
+    .group_by("pos_team")
+    .agg(
+        plays=pl.len(),
+        epa_play=pl.col("EPA").mean(),
+    )
+    .sort("epa_play", descending=True)
+    .head(10)
+)
+```
+
+Prefer pandas? Every loader takes `return_as_pandas=True`. Pass several
+seasons (`seasons=range(2014, 2025)`) to build a decade-long frame.
+
+Full docs: [py.sportsdataverse.org](https://py.sportsdataverse.org/)

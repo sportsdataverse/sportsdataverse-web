@@ -12,10 +12,10 @@ export default function Project({ project }: { project: ProjectType }) {
       <OgImage src={cover} alt={project.name} />
 
       <div className="flex flex-col justify-start gap-3">
-        <h1 className="font-bold text-neutral-900 dark:text-neutral-200">
+        <h1 className="font-bold text-foreground">
           {project.name}
         </h1>
-        <p className="text-sm text-gray-400 dark:text-neutral-400 line-clamp-5">
+        <p className="text-sm text-muted-foreground line-clamp-5">
           {project.description}
         </p>
 
@@ -24,7 +24,7 @@ export default function Project({ project }: { project: ProjectType }) {
             return (
               <span
                 key={`${tool}-${index}`}
-                className="px-2 py-1 text-xs text-gray-500 bg-gray-100 rounded dark:bg-darkPrimary"
+                className="px-2 py-1 text-xs text-muted-foreground bg-secondary rounded"
               >
                 {tool}
               </span>
@@ -38,7 +38,7 @@ export default function Project({ project }: { project: ProjectType }) {
             title="Source Code on GitHub"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-gray-500 hover:text-black dark:hover:text-white"
+            className="text-muted-foreground hover:text-foreground"
           >
             <BsGithub className="w-6 h-6 transition-all hover:scale-110 active:scale-90" />
           </Link>
@@ -49,7 +49,7 @@ export default function Project({ project }: { project: ProjectType }) {
               title="Live Preview"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-500 hover:text-black dark:hover:text-white"
+              className="text-muted-foreground hover:text-foreground"
             >
               <MdOutlineLink className="w-6 h-6 transition-all hover:scale-110 active:scale-90" />
             </Link>

@@ -1,0 +1,37 @@
+---
+slug: hoopR-nba-play-by-play
+title: NBA play-by-play in two lines
+date: 2026-07-18
+excerpt: A full NBA season of play-by-play, then a quick look at the league's shot diet.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: r
+---
+
+hoopR ships season-level NBA (and men's college basketball) play-by-play as
+prebuilt releases. Loading a season is two lines; from there it's ordinary
+dplyr.
+
+<CodeTitle title="nba_pbp.R" lang="r" />
+
+```r
+# install.packages("hoopR")
+library(hoopR)
+library(dplyr)
+
+pbp <- load_nba_pbp(seasons = 2025)
+
+# What does the league's shot diet look like?
+pbp |>
+  filter(shooting_play) |>
+  count(type_text, sort = TRUE) |>
+  head(10)
+```
+
+Every shooting play carries `coordinate_x` / `coordinate_y`, so this is also
+the raw material for shot charts. For college hoops, swap in
+`load_mbb_pbp()` — same shape, same columns.
+
+Full docs: [hoopR.sportsdataverse.org](https://hoopR.sportsdataverse.org/)

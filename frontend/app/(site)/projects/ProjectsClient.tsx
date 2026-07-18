@@ -21,7 +21,7 @@ export default function ProjectsClient({
     <section className="pageTop">
       <PageTop pageTitle="Projects">
         Projects from across the SportsDataverse community. So far there are{" "}
-        <span className="font-bold text-gray-600 dark:text-gray-200">
+        <span className="font-bold text-foreground">
           {projects.length}+
         </span>{" "}
         projects on display.
@@ -29,7 +29,7 @@ export default function ProjectsClient({
 
       <AnimatedDiv
         variants={FadeContainer}
-        className="grid grid-cols-1 gap-4 mx-auto md:ml-[20%] xl:ml-[24%]"
+        className="mx-auto grid max-w-3xl grid-cols-1 gap-4"
       >
         {projects.map((project) => {
           if (project.name === "" && project.githubURL === "") return null;
@@ -40,7 +40,7 @@ export default function ProjectsClient({
       <div className="flex items-center justify-center px-5 pb-10 pt-8">
         <Link
           href="/projects/manage"
-          className="font-inter text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline dark:text-gray-400"
+          className="font-inter text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
         >
           SportsDataverse org member? Add your project &rarr;
         </Link>

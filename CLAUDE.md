@@ -7,8 +7,9 @@ per-package R pkgdown sites) — this repo is the org front door, NOT a docs sit
 
 ## Architecture
 
-- **Framework:** Next.js 16 (Pages Router — `pages/`, no `app/`; `components.json` `rsc: false`),
-  React 19, TypeScript 5.7, Tailwind 3 + shadcn/ui (style `new-york`, lucide icons).
+- **Framework:** Next.js 16 **App Router** (`app/` route groups `(site)` + `(platform)`; `components.json` `rsc: true`),
+  React 19, TypeScript 5.7, **Tailwind 4** (CSS-first tokens in `frontend/styles/globals.css`) + shadcn/ui
+  (style `new-york`, lucide icons). Auth.js v5. Design system: see root `DESIGN.md` / `PRODUCT.md`.
 - **The app lives in `frontend/`, NOT the repo root.** Run all node commands from `frontend/`.
   Repo root holds only the Python data-fetcher (`python/`) + workflows + a generated `requirements.txt`.
 - **Content:** MDX rendered via `next-mdx-remote` + `gray-matter` + rehype (slug, autolink,
@@ -17,7 +18,7 @@ per-package R pkgdown sites) — this repo is the org front door, NOT a docs sit
   (meta, social, support, Framer Motion variants). `frontend/data/*.json` = seed projects/users.
 - **Backends:** Supabase (`views` table + `views_sum()` RPC — page-view counter;
   schema in `frontend/supabase/schema.sql`) and **MongoDB** (`MONGODB_URI` + `DB_NAME` —
-  packages/projects, NOT Supabase). Auth via NextAuth (GitHub OAuth). API routes in `pages/api/`.
+  packages/projects, NOT Supabase). Auth via Auth.js v5 (GitHub OAuth, org-membership JWT). API route handlers in `frontend/app/api/`.
 - **Data pipeline:** `python/data_fetcher.py` (uv-managed) pulls GitHub/package stats; the
   `cron.yml` workflow runs it daily on the **`with-data` branch** and auto-commits results there.
 

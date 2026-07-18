@@ -1,0 +1,37 @@
+---
+slug: sdv-js-parsed-rows
+title: Tidy rows with parsed true
+date: 2026-07-18
+excerpt: Skip the nested ESPN JSON — get flat, snake_cased row objects from any endpoint.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: node
+---
+
+Every wrapper returns the raw ESPN payload by default. Pass `{ parsed: true }`
+to run it through a registered parser and get a tidy array of flat,
+snake_cased row objects — the JavaScript analog of a tidy data frame.
+
+<CodeTitle title="parsed.mjs" lang="js" />
+
+```js
+import sdv from "sportsdataverse";
+
+const raw  = await sdv.nba.espnNbaScoreboard({});                // raw ESPN JSON
+const rows = await sdv.nba.espnNbaScoreboard({ parsed: true });  // tidy row objects
+
+// The summary endpoint is a dispatcher — omit `section` for all
+// sub-frames, or request just one:
+const box = await sdv.nba.espnNbaSummary({
+  event_id: 401584793,
+  parsed: true,
+  section: "boxscore_player",
+});
+```
+
+Tidy rows drop straight into `console.table`, a DataFrame library, or a
+database insert — no flattening code of your own.
+
+Full docs: [js.sportsdataverse.org](https://js.sportsdataverse.org/)

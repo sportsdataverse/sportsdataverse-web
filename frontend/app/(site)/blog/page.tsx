@@ -13,7 +13,7 @@ export default function BlogIndex() {
   const posts = new MDXContent("posts").getAllPosts();
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-16">
-      <p className="font-mono text-sm text-primary">the sdv blog</p>
+      <p className="eyebrow">The SDV blog</p>
       <h1 className="mt-1 font-display text-4xl font-bold tracking-tight">
         Blog
       </h1>
@@ -36,7 +36,7 @@ export default function BlogIndex() {
               <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
                 {post.excerpt}
               </p>
-              <p className="mt-2 font-mono text-xs text-muted-foreground/70">
+              <p className="mt-2 font-mono text-xs text-muted-foreground">
                 {post.readingTime.text}
               </p>
             </Link>

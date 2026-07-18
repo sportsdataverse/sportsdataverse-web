@@ -1,0 +1,41 @@
+---
+slug: sdv-py-mbb-shots
+title: College hoops shot locations
+date: 2026-07-18
+excerpt: Filter a season of men's college basketball play-by-play down to shots with court coordinates.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: python
+---
+
+Every shooting play in the ESPN play-by-play releases carries court
+coordinates — the raw material for shot charts, without any scraping.
+
+<CodeTitle title="mbb_shots.py" lang="py" />
+
+```python
+import polars as pl
+import sportsdataverse as sdv
+
+pbp = sdv.mbb.load_mbb_pbp(seasons=[2025])
+
+shots = (
+    pbp
+    .filter(pl.col("shooting_play") == True)  # noqa: E712 — explicit mask
+    .select(
+        "game_id",
+        "type_text",
+        "scoring_play",
+        "coordinate_x",
+        "coordinate_y",
+    )
+)
+shots.head()
+```
+
+From here it's a scatter plot away from a shot chart. The women's game is the
+same call in the wnba/wbb namespaces: `sdv.wbb.load_wbb_pbp(...)`.
+
+Full docs: [py.sportsdataverse.org](https://py.sportsdataverse.org/)

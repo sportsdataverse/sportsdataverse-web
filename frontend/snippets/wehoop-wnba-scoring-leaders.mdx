@@ -1,0 +1,41 @@
+---
+slug: wehoop-wnba-scoring-leaders
+title: WNBA scoring leaders
+date: 2026-07-18
+excerpt: Per-game scoring leaders from a season of WNBA player box scores with wehoop.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: r
+---
+
+wehoop covers women's basketball — WNBA and NCAA — with the same loader
+pattern as the rest of the family. Player box scores make leaderboards
+trivial.
+
+<CodeTitle title="wnba_leaders.R" lang="r" />
+
+```r
+# install.packages("wehoop")
+library(wehoop)
+library(dplyr)
+
+box <- load_wnba_player_box(seasons = 2024)
+
+box |>
+  group_by(athlete_id, athlete_display_name) |>
+  summarise(
+    gp      = n(),
+    ppg     = mean(points, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  filter(gp >= 20) |>
+  arrange(desc(ppg)) |>
+  head(10)
+```
+
+The college game ships too: `load_wbb_pbp()`, `load_wbb_player_box()`, and
+friends carry the full NCAA women's basketball slate back more than a decade.
+
+Full docs: [wehoop.sportsdataverse.org](https://wehoop.sportsdataverse.org/)

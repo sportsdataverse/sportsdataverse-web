@@ -1,0 +1,42 @@
+---
+slug: sdv-py-nfl-pbp
+title: NFL play-by-play (nflverse data)
+date: 2026-07-18
+excerpt: Load nflverse play-by-play in Python and rank offenses by EPA per play.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: python
+---
+
+The NFL submodule reads straight from the nflverse data releases — the same
+parquet that powers `nflfastR` — so Python users get the canonical NFL
+play-by-play with zero setup.
+
+<CodeTitle title="nfl_epa.py" lang="py" />
+
+```python
+import polars as pl
+import sportsdataverse as sdv
+
+pbp = sdv.nfl.load_nfl_pbp(seasons=[2024])
+
+(
+    pbp
+    .filter(pl.col("epa").is_not_null() & pl.col("posteam").is_not_null())
+    .group_by("posteam")
+    .agg(
+        plays=pl.len(),
+        epa_play=pl.col("epa").mean(),
+    )
+    .sort("epa_play", descending=True)
+    .head(10)
+)
+```
+
+Note the casing: nflverse columns are lowercase (`epa`, `posteam`), while the
+college release uses `EPA` / `pos_team` — a classic gotcha when porting
+analysis between the two.
+
+Full docs: [py.sportsdataverse.org](https://py.sportsdataverse.org/)

@@ -52,7 +52,7 @@ export default function OverviewClient({ models, recentRuns, dbStatuses }: Overv
           <Link
             key={card.href}
             href={card.href}
-            className="rounded-lg border border-gray-200 bg-white/70 p-5 transition-colors hover:border-primary dark:border-gray-700 dark:bg-darkSecondary/70"
+            className="rounded-lg border border-border bg-card/70 p-5 transition-colors hover:border-primary"
           >
             <div className="mb-2 flex items-center gap-2">
               <card.icon className="h-5 w-5 text-primary" />
@@ -75,7 +75,7 @@ export default function OverviewClient({ models, recentRuns, dbStatuses }: Overv
             <Link
               key={run._id}
               href={`/platform/runs/${run._id}`}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white/70 px-4 py-3 hover:border-primary dark:border-gray-700 dark:bg-darkSecondary/70"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card/70 px-4 py-3 hover:border-primary"
             >
               <div className="flex items-center gap-3">
                 <StatusBadge status={run.status} />

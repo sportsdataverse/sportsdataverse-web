@@ -1,0 +1,37 @@
+---
+slug: sportsdataverse-r-meta-package
+title: The R meta-package
+date: 2026-07-18
+excerpt: Install, inspect, and update the whole SportsDataverse R family in three calls.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: r
+---
+
+The `sportsdataverse` meta-package is the front door to the R family — it
+knows every member package, what's installed, and how to update all of them
+at once.
+
+<CodeTitle title="meta.R" lang="r" />
+
+```r
+# install.packages("sportsdataverse")
+library(sportsdataverse)
+
+# Every package in the family, with your install state
+sportsdataverse_packages()
+
+# Diagnose your setup — versions, dependencies, conflicts
+sportsdataverse_sitrep()
+
+# Update every SportsDataverse package in one call
+sportsdataverse_update()
+```
+
+From there, load whichever sport you need: `cfbfastR` for college football,
+`hoopR` / `wehoop` for basketball, `fastRhockey` for hockey, `baseballr` for
+baseball, and more.
+
+Full docs: [sportsdataverse.org/packages](/packages)

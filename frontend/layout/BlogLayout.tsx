@@ -62,11 +62,11 @@ export default function BlogLayout({
         }}
       >
         <ScrollProgressBar />
-        <h1 className="text-3xl font-bold tracking-tight text-black md:text-5xl dark:text-white">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-5xl">
           {post.meta.title}
         </h1>
 
-        <div className="flex items-center !w-full text-gray-700 dark:text-gray-300">
+        <div className="flex items-center !w-full text-muted-foreground">
           <div className="flex items-center w-full gap-2">
             <Image
               alt={authorName}
@@ -98,7 +98,7 @@ export default function BlogLayout({
               rel="noopener noreferrer"
               className="transition select-none active:scale-75"
             >
-              <RxPencil2 className="text-gray-700 w-7 h-7 dark:text-gray-300 stroke-slate-300 " />
+              <RxPencil2 className="text-muted-foreground w-7 h-7 " />
             </Link>
             <button
               title="Save for Later"
@@ -120,7 +120,7 @@ export default function BlogLayout({
 
         <AnimatedDiv
           variants={opacityVariant}
-          className="max-w-full prose-sm blog-container sm:prose-base prose-headings:scroll-mt-24 prose-h2:border-b prose-h2:border-border/60 prose-h2:pb-2 prose-a:text-primary prose-a:no-underline hover:prose-a:text-accent prose-a:transition-colors dark:prose-a:text-sky-300 prose-blockquote:border-l-primary prose-pre:bg-white prose-img:mx-auto prose-img:rounded-md dark:prose-pre:bg-darkSecondary prose-pre:saturate-150 dark:prose-pre:saturate-100 marker:text-primary dark:marker:text-sky-300"
+          className="max-w-full prose-sm blog-container sm:prose-base prose-headings:scroll-mt-24 prose-h2:border-b prose-h2:border-border/60 prose-h2:pb-2 prose-a:text-primary prose-a:no-underline hover:prose-a:text-accent prose-a:transition-colors prose-blockquote:border-l-primary prose-img:mx-auto prose-img:rounded-md marker:text-primary"
         >
           {children}
         </AnimatedDiv>
@@ -129,7 +129,7 @@ export default function BlogLayout({
         <div className="flex flex-col items-center w-full gap-4 my-10 print:hidden">
           <h3
             style={{ margin: "0" }}
-            className="text-xl font-semibold dark:text-white"
+            className="text-xl font-semibold text-foreground"
           >
             Share this post:
           </h3>
@@ -140,7 +140,7 @@ export default function BlogLayout({
             summary={post.meta.excerpt}
             cover_image={post.meta.image}
           >
-            <div className="p-2 text-white bg-gray-700 rounded-full cursor-pointer">
+            <div className="p-2 bg-foreground text-background rounded-full cursor-pointer">
               <FiPrinter className="w-4 h-4" onClick={() => window.print()} />
             </div>
           </ShareOnSocialMedia>

@@ -1,0 +1,36 @@
+---
+slug: fastRhockey-nhl-play-by-play
+title: NHL play-by-play
+date: 2026-07-18
+excerpt: Load a season of NHL play-by-play and inspect the event mix with fastRhockey.
+author:
+  name: Saiem Gilani
+  picture: '/blog/authors/saiemgilani.png'
+published: true
+image: r
+---
+
+fastRhockey loads NHL play-by-play from the sportsdataverse-data releases —
+shots, hits, faceoffs, goals, all with on-ice context.
+
+<CodeTitle title="nhl_pbp.R" lang="r" />
+
+```r
+# install.packages("fastRhockey")
+library(fastRhockey)
+library(dplyr)
+
+pbp <- load_nhl_pbp(seasons = 2024)
+
+# Get oriented: columns and types
+glimpse(pbp)
+
+# The season's event mix
+pbp |>
+  count(event_type, sort = TRUE)
+```
+
+The package also covers the PWHL (`load_pwhl_pbp()` and boxscore loaders), so
+the women's professional game is one function swap away.
+
+Full docs: [fastrhockey.sportsdataverse.org](https://fastrhockey.sportsdataverse.org/)

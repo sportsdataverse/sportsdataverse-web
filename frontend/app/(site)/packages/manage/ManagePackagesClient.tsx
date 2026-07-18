@@ -32,7 +32,7 @@ export default function ManagePackagesClient({
     return (
       <>
         <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center gap-5 px-6 text-center">
-          <h1 className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text font-sarina text-3xl font-bold text-transparent">
+          <h1 className="font-display text-4xl font-bold uppercase tracking-tight">
             Manage Packages
           </h1>
           {signedIn ? (
@@ -122,7 +122,7 @@ export default function ManagePackagesClient({
       <div className="mx-auto max-w-4xl px-6 py-24">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text font-sarina text-3xl font-bold text-transparent">
+            <h1 className="font-display text-4xl font-bold uppercase tracking-tight">
               Manage Packages
             </h1>
             <p className="mt-1 font-inter text-sm text-muted-foreground">
@@ -143,7 +143,7 @@ export default function ManagePackagesClient({
         </div>
 
         {error ? (
-          <div className="mb-6 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+          <div className="mb-6 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         ) : null}
@@ -175,14 +175,14 @@ export default function ManagePackagesClient({
             packages.map((pkg) => (
               <div
                 key={pkg._id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white/70 px-4 py-3 dark:border-gray-700 dark:bg-darkSecondary/70"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card/70 px-4 py-3"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-barlow text-lg font-semibold">
                       {pkg.repoType === "R" ? `{${pkg.title}}` : pkg.title}
                     </span>
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary dark:bg-white/10 dark:text-sky-300">
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
                       {pkg.sports} · {pkg.repoType}
                     </span>
                     {pkg.published === false ? (
@@ -214,7 +214,7 @@ export default function ManagePackagesClient({
                     aria-label={`Delete ${pkg.title}`}
                     onClick={() => handleDelete(pkg)}
                   >
-                    <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
               </div>

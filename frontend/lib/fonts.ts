@@ -29,3 +29,14 @@ export const sarina = localFont({
   display: "swap",
   weight: "400",
 });
+
+/* Display face: condensed broadcast/jersey lettering for headlines, section
+   headers, and scoreboard-style numerics. */
+export const barlowCondensed = localFont({
+  src: [
+    { path: "../public/fonts/BarlowCondensed/BarlowCondensed-600.woff2", weight: "600" },
+    { path: "../public/fonts/BarlowCondensed/BarlowCondensed-700.woff2", weight: "700" },
+  ],
+  variable: "--font-barlow-condensed",
+  display: "swap",
+});

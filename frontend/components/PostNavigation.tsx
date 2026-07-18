@@ -25,13 +25,13 @@ export default function PostNavigation({
       {prev ? (
         <Link
           href={`/blog/${prev.slug}`}
-          className="group flex flex-col gap-1 rounded-xl border border-gray-200 bg-white/70 p-4 no-underline transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md dark:border-gray-700 dark:bg-darkSecondary/70"
+          className="group flex flex-col gap-1 rounded-xl border border-border bg-card/70 p-4 no-underline transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
         >
-          <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-300 group-hover:-translate-x-0.5" />
             Previous
           </span>
-          <span className="font-barlow font-semibold leading-snug text-gray-900 transition-colors group-hover:text-primary dark:text-gray-100 dark:group-hover:text-sky-300">
+          <span className="font-barlow font-semibold leading-snug text-foreground transition-colors group-hover:text-primary">
             {prev.title}
           </span>
         </Link>
@@ -43,13 +43,13 @@ export default function PostNavigation({
       {next ? (
         <Link
           href={`/blog/${next.slug}`}
-          className="group flex flex-col items-end gap-1 rounded-xl border border-gray-200 bg-white/70 p-4 text-right no-underline transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md dark:border-gray-700 dark:bg-darkSecondary/70"
+          className="group flex flex-col items-end gap-1 rounded-xl border border-border bg-card/70 p-4 text-right no-underline transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
         >
-          <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Next
             <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
           </span>
-          <span className="font-barlow font-semibold leading-snug text-gray-900 transition-colors group-hover:text-primary dark:text-gray-100 dark:group-hover:text-sky-300">
+          <span className="font-barlow font-semibold leading-snug text-foreground transition-colors group-hover:text-primary">
             {next.title}
           </span>
         </Link>

@@ -4,29 +4,45 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* --- Design tokens (Tailwind v4 CSS-first) ------------------------------- */
+/* ---------------------------------------------------------------------------
+   SportsDataverse design tokens — "night game broadcast".
+   Dark mode is navy ink under the lights; light mode is chalk paper with the
+   same ink. SDV blue stays the interactive color; scoreboard amber is the one
+   loud element, reserved for the ticker, eyebrows, and live markers.
+--------------------------------------------------------------------------- */
 @theme {
-  /* new type utilities */
+  /* type */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-barlow), var(--font-inter), sans-serif;
+  --font-display: var(--font-barlow-condensed), var(--font-barlow), sans-serif;
   --font-script: var(--font-sarina), cursive;
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-  /* brand ramp */
-  --color-brand-300: #67c3e8;
-  --color-brand-400: #22a5d4;
-  --color-brand-500: #0580ad;   /* SDV accent */
+  /* brand blues (SDV) */
+  --color-brand-300: #62c3ef;
+  --color-brand-400: #2e9bd6;
+  --color-brand-500: #0b84c4;
   --color-brand-600: #02679c;
-  --color-brand-700: #024f84;   /* legacy primary */
+  --color-brand-700: #024f84;
 
-  /* status ramp (shared: workflows, freshness, run states) */
+  /* scoreboard amber — the signature accent (graphic on dark, ink on light) */
+  --color-score: #ffb43c;
+  --color-score-ink: #8a5300;
+
+  /* status ramp (shared: workflows, freshness, run states). The bare colors
+     are fills/graphics + dark-mode text; the -ink variants are the light-mode
+     text pair (same discipline as score/score-ink). */
   --color-status-success: #10b981;
   --color-status-running: #f59e0b;
   --color-status-failed: #f43f5e;
   --color-status-scheduled: #38bdf8;
   --color-status-cancelled: #a1a1aa;
+  --color-status-success-ink: #047857;
+  --color-status-running-ink: #92400e;
+  --color-status-failed-ink: #be123c;
+  --color-status-scheduled-ink: #075985;
+  --color-status-cancelled-ink: #52525b;
 
-  --radius: 0.5rem;
+  --radius: 0.375rem;
   --breakpoint-xs: 30rem;
   --breakpoint-3xl: 125rem;
 
@@ -35,6 +51,7 @@
   --animate-photo-spin: photo-spin 2s 1 linear forwards;
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-ticker: ticker 40s linear infinite;
 
   @keyframes wiggle {
     0%, 100% { transform: rotate(-3deg); }
@@ -52,61 +69,72 @@
     from { height: var(--radix-accordion-content-height); }
     to { height: 0; }
   }
+  @keyframes ticker {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
 }
 
-/* Legacy font utilities kept during migration. Defined as @utility (not @theme)
-   so they reference next/font's own --font-* vars without a circular token. */
+/* Legacy font utilities kept during migration (reference next/font vars). */
 @utility font-inter { font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif; }
 @utility font-barlow { font-family: var(--font-barlow), var(--font-inter), sans-serif; }
 @utility font-sarina { font-family: var(--font-sarina), cursive; }
 
-/* shadcn semantic tokens — light in :root, dark-first values in .dark */
-:root {
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(222 47% 11%);
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(222 47% 11%);
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(222 47% 11%);
-  --primary: hsl(205 96% 26%);
-  --primary-foreground: hsl(210 40% 98%);
-  --secondary: hsl(210 40% 96%);
-  --secondary-foreground: hsl(222 47% 11%);
-  --muted: hsl(210 40% 96%);
-  --muted-foreground: hsl(215 16% 47%);
-  --accent: hsl(196 94% 35%);
-  --accent-foreground: hsl(210 40% 98%);
-  --destructive: hsl(350 89% 60%);
-  --destructive-foreground: hsl(210 40% 98%);
-  --border: hsl(214 32% 91%);
-  --input: hsl(214 32% 91%);
-  --ring: hsl(199 92% 62%);
-}
-.dark {
-  --background: hsl(222 18% 7%);
-  --foreground: hsl(210 20% 96%);
-  --card: hsl(222 16% 10%);
-  --card-foreground: hsl(210 20% 96%);
-  --popover: hsl(222 16% 9%);
-  --popover-foreground: hsl(210 20% 96%);
-  --primary: hsl(199 92% 62%);
-  --primary-foreground: hsl(222 47% 8%);
-  --secondary: hsl(220 14% 15%);
-  --secondary-foreground: hsl(210 20% 96%);
-  --muted: hsl(220 14% 14%);
-  --muted-foreground: hsl(218 11% 65%);
-  --accent: hsl(196 94% 43%);
-  --accent-foreground: hsl(210 20% 98%);
-  --destructive: hsl(350 89% 60%);
-  --destructive-foreground: hsl(210 20% 98%);
-  --border: hsl(220 13% 18%);
-  --input: hsl(220 13% 18%);
-  --ring: hsl(199 92% 62%);
+/* Broadcast eyebrow: the small label above headlines and section heads. */
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-score-ink);
 }
 
-/* Map the palette vars to Tailwind color tokens so the bg- and text-
-   utilities resolve. Legacy SDV aliases (darkPrimary/…) are kept until the
-   Phase 7 cleanup. */
+/* semantic surface tokens — chalk (light) / ink (dark) */
+:root {
+  --background: #f6f8fb;
+  --foreground: #0e1626;
+  --card: #ffffff;
+  --card-foreground: #0e1626;
+  --popover: #ffffff;
+  --popover-foreground: #0e1626;
+  --primary: #02507f;
+  --primary-foreground: #f6f8fb;
+  --secondary: #e7edf5;
+  --secondary-foreground: #14203a;
+  --muted: #edf1f7;
+  --muted-foreground: #4d5b74;
+  --accent: #08699e; /* 5.5:1 on chalk — link-safe at body size */
+  --accent-foreground: #f6f8fb;
+  --destructive: #d33a5b;
+  --destructive-foreground: #fbfdff;
+  --border: #d8e0eb;
+  --input: #cdd7e4;
+  --ring: #0b84c4;
+}
+.dark {
+  --background: #0b1220;
+  --foreground: #e9eef6;
+  --card: #111b2e;
+  --card-foreground: #e9eef6;
+  --popover: #0f1828;
+  --popover-foreground: #e9eef6;
+  --primary: #4fb6e8;
+  --primary-foreground: #06121f;
+  --secondary: #1a2740;
+  --secondary-foreground: #e9eef6;
+  --muted: #16223a;
+  --muted-foreground: #93a1b8;
+  --accent: #2e9bd6;
+  --accent-foreground: #06121f;
+  --destructive: #f0537a;
+  --destructive-foreground: #0b1220;
+  --border: #223350;
+  --input: #2a3c5e;
+  --ring: #4fb6e8;
+  /* amber reads fine as text on ink — flip the eyebrow to the graphic amber */
+  --color-score-ink: #ffb43c;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -130,20 +158,48 @@
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
-  /* legacy aliases (removed in Phase 7 cleanup) — values from old config */
-  --color-darkPrimary: #303338;
-  --color-darkSecondary: #2b2d31;
-  --color-darkWhite: #f2f5fa;
-  --color-dark-3: #b8b8b8;
+  /* Legacy SDV aliases now POINT AT the new surfaces so any unswept
+     dark:bg-darkPrimary / bg-darkWhite class degrades into the new palette
+     instead of fighting it. Removed once the last consumers are swept. */
+  --color-darkPrimary: var(--background);
+  --color-darkSecondary: var(--card);
+  --color-darkWhite: var(--background);
+  --color-dark-3: var(--muted-foreground);
 }
 
 @layer base {
   * { border-color: var(--border); }
   body { @apply bg-background text-foreground font-sans antialiased; }
+  h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: 0.005em; }
+  button { @apply outline-none; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+  hr { @apply !mx-auto !w-1/2 h-px !bg-border border-0 !rounded-full; }
+
+  /* MDX / legacy tables */
+  table { @apply !border-collapse text-left; }
+  table thead tr > th,
+  table tbody tr > td { @apply !p-2 border border-border align-middle; }
+  table thead tr > th { @apply text-foreground font-bold; }
+  table thead tr { @apply align-text-top; }
+  table a { @apply !text-accent; }
+
+  strong { @apply !font-bold; }
+
+  /* Blog headings render as self-links — keep them looking like headings. */
+  h2 > a, h3 > a, h4 > a, h5 > a, h6 > a {
+    @apply !text-foreground !font-bold !no-underline;
+  }
 }
 
-/* Inter / Barlow / Sarina are now loaded + optimized via next/font (see
-   pages/_app.tsx). Only the rarely-used Avengero remains as a plain @font-face. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Avengero remains a plain @font-face (rarely used). */
 @font-face {
   font-family: "Avengero Regular";
   font-style: normal;
@@ -157,116 +213,59 @@ html {
   overflow-x: hidden;
   scroll-behavior: auto;
 }
-body::-webkit-scrollbar {
-  width: 6px;
-}
 
+/* Scrollbars follow the surface tokens. */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background-color: var(--border); border-radius: 999px; }
+body::-webkit-scrollbar { width: 6px; }
+pre::-webkit-scrollbar { display: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.horizontal-scrollbar::-webkit-scrollbar { height: 3px; border-radius: 999px; }
 
-.prose pre,
-.language-tab pre[class*='language-']::before {
-  /* Large code blocks */
-  /* @apply bg-gray-100 dark:bg-midnight;
-   */
-  background-color: #26282A;
-}
+.lock-scroll { overflow: hidden !important; }
 
-/* Adding Scroll Margin for top */
-* {
-  scroll-margin-top: 80px;
-}
+/* Scroll anchoring below the sticky nav. */
+* { scroll-margin-top: 80px; }
 @media screen and (max-width: 640px) {
-  * {
-    scroll-margin-top: 60px;
-  }
-  body::-webkit-scrollbar {
-    width: 2px;
-  }
+  * { scroll-margin-top: 60px; }
+  body::-webkit-scrollbar { width: 2px; }
 }
 
-pre::-webkit-scrollbar {
-  display: none;
-}
-
-body.dark {
-  background-color: #303338;
-}
-
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background-color: #b3b3b3;
-}
-
-.dark::-webkit-scrollbar-thumb {
-  background-color: #393e41;
-}
-
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-.lock-scroll {
-  overflow: hidden !important;
-}
-
-.horizontal-scrollbar::-webkit-scrollbar {
-  height: 3px;
-  border-radius: 999px;
-}
-
-/* For preventing the blue highlight color box on tap(click) */
-* {
-  -webkit-tap-highlight-color: transparent;
-}
+/* Tap highlight off (mobile). */
+* { -webkit-tap-highlight-color: transparent; }
 
 .auto-row {
   -webkit-margin-before: auto;
   margin-block-start: auto;
 }
 
-/* Code Line Highlighting START */
-code {
-  counter-reset: line;
+/* Code blocks stay night-mode in both themes (shiki one-dark-pro). */
+.prose pre,
+.language-tab pre[class*='language-']::before {
+  background-color: #10141c;
 }
 
-code span.line {
-  padding: 0px 12px;
-  border-left: 4px solid transparent;
-}
-
-span.line > span {
-  padding: 2px 0;
-  width: 100%;
-}
-
-span.line > span:last-child{
-  padding-right: 50px;
-}
+/* Code line numbers + highlighting */
+code { counter-reset: line; }
+code span.line { padding: 0px 12px; border-left: 4px solid transparent; }
+span.line > span { padding: 2px 0; width: 100%; }
+span.line > span:last-child { padding-right: 50px; }
 code > .line::before {
   counter-increment: line;
   content: counter(line);
-
-  /* Other styling */
   display: inline-block;
   width: 1rem;
   margin-right: 1rem;
   text-align: right;
-  color: gray;
+  color: var(--color-status-cancelled);
   font-weight: 500;
   border-right: 4px solid transparent;
 }
-
 .highlighted {
-  background: rgba(200, 200, 255, 0.1);
-  border-left: 4px solid #3777de !important;
-  filter: saturate(1.5);
+  background: rgba(255, 180, 60, 0.08);
+  border-left: 4px solid var(--color-score) !important;
 }
-/* Code Line Highlighting ENDS */
 
 .blogGrid {
   display: grid;
@@ -280,120 +279,62 @@ code > .line::before {
   flex-direction: column;
 }
 
-/* Layers Components or the custom class extends with tailwind */
+/* Legacy component classes, retuned to the token palette. */
 @layer components {
-  .bottom_nav_icon {
-    @apply mb-[2px] text-2xl cursor-pointer;
-  }
-  .top-nav-link {
-    @apply list-none mx-1 px-3 py-1 border-black dark:border-white transition-all duration-200 hover:rounded-md hover:bg-gray-100 dark:hover:bg-darkSecondary cursor-pointer text-lg font-semibold select-none sm:text-sm md:text-base;
-  }
   .contact_field {
-    @apply text-sm font-medium text-black dark:text-white w-full px-4 py-2 m-2 rounded-md border-none outline-none shadow-inner shadow-slate-200 dark:shadow-zinc-800 focus:ring-1 focus:ring-purple-500 dark:bg-darkPrimary dark:placeholder-gray-500;
+    @apply text-sm font-medium text-foreground w-full px-4 py-2 m-2 rounded-md border border-input bg-card outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground;
   }
   .title_of_page {
-    @apply text-center text-xl font-bold  dark:bg-darkPrimary dark:text-gray-100;
+    @apply text-center text-xl font-bold text-foreground;
   }
   .icon {
-    @apply text-2xl sm:text-3xl m-1 transform duration-200 lg:hover:scale-150 text-zinc-500 hover:text-zinc-800 dark:hover:text-white cursor-pointer;
+    @apply text-2xl sm:text-3xl m-1 transform duration-200 lg:hover:scale-150 text-muted-foreground hover:text-foreground cursor-pointer;
   }
-
   .page_container {
-    @apply p-5 md:px-24 pb-10 dark:bg-darkPrimary dark:text-gray-200 grid gap-6 grid-cols-1 sm:grid-cols-2  lg:grid-cols-3 xl:grid-cols-4 3xl:grid-cols-5;
+    @apply p-5 md:px-24 pb-10 text-foreground grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 3xl:grid-cols-5;
   }
-
   .blog_bottom_icon {
-    @apply text-3xl p-1 bg-gray-100 dark:bg-darkSecondary sm:bg-transparent ring-1 dark:ring-gray-500 ring-gray-300 sm:hover:bg-gray-100 rounded-md cursor-pointer ml-1;
+    @apply text-3xl p-1 bg-secondary sm:bg-transparent ring-1 ring-border sm:hover:bg-secondary rounded-md cursor-pointer ml-1;
   }
   .blog_bottom_button {
-    @apply block sm:hidden py-1 w-full lg:hover:bg-gray-300 cursor-pointer bg-gray-200 rounded-md transform duration-100 active:scale-90 select-none;
+    @apply block sm:hidden py-1 w-full cursor-pointer bg-secondary hover:bg-muted rounded-md transform duration-100 active:scale-90 select-none;
   }
   .user_reaction {
     @apply flex font-semibold items-center cursor-pointer w-full justify-center sm:justify-start sm:w-auto space-x-1 text-base;
   }
   .project_link {
-    @apply text-center bg-gray-200 p-2 my-1 rounded-full dark:bg-darkSecondary dark:text-white cursor-pointer shadow dark:shadow-gray-500;
+    @apply text-center bg-secondary text-secondary-foreground p-2 my-1 rounded-full cursor-pointer shadow-sm;
   }
   .clickable_button {
     @apply transform duration-100 active:scale-90 lg:hover:scale-105;
   }
-
   .home-section-container {
     @apply flex gap-2 overflow-x-scroll p-5 md:px-24 w-full min-h-[200px] select-none snap-x lg:snap-none;
   }
   .home-content-section {
-    @apply relative min-w-[250px] xl:min-w-[300px] break-words shadow shadow-black/20 dark:shadow-white/20 dark:bg-darkSecondary ring-gray-400 rounded-xl p-3 cursor-pointer select-none  lg:hover:scale-105 scale-95 transition bg-white snap-center lg:snap-align-none md:first:ml-24 md:last:mr-24;
+    @apply relative min-w-[250px] xl:min-w-[300px] break-words border border-border bg-card ring-border rounded-xl p-3 cursor-pointer select-none lg:hover:scale-105 scale-95 transition snap-center lg:snap-align-none md:first:ml-24 md:last:mr-24;
   }
   .blog-hover-button {
-    @apply flex items-center space-x-2 border-2 border-white dark:border-zinc-600 px-3 py-1 font-semibold w-min text-white dark:text-white hover:bg-white dark:hover:bg-zinc-600 hover:text-black;
+    @apply flex items-center space-x-2 border-2 border-border px-3 py-1 font-semibold w-min text-foreground hover:bg-foreground hover:text-background transition-colors;
   }
   .hover-slide-animation {
-    @apply relative overflow-hidden before:absolute before:h-full before:w-40 before:bg-stone-900 dark:before:bg-gray-50 before:opacity-10 dark:before:opacity-5 before:-right-10 before:-z-10 before:rotate-[20deg] before:scale-y-150 before:top-4 hover:before:scale-[7] before:duration-700;
+    @apply relative overflow-hidden before:absolute before:h-full before:w-40 before:bg-foreground before:opacity-10 before:-right-10 before:-z-10 before:rotate-[20deg] before:scale-y-150 before:top-4 hover:before:scale-[7] before:duration-700;
   }
   .pageTop {
-    @apply mt-[44px] md:mt-[60px] max-w-4xl 2xl:max-w-5xl 3xl:max-w-7xl relative mx-auto p-4 mb-10 text-neutral-900 dark:text-neutral-200;
+    @apply mt-[44px] md:mt-[60px] max-w-4xl 2xl:max-w-5xl 3xl:max-w-7xl relative mx-auto p-4 mb-10 text-foreground;
   }
   .utilities-svg {
     @apply !pointer-events-none mb-4 w-8 h-8;
   }
   .card {
-    @apply bg-white dark:bg-darkSecondary p-5 sm:p-10 flex flex-col sm:flex-row gap-8 items-center max-w-2xl shadow-md rounded-lg mt-[30%] sm:mt-8 transition-all;
+    @apply bg-card text-card-foreground border border-border p-5 sm:p-10 flex flex-col sm:flex-row gap-8 items-center max-w-2xl shadow-sm rounded-lg mt-16 sm:mt-8 transition-all;
   }
   .blog-container {
-    @apply !w-full dark:text-neutral-400 my-5 font-medium;
-  }
-}
-
-@layer base {
-  body {
-    @apply font-inter bg-darkWhite;
-  }
-  button {
-    @apply outline-none;
-  }
-  hr {
-    @apply !mx-auto !w-1/2 h-0.5 !bg-gray-700 dark:!bg-gray-300 border-0 !rounded-full;
-  }
-
-  table {
-    @apply !border-collapse text-left;
-  }
-
-  table thead tr > th,
-  table tbody tr > td {
-    @apply !p-2 border border-gray-400 align-middle;
-  }
-
-  table thead tr > th {
-    @apply text-black dark:text-white;
-  }
-
-  table thead tr {
-    @apply align-text-top;
-  }
-  table th {
-    @apply font-bold;
-  }
-  table a {
-    @apply !text-blue-500 dark:!text-blue-400;
-  }
-
-  strong {
-    @apply !text-black dark:!text-white !font-bold;
-  }
-
-  /* For Blog page to remove the underline  */
-  h2 > a,
-  h3 > a,
-  h4 > a,
-  h5 > a,
-  h6 > a {
-    @apply !text-black dark:!text-white !font-bold !no-underline;
+    @apply !w-full text-foreground/90 my-5 font-medium;
   }
 }
 
 @layer utilities {
-  /* Hiding the arrows in the input number */
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none;
@@ -401,44 +342,22 @@ code > .line::before {
   }
 }
 
-
-.form {
-  width: 100%;
-}
-
-.formItem {
-  display: block;
-  width: 100%;
-  margin: 10px auto;
-}
-
-.formItem label {
-  display: block;
-}
-
-.formItem input[type='text'] {
-  color: #000;
-  display: block;
-  width: 100%;
-  padding: 10px;
-}
-
+/* Legacy contact-form plumbing (ContactForm still references these). */
+.form { width: 100%; }
+.formItem { display: block; width: 100%; margin: 10px auto; }
+.formItem label { display: block; }
+.formItem input[type='text'],
 .formItem textarea[name='content'] {
-  color: #000;
+  color: var(--foreground);
   display: block;
   width: 100%;
   padding: 10px;
 }
-input {
-  color: gray
-}
-.error {
-  color: red;
-}
-
+input { color: var(--foreground); }
+.error { color: var(--destructive); }
 .formItem button[type='submit'] {
-  color: #fff;
-  background-color: blue;
+  color: var(--primary-foreground);
+  background-color: var(--primary);
   padding: 10px;
   border-radius: 4px;
 }
