@@ -7,6 +7,7 @@ export const PLATFORM_TABS = [
   { href: "/platform", label: "Overview" },
   { href: "/platform/automation", label: "Automation" },
   { href: "/platform/datasets", label: "Datasets" },
+  { href: "/platform/query", label: "Query" },
   { href: "/platform/explore", label: "Explore" },
   { href: "/platform/lookups", label: "Lookups" },
   { href: "/platform/wp", label: "Win Prob" },
