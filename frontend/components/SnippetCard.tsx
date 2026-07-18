@@ -4,15 +4,21 @@ import Image from "next/image";
 import Link from "next/link";
 
 // Language snippets get a styled monogram tile (matching the home-page
-// language chips); anything else falls back to the legacy icon images.
+// language chips); unknown keys fall back to a generic monogram rather than
+// a hotlinked icon (imgur rate-limits hotlinks).
 const LANG_TILES: Record<string, string> = {
   r: "R",
   python: "PY",
   node: "JS",
+  ts: "TS",
 };
 
 export default function SnippetCard({ snippet }: { snippet: Snippet }) {
-  const tile = LANG_TILES[snippet.image];
+  const tile =
+    LANG_TILES[snippet.image] ??
+    (snippetsImages[snippet.image]
+      ? undefined
+      : snippet.image.slice(0, 2).toUpperCase());
   return (
     <Link
       href={"/snippets/" + snippet.slug}
