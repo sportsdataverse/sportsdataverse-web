@@ -81,6 +81,45 @@ export async function runQuery(sql: string, maxRows = 500): Promise<QueryResult>
   }
 }
 
+/**
+ * Run SQL over an in-memory rowset (e.g. rows returned by the Data API).
+ * The rows are registered as a `result` view for the duration of the call, so
+ * statements read naturally: `SELECT pos_team, avg(epa) FROM result GROUP BY 1`.
+ */
+export async function queryOverRows(
+  rows: Record<string, unknown>[],
+  sql: string,
+  maxRows = 2000
+): Promise<QueryResult> {
+  const db = await getDb();
+  const name = "__api_result.json";
+  await db.registerFileText(name, JSON.stringify(rows));
+  const conn = await db.connect();
+  try {
+    await conn.query(
+      `CREATE OR REPLACE VIEW result AS SELECT * FROM read_json_auto('${name}')`
+    );
+    const table = await conn.query(sql);
+    const columns = table.schema.fields.map((f) => f.name);
+    const out: (string | null)[][] = [];
+    outer: for (const batch of table.batches) {
+      for (let i = 0; i < batch.numRows; i++) {
+        if (out.length >= maxRows) break outer;
+        const row: (string | null)[] = [];
+        for (let c = 0; c < columns.length; c++) {
+          row.push(cellToString(batch.getChildAt(c)?.get(i)));
+        }
+        out.push(row);
+      }
+    }
+    return { columns, rows: out, rowCount: table.numRows };
+  } finally {
+    await conn.query("DROP VIEW IF EXISTS result").catch(() => undefined);
+    await conn.close();
+    await db.dropFile(name).catch(() => undefined);
+  }
+}
+
 /** Escape one CSV cell per RFC 4180. */
 function csvCell(value: string | null): string {
   if (value == null) return "";
