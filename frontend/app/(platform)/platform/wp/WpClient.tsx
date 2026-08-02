@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { LineChart } from "lucide-react";
 import { Button } from "@components/ui/button";
@@ -34,14 +34,38 @@ const assetsFetcher = async (url: string) => {
   return data.message as ReleaseAssetSummary[];
 };
 
-function WpChart({ points, home, away }: { points: WpPoint[]; home: string; away: string }) {
+function WpChart({
+  points,
+  home,
+  away,
+  hoverI,
+  onHover,
+}: {
+  points: WpPoint[];
+  home: string;
+  away: string;
+  /** Linked hover: the play index highlighted in BOTH the chart and the log. */
+  hoverI: number | null;
+  onHover: (i: number | null) => void;
+}) {
   const W = 820;
   const H = 280;
   const pad = { l: 44, r: 12, t: 16, b: 24 };
   const n = points.length;
+  const svgRef = useRef<SVGSVGElement>(null);
   if (n < 2) return null;
   const x = (i: number) => pad.l + (i * (W - pad.l - pad.r)) / (n - 1);
   const y = (wp: number) => pad.t + (1 - wp) * (H - pad.t - pad.b);
+  /** Pointer x (client px) → nearest play index, via the live CTM so the
+   *  responsive viewBox scaling is accounted for. */
+  function indexFromEvent(e: React.MouseEvent<SVGSVGElement>): number {
+    const svg = svgRef.current;
+    if (!svg) return 0;
+    const rect = svg.getBoundingClientRect();
+    const vx = ((e.clientX - rect.left) / rect.width) * W;
+    const t = (vx - pad.l) / (W - pad.l - pad.r);
+    return Math.max(0, Math.min(n - 1, Math.round(t * (n - 1))));
+  }
   const line = points.map((p, i) => `${x(i).toFixed(1)},${y(p.wp).toFixed(1)}`).join(" ");
   // Period boundaries: first index of each period after the first.
   const boundaries: { i: number; period: number }[] = [];
@@ -49,7 +73,15 @@ function WpChart({ points, home, away }: { points: WpPoint[]; home: string; away
     if (points[i].period !== points[i - 1].period) boundaries.push({ i, period: points[i].period });
   }
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Win probability chart, ${away} at ${home}`}>
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${W} ${H}`}
+      className="w-full"
+      role="img"
+      aria-label={`Win probability chart, ${away} at ${home}`}
+      onMouseMove={(e) => onHover(indexFromEvent(e))}
+      onMouseLeave={() => onHover(null)}
+    >
       {[0, 0.25, 0.5, 0.75, 1].map((tick) => (
         <g key={tick}>
           <line
@@ -85,6 +117,34 @@ function WpChart({ points, home, away }: { points: WpPoint[]; home: string; away
       <text x={pad.l} y={pad.t - 4} className="fill-current font-inter text-[11px] text-muted-foreground">
         {home} win probability
       </text>
+      {hoverI != null && points[hoverI] ? (
+        (() => {
+          const p = points[hoverI];
+          const hx = x(hoverI);
+          const hy = y(p.wp);
+          const boxW = 300;
+          const bx = Math.min(Math.max(hx + 10, pad.l), W - pad.r - boxW);
+          const above = hy > H / 2;
+          const by = above ? hy - 74 : hy + 12;
+          const play = p.text.length > 76 ? `${p.text.slice(0, 75)}…` : p.text;
+          return (
+            <g pointerEvents="none">
+              <line x1={hx} x2={hx} y1={pad.t} y2={H - pad.b} className="stroke-score" strokeWidth={1} />
+              <circle cx={hx} cy={hy} r={4} className="fill-score stroke-background" strokeWidth={1.5} />
+              <rect x={bx} y={by} width={boxW} height={62} rx={6} className="fill-popover stroke-border" strokeWidth={1} />
+              <text x={bx + 10} y={by + 17} className="fill-current font-inter text-[11px] font-semibold">
+                {p.period > 4 ? "OT" : `Q${p.period}`} {p.clock} · {p.score} · {(p.wp * 100).toFixed(1)}% {home}
+              </text>
+              <text x={bx + 10} y={by + 34} className="fill-current font-inter text-[10px] text-muted-foreground">
+                {play.slice(0, 48)}
+              </text>
+              <text x={bx + 10} y={by + 48} className="fill-current font-inter text-[10px] text-muted-foreground">
+                {play.slice(48)}
+              </text>
+            </g>
+          );
+        })()
+      ) : null}
     </svg>
   );
 }
@@ -97,6 +157,18 @@ export default function WpClient() {
   const [points, setPoints] = useState<WpPoint[]>([]);
   const [teams, setTeams] = useState<{ home: string; away: string }>({ home: "", away: "" });
   const [busy, setBusy] = useState<string | null>(null);
+  const [hoverI, setHoverI] = useState<number | null>(null);
+  const hoverFromChart = useRef(false);
+  const logRef = useRef<HTMLDivElement>(null);
+
+  // Chart-driven hovers scroll the play log to keep the highlighted row visible;
+  // table-driven hovers must NOT scroll-jack the user's own pointer.
+  useEffect(() => {
+    if (hoverI == null || !hoverFromChart.current) return;
+    logRef.current
+      ?.querySelector<HTMLElement>(`[data-play="${hoverI}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [hoverI]);
   const [error, setError] = useState<string | null>(null);
 
   const sport = useMemo(
@@ -263,10 +335,19 @@ export default function WpClient() {
       {points.length > 1 ? (
         <>
           <div className="mb-6 rounded-lg border border-border bg-card/70 p-4">
-            <WpChart points={points} home={teams.home} away={teams.away} />
+            <WpChart
+              points={points}
+              home={teams.home}
+              away={teams.away}
+              hoverI={hoverI}
+              onHover={(i) => {
+                hoverFromChart.current = true;
+                setHoverI(i);
+              }}
+            />
           </div>
           <h3 className="mb-2 font-barlow text-lg font-semibold">Play log</h3>
-          <div className="max-h-[28rem] overflow-auto rounded-lg border border-border">
+          <div ref={logRef} className="scrollbar-visible max-h-[28rem] max-w-full rounded-lg border border-border" onMouseLeave={() => setHoverI(null)}>
             <table className="w-full text-left font-inter text-sm">
               <thead className="sticky top-0 bg-muted text-xs uppercase text-muted-foreground">
                 <tr>
@@ -279,7 +360,17 @@ export default function WpClient() {
               </thead>
               <tbody>
                 {points.map((p, i) => (
-                  <tr key={i} className="border-t border-border">
+                  <tr
+                    key={i}
+                    data-play={i}
+                    onMouseEnter={() => {
+                      hoverFromChart.current = false;
+                      setHoverI(i);
+                    }}
+                    className={`border-t border-border transition-colors ${
+                      hoverI === i ? "bg-score/20" : "hover:bg-muted/60"
+                    }`}
+                  >
                     <td className="whitespace-nowrap px-3 py-1">{p.period > 4 ? "OT" : p.period}</td>
                     <td className="whitespace-nowrap px-3 py-1">{p.clock}</td>
                     <td className="whitespace-nowrap px-3 py-1">{p.score}</td>
