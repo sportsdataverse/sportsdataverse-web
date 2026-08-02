@@ -80,6 +80,24 @@
 @utility font-barlow { font-family: var(--font-barlow), var(--font-inter), sans-serif; }
 @utility font-sarina { font-family: var(--font-sarina), cursive; }
 
+/* Always-visible, thin scrollbars for data-dense scroll containers (results
+   grids, play logs) so both axes are discoverable without hover-hunting. */
+@utility scrollbar-visible {
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  scrollbar-gutter: stable;
+  &::-webkit-scrollbar { width: 10px; height: 10px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  &::-webkit-scrollbar-thumb:hover { background-color: var(--muted-foreground); }
+}
+
 /* Broadcast eyebrow: the small label above headlines and section heads. */
 @utility eyebrow {
   font-family: var(--font-mono);

@@ -30,6 +30,7 @@ import {
 import { Skeleton } from "@components/ui/skeleton";
 import { cn } from "@lib/utils";
 import ResultsGrid from "@components/platform/ResultsGrid";
+import { columnTip, tableTip } from "@lib/platform/glossary";
 
 const OPERATORS = [
   { suffix: "", label: "=" },
@@ -108,6 +109,7 @@ export default function QueryBuilder({ schemas }: { schemas: string[] }) {
   const [table, setTable] = useState("");
   const [tableSearch, setTableSearch] = useState("");
   const [colSearch, setColSearch] = useState("");
+  const [dragChip, setDragChip] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filter[]>([]);
   const [select, setSelect] = useState<string[]>([]);
   const [order, setOrder] = useState("");
@@ -239,6 +241,20 @@ export default function QueryBuilder({ schemas }: { schemas: string[] }) {
     );
   }
 
+  function dropChipOn(target: string) {
+    if (!dragChip || dragChip === target) return;
+    setSelect((s) => {
+      const src = s.indexOf(dragChip);
+      const dst = s.indexOf(target);
+      if (src < 0 || dst < 0) return s;
+      const next = [...s];
+      next.splice(src, 1);
+      next.splice(dst, 0, dragChip);
+      return next;
+    });
+    setDragChip(null);
+  }
+
   function moveSelected(name: string, delta: -1 | 1) {
     setSelect((s) => {
       const i = s.indexOf(name);
@@ -337,6 +353,7 @@ export default function QueryBuilder({ schemas }: { schemas: string[] }) {
                 <button
                   key={t}
                   type="button"
+                  title={tableTip(t)}
                   onClick={() => setTable(t)}
                   className={cn(
                     "rounded-md border px-2 py-0.5 font-mono text-[11px] transition-colors",
@@ -366,6 +383,7 @@ export default function QueryBuilder({ schemas }: { schemas: string[] }) {
                     <button
                       key={t}
                       type="button"
+                      title={columnTip(t, columnTypes[t])}
                       onClick={() => addTagFilter(t)}
                       className="rounded-full border border-dashed border-primary/50 px-2 py-0.5 font-mono text-[11px] text-primary hover:bg-primary/10"
                     >
@@ -488,16 +506,22 @@ export default function QueryBuilder({ schemas }: { schemas: string[] }) {
                     return (
                       <span
                         key={name}
+                        draggable={on}
+                        onDragStart={() => setDragChip(name)}
+                        onDragOver={(e) => on && e.preventDefault()}
+                        onDrop={() => dropChipOn(name)}
+                        onDragEnd={() => setDragChip(null)}
                         className={cn(
                           "inline-flex items-center overflow-hidden rounded-md border font-mono text-[11px]",
                           on
-                            ? "border-primary/60 bg-primary/15 text-primary"
-                            : "border-border/70 text-muted-foreground"
+                            ? "cursor-grab border-primary/60 bg-primary/15 text-primary active:cursor-grabbing"
+                            : "border-border/70 text-muted-foreground",
+                          dragChip === name && "opacity-40"
                         )}
                       >
                         <button
                           type="button"
-                          title={columnTypes[name]}
+                          title={columnTip(name, columnTypes[name])}
                           onClick={() =>
                             setSelect((s) =>
                               on ? s.filter((c) => c !== name) : [...s, name]
