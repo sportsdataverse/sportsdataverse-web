@@ -15,6 +15,7 @@ import {
   Boxes,
   HardDrive,
   KeyRound,
+  Package,
 } from "lucide-react";
 
 export type PlatformNavItem = {
@@ -41,7 +42,13 @@ export const PLATFORM_NAV: { title: string | null; items: PlatformNavItem[] }[] 
   },
   {
     title: "Operations",
-    items: [{ href: "/platform/automation", label: "Automation", icon: Workflow }],
+    items: [
+      { href: "/platform/automation", label: "Automation", icon: Workflow },
+      // The org-member package CMS (/packages/manage edits the R/Py/Node.js
+      // entries shown on /packages) lives on the public site where members
+      // rarely stumble onto it — surface it here where they already work.
+      { href: "/packages/manage", label: "Packages CMS", icon: Package },
+    ],
   },
   {
     title: "Models",
