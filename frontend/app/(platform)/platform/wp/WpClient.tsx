@@ -214,6 +214,23 @@ export default function WpClient() {
     try {
       const c = sport.cols;
       const src = `read_parquet('${proxyUrl(sport, asset)}')`;
+      // Preflight the schema. Release columns drift — the mbb/wbb pbp releases
+      // dropped their win-probability enrichment entirely — and without this
+      // the user just gets a raw DuckDB binder error. Checking first turns that
+      // into an explanation, and self-heals the moment the column returns.
+      const described = await runQuery(`DESCRIBE SELECT * FROM ${src}`, 2000);
+      const nameIdx0 = described.columns.indexOf("column_name");
+      const have = new Set(described.rows.map((r) => r[nameIdx0] ?? ""));
+      const required = [c.gameId, c.order, c.wp, c.period, c.text, c.homeName, c.awayName];
+      const missing = required.filter((col) => !have.has(col));
+      if (missing.length) {
+        setError(
+          `${sport.label} ${asset.replace(sport.assetPrefix, "").replace(".parquet", "")}: the ` +
+            `${sport.tag} release is missing ${missing.map((m) => `\`${m}\``).join(", ")}. ` +
+            `Win probability isn't published for this sport right now — try CFB or NFL.`
+        );
+        return;
+      }
       const weekSel = c.week ? `any_value(${q(c.week)})` : "NULL";
       const res = await runQuery(
         `SELECT CAST(${q(c.gameId)} AS VARCHAR) AS id, any_value(${q(c.homeName)}) AS home, any_value(${q(c.awayName)}) AS away, ${weekSel} AS week FROM ${src} GROUP BY 1 ORDER BY week NULLS LAST, home`,
