@@ -4,6 +4,7 @@ import SignInGate from "@components/platform/SignInGate";
 import PlatformSidebar from "@components/platform/PlatformSidebar";
 import PlatformTopbar from "@components/platform/PlatformTopbar";
 import CommandMenu from "@components/platform/CommandMenu";
+import PlatformBeacon from "@components/platform/PlatformBeacon";
 
 export const metadata: Metadata = {
   title: { default: "Platform", template: "%s · SDV Platform" },
@@ -31,6 +32,7 @@ export default async function PlatformLayout({
         <main className="min-w-0 flex-1 px-6 py-6">{children}</main>
       </div>
       <CommandMenu />
+      <PlatformBeacon login={session.login ?? null} />
     </div>
   );
 }
