@@ -16,12 +16,14 @@ import {
   HardDrive,
   KeyRound,
   Package,
+  FileCode2,
 } from "lucide-react";
 
 export type PlatformNavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  external?: boolean;
 };
 
 /** THE platform nav — single source for the sidebar, the mobile drawer, the
@@ -63,6 +65,7 @@ export const PLATFORM_NAV: { title: string | null; items: PlatformNavItem[] }[] 
     items: [
       { href: "/platform/database", label: "Database", icon: HardDrive },
       { href: "/platform/api-key", label: "API Key", icon: KeyRound },
+      { href: "https://data.sportsdataverse.org/docs", label: "API Docs", icon: FileCode2, external: true },
     ],
   },
 ];

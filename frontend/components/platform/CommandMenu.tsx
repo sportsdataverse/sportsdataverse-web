@@ -41,7 +41,11 @@ export default function CommandMenu() {
 
   const go = (href: string) => {
     setOpen(false);
-    router.push(href);
+    if (href.startsWith("http")) {
+      window.open(href, "_blank", "noopener");
+    } else {
+      router.push(href);
+    }
   };
 
   return (

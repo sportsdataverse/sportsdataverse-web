@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import { cn } from "@lib/utils";
 import { PLATFORM_NAV } from "./widgets";
 
@@ -24,8 +24,25 @@ export function PlatformNavList({ onNavigate }: { onNavigate?: () => void }) {
           ) : null}
           <ul className="space-y-0.5">
             {g.items.map((item) => {
-              const active = isPlatformActive(pathname, item.href);
               const Icon = item.icon;
+              if (item.external) {
+                return (
+                  <li key={item.href}>
+                    <a
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={onNavigate}
+                      className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    >
+                      <Icon className="size-4 shrink-0" />
+                      {item.label}
+                      <ExternalLink className="ml-auto size-3 opacity-60" />
+                    </a>
+                  </li>
+                );
+              }
+              const active = isPlatformActive(pathname, item.href);
               return (
                 <li key={item.href}>
                   <Link
