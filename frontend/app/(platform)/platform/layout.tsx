@@ -24,11 +24,12 @@ export default async function PlatformLayout({
     return <SignInGate signedIn={Boolean(session)} />;
   }
 
+  const isAdmin = session.role === "admin";
   return (
     <div className="flex min-h-dvh">
-      <PlatformSidebar />
+      <PlatformSidebar isAdmin={isAdmin} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <PlatformTopbar login={session.login ?? null} />
+        <PlatformTopbar login={session.login ?? null} isAdmin={isAdmin} />
         <main className="min-w-0 flex-1 px-6 py-6">{children}</main>
       </div>
       <CommandMenu />
