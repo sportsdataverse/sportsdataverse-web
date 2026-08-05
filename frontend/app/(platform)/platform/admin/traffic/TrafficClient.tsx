@@ -7,7 +7,6 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { StatusBadge } from "@components/platform/widgets";
 import { useAdmin } from "../AdminOverviewClient";
 
 type RequestRow = {
@@ -27,6 +26,32 @@ type RequestRow = {
   table_name: string | null;
 };
 
+/** HTTP-code-aware status chip — StatusBadge's tone ladder only matches
+ *  workflow words (success/failure/running...), so every numeric status
+ *  falls through to the same neutral gray there. Same chip shape/classes,
+ *  bucketed by status-code class instead. Do not touch StatusBadge itself —
+ *  other pages depend on its word ladder. */
+function HttpStatusBadge({ status }: { status: number | null | undefined }) {
+  if (status == null) return <span className="text-xs text-muted-foreground">–</span>;
+  const tone =
+    status >= 200 && status < 300
+      ? "bg-status-success/15 text-status-success-ink dark:text-status-success"
+      : status >= 300 && status < 400
+        ? "bg-status-scheduled/15 text-status-scheduled-ink dark:text-status-scheduled"
+        : status >= 400 && status < 500
+          ? "bg-status-running/15 text-status-running-ink dark:text-status-running"
+          : status >= 500
+            ? "bg-status-failed/15 text-status-failed-ink dark:text-status-failed"
+            : "bg-status-cancelled/20 text-status-cancelled-ink dark:text-status-cancelled";
+  return (
+    <span
+      className={`inline-block rounded-full px-2 py-0.5 font-mono text-xs font-semibold uppercase tracking-wide ${tone}`}
+    >
+      {status}
+    </span>
+  );
+}
+
 const columnHelper = createColumnHelper<RequestRow>();
 const columns = [
   columnHelper.accessor("ts", {
@@ -40,7 +65,7 @@ const columns = [
   }),
   columnHelper.accessor("status", {
     header: "Status",
-    cell: (c) => <StatusBadge status={String(c.getValue())} />,
+    cell: (c) => <HttpStatusBadge status={c.getValue()} />,
   }),
   columnHelper.accessor("duration_ms", {
     header: "Duration",
