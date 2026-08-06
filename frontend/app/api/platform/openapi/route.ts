@@ -9,9 +9,9 @@ import { isHttpsBase, requireMemberApp } from "@lib/platform/auth";
  * org members. The upstream body (~6 MB) is streamed rather than parsed — this
  * route never inspects it, so there's no reason to buffer it into the function.
  *
- * Reuses SDV_DATA_ADMIN_KEY (minted with read+admin scopes). Only ever sent to
- * this one fixed path, so the extra scope is never exercised; a dedicated
- * read-only key would work equally well if one is ever minted.
+ * Fetching a spec needs nothing beyond `read`, so it prefers SDV_DATA_READ_KEY
+ * and falls back to the admin key only where no read key has been provisioned.
+ * Set the read key wherever this runs to keep admin scope out of this path.
  */
 
 const BASE = process.env.SDV_DATA_API_URL ?? "https://data.sportsdataverse.org";
@@ -19,10 +19,16 @@ const BASE = process.env.SDV_DATA_API_URL ?? "https://data.sportsdataverse.org";
 export async function GET() {
   const { deny } = await requireMemberApp();
   if (deny) return deny;
-  const key = process.env.SDV_DATA_ADMIN_KEY;
-  if (!key || !isHttpsBase(BASE)) {
+  const key = process.env.SDV_DATA_READ_KEY ?? process.env.SDV_DATA_ADMIN_KEY;
+  if (!key) {
     return NextResponse.json(
       { message: "data api key not configured", success: false },
+      { status: 503 }
+    );
+  }
+  if (!isHttpsBase(BASE)) {
+    return NextResponse.json(
+      { message: "SDV_DATA_API_URL must be https", success: false },
       { status: 503 }
     );
   }

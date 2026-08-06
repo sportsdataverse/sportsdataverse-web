@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { KeyRound } from "lucide-react";
 
@@ -16,25 +16,33 @@ import "./swagger-theme.css";
  * directly — the reader supplies their own key via Authorize.
  */
 export default function ApiDocsClient() {
-  const mounted = useRef(false);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
-    // React 18+ StrictMode double-invokes effects in dev; Swagger UI would
-    // otherwise mount twice into the same node.
-    if (mounted.current) return;
-    mounted.current = true;
+    const controller = new AbortController();
 
-    let cancelled = false;
     void (async () => {
       try {
-        const { default: SwaggerUIBundle } = await import(
-          "swagger-ui-dist/swagger-ui-es-bundle.js"
-        );
-        if (cancelled) return;
+        // Fetch the spec ourselves rather than handing Swagger UI a URL: its
+        // onComplete only fires once a spec parses, so a 502 from the proxy
+        // would otherwise leave this page spinning with no way to report it.
+        const [{ default: SwaggerUIBundle }, resp] = await Promise.all([
+          import("swagger-ui-dist/swagger-ui-es-bundle.js"),
+          fetch("/api/platform/openapi", { signal: controller.signal }),
+        ]);
+        if (!resp.ok) throw new Error(`spec request failed: ${resp.status}`);
+        const spec = await resp.json();
+        if (controller.signal.aborted) return;
+
+        const node = document.getElementById("swagger-ui");
+        if (!node) return;
+        // StrictMode re-runs this effect in dev; start from a clean node so the
+        // second pass replaces the first render instead of appending to it.
+        node.replaceChildren();
+
         SwaggerUIBundle({
-          url: "/api/platform/openapi",
-          domNode: document.getElementById("swagger-ui"),
+          spec,
+          domNode: node,
           presets: [SwaggerUIBundle.presets.apis],
           layout: "BaseLayout",
           docExpansion: "none",
@@ -45,16 +53,14 @@ export default function ApiDocsClient() {
           // 338 endpoints, some with 300+ column schemas — deep-expanding models
           // by default makes the page unusable.
           defaultModelExpandDepth: 1,
-          onComplete: () => !cancelled && setStatus("ready"),
         });
+        setStatus("ready");
       } catch {
-        if (!cancelled) setStatus("error");
+        if (!controller.signal.aborted) setStatus("error");
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, []);
 
   return (
@@ -66,7 +72,7 @@ export default function ApiDocsClient() {
         <Link href="/platform/api-key" className="font-medium text-primary hover:underline">
           your API key page
         </Link>
-        .
+        — it stays in this browser until you clear it.
       </p>
 
       {status === "loading" ? (
