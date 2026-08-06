@@ -68,7 +68,7 @@ export const PLATFORM_NAV: { title: string | null; items: PlatformNavItem[] }[] 
       { href: "/platform/database", label: "Database", icon: HardDrive },
       { href: "/platform/api-key", label: "API Key", icon: KeyRound },
       { href: "/platform/admin", label: "Admin", icon: Gauge, adminOnly: true },
-      { href: "https://data.sportsdataverse.org/docs", label: "API Docs", icon: FileCode2, external: true },
+      { href: "/platform/api-docs", label: "API Docs", icon: FileCode2 },
     ],
   },
 ];

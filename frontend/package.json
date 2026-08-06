@@ -53,6 +53,7 @@
     "sharp": "^0.34.0",
     "shiki": "^1.29.2",
     "sonner": "^2.0.7",
+    "swagger-ui-dist": "^5.32.12",
     "swr": "^2.3.3",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",

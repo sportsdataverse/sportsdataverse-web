@@ -1,0 +1,108 @@
+/*
+ * Swagger UI wearing the platform's design tokens.
+ *
+ * A blend layer, not a full re-skin: it maps the surfaces a reader actually
+ * looks at (text, cards, tables, inputs, the Authorize bar) onto our CSS
+ * variables so the page works in both themes, and leaves Swagger's method
+ * colors and response highlighting alone. Every rule is scoped under
+ * #swagger-ui, so nothing here can leak into the rest of the platform.
+ */
+
+#swagger-ui .swagger-ui {
+  font-family: inherit;
+  color: var(--foreground);
+}
+
+#swagger-ui .swagger-ui .info .title,
+#swagger-ui .swagger-ui .info li,
+#swagger-ui .swagger-ui .info p,
+#swagger-ui .swagger-ui .info table,
+#swagger-ui .swagger-ui .opblock-tag,
+#swagger-ui .swagger-ui .opblock .opblock-summary-path,
+#swagger-ui .swagger-ui .opblock .opblock-summary-path__deprecated,
+#swagger-ui .swagger-ui table thead tr td,
+#swagger-ui .swagger-ui table thead tr th,
+#swagger-ui .swagger-ui .parameter__name,
+#swagger-ui .swagger-ui .parameter__type,
+#swagger-ui .swagger-ui .response-col_status,
+#swagger-ui .swagger-ui .response-col_links,
+#swagger-ui .swagger-ui .tab li,
+#swagger-ui .swagger-ui .tab li button.tablinks,
+#swagger-ui .swagger-ui label,
+#swagger-ui .swagger-ui .model-title,
+#swagger-ui .swagger-ui .model,
+#swagger-ui .swagger-ui .dialog-ux .modal-ux-header h3,
+#swagger-ui .swagger-ui .dialog-ux .modal-ux-content h4,
+#swagger-ui .swagger-ui .dialog-ux .modal-ux-content p {
+  color: var(--foreground);
+}
+
+#swagger-ui .swagger-ui .opblock .opblock-summary-description,
+#swagger-ui .swagger-ui .opblock-description-wrapper p,
+#swagger-ui .swagger-ui .renderedMarkdown p,
+#swagger-ui .swagger-ui .parameter__in,
+#swagger-ui .swagger-ui .parameter__extension,
+#swagger-ui .swagger-ui .opblock-external-docs-wrapper p {
+  color: var(--muted-foreground);
+}
+
+/* Surfaces */
+#swagger-ui .swagger-ui .opblock,
+#swagger-ui .swagger-ui .opblock .opblock-section-header,
+#swagger-ui .swagger-ui section.models,
+#swagger-ui .swagger-ui section.models .model-container,
+#swagger-ui .swagger-ui .model-box,
+#swagger-ui .swagger-ui .scheme-container,
+#swagger-ui .swagger-ui .dialog-ux .modal-ux {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+#swagger-ui .swagger-ui .opblock-tag,
+#swagger-ui .swagger-ui table tbody tr td {
+  border-color: var(--border);
+}
+
+/* Form controls: Swagger ships light-only inputs, unreadable in dark. */
+#swagger-ui .swagger-ui input[type="text"],
+#swagger-ui .swagger-ui input[type="password"],
+#swagger-ui .swagger-ui input[type="email"],
+#swagger-ui .swagger-ui input[type="search"],
+#swagger-ui .swagger-ui textarea,
+#swagger-ui .swagger-ui select {
+  background: var(--background);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+#swagger-ui .swagger-ui .btn {
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+#swagger-ui .swagger-ui .btn.authorize,
+#swagger-ui .swagger-ui .btn.execute {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+#swagger-ui .swagger-ui .btn.authorize svg {
+  fill: var(--primary-foreground);
+}
+
+/* Chevrons and expand/collapse affordances are baked-in dark glyphs; flip them
+ * in dark mode so they don't disappear against the card. */
+.dark #swagger-ui .swagger-ui .opblock-summary-control svg,
+.dark #swagger-ui .swagger-ui .expand-operation svg,
+.dark #swagger-ui .swagger-ui .models-control svg,
+.dark #swagger-ui .swagger-ui .model-toggle {
+  filter: invert(1);
+}
+
+/* The spec's own H2 duplicates the page heading; its base-url line stays, since
+ * that's where "try it out" actually sends requests. */
+#swagger-ui .swagger-ui .info .title {
+  display: none;
+}
