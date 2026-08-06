@@ -73,9 +73,11 @@ export const PLATFORM_NAV: { title: string | null; items: PlatformNavItem[] }[] 
   },
 ];
 
-/** Flat view of PLATFORM_NAV (⌘K palette, crumb resolution, legacy consumers). */
+/** Flat view of PLATFORM_NAV (⌘K palette, crumb resolution, legacy consumers).
+ *  Keeps `adminOnly` so consumers (the ⌘K palette) can filter it out for
+ *  non-admins instead of routing them into the denial card. */
 export const PLATFORM_TABS = PLATFORM_NAV.flatMap((g) =>
-  g.items.map(({ href, label }) => ({ href, label }))
+  g.items.map(({ href, label, adminOnly }) => ({ href, label, adminOnly }))
 );
 
 /** Colored chip for workflow conclusions / run statuses / booleans, on the

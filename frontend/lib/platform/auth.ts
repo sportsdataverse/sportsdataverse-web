@@ -107,6 +107,16 @@ export async function requireAdminApp(): Promise<{
  * (`req.headers.authorization`) and route handlers
  * (`req.headers.get("authorization")`) can use it.
  */
+/** Guards the admin/ingest proxies against sending a bearer key to a
+ *  plaintext endpoint — BASE can come from an env var, so don't trust it. */
+export function isHttpsBase(base: string): boolean {
+  try {
+    return new URL(base).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function checkIngestToken(header: string | null | undefined): boolean {
   const expected = process.env.PLATFORM_INGEST_TOKEN;
   if (!expected) return false;

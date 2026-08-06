@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireMemberApp } from "@lib/platform/auth";
+import { isHttpsBase, requireMemberApp } from "@lib/platform/auth";
 
 const BASE = process.env.SDV_DATA_API_URL ?? "https://data.sportsdataverse.org";
 
@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   if (deny) return deny;
 
   const key = process.env.SDV_INGEST_KEY;
-  if (!key) return NextResponse.json({ success: false }, { status: 503 });
+  if (!key || !isHttpsBase(BASE)) return NextResponse.json({ success: false }, { status: 503 });
 
   try {
     const body = await req.text();

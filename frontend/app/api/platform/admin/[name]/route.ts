@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminApp } from "@lib/platform/auth";
+import { isHttpsBase, requireAdminApp } from "@lib/platform/auth";
 
 /** Server-side proxy to the Data API admin endpoints — the admin key never
  *  reaches the browser. Query params pass through verbatim. */
@@ -21,7 +21,7 @@ export async function GET(req: Request, ctx: Ctx) {
     );
   }
   const key = process.env.SDV_DATA_ADMIN_KEY;
-  if (!key) {
+  if (!key || !isHttpsBase(BASE)) {
     return NextResponse.json(
       { message: "admin key not configured", success: false },
       { status: 503 }

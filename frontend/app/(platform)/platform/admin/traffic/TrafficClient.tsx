@@ -7,6 +7,8 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { ChevronRight } from "lucide-react";
+import { cn } from "@lib/utils";
 import { useAdmin } from "../AdminOverviewClient";
 
 type RequestRow = {
@@ -52,11 +54,36 @@ function HttpStatusBadge({ status }: { status: number | null | undefined }) {
   );
 }
 
+/** Stable per-row identity for expansion state — an array index would track
+ *  "row 3" across a 30s SWR refresh even after the underlying rows reorder,
+ *  silently expanding the wrong request. */
+function rowKey(r: RequestRow): string {
+  return `${r.ts}|${r.key_id ?? ""}|${r.path}`;
+}
+
+type TableMeta = { expandedKey: string | null; toggle: (key: string) => void };
+
 const columnHelper = createColumnHelper<RequestRow>();
 const columns = [
   columnHelper.accessor("ts", {
     header: "Time",
-    cell: (c) => <span className="font-mono text-xs">{c.getValue()}</span>,
+    cell: (c) => {
+      const meta = c.table.options.meta as TableMeta;
+      const key = rowKey(c.row.original);
+      const isExpanded = meta.expandedKey === key;
+      return (
+        <button
+          type="button"
+          onClick={() => meta.toggle(key)}
+          aria-expanded={isExpanded}
+          aria-label={isExpanded ? "Collapse request details" : "Expand request details"}
+          className="flex items-center gap-1.5 font-mono text-xs hover:text-primary"
+        >
+          <ChevronRight className={cn("size-3 shrink-0 transition-transform", isExpanded && "rotate-90")} />
+          {c.getValue()}
+        </button>
+      );
+    },
   }),
   columnHelper.accessor("method", { header: "Method" }),
   columnHelper.accessor("path", {
@@ -81,7 +108,7 @@ export default function TrafficClient() {
   const [keyId, setKeyId] = useState("");
   const [pathPrefix, setPathPrefix] = useState("");
   const [service, setService] = useState("");
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   const qs = useMemo(() => {
     const p = new URLSearchParams({ hours, limit: "200" });
@@ -99,6 +126,10 @@ export default function TrafficClient() {
     data: rows,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    meta: {
+      expandedKey,
+      toggle: (key: string) => setExpandedKey((cur) => (cur === key ? null : key)),
+    } satisfies TableMeta,
   });
 
   return (
@@ -170,29 +201,29 @@ export default function TrafficClient() {
               ))}
             </thead>
             <tbody>
-              {table.getRowModel().rows.map((row, i) => (
-                <Fragment key={row.id}>
-                  <tr
-                    onClick={() => setExpanded(expanded === i ? null : i)}
-                    className="cursor-pointer border-t border-border hover:bg-secondary/50"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-2">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                  {expanded === i ? (
-                    <tr className="border-t border-border bg-secondary/30">
-                      <td colSpan={columns.length} className="px-4 py-2">
-                        <pre className="overflow-x-auto text-xs">
-                          {JSON.stringify(row.original, null, 2)}
-                        </pre>
-                      </td>
+              {table.getRowModel().rows.map((row) => {
+                const isExpanded = expandedKey === rowKey(row.original);
+                return (
+                  <Fragment key={row.id}>
+                    <tr className="border-t border-border hover:bg-secondary/50">
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-4 py-2">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
                     </tr>
-                  ) : null}
-                </Fragment>
-              ))}
+                    {isExpanded ? (
+                      <tr className="border-t border-border bg-secondary/30">
+                        <td colSpan={columns.length} className="px-4 py-2">
+                          <pre className="overflow-x-auto text-xs">
+                            {JSON.stringify(row.original, null, 2)}
+                          </pre>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
               {rows.length === 0 ? (
                 <tr>
                   <td className="px-4 py-2 text-muted-foreground" colSpan={columns.length}>

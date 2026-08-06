@@ -32,7 +32,7 @@ export default async function PlatformLayout({
         <PlatformTopbar login={session.login ?? null} isAdmin={isAdmin} />
         <main className="min-w-0 flex-1 px-6 py-6">{children}</main>
       </div>
-      <CommandMenu />
+      <CommandMenu isAdmin={isAdmin} />
       <PlatformBeacon login={session.login ?? null} />
     </div>
   );
