@@ -79,12 +79,44 @@ export async function requireMemberApp(): Promise<
 }
 
 /**
+ * Route-handler gate for /platform/admin: org member with the admin role.
+ * Mirrors `requireMemberApp`'s `{ session, deny }` shape.
+ */
+export async function requireAdminApp(): Promise<{
+  session: (Session & { login?: string | null }) | null;
+  deny: NextResponse | null;
+}> {
+  const { session, deny } = await requireMemberApp();
+  if (deny) return { session, deny };
+  if (session.role !== "admin") {
+    return {
+      session,
+      deny: NextResponse.json(
+        { message: "Admin role required.", success: false },
+        { status: 403 }
+      ),
+    };
+  }
+  return { session, deny: null };
+}
+
+/**
  * CI ingest auth: `Authorization: Bearer <PLATFORM_INGEST_TOKEN>`.
  * Fails closed when the env var is unset. Timing-safe comparison.
  * Accepts the raw Authorization header value so both Pages API routes
  * (`req.headers.authorization`) and route handlers
  * (`req.headers.get("authorization")`) can use it.
  */
+/** Guards the admin/ingest proxies against sending a bearer key to a
+ *  plaintext endpoint — BASE can come from an env var, so don't trust it. */
+export function isHttpsBase(base: string): boolean {
+  try {
+    return new URL(base).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function checkIngestToken(header: string | null | undefined): boolean {
   const expected = process.env.PLATFORM_INGEST_TOKEN;
   if (!expected) return false;

@@ -32,7 +32,13 @@ function crumbFor(pathname: string): string {
   return tab?.label ?? "Platform";
 }
 
-export default function PlatformTopbar({ login }: { login: string | null }) {
+export default function PlatformTopbar({
+  login,
+  isAdmin = false,
+}: {
+  login: string | null;
+  isAdmin?: boolean;
+}) {
   const pathname = usePathname() ?? "/platform";
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -51,7 +57,7 @@ export default function PlatformTopbar({ login }: { login: string | null }) {
           <SheetTitle className="px-4 font-display text-sm font-bold uppercase tracking-wide">
             SDV Platform
           </SheetTitle>
-          <PlatformNavList onNavigate={() => setMenuOpen(false)} />
+          <PlatformNavList onNavigate={() => setMenuOpen(false)} isAdmin={isAdmin} />
         </SheetContent>
       </Sheet>
 

@@ -19,7 +19,7 @@ export function openCommandMenu() {
   window.dispatchEvent(new Event(OPEN_EVENT));
 }
 
-export default function CommandMenu() {
+export default function CommandMenu({ isAdmin = false }: { isAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -41,7 +41,11 @@ export default function CommandMenu() {
 
   const go = (href: string) => {
     setOpen(false);
-    router.push(href);
+    if (href.startsWith("http")) {
+      window.open(href, "_blank", "noopener");
+    } else {
+      router.push(href);
+    }
   };
 
   return (
@@ -50,7 +54,7 @@ export default function CommandMenu() {
       <CommandList>
         <CommandEmpty>No results.</CommandEmpty>
         <CommandGroup heading="Platform">
-          {PLATFORM_TABS.map((tab) => (
+          {PLATFORM_TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => (
             <CommandItem key={tab.href} onSelect={() => go(tab.href)}>
               {tab.label}
             </CommandItem>
