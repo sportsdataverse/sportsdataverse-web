@@ -6,10 +6,14 @@
  * Two call sites, two identity rules:
  *   - self-service (`/api/platform/keys`) derives the owner from the caller's
  *     own session and never reads it from request input;
- *   - delegated issuance (`/api/platform/keys/for`) takes a login from input,
- *     which is why it is gated on the GitHub org-owner role, validates the
- *     login shape here, and stamps `issued_by` with the acting owner.
+ *   - delegated management (`/api/platform/keys/for*`) takes a login from
+ *     input, which is why `requireKeyDelegation` gates it on the GitHub
+ *     org-owner role, validates the login shape, refuses the caller's own
+ *     login, and stamps the acting owner onto the Data API call.
  */
+
+import { NextResponse } from "next/server";
+import { requireAdminApp } from "@lib/platform/auth";
 
 const BASE = process.env.SDV_DATA_API_URL ?? "https://data.sportsdataverse.org";
 
@@ -31,6 +35,43 @@ export function normalizeLogin(input: string): string | null {
 /** Whether two GitHub logins name the same account (logins are case-insensitive). */
 export function sameLogin(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+/**
+ * The org-owner gate for every delegated key route — role, login shape, and the
+ * not-yourself rule resolved in one place so the handlers cannot drift apart.
+ *
+ * `owner` is the recipient (`gh:<login>`); `actor` is the org owner acting.
+ */
+export async function requireKeyDelegation(raw: unknown): Promise<
+  | { login: string; owner: string; actor: string; deny: null }
+  | { login: null; owner: null; actor: null; deny: NextResponse }
+> {
+  const denied = (message: string, status: number) => ({
+    login: null,
+    owner: null,
+    actor: null,
+    deny: NextResponse.json({ message, success: false }, { status }),
+  });
+
+  const { session, deny } = await requireAdminApp();
+  if (deny) return { login: null, owner: null, actor: null, deny };
+  if (!session?.login) return denied("session has no login", 400);
+
+  const login = normalizeLogin(typeof raw === "string" ? raw : "");
+  if (!login) {
+    return denied(
+      "Give a GitHub login (letters, digits and single hyphens, up to 39 characters).",
+      422
+    );
+  }
+  if (sameLogin(login, session.login)) {
+    return denied(
+      "Owners manage keys for other people here — use your own API key page for your own.",
+      403
+    );
+  }
+  return { login, owner: ghOwner(login), actor: ghOwner(session.login), deny: null };
 }
 
 export async function keysApi(path: string, init?: RequestInit): Promise<Response> {

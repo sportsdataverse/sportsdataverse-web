@@ -38,15 +38,21 @@ browser):
 | path | who | owner comes from |
 |---|---|---|
 | `/platform/api-key` -> `/api/platform/keys[/rotate]` | any org member | the caller's own session, never request input |
-| `/platform/admin/keys` -> `/api/platform/keys/for` | org **owners** only | a GitHub login typed into the form |
+| `/platform/admin/keys` -> `/api/platform/keys/for[/rotate|/revoke]` | org **owners** only | a GitHub login typed into the form |
 
 The delegated path is deliberately *for other people*: it refuses a login that
-matches the caller's own (403), and stamps the acting owner into the key's
-`issued_by` column so every key records who created it and for whom. Recipients
-do not have to be org members — that is how outside collaborators get Data API
-access — and they see and rotate the key from their own API key page. Only
-`read` keys are minted this way; `write`/`admin` keys remain a droplet CLI
-operation.
+matches the caller's own (403), and stamps the acting owner into `issued_by` /
+`disabled_by` so every key records who created it, for whom, and who ended it.
+Recipients do not have to be org members — that is how outside collaborators get
+Data API access — and the key shows on their own API key page, which they can
+rotate themselves. Only `read` keys are minted this way; `write`/`admin` keys
+remain a droplet CLI operation, and revoke refuses them too, so a delegated call
+can never disable the platform's own credentials.
+
+Revoke sends the `key_id` **and** the owner it must belong to; the Data API 404s
+a mismatch, so a bare id is never enough to disable a key. Rotating someone
+else's key hands *you* their new secret — prefer having them rotate it from
+their own page whenever they can still sign in.
 
 ## Environment variables
 

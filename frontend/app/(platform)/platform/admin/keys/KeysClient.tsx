@@ -1,7 +1,7 @@
 "use client";
 
 import { timeAgo } from "@components/platform/widgets";
-import IssueKeyForMemberCard from "@components/platform/IssueKeyForMemberCard";
+import DelegatedKeysCard from "@components/platform/DelegatedKeysCard";
 import { useAdmin } from "../AdminOverviewClient";
 
 type KeyRow = {
@@ -22,7 +22,7 @@ export default function KeysClient() {
         <h1 className="font-display text-2xl font-bold tracking-tight">Keys</h1>
       </div>
 
-      <IssueKeyForMemberCard />
+      <DelegatedKeysCard />
 
       <h2 className="pt-2 font-display text-lg font-semibold tracking-tight">
         Usage
