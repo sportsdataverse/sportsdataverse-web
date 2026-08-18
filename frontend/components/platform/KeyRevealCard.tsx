@@ -14,6 +14,9 @@ export interface MintedKey {
   token: string;
   revoked: number;
   issued_by?: string | null;
+  /** Privileged keys a rotate deliberately left active — this surface can't
+   *  mint write/admin back, so it doesn't destroy them. */
+  preserved?: number;
 }
 
 /**
@@ -97,6 +100,14 @@ export default function KeyRevealCard({
             ? ` (${minted.revoked} previous key${minted.revoked > 1 ? "s" : ""} just stopped working.)`
             : ""}
         </p>
+        {minted.preserved ? (
+          <p className="text-sm text-muted-foreground">
+            {minted.preserved} write/admin key
+            {minted.preserved > 1 ? "s were" : " was"} left active on purpose —
+            this surface can&apos;t mint those back, so it doesn&apos;t revoke
+            them. Retiring one is a droplet CLI operation.
+          </p>
+        ) : null}
         <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3">
           <code className="min-w-0 flex-1 break-all font-mono text-sm">
             {minted.token}
