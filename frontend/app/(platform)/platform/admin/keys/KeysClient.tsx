@@ -1,6 +1,7 @@
 "use client";
 
 import { timeAgo } from "@components/platform/widgets";
+import DelegatedKeysCard from "@components/platform/DelegatedKeysCard";
 import { useAdmin } from "../AdminOverviewClient";
 
 type KeyRow = {
@@ -20,6 +21,12 @@ export default function KeysClient() {
       <div className="mb-2 flex items-center justify-between gap-4">
         <h1 className="font-display text-2xl font-bold tracking-tight">Keys</h1>
       </div>
+
+      <DelegatedKeysCard />
+
+      <h2 className="pt-2 font-display text-lg font-semibold tracking-tight">
+        Usage
+      </h2>
       {error ? (
         <p className="text-sm text-muted-foreground">Couldn&apos;t load keys.</p>
       ) : !data ? (

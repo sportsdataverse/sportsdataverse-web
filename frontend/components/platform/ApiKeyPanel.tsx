@@ -3,9 +3,10 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
-import { Check, Copy, KeyRound, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import { KeyRound, Loader2, RefreshCw } from "lucide-react";
 import fetcher from "@lib/fetcher";
 import { StatusBadge, timeAgo } from "@components/platform/widgets";
+import KeyRevealCard, { type MintedKey } from "@components/platform/KeyRevealCard";
 import { Button } from "@components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@components/ui/card";
 import {
@@ -25,69 +26,7 @@ interface KeyMeta {
   scopes: string[];
   disabled: boolean;
   created_at: string;
-}
-
-interface MintedKey {
-  key_id: string;
-  owner: string;
-  scopes: string[];
-  token: string;
-  revoked: number;
-}
-
-function CopyButton({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <Button
-      variant="secondary"
-      size="sm"
-      className="gap-2 font-mono text-xs"
-      onClick={async () => {
-        await navigator.clipboard.writeText(value);
-        setCopied(true);
-        toast.success("Key copied to clipboard");
-        setTimeout(() => setCopied(false), 2000);
-      }}
-    >
-      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-      {copied ? "copied" : "copy"}
-    </Button>
-  );
-}
-
-function RevealCard({ minted }: { minted: MintedKey }) {
-  return (
-    <Card className="border-status-running/50">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 font-display text-base">
-          <TriangleAlert className="size-4 text-status-running" />
-          Your new API key — shown once
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <p className="text-sm text-muted-foreground">
-          Copy it now and store it somewhere safe. Only a hash is kept
-          server-side, so this exact value can never be displayed again — if
-          it&apos;s lost, rotate to get a new one.
-          {minted.revoked > 0
-            ? ` (${minted.revoked} previous key${minted.revoked > 1 ? "s" : ""} just stopped working.)`
-            : ""}
-        </p>
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3">
-          <code className="min-w-0 flex-1 break-all font-mono text-sm">
-            {minted.token}
-          </code>
-          <CopyButton value={minted.token} />
-        </div>
-        <div>
-          <p className="mb-1 font-mono text-xs text-muted-foreground">usage</p>
-          <pre className="overflow-x-auto rounded-lg border border-border/60 bg-muted/40 p-3 font-mono text-xs leading-5">
-            {`curl -H "Authorization: Bearer ${minted.token.slice(0, 8)}…" \\\n  https://data.sportsdataverse.org/v1/schemas`}
-          </pre>
-        </div>
-      </CardContent>
-    </Card>
-  );
+  issued_by?: string | null;
 }
 
 export default function ApiKeyPanel() {
@@ -133,7 +72,7 @@ export default function ApiKeyPanel() {
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
-      {minted ? <RevealCard minted={minted} /> : null}
+      {minted ? <KeyRevealCard minted={minted} /> : null}
 
       <Card>
         <CardHeader className="pb-3">
@@ -163,7 +102,16 @@ export default function ApiKeyPanel() {
                 <p className="font-mono text-xs text-muted-foreground">
                   scopes {activeKey.scopes.join(",")} · issued{" "}
                   {timeAgo(activeKey.created_at)}
+                  {activeKey.issued_by
+                    ? ` · by ${activeKey.issued_by.replace(/^gh:/, "@")}`
+                    : ""}
                 </p>
+                {activeKey.issued_by ? (
+                  <p className="text-xs text-muted-foreground">
+                    An org owner issued this key for you. Rotating it is yours to
+                    do — the new secret is shown only to you.
+                  </p>
+                ) : null}
                 {!minted ? (
                   <p className="text-xs text-muted-foreground">
                     The full key was shown when it was issued and can&apos;t be
