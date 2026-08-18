@@ -25,6 +25,28 @@ Design doc: `docs/superpowers/specs/2026-07-11-platform-design.md` (repo root).
 - The tracked repos and the per-repo allowlist of dispatchable workflow files
   live in `content/platform.ts`. A workflow not allowlisted there cannot be
   triggered from the UI, whoever asks.
+- `/platform/admin/*` additionally requires the **org owner** role. GitHub
+  reports that as `role: "admin"` on the org membership, which `lib/auth.ts`
+  puts on the session and `requireAdminApp()` gates on.
+
+### Data API keys
+
+Two ways a `data.sportsdataverse.org` key gets minted, both proxied server-side
+with `SDV_KEYS_ADMIN_KEY` (an admin-scoped Data API key — never sent to a
+browser):
+
+| path | who | owner comes from |
+|---|---|---|
+| `/platform/api-key` -> `/api/platform/keys[/rotate]` | any org member | the caller's own session, never request input |
+| `/platform/admin/keys` -> `/api/platform/keys/for` | org **owners** only | a GitHub login typed into the form |
+
+The delegated path is deliberately *for other people*: it refuses a login that
+matches the caller's own (403), and stamps the acting owner into the key's
+`issued_by` column so every key records who created it and for whom. Recipients
+do not have to be org members — that is how outside collaborators get Data API
+access — and they see and rotate the key from their own API key page. Only
+`read` keys are minted this way; `write`/`admin` keys remain a droplet CLI
+operation.
 
 ## Environment variables
 
@@ -33,11 +55,17 @@ Local (`.env.local`) and on Vercel — see `.env.example`:
 ```
 GH_PLATFORM_TOKEN=      # fine-grained PAT: actions:read (+ actions:write for dispatch)
 PLATFORM_INGEST_TOKEN=  # openssl rand -hex 32 — shared with CI + the droplet cron
+SDV_KEYS_ADMIN_KEY=     # admin-scoped Data API key — mints/rotates user API keys
+SDV_DATA_ADMIN_KEY=     # admin-scoped Data API key — /v1/admin observability reads
+SDV_TRIGGER_KEY=        # trigger-scoped Data API key — sdv-orch pipeline runs
+SDV_DATA_API_URL=       # defaults to https://data.sportsdataverse.org
 ```
 
 Both are optional-but-recommended: without `GH_PLATFORM_TOKEN` the GitHub tabs
 use unauthenticated calls (60 req/h shared quota) and dispatch is disabled;
 without `PLATFORM_INGEST_TOKEN` token ingest is disabled (session-only writes).
+The `SDV_*` keys likewise fail soft: each route that needs one returns 503 with
+the missing variable named, rather than the page breaking.
 
 ## Recording a model run from CI / a training script
 
