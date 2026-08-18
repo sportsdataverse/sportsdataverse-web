@@ -16,6 +16,15 @@ export interface MintedKey {
   issued_by?: string | null;
 }
 
+/**
+ * Copy-to-clipboard for a show-once secret.
+ *
+ * The write can reject — permission denied, or a non-secure origin where
+ * `navigator.clipboard` is undefined entirely. Failing silently would be the
+ * worst outcome here: the only copy of the token is the one on screen, and the
+ * user would walk away believing it was on their clipboard. So a failure says
+ * so and tells them to select it by hand.
+ */
 export function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -24,10 +33,18 @@ export function CopyButton({ value }: { value: string }) {
       size="sm"
       className="gap-2 font-mono text-xs"
       onClick={async () => {
-        await navigator.clipboard.writeText(value);
-        setCopied(true);
-        toast.success("Key copied to clipboard");
-        setTimeout(() => setCopied(false), 2000);
+        try {
+          if (!navigator.clipboard) throw new Error("clipboard unavailable");
+          await navigator.clipboard.writeText(value);
+          setCopied(true);
+          toast.success("Key copied to clipboard");
+          setTimeout(() => setCopied(false), 2000);
+        } catch {
+          toast.error("Couldn't copy to the clipboard", {
+            description:
+              "Select the key above and copy it manually — it can't be shown again.",
+          });
+        }
       }}
     >
       {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}

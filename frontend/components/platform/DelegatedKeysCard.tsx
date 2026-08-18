@@ -33,10 +33,12 @@ interface KeyMeta {
 /** Mirrors the server's `normalizeLogin` so the form can pre-empt a 422. */
 const LOGIN_RE = /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/;
 
+/** Strip the decorations a human might paste (`@foo`, `gh:foo`, stray space). */
 function cleanLogin(input: string): string {
   return input.trim().replace(/^@/, "").replace(/^gh:/i, "").trim();
 }
 
+/** Render an owner string (`gh:foo`) the way GitHub does (`@foo`). */
 function atLogin(owner: string | null | undefined): string {
   return owner ? owner.replace(/^gh:/, "@") : "";
 }
@@ -81,6 +83,10 @@ export default function DelegatedKeysCard() {
 
   const active = existing?.keys?.filter((k) => !k.disabled) ?? [];
   const blocked = Boolean(existing?.message);
+  // One source of truth for "may we mint right now": the button and the Enter
+  // key both read it, so the two paths cannot drift apart. Minting while they
+  // already hold a key would only earn a 409 from upstream anyway.
+  const canIssue = valid && !busy && !blocked && !looking && !active.length;
 
   async function call(
     path: string,
@@ -132,6 +138,7 @@ export default function DelegatedKeysCard() {
       { reveal: false, ok: `Revoked ${key.key_id}…`, fail: "Revoke failed" }
     );
 
+  /** The line under the input: what we know about this login right now. */
   const status = () => {
     if (input && !valid)
       return "not a GitHub login (letters, digits, single hyphens, ≤39 chars)";
@@ -172,7 +179,7 @@ export default function DelegatedKeysCard() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && valid && !busy && !active.length) issue();
+                  if (e.key === "Enter" && canIssue) issue();
                 }}
                 placeholder="github-login"
                 aria-label="GitHub login to manage keys for"
@@ -196,7 +203,7 @@ export default function DelegatedKeysCard() {
             ) : (
               <Button
                 className="gap-2"
-                disabled={!valid || busy || blocked || Boolean(looking && lookup)}
+                disabled={!canIssue}
                 onClick={issue}
               >
                 {busy ? (
