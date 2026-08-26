@@ -28,6 +28,6 @@ export function cheatsheetHref(title: unknown): string | null {
   const key = String(title ?? "")
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
-  const file = CHEATSHEETS[key];
+  const file = Object.hasOwn(CHEATSHEETS, key) ? CHEATSHEETS[key] : undefined;
   return file ? `/cheatsheets/${file}` : null;
 }
