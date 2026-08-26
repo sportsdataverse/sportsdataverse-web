@@ -1,10 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Github, FileText, Database } from "lucide-react";
+import { Github, FileText, Database, FileDown } from "lucide-react";
 import { Card } from "@components/ui/card";
 import { Button } from "@components/ui/button";
+import { cheatsheetHref } from "@lib/cheatsheets";
 
 export default function PackageCard({ pkg }: { pkg: any }) {
+  const cheatsheet = cheatsheetHref(pkg.title);
   return (
     <Card className="group relative h-full overflow-hidden border-transparent bg-card/90 shadow-sm backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl">
       {/* SDV-blue accent bar */}
@@ -72,6 +74,18 @@ export default function PackageCard({ pkg }: { pkg: any }) {
               <Link href={pkg.dataRepoHref}>
                 <Database className="h-5 w-5" />
               </Link>
+            </Button>
+          ) : null}
+          {cheatsheet ? (
+            <Button
+              asChild
+              variant="ghost"
+              size="icon"
+              aria-label="Cheat sheet (PDF)"
+            >
+              <a href={cheatsheet} download>
+                <FileDown className="h-5 w-5" />
+              </a>
             </Button>
           ) : null}
         </div>
