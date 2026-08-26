@@ -6,7 +6,7 @@ import { Button } from "@components/ui/button";
 import { cheatsheetHref } from "@lib/cheatsheets";
 
 export default function PackageCard({ pkg }: { pkg: any }) {
-  const cheatsheet = cheatsheetHref(pkg.title);
+  const cheatsheet = cheatsheetHref(pkg.title, pkg.repoType);
   return (
     <Card className="group relative h-full overflow-hidden border-transparent bg-card/90 shadow-sm backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl">
       {/* SDV-blue accent bar */}

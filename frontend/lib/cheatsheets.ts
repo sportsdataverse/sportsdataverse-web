@@ -7,9 +7,6 @@
  */
 
 const CHEATSHEETS: Record<string, string> = {
-  sportsdataversepy: "sportsdataverse-py.pdf",
-  sportsdataversejs: "sportsdataverse-js.pdf",
-  sportsdataverse: "sportsdataverse-R.pdf",
   cfbfastr: "cfbfastR.pdf",
   hoopr: "hoopR.pdf",
   wehoop: "wehoop.pdf",
@@ -24,10 +21,23 @@ const CHEATSHEETS: Record<string, string> = {
   cfbseedr: "cfbplotR-cfb4th-cfbseedR.pdf",
 };
 
-export function cheatsheetHref(title: unknown): string | null {
+/** Flagship metapackage sheets, one per ecosystem, keyed by card repoType. */
+const FLAGSHIP_BY_REPO_TYPE: Record<string, string> = {
+  R: "sportsdataverse-R.pdf",
+  Python: "sportsdataverse-py.pdf",
+  "Node.js": "sportsdataverse-js.pdf",
+};
+
+export function cheatsheetHref(title: unknown, repoType?: unknown): string | null {
   const key = String(title ?? "")
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
+  // The flagship cards all title-start with "sportsdataverse" and only differ
+  // by repoType, so the ecosystem — not the title — picks the sheet.
+  if (key.startsWith("sportsdataverse")) {
+    const flagship = FLAGSHIP_BY_REPO_TYPE[String(repoType ?? "")];
+    return flagship ? `/cheatsheets/${flagship}` : null;
+  }
   const file = Object.hasOwn(CHEATSHEETS, key) ? CHEATSHEETS[key] : undefined;
   return file ? `/cheatsheets/${file}` : null;
 }
