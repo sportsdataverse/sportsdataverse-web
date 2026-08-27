@@ -20,7 +20,8 @@ per-package R pkgdown sites) — this repo is the org front door, NOT a docs sit
   schema in `frontend/supabase/schema.sql`) and **MongoDB** (`MONGODB_URI` + `DB_NAME` —
   packages/projects, NOT Supabase). Auth via Auth.js v5 (GitHub OAuth, org-membership JWT). API route handlers in `frontend/app/api/`.
 - **Data pipeline:** `python/data_fetcher.py` (uv-managed) pulls GitHub/package stats; the
-  `cron.yml` workflow runs it daily on the **`with-data` branch** and auto-commits results there.
+  `cron.yml` is **manual-only** (`workflow_dispatch`); it has never committed anything, because
+  the fetcher's luigi targets land under `python/tmp/`, which the repo does not track.
 
 ## Commands
 
@@ -62,9 +63,10 @@ uv lock --upgrade && uv sync       # bump deps
   on several deps; a plain `npm install` without it can fail. Don't remove it.
 - **Repo-root `requirements.txt` is generated** (`uv export --project python`), used only by
   `cron.yml`'s `pip install`. Edit deps in `python/pyproject.toml` + re-export; don't hand-edit it.
-- **`with-data` is a data branch, not a feature branch.** `cron.yml` commits fetched data to it;
-  `auto-merge.yml` merges `main` → `with-data` on push to main, `merge-to-main.yml` merges back.
-  Don't develop on `with-data`.
+- **The `with-data` round-trip is retired.** `auto-merge.yml` (main → with-data) and
+  `merge-to-main.yml` (with-data → main) are gone. The branch still exists but is no longer
+  synced and holds no data — don't develop on it, and don't restore the round-trip without
+  first making the fetcher write to tracked paths.
 - **Turbopack root is pinned** in `next.config.ts` (`turbopack.root`) so a stray lockfile in the
   home dir isn't mis-detected as the workspace root — keep it when editing config.
 - Two backends, easy to confuse: **views = Supabase, packages/projects = MongoDB.**

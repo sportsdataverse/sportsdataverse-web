@@ -1,10 +1,10 @@
+# Manual only. This fetcher has never committed anything: its luigi targets
+# land under python/tmp/, which the repo does not track, and the step stages
+# with `-u` (tracked files only). It ran daily against the `with-data` branch,
+# which is no longer synced with main -- see the retirement note in CLAUDE.md.
+# Re-enable the schedule once the fetcher writes to tracked paths.
 on:
   workflow_dispatch:
-  #push:
-  #  branches:
-  #    - main
-  schedule:
-    - cron: '0 4 * * *'
 
 name: Update data
 
@@ -14,8 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-        with:
-          ref: with-data
       - uses: actions/setup-python@v6
         with:
             python-version: '3.12'
@@ -31,6 +29,5 @@ jobs:
       - uses: stefanzweifel/git-auto-commit-action@v7.2.0 # v6
         with:
           commit_message: Update ${{ steps.date.outputs.date }}
-          branch: with-data
           commit_author: Auto fetch <actions@github.com> # defaults to author of the commit that triggered the run
           add_options: '-u'
