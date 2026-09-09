@@ -5,9 +5,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useSession, signIn } from "next-auth/react";
-import { Github, Menu, Moon, Sun, Terminal } from "lucide-react";
+import { ChevronDown, Github, Menu, Moon, Sun, Terminal } from "lucide-react";
 import { Button } from "@components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@components/ui/dropdown-menu";
 import { cn } from "@lib/utils";
 
 const LINKS = [
@@ -16,7 +22,22 @@ const LINKS = [
   { href: "/blog", label: "Blog" },
   { href: "/about", label: "About" },
   { href: "/stats", label: "Stats" },
-  { href: "/snippets", label: "Snippets" },
+];
+
+/**
+ * The reference material, grouped rather than added as a seventh flat link.
+ * Snippets moves in here from the top level, and `/resources` — a page that
+ * existed but was reachable from nothing in the nav — is surfaced alongside
+ * it, so the bar keeps six slots while gaining two destinations.
+ */
+const LEARN_LINKS = [
+  {
+    href: "/cheatsheets",
+    label: "Cheat sheets",
+    hint: "Printable one-pagers, every package",
+  },
+  { href: "/snippets", label: "Snippets", hint: "Short, copyable recipes" },
+  { href: "/resources", label: "Resources", hint: "Friends, conferences, competitions" },
 ];
 
 function ThemeToggle() {
@@ -60,6 +81,36 @@ function MemberAction() {
   );
 }
 
+function LearnMenu({ pathname }: { pathname: string | null }) {
+  const active = LEARN_LINKS.some((l) => pathname?.startsWith(l.href));
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className={cn(
+          "relative flex items-center gap-1 px-3 py-2 font-display text-[15px] font-semibold uppercase tracking-wide text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:text-foreground",
+          active &&
+            "text-foreground after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:bg-score"
+        )}
+      >
+        Learn
+        <ChevronDown className="size-3.5" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-64">
+        {LEARN_LINKS.map((l) => (
+          <DropdownMenuItem key={l.href} asChild>
+            <Link href={l.href} className="flex cursor-pointer flex-col items-start gap-0.5">
+              <span className="font-display text-sm font-semibold uppercase tracking-wide">
+                {l.label}
+              </span>
+              <span className="text-xs text-muted-foreground">{l.hint}</span>
+            </Link>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export default function SiteNav() {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -89,6 +140,7 @@ export default function SiteNav() {
               </Link>
             );
           })}
+          <LearnMenu pathname={pathname} />
         </nav>
         <div className="ml-auto flex items-center gap-1.5">
           <MemberAction />
@@ -105,6 +157,21 @@ export default function SiteNav() {
               </SheetTitle>
               <nav className="mt-6 flex flex-col gap-1">
                 {LINKS.map((l) => (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    className="rounded-md px-3 py-2.5 font-display text-lg font-semibold uppercase tracking-wide text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+                {/* Flattened rather than nested: a dropdown inside a slide-out
+                    sheet costs an extra tap and hides its contents on the one
+                    screen size where discovery matters most. */}
+                <p className="mt-3 px-3 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                  Learn
+                </p>
+                {LEARN_LINKS.map((l) => (
                   <Link
                     key={l.href}
                     href={l.href}
