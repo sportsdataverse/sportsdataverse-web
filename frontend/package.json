@@ -8,7 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "tsc": "tsc --noEmit"
+    "tsc": "tsc --noEmit",
+    "test:scripts": "node --test scripts/lighthouse-verdicts.test.mjs",
+    "visual-check": "node scripts/visual-check.mjs",
+    "lighthouse-compare": "node scripts/lighthouse-compare.mjs"
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "^1.33.1-dev57.0",

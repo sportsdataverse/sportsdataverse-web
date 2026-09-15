@@ -71,6 +71,70 @@ uv lock --upgrade && uv sync       # bump deps
   home dir isn't mis-detected as the workspace root — keep it when editing config.
 - Two backends, easy to confuse: **views = Supabase, packages/projects = MongoDB.**
 
+## Visual verification — REQUIRED for any UI change
+
+Any change that touches a rendered page, a component, MDX content, or styles — including
+"just a copy/colour tweak" — is not done until it has been seen in **all four combinations**:
+
+|                    | light | dark |
+|--------------------|-------|------|
+| desktop (1280×800) | ✓     | ✓    |
+| mobile (390×844)   | ✓     | ✓    |
+
+- **Theme is next-themes, `defaultTheme="dark"`, `attribute="class"`** (`app/providers.tsx`). Emulating
+  `prefers-color-scheme` alone never shows light mode, and resizing a window is not a mobile check.
+  `frontend/scripts/visual-check.mjs` seeds next-themes' `theme` key in localStorage before load,
+  emulates the matching scheme, and fails if `<html>` did not get that class.
+- `cd frontend && BASE=<url> npm run visual-check -- / /packages` writes `frontend/img/visual/`
+  (git-ignored). `playwright-core` is deliberately not a dependency (`npm i -g playwright-core`); it drives
+  your installed Chrome or `$VISUAL_CHECK_EXECUTABLE` (`VISUAL_CHECK_NO_SANDBOX=1` in a root container).
+- `/platform/**` is behind GitHub org auth; shoot public `(site)` routes unless you have a session.
+
+## PR evidence — REQUIRED on every PR, posted automatically
+
+Every PR that touches `frontend/` carries two pieces of evidence, both produced by
+**`.github/workflows/pr-evidence.yml`** and kept in ONE PR comment that each push updates:
+
+1. **The four preview screenshots** of the PR (the matrix above), above-the-fold thumbnails linking to full pages.
+2. **A Lighthouse comparison of the PR against its base** on the same page(s).
+
+- **Nothing is built in CI.** Vercel deploys every commit with the real environment and reports it to GitHub's
+  deployments API. The workflow waits for the **Preview** deployment of the PR head and compares it with the
+  **Production** deployment of the PR's merge-base (falling back to the live site if Vercel no longer lists one).
+- **Pages:** an `Evidence routes: /a /b` line in the PR description (max 4); default `/ /packages`.
+- **Not applicable:** a PR that changes nothing under `frontend/` needs no evidence, and says so. A **fork PR** gets
+  no evidence run (read-only token, no authorized preview): attach the screenshot matrix from a local
+  `visual-check` run by hand — screenshots are fine to attach, but never type scores or metrics into a PR.
+- **When the workflow fails** (usually: the Vercel preview failed to build), fix the cause or explain in the PR;
+  never paste numbers the workflow did not measure.
+- **Local run:** `cd frontend && npm run lighthouse-compare -- --base-url https://sportsdataverse.org --head-url "$PREVIEW_URL" --shots / /packages`,
+  then `node scripts/pr-evidence-comment.mjs --out img/lighthouse/<run>` for the comment markdown.
+
+Why the method is what it is (the scripts enforce it):
+- **Warm-up:** each route is fetched twice on both deployments before measuring, so a cold serverless render
+  or an edge-cache miss does not land on one side.
+- **Run ranges and floors** (`frontend/scripts/lighthouse-verdicts.mjs`, pinned by `npm run test:scripts`):
+  Performance swings 10+ points between identical builds. Every metric keeps its min–max range, and a delta
+  is flagged only when the gap between the base and PR ranges clears an absolute floor **and** the median
+  moved by a relative floor (Performance, already a 0–100 score, needs only the 3-point gap). These rules
+  came from false flags on game-on-paper-app, where the same tooling runs.
+- **Server response is reported, never flagged:** Production and Preview differ in edge-cache state.
+- **Deployment artifacts are neutralized, not flagged:**
+  - Every Vercel Preview injects the Vercel Toolbar (`vercel.live`). It is blocked on both sides; it loads at
+    low priority, so blocking it does not move the numbers.
+  - Every Vercel deployment URL sends `X-Robots-Tag: noindex` (only sportsdataverse.org is indexable), so
+    `is-crawlable` is left out of the verdicts and the SEO row is footnoted (it reads 66, not 100).
+  - `plausible.io` loads only in production and is deliberately **not** blocked in Lighthouse: the page
+    preloads it at high priority, and simulated throttling turns a blocked high-priority request into a fake
+    0.6 s FCP stall. Unblocked, it still costs a Production base ~0.8 s of simulated FCP that no Preview pays,
+    so when the base loads a production-only origin the comment drops timing *improvements* (keeping
+    regressions, which the handicap only makes conservative) and says so. Screenshots do block it.
+    Lighthouse runs record a few pageviews from `*.vercel.app` hostnames in Plausible; filter by hostname.
+  - A third-party origin the PR loads and the base does not is reported as a finding (🔴).
+  - Never "fix" a deployment difference by blocking a request without re-measuring both ways first.
+- **Images** go on the orphan branch `pr-previews` (`pr<N>/<sha7>/…`), embedded through
+  `raw.githubusercontent.com` URLs pinned to the commit SHA; no workflow triggers on that branch.
+
 ## Reference
 
 - **Deploy:** Vercel (auto-deploy on push to `main`; project root = `frontend/`).

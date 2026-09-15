@@ -1,0 +1,37 @@
+name: Copilot setup steps
+
+# The environment GitHub Copilot's coding agent starts from (the job must be named
+# `copilot-setup-steps`). It gets the app's dependencies plus the tools the pr-evidence
+# workflow uses, so the agent can run lint/tsc/build and iterate with
+# frontend/scripts/visual-check.mjs and lighthouse-compare.mjs. The evidence posted on a
+# PR still comes from the pr-evidence workflow.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # frontend/.npmrc sets legacy-peer-deps=true, which React 19 needs
+      - run: npm ci --no-audit --no-fund
+        working-directory: frontend
+
+      - name: Review tools (not repo dependencies)
+        run: npm i -g --no-audit --no-fund lighthouse@12 playwright-core@1
