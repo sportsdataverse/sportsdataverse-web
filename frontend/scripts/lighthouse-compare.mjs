@@ -92,7 +92,12 @@ function findLighthouse() {
   process.exit(2);
 }
 const LIGHTHOUSE = findLighthouse();
-const VERCEL_INJECTED = ['*vercel.live*'];
+// Requests that depend on WHICH deployment is measured, not on the code, blocked on both sides:
+// - vercel.live: the Vercel Toolbar (feedback.js + a 35 KB iframe) injected into every Preview
+// - plausible.io: next-plausible loads only in production, so it made the base side slower
+//   (#45: /packages FCP 1.9 s vs 1.0 s on identical code) and every run sent real pageviews
+//   into the site's analytics
+const DEPLOYMENT_ONLY = ['*vercel.live*', '*plausible.io*'];
 
 // ---------------------------------------------------------------- warm + check
 async function warm(side, route) {
@@ -137,9 +142,7 @@ function lighthouse(url, preset, reportPath) {
   if (process.env.LIGHTHOUSE_NO_SANDBOX || process.env.VISUAL_CHECK_NO_SANDBOX) chromeFlags.push('--no-sandbox');
   const args = [LIGHTHOUSE, url, '--output=json', `--output-path=${reportPath}`, '--quiet',
     `--chrome-flags=${chromeFlags.join(' ')}`, '--max-wait-for-load=90000',
-    // Vercel injects its Toolbar (feedback.js + a 35 KB feedback iframe) into every Preview
-    // deployment and never into Production; blocked on both sides so it can't read as PR weight
-    ...VERCEL_INJECTED.map((p) => `--blocked-url-patterns=${p}`)];
+    ...DEPLOYMENT_ONLY.map((p) => `--blocked-url-patterns=${p}`)];
   if (preset === 'desktop') args.push('--preset=desktop');
   return new Promise((ok) => {
     let stderr = '';
@@ -174,8 +177,10 @@ function markdown(summary) {
     row('Performance', (p, t) => cell(p, t, 'performance'));
     row('Accessibility', (p, t) => fmt('accessibility', byPreset[p][t].accessibility.median));
     row('Best Practices', (p, t) => fmt('bestPractices', byPreset[p][t].bestPractices.median));
-    const previewNoindex = summary.pages.head[route]?.noindex && !summary.pages.base[route]?.noindex;
-    row(previewNoindex ? 'SEO¹' : 'SEO', (p, t) => fmt('seo', byPreset[p][t].seo.median));
+    // every Vercel deployment URL (Preview AND a Production deployment's *.vercel.app URL) sends
+    // X-Robots-Tag: noindex; only the custom domain is indexable
+    const noindexSides = ['base', 'head'].filter((t) => summary.pages[t][route]?.noindex);
+    row(noindexSides.length ? 'SEO¹' : 'SEO', (p, t) => fmt('seo', byPreset[p][t].seo.median));
     row('FCP / LCP', (p, t) => `${fmt('fcp', byPreset[p][t].fcp.median)} / ${fmt('lcp', byPreset[p][t].lcp.median)}`);
     row('TBT', (p, t) => cell(p, t, 'tbt'));
     row('CLS', (p, t) => cell(p, t, 'cls'));
@@ -183,11 +188,13 @@ function markdown(summary) {
     row('Server response', (p, t) => cell(p, t, 'ttfb'));
     row('HTML / JS transfer', (p, t) => `${fmt('htmlKb', byPreset[p][t].htmlKb.median)} / ${fmt('jsKb', byPreset[p][t].jsKb.median)}`);
     row('DOM elements', (p, t) => fmt('dom', byPreset[p][t].dom.median));
-    // a Vercel Preview always sends X-Robots-Tag: noindex, so is-crawlable fails there by design
-    const ignoreAudits = previewNoindex ? ['is-crawlable'] : [];
+    const ignoreAudits = noindexSides.length ? ['is-crawlable'] : [];
     const found = PRESETS.flatMap((p) => verdicts(byPreset[p].base, byPreset[p].head, p, { ignoreAudits })).sort((a, b) => b.worse - a.worse);
     lines.push('');
-    if (previewNoindex) lines.push('¹ The PR deployment sends `X-Robots-Tag: noindex` (every Vercel Preview does), so Lighthouse\'s `is-crawlable` audit fails there and SEO reads lower. That audit is left out of the verdicts.', '');
+    if (noindexSides.length) {
+      const who = noindexSides.length === 2 ? 'Both deployments send' : `The ${noindexSides[0] === 'head' ? 'PR' : 'base'} deployment sends`;
+      lines.push(`¹ ${who} \`X-Robots-Tag: noindex\` (every Vercel deployment URL does; only sportsdataverse.org is indexable), so Lighthouse\'s \`is-crawlable\` audit fails and SEO reads lower. That audit is left out of the verdicts.`, '');
+    }
     if (found.length) for (const v of found) lines.push(`- ${v.worse ? '🔴' : '🟢'} ${v.line}`);
     else lines.push('- No change beyond run-to-run noise (run ranges overlap, or the change is below the reporting floor).');
     for (const p of PRESETS) for (const t of ['base', 'head']) for (const e of byPreset[p][t].errors) lines.push(`- ⚠️ failed run, ${t} ${p}: ${e}`);

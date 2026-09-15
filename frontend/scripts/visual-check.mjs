@@ -72,8 +72,9 @@ try {
         deviceScaleFactor: 2,
       });
       await ctx.addInitScript((t) => { try { localStorage.setItem('theme', t); } catch {} }, scheme);
-      // Vercel Preview deployments inject the Vercel Toolbar; keep it out of the shots
-      await ctx.route(/^https:\/\/vercel\.live\//, (r) => r.abort());
+      // keep deployment-only requests out: the Vercel Toolbar (injected into Previews) and
+      // Plausible (production only; a screenshot run must not count as a pageview)
+      await ctx.route(/^https:\/\/(vercel\.live|plausible\.io)\//, (r) => r.abort());
       const page = await ctx.newPage();
       for (const route of routes) {
         const where = `${route} (${device.name}/${scheme})`;

@@ -117,10 +117,12 @@ Why the method is what it is (the scripts enforce it):
   moved by a relative floor (Performance, already a 0–100 score, needs only the 3-point gap). These rules
   came from false flags on game-on-paper-app, where the same tooling runs.
 - **Server response is reported, never flagged:** Production and Preview differ in edge-cache state.
-- **Preview artifacts are neutralized, not flagged:** every Vercel Preview injects the Vercel Toolbar
-  (`vercel.live` feedback.js + a 35 KB iframe) and sends `X-Robots-Tag: noindex`. Both tools block `vercel.live`
-  on both sides, and `is-crawlable` is left out of the verdicts when only the preview is noindex (the SEO row is
-  footnoted). Without this, every PR read as +65 KB JS and SEO 100 → 66.
+- **Deployment artifacts are neutralized, not flagged:** every Vercel Preview injects the Vercel Toolbar
+  (`vercel.live` feedback.js + a 35 KB iframe); next-plausible loads `plausible.io` only in production; and every
+  Vercel deployment URL sends `X-Robots-Tag: noindex`. Both tools block `vercel.live` and `plausible.io` on both
+  sides (which also keeps test runs out of the site's analytics), and `is-crawlable` is left out of the verdicts
+  when a side is noindex (the SEO row is footnoted). Without this, a PR changing no app code read as +65 KB JS,
+  a 0.8 s FCP gap, and SEO 100 → 66.
 - **Images** go on the orphan branch `pr-previews` (`pr<N>/<sha7>/…`), embedded through
   `raw.githubusercontent.com` URLs pinned to the commit SHA; no workflow triggers on that branch.
 
