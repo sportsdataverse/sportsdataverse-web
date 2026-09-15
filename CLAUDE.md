@@ -117,12 +117,16 @@ Why the method is what it is (the scripts enforce it):
   moved by a relative floor (Performance, already a 0–100 score, needs only the 3-point gap). These rules
   came from false flags on game-on-paper-app, where the same tooling runs.
 - **Server response is reported, never flagged:** Production and Preview differ in edge-cache state.
-- **Deployment artifacts are neutralized, not flagged:** every Vercel Preview injects the Vercel Toolbar
-  (`vercel.live` feedback.js + a 35 KB iframe); next-plausible loads `plausible.io` only in production; and every
-  Vercel deployment URL sends `X-Robots-Tag: noindex`. Both tools block `vercel.live` and `plausible.io` on both
-  sides (which also keeps test runs out of the site's analytics), and `is-crawlable` is left out of the verdicts
-  when a side is noindex (the SEO row is footnoted). Without this, a PR changing no app code read as +65 KB JS,
-  a 0.8 s FCP gap, and SEO 100 → 66.
+- **Deployment artifacts are neutralized, not flagged:**
+  - Every Vercel Preview injects the Vercel Toolbar (`vercel.live`). It is blocked on both sides; it loads at
+    low priority, so blocking it does not move the numbers.
+  - Every Vercel deployment URL sends `X-Robots-Tag: noindex` (only sportsdataverse.org is indexable), so
+    `is-crawlable` is left out of the verdicts and the SEO row is footnoted (it reads 66, not 100).
+  - `plausible.io` loads only in production and is deliberately **not** blocked in Lighthouse: the page
+    preloads it at high priority, and simulated throttling turns a blocked high-priority request into a fake
+    0.6 s FCP stall. Screenshots do block it. Lighthouse runs therefore record a few pageviews from
+    `*.vercel.app` hostnames in Plausible; filter by hostname.
+  - Never "fix" a deployment difference by blocking a request without re-measuring both ways first.
 - **Images** go on the orphan branch `pr-previews` (`pr<N>/<sha7>/…`), embedded through
   `raw.githubusercontent.com` URLs pinned to the commit SHA; no workflow triggers on that branch.
 

@@ -92,12 +92,15 @@ function findLighthouse() {
   process.exit(2);
 }
 const LIGHTHOUSE = findLighthouse();
-// Requests that depend on WHICH deployment is measured, not on the code, blocked on both sides:
-// - vercel.live: the Vercel Toolbar (feedback.js + a 35 KB iframe) injected into every Preview
-// - plausible.io: next-plausible loads only in production, so it made the base side slower
-//   (#45: /packages FCP 1.9 s vs 1.0 s on identical code) and every run sent real pageviews
-//   into the site's analytics
-const DEPLOYMENT_ONLY = ['*vercel.live*', '*plausible.io*'];
+// The Vercel Toolbar (vercel.live feedback.js, sometimes a 35 KB iframe) is injected into every
+// Preview and never into Production; it loads at low priority, so blocking it on both sides costs
+// nothing (measured: preview /packages FCP 977-1147 ms blocked vs 1015-1135 ms unblocked).
+//
+// Do NOT block plausible.io, although it loads only in production: the page PRELOADS its script
+// at high priority, and Lighthouse's simulated throttling treats a blocked high-priority request
+// as a long stall -- production /packages FCP read 1716 ms blocked vs 1134 ms unblocked, which
+// flagged a fake FCP "improvement" on #45. The 2 KB deferred script is left in as real weight.
+const DEPLOYMENT_ONLY = ['*vercel.live*'];
 
 // ---------------------------------------------------------------- warm + check
 async function warm(side, route) {
