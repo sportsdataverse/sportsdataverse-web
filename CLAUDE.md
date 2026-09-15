@@ -102,10 +102,12 @@ Every PR that touches `frontend/` carries two pieces of evidence, both produced 
   deployments API. The workflow waits for the **Preview** deployment of the PR head and compares it with the
   **Production** deployment of the PR's merge-base (falling back to the live site if Vercel no longer lists one).
 - **Pages:** an `Evidence routes: /a /b` line in the PR description (max 4); default `/ /packages`.
-- **Fork PRs** get no evidence run (read-only token, no authorized preview) — attach the matrix by hand.
+- **Not applicable:** a PR that changes nothing under `frontend/` needs no evidence, and says so. A **fork PR** gets
+  no evidence run (read-only token, no authorized preview): attach the screenshot matrix from a local
+  `visual-check` run by hand — screenshots are fine to attach, but never type scores or metrics into a PR.
 - **When the workflow fails** (usually: the Vercel preview failed to build), fix the cause or explain in the PR;
   never paste numbers the workflow did not measure.
-- **Local run:** `cd frontend && npm run lighthouse-compare -- --base-url https://sportsdataverse.org --head-url <preview url> --shots / /packages`,
+- **Local run:** `cd frontend && npm run lighthouse-compare -- --base-url https://sportsdataverse.org --head-url "$PREVIEW_URL" --shots / /packages`,
   then `node scripts/pr-evidence-comment.mjs --out img/lighthouse/<run>` for the comment markdown.
 
 Why the method is what it is (the scripts enforce it):
@@ -124,8 +126,11 @@ Why the method is what it is (the scripts enforce it):
     `is-crawlable` is left out of the verdicts and the SEO row is footnoted (it reads 66, not 100).
   - `plausible.io` loads only in production and is deliberately **not** blocked in Lighthouse: the page
     preloads it at high priority, and simulated throttling turns a blocked high-priority request into a fake
-    0.6 s FCP stall. Screenshots do block it. Lighthouse runs therefore record a few pageviews from
-    `*.vercel.app` hostnames in Plausible; filter by hostname.
+    0.6 s FCP stall. Unblocked, it still costs a Production base ~0.8 s of simulated FCP that no Preview pays,
+    so when the base loads a production-only origin the comment drops timing *improvements* (keeping
+    regressions, which the handicap only makes conservative) and says so. Screenshots do block it.
+    Lighthouse runs record a few pageviews from `*.vercel.app` hostnames in Plausible; filter by hostname.
+  - A third-party origin the PR loads and the base does not is reported as a finding (🔴).
   - Never "fix" a deployment difference by blocking a request without re-measuring both ways first.
 - **Images** go on the orphan branch `pr-previews` (`pr<N>/<sha7>/…`), embedded through
   `raw.githubusercontent.com` URLs pinned to the commit SHA; no workflow triggers on that branch.

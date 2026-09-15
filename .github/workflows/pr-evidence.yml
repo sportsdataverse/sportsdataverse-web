@@ -23,10 +23,10 @@ concurrency:
   group: pr-evidence-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# Read-only by default. The evidence job widens it, and even there the token is handed only to
+# steps that run no PR-controlled code (checkouts never persist it; the PR's scripts run tokenless).
 permissions:
-  contents: write        # push screenshots to the pr-previews branch
-  pull-requests: write   # post / update the evidence comment
-  deployments: read      # find the Vercel deployments
+  contents: read
 
 jobs:
   scripts:
@@ -34,6 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -47,18 +49,22 @@ jobs:
     needs: scripts
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: write        # push screenshots to the pr-previews branch (publish step only)
+      pull-requests: write   # post / update the evidence comment (comment step only)
+      deployments: read      # find the Vercel deployments
     env:
       PR: ${{ github.event.pull_request.number }}
       PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       BASE_REF: ${{ github.event.pull_request.base.ref }}
       DEFAULT_ROUTES: / /packages
       LIVE_SITE: https://sportsdataverse.org
-      GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Evidence directory (outside the checkout)
         run: echo "EVIDENCE_DIR=$RUNNER_TEMP/evidence" >> "$GITHUB_ENV"
@@ -72,6 +78,8 @@ jobs:
 
       - name: Resolve routes
         id: routes
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           body="$(gh api "repos/$REPO/pulls/$PR" --jq '.body // ""')"
           line="$(printf '%s\n' "$body" | sed -n 's/^[[:space:]]*Evidence routes:[[:space:]]*//Ip' | head -1 | tr -d '`\r')"
@@ -82,6 +90,8 @@ jobs:
 
       - name: Find the Vercel deployments
         id: deploys
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           # newest successful deployment URL for a commit in an environment, or empty
           deployment_url() {
@@ -154,6 +164,8 @@ jobs:
       - name: Publish screenshots to pr-previews
         id: publish
         if: always() && steps.compare.outcome == 'success'
+        env:
+          PUSH_TOKEN: ${{ github.token }}
         run: |
           shots="$EVIDENCE_DIR/shots"
           if ! ls "$shots"/*.jpg >/dev/null 2>&1; then echo "no screenshots to publish"; exit 0; fi
@@ -171,17 +183,22 @@ jobs:
           mkdir -p "$wt/$dest"
           cp "$shots"/*.jpg "$wt/$dest/"
           git -C "$wt" add "$dest"
-          git -C "$wt" commit -qm "chore(previews): PR #$PR @ ${PR_HEAD_SHA:0:7}"
-          # other PRs push here concurrently; their paths never overlap, so rebase and retry
-          for attempt in 1 2 3 4 5; do
-            git -C "$wt" push -q origin HEAD:refs/heads/pr-previews && break
-            git -C "$wt" fetch -q origin pr-previews
-            git -C "$wt" rebase -q FETCH_HEAD
-            [ "$attempt" = 5 ] && exit 1
-          done
+          # a re-run of the same commit can reproduce identical images: nothing to commit, still publish
+          if ! git -C "$wt" diff --cached --quiet; then
+            git -C "$wt" commit -qm "chore(previews): PR #$PR @ ${PR_HEAD_SHA:0:7}"
+            auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)"
+            # other PRs push here concurrently; their paths never overlap, so rebase and retry
+            for attempt in 1 2 3 4 5; do
+              git -C "$wt" -c "http.https://github.com/.extraheader=$auth" push -q origin HEAD:refs/heads/pr-previews && break
+              git -C "$wt" fetch -q origin pr-previews
+              git -C "$wt" rebase -q FETCH_HEAD
+              [ "$attempt" = 5 ] && exit 1
+            done
+          fi
           echo "image_base=https://raw.githubusercontent.com/$REPO/$(git -C "$wt" rev-parse HEAD)/$dest" >> "$GITHUB_OUTPUT"
 
-      - name: Post or update the evidence comment
+      - name: Render the evidence comment
+        # runs the PR's comment script, so it gets no token
         if: always() && !cancelled()
         env:
           IMAGE_BASE: ${{ steps.publish.outputs.image_base }}
@@ -195,6 +212,14 @@ jobs:
             printf '<!-- pr-evidence -->\n## PR evidence: `%s`\n\nThe evidence run failed before producing results (often: the Vercel preview did not build). See the [run log](%s).\n' \
               "${PR_HEAD_SHA:0:7}" "$RUN_URL" > "$body"
           fi
+
+      - name: Post or update the evidence comment
+        # workflow-defined shell only: reads the rendered file, never executes repo code
+        if: always() && !cancelled()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body="$RUNNER_TEMP/comment.md"
           id="$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
             --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- pr-evidence -->"))) | .id' | tail -1)"
           if [ -n "$id" ]; then

@@ -16,3 +16,4 @@ Evidence routes: / /packages
 - [ ] `npm run lint` and `npm run tsc` pass
 - [ ] `Evidence routes:` names the pages this change affects most
 - [ ] The pr-evidence comment is green, or every regression it flags is explained here
+- [ ] _Or_ evidence not applicable: no `frontend/` change, or a fork PR with a locally shot screenshot matrix attached

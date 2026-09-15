@@ -50,3 +50,12 @@ test('an ignored audit (is-crawlable on a noindex Vercel Preview) is not reporte
   assert.ok(!out.includes('is-crawlable'), out);
   assert.ok(out.includes('image-alt'), 'other newly failing audits still reported');
 });
+
+test('a handicapped base (production-only Plausible) drops timing improvements but keeps regressions and size findings', () => {
+  const base = side([{ fcp: 1700, tbt: 200, jsKb: 146 }, { fcp: 1750, tbt: 210, jsKb: 146 }]);
+  const head = side([{ fcp: 900, tbt: 600, jsKb: 200 }, { fcp: 950, tbt: 650, jsKb: 200 }]);
+  const out = verdicts(base, head, 'mobile', { baseHandicapped: true }).map((v) => v.line).join('\n');
+  assert.ok(!out.includes('FCP'), out);
+  assert.ok(out.includes('Regression, mobile TBT'), out);
+  assert.ok(out.includes('Regression, mobile JS transfer'), out);
+});

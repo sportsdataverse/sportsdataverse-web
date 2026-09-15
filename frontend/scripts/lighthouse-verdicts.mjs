@@ -35,6 +35,7 @@ export const FLOOR = { performance: 0.03, fcp: 200, lcp: 200, tbt: 100, cls: 0.0
 // 3-point drop matters as much on a 40 page as on a 90 one (a relative floor would
 // hide real drops exactly where pages are already slow).
 export const REL_FLOOR = { fcp: 0.1, lcp: 0.1, tbt: 0.25, si: 0.1, cls: 0.1, htmlKb: 0.02, jsKb: 0.02, dom: 0.02 };
+const TIMING = new Set(['performance', 'fcp', 'lcp', 'tbt', 'si']);
 const LABEL = { performance: 'Performance', fcp: 'FCP', lcp: 'LCP', tbt: 'TBT', cls: 'CLS', si: 'Speed Index', htmlKb: 'HTML transfer', jsKb: 'JS transfer', dom: 'DOM elements' };
 
 export function fmt(key, v) {
@@ -50,7 +51,10 @@ export function fmt(key, v) {
 export const withRange = (key, m) => (fmt(key, m.min) === fmt(key, m.max) ? fmt(key, m.median) : `${fmt(key, m.median)} (${fmt(key, m.min)}–${fmt(key, m.max)})`);
 
 // opts.ignoreAudits: audits whose pass/fail reflects the deployment, not the code -- e.g.
-// `is-crawlable` on a Vercel Preview, which always sends `X-Robots-Tag: noindex`.
+// `is-crawlable` on a Vercel deployment URL, which always sends `X-Robots-Tag: noindex`.
+// opts.baseHandicapped: the base side loads production-only resources the PR deployment never
+// loads (Plausible), so base timings are slower for reasons outside the PR. Timing IMPROVEMENTS
+// are then unreliable and dropped; regressions are kept (the handicap only makes them conservative).
 export function verdicts(base, head, preset, opts = {}) {
   const ignored = new Set(opts.ignoreAudits ?? []);
   const out = [];
@@ -66,6 +70,7 @@ export function verdicts(base, head, preset, opts = {}) {
     if (gap < FLOOR[key]) continue;
     if (REL_FLOOR[key] && Math.abs(delta) < REL_FLOOR[key] * Math.abs(b.median)) continue;
     const worse = LOWER_IS_BETTER.has(key) ? delta > 0 : delta < 0;
+    if (opts.baseHandicapped && !worse && TIMING.has(key)) continue;
     let line = `**${worse ? 'Regression' : 'Improvement'}, ${preset} ${LABEL[key]}:** ${withRange(key, b)} → ${withRange(key, h)}`;
     if (key === 'cls' && worse && head.shift) line += `. Largest shift: \`${head.shift}\``;
     out.push({ worse, line });

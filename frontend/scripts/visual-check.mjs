@@ -78,6 +78,7 @@ try {
       const page = await ctx.newPage();
       for (const route of routes) {
         const where = `${route} (${device.name}/${scheme})`;
+        const before = failures.length;
         try {
           const res = await page.goto(BASE + route, { waitUntil: 'networkidle', timeout: 90_000 });
           if (res && res.status() >= 400) failures.push(`${where}: HTTP ${res.status()}`);
@@ -87,6 +88,9 @@ try {
         } catch (e) {
           failures.push(`${where}: ${e.message}`);
         }
+        // an error page or the wrong theme must not be saved under this combination's name
+        // (the PR comment would publish it as evidence); the comment shows it as missing
+        if (failures.length > before) continue;
         const stem = join(OUT, `${slug(route)}-${device.name}-${scheme}`);
         await page.screenshot({ ...shotOpts, path: `${stem}.${ext}`, fullPage: true });
         shots.push(`${stem}.${ext}`);

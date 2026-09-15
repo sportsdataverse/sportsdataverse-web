@@ -101,6 +101,10 @@ const LIGHTHOUSE = findLighthouse();
 // as a long stall -- production /packages FCP read 1716 ms blocked vs 1134 ms unblocked, which
 // flagged a fake FCP "improvement" on #45. The 2 KB deferred script is left in as real weight.
 const DEPLOYMENT_ONLY = ['*vercel.live*'];
+// Third-party origins only Production loads (next-plausible runs only there). Lighthouse's simulated
+// throttling counts the preloaded Plausible round trip in first paint, so a Production base reads
+// ~0.8 s slower FCP than any Preview on identical code (#45); see baseHandicapped in the verdicts.
+const PRODUCTION_ONLY_ORIGINS = ['plausible.io'];
 
 // ---------------------------------------------------------------- warm + check
 async function warm(side, route) {
@@ -137,6 +141,12 @@ function metrics(report) {
     htmlKb: kb('document'), jsKb: kb('script'), dom: num('dom-size'),
     failing: [...new Set(failing)],
     shift: report.audits['layout-shifts']?.details?.items?.[0]?.node?.selector ?? null,
+    // hosts other than the measured deployment's own, excluding requests blocked above
+    origins: [...new Set((report.audits['network-requests']?.details?.items ?? [])
+      .filter((i) => i.statusCode !== -1)
+      .map((i) => { try { return new URL(i.url).hostname; } catch { return null; } })
+      .filter((h) => h && h !== new URL(report.finalDisplayedUrl ?? report.requestedUrl).hostname
+        && !/(^|\.)www\.sportsdataverse\.org$|^sportsdataverse\.org$/.test(h)))],
   };
 }
 
@@ -192,8 +202,16 @@ function markdown(summary) {
     row('HTML / JS transfer', (p, t) => `${fmt('htmlKb', byPreset[p][t].htmlKb.median)} / ${fmt('jsKb', byPreset[p][t].jsKb.median)}`);
     row('DOM elements', (p, t) => fmt('dom', byPreset[p][t].dom.median));
     const ignoreAudits = noindexSides.length ? ['is-crawlable'] : [];
-    const found = PRESETS.flatMap((p) => verdicts(byPreset[p].base, byPreset[p].head, p, { ignoreAudits })).sort((a, b) => b.worse - a.worse);
+    const originsOf = (side) => new Set(PRESETS.flatMap((p) => (raw[route]?.[p]?.[side] ?? []).flatMap((m) => m?.origins ?? [])));
+    const [baseOrigins, headOrigins] = [originsOf('base'), originsOf('head')];
+    const baseOnly = [...baseOrigins].filter((h) => !headOrigins.has(h));
+    const headOnly = [...headOrigins].filter((h) => !baseOrigins.has(h));
+    const productionOnly = baseOnly.filter((h) => PRODUCTION_ONLY_ORIGINS.some((o) => h === o || h.endsWith(`.${o}`)));
+    const baseHandicapped = productionOnly.length > 0;
+    const found = PRESETS.flatMap((p) => verdicts(byPreset[p].base, byPreset[p].head, p, { ignoreAudits, baseHandicapped })).sort((a, b) => b.worse - a.worse);
+    if (headOnly.length) found.unshift({ worse: true, line: `**New third-party origin${headOnly.length > 1 ? 's' : ''} on the PR:** ${headOnly.map((h) => `\`${h}\``).join(', ')}` });
     lines.push('');
+    if (baseHandicapped) lines.push(`² The base loads ${productionOnly.map((h) => `\`${h}\``).join(', ')}, which only Production deployments load, so base timings read slower for reasons outside this PR. Timing improvements (Performance, FCP, LCP, TBT, Speed Index) are not reported; regressions still are.`, '');
     if (noindexSides.length) {
       const who = noindexSides.length === 2 ? 'Both deployments send' : `The ${noindexSides[0] === 'head' ? 'PR' : 'base'} deployment sends`;
       lines.push(`¹ ${who} \`X-Robots-Tag: noindex\` (every Vercel deployment URL does; only sportsdataverse.org is indexable), so Lighthouse\'s \`is-crawlable\` audit fails and SEO reads lower. That audit is left out of the verdicts.`, '');
