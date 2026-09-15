@@ -81,3 +81,7 @@ venv.bak/
 /frontend/tsconfig.tsbuildinfo
 # claude session state
 .omc/
+
+# visual-check.mjs / lighthouse-compare.mjs output (posted on the PR, not committed)
+/frontend/img/visual/
+/frontend/img/lighthouse/
