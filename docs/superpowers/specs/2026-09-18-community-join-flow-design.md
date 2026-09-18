@@ -29,7 +29,7 @@ Give sportsdataverse.org a front door for people, not just packages:
 | `packageSchema` + `published` flag | `frontend/lib/packageSchema.ts` | submissions are unpublished package docs |
 | `/packages/manage` CMS | `frontend/app/(site)/packages/manage` | package review queue (badge for org-tier requests) |
 | `AdminTabs` | `frontend/app/(platform)/platform/admin/AdminTabs.tsx` | new "People" tab |
-| `feed.xml` | `frontend/lib/generateRSS.ts` | Kit RSS-feed broadcasts for blog posts; a second feed for snippets |
+| `public/feed.xml` (written at build by `getRSS()` from the home page) | `frontend/lib/generateRSS.ts` | Kit RSS-feed broadcast for blog posts. A snippets feed does not exist yet — PR 1 adds `public/snippets-feed.xml` from the same generator |
 | `python/data_fetcher.py` GitHub pull | `python/` | weekly release digest source |
 
 ## Data model (MongoDB, same DB as `packages`)
@@ -110,7 +110,7 @@ Provider: **Kit** (list + tags + editor + RSS broadcasts). Transactional: **Rese
 - `lib/newsletter.ts` rewritten: `subscribeNewsletter({ email, tags })` → Kit `POST /v4/subscribers` then `POST /v4/tags/{id}/subscribers` per tag. Tags = `role:*`, `lang:*`, `sport:*`. Returns the subscriber id, stored on `people.newsletter`.
 - Delete `app/api/mailchimp/route.ts`, `app/api/newsletter/route.ts`, the Substack post in `lib/newsletter.ts`, `md5` + `@mailchimp/mailchimp_marketing` deps, and `MAILCHIMP_*` / `NEXT_PUBLIC_NEWSLETTER_URL` from `.env.example`.
 - Footer `NewsletterSignup` component (site layout) posts `{ email, wants: { newsletter: true } }` to `/api/join` — every subscriber lands in `people` first, then Kit.
-- Kit-side config (documented in `frontend/SETUP-community.md`, not code): RSS feed broadcast on `/feed.xml` (blog, review-then-send), a second RSS feed on `/snippets/feed.xml` in digest mode sent to `lang:*` tags.
+- Kit-side config (documented in `frontend/SETUP-community.md`, not code): RSS feed broadcast on `/feed.xml` (blog, review-then-send), a second RSS feed on `/snippets-feed.xml` (new, same generator) in digest mode sent to `lang:*` tags.
 
 Content routing (the operating model, also in SETUP-community.md):
 
@@ -161,7 +161,7 @@ Env additions: `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_INVITE_CHANNEL_
 
 ## Testing
 
-- Unit (vitest, already in repo): `joinSchema`/`surveySchema` edge cases; upsert/dedupe rules; `$unset` on ship; population aggregation on a seeded in-memory set.
+- Unit (`node --test`, the runner `test:scripts` already uses — no new test framework): `joinSchema`/`surveySchema` edge cases; upsert/dedupe rules; `$unset` on ship; population aggregation on a seeded in-memory set.
 - Route tests with mocked `auth()`: every admin route 401s without `isOrgMember`; `approve` never sets `approved` when the Discord mock throws.
 - Manual: one real end-to-end on a dev Discord server with a throwaway bot; the 4-combination visual matrix per `CLAUDE.md` for `/join`, `/survey`, the footer, and the admin tab.
 
