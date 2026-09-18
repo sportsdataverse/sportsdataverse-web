@@ -8,7 +8,7 @@ Give sportsdataverse.org a front door for people, not just packages:
 
 1. **Discord onboarding** — request → member review (or auto-admit) → 3-use, 7-day invite. No public invite link ever exists.
 2. **Package submission** — public intake, two tiers (directory listing / org-membership consideration), reviewed in the existing `/packages/manage` CMS.
-3. **Population insight** — who our users are (role, language, sport, source) from applicants, an anonymous survey, and passive signals.
+3. **Population insight** — who our users are (role, language, sport, channel) from applicants, an anonymous survey, and passive signals.
 4. **Newsletter** — a working signup (both current integrations are dead) with an owned list and segmentation.
 5. **Stickers** — opt-in address collection with delete-on-ship. Merch = an external shop link, nothing built.
 6. **Follow + fund** — get the GitHub org, socials, and donation links in front of every applicant, subscriber, and reader, and measure which channels actually convert.
