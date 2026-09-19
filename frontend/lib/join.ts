@@ -37,6 +37,7 @@ const SURVEY_LIMIT = { limit: 10, windowSec: 3600 };
 const DEFAULT_SITE = "https://www.sportsdataverse.org";
 const CONFIRMED_MSG = "You're on the list.";
 const PENDING_MSG = "Almost there — check your inbox and confirm your email.";
+const SEND_FAILED_MSG = "We couldn't send the confirmation email just now. Please try again in a few minutes.";
 
 const nowOf = (deps: JoinDeps) => (deps.now ?? (() => new Date()))();
 
@@ -78,6 +79,7 @@ async function beginOptIn(deps: JoinDeps, personId: PersonId, email: string, pro
     await markNewsletterPending(deps.db, personId, now);
   } catch (e) {
     deps.log?.(`confirmation email failed for person ${String(personId)}: ${(e as Error).message}`);
+    return SEND_FAILED_MSG;
   }
   return PENDING_MSG;
 }
@@ -134,6 +136,7 @@ export async function handleConfirm(
   const person = await findPersonById(deps.db, v.personId);
   if (!person?.email) return { redirect: "/join/confirmed?state=invalid" };
   if (person.newsletter && "resendContactId" in person.newsletter && person.newsletter.confirmedAt) return { redirect: "/join/confirmed" }; // idempotent
+  if (person.newsletter && "skipped" in person.newsletter) return { redirect: "/join/confirmed" }; // reserved-domain: never reaches Resend
   await syncContact(deps, person._id, person.email, person.profile, true);
   return { redirect: "/join/confirmed" };
 }

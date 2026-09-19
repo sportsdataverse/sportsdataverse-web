@@ -163,4 +163,20 @@ test('confirm: bad or expired tokens redirect with a state; reserved domains nev
   await handleJoin({ email: 'walkthrough@example.com', wants: { newsletter: true } }, '1.1.1.1', deps);
   assert.equal(k.calls(), 0);
   assert.deepEqual(dump('people')[0].newsletter, { skipped: 'reserved-domain' });
+
+  const skippedToken = signConfirmToken(String(dump('people')[0]._id), 's3cret');
+  assert.equal((await handleConfirm(skippedToken, deps)).redirect, '/join/confirmed');
+  assert.equal(k.calls(), 0);
+});
+
+test('double opt-in: a failed confirmation-email send tells the truth and leaves the person unsynced', async () => {
+  const { db, dump } = fakeDb();
+  const logs: string[] = [];
+  const fetchImpl = (async () => new Response('boom', { status: 500 })) as typeof fetch;
+  const deps = { db, resendApiKey: 'k', fetchImpl, ...site, resendFrom: 'SDV <news@sportsdataverse.org>', log: (m: string) => logs.push(m) };
+  const r = await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '1.1.1.1', deps);
+  assert.equal(r.status, 200);
+  assert.match(r.body.message, /try again/i);
+  assert.equal(dump('people')[0].newsletter, undefined);
+  assert.match(logs[0], /confirmation email failed/);
 });
