@@ -27,6 +27,37 @@ for now; profile-based segments arrive with PR 2), write, send. Resend has no
 RSS-to-email; the weekly feed→broadcast job is the release-digest cron in the spec
 (later, separate).
 
+## Double opt-in
+
+Newsletter signup becomes double opt-in the moment `RESEND_FROM` is set (e.g.
+`SportsDataverse <news@sportsdataverse.org>`). Set it only after the domain is verified
+in Resend → Domains, or confirmation mail cannot be sent and nobody can confirm.
+Until then signup is single opt-in (contact created immediately).
+
+- Confirmation links are `/api/join/confirm?t=<token>`: an HMAC over the person id +
+  expiry (7 days), signed with `JOIN_TOKEN_SECRET` (falls back to `NEXTAUTH_SECRET`).
+- A person who signed up but has not confirmed has `newsletter.pending.sentAt`; the
+  Resend contact is created on confirm with `newsletter.confirmedAt`.
+
+## Contact properties (segmentation)
+
+Every contact carries `role`, `languages`, `sports`, `discovered_via`, `updates_via`,
+`news_channel` (strings; lists comma-joined) from the join form's profile. Resend
+refuses unknown property keys, so create them once per account:
+
+```sh
+RESEND_API_KEY=re_... npm run resend:properties
+```
+
+Then build Segments in Resend (e.g. `languages contains R`) to target Broadcasts.
+
+## Survey
+
+`/survey` is anonymous (no email, no name): each submission is a `people` row with
+`status: "survey"`. `/join` asks the same questions plus the wants and an email. Both
+validate against `content/survey.ts`; a question hidden by `showIf` is never accepted.
+Rate limits: 10/IP/hour for the survey, 5/IP/hour for join.
+
 ## Click tracking (Plausible)
 
 Footer and callout links fire `follow_click` / `support_click` with
@@ -46,6 +77,6 @@ DevTools and clicking a tracked link.
 
 ## Rate limiting
 
-`POST /api/join` allows 5 sign-ups per IP per hour, counted in the Mongo
-`rate_limits` collection (TTL index on `expiresAt`, created on first request).
-Nothing to configure.
+`POST /api/join` allows 5 sign-ups per IP per hour, and `POST /api/survey` allows 10
+submissions per IP per hour, both counted in the Mongo `rate_limits` collection (TTL
+index on `expiresAt`, created on first request). Nothing to configure.
