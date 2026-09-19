@@ -20,3 +20,20 @@ test('allows `limit` hits per window, then refuses with a retry-after, then rese
   t += 3600 * 1000;
   assert.equal((await allowRequest(db, 'join:1.2.3.4', opts)).allowed, true);
 });
+
+test('fakeDb increments nested dotted paths correctly', async () => {
+  const { db, dump } = fakeDb();
+  const coll = db.collection('test');
+  // Upsert with initial nested value
+  await coll.findOneAndUpdate(
+    { _id: 'doc1' },
+    { $setOnInsert: { stats: { visits: 5 } } },
+    { upsert: true }
+  );
+  // Increment the nested path twice
+  await coll.updateOne({ _id: 'doc1' }, { $inc: { 'stats.visits': 1 } });
+  await coll.updateOne({ _id: 'doc1' }, { $inc: { 'stats.visits': 1 } });
+  // Assert accumulated value (5 + 1 + 1 = 7)
+  const docs = dump('test');
+  assert.equal(docs[0].stats.visits, 7);
+});

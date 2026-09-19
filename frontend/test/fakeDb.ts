@@ -12,6 +12,16 @@ function setPath(doc: Doc, path: string, value: unknown) {
   cur[parts[parts.length - 1]] = value;
 }
 
+function getPath(doc: Doc, path: string): unknown {
+  const parts = path.split('.');
+  let cur: unknown = doc;
+  for (const p of parts) {
+    if (typeof cur !== 'object' || cur === null) return undefined;
+    cur = (cur as Doc)[p];
+  }
+  return cur;
+}
+
 function matches(doc: Doc, filter: Doc) {
   return Object.entries(filter).every(([k, v]) => String(doc[k]) === String(v));
 }
@@ -20,7 +30,7 @@ function apply(doc: Doc, update: Doc, inserting: boolean) {
   for (const [k, v] of Object.entries((update.$set as Doc) ?? {})) setPath(doc, k, v);
   if (inserting) for (const [k, v] of Object.entries((update.$setOnInsert as Doc) ?? {})) setPath(doc, k, v);
   for (const [k, v] of Object.entries((update.$inc as Doc) ?? {})) {
-    setPath(doc, k, (Number(doc[k] ?? 0) + Number(v)));
+    setPath(doc, k, (Number(getPath(doc, k) ?? 0) + Number(v)));
   }
 }
 
