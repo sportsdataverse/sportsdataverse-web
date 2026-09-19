@@ -10,6 +10,7 @@ const RESEND = "https://api.resend.com";
 export type ResendDeps = {
   apiKey: string | undefined; // process.env.RESEND_API_KEY (server-only)
   fetchImpl?: typeof fetch; // injected in tests
+  log?: (msg: string) => void;
 };
 
 async function call(deps: ResendDeps, path: string, init: RequestInit): Promise<Response> {
@@ -28,24 +29,53 @@ async function contactFrom(res: Response): Promise<{ contactId: string; unsubscr
 
 /**
  * Create the contact, or on 409 read the existing one. An existing contact's
- * `unsubscribed` flag is reported, never reset: this form is anonymous, so
- * re-subscribing an address that opted out would let anyone undo someone
- * else's unsubscribe. The confirmed double opt-in (PR 2) is the way back in.
+ * `unsubscribed` flag is reported, never reset — UNLESS `opts.resubscribe` is
+ * set: only the confirm step of double opt-in passes that, since a confirmed
+ * click is proof of ownership; the anonymous form itself must not let anyone
+ * undo someone else's unsubscribe.
+ *
+ * If Resend rejects the create because of `properties` (a 4xx other than the
+ * 409-exists case — e.g. a property key that was never registered), retry
+ * once without them so a config gap never loses the subscriber.
  */
 export async function subscribeToResend(
   email: string,
-  deps: ResendDeps
+  deps: ResendDeps,
+  properties?: Record<string, string>,
+  opts?: { resubscribe?: boolean }
 ): Promise<{ contactId: string; unsubscribed: boolean }> {
   if (!deps.apiKey) throw new Error("RESEND_API_KEY is not set");
   const created = await call(deps, "/contacts", {
     method: "POST",
-    body: JSON.stringify({ email, unsubscribed: false }),
+    body: JSON.stringify({ email, unsubscribed: false, ...(properties ? { properties } : {}) }),
   });
   if (created.ok) return contactFrom(created);
   if (created.status === 409) {
-    const existing = await call(deps, `/contacts/${encodeURIComponent(email)}`, { method: "GET" });
+    const path = `/contacts/${encodeURIComponent(email)}`;
+    const existing = await call(deps, path, { method: "GET" });
     if (!existing.ok) throw new Error(`Resend ${existing.status}: ${(await existing.text()).slice(0, 200)}`);
-    return contactFrom(existing);
+    const contact = await contactFrom(existing);
+    if (opts?.resubscribe) {
+      const patched = await call(deps, path, {
+        method: "PATCH",
+        body: JSON.stringify({ unsubscribed: false, ...(properties ? { properties } : {}) }),
+      });
+      if (!patched.ok) throw new Error(`Resend ${patched.status}: ${(await patched.text()).slice(0, 200)}`);
+      return { contactId: contact.contactId, unsubscribed: false };
+    }
+    if (properties) {
+      // a fresher profile: update properties only — never the unsubscribed flag (see above)
+      const patched = await call(deps, path, { method: "PATCH", body: JSON.stringify({ properties }) });
+      if (!patched.ok) throw new Error(`Resend ${patched.status}: ${(await patched.text()).slice(0, 200)}`);
+    }
+    return contact;
+  }
+  if (created.status >= 400 && created.status < 500 && properties) {
+    const retry = await call(deps, "/contacts", { method: "POST", body: JSON.stringify({ email, unsubscribed: false }) });
+    if (retry.ok) {
+      deps.log?.(`Resend rejected contact properties for ${email} (${created.status}); retried without them`);
+      return contactFrom(retry);
+    }
   }
   throw new Error(`Resend ${created.status}: ${(await created.text()).slice(0, 200)}`);
 }

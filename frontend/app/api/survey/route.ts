@@ -1,29 +1,23 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@lib/mongodb";
-import { handleJoin } from "@lib/join";
+import { handleSurvey } from "@lib/join";
 import { ensurePeopleIndexes } from "@lib/people";
 import { ensureRateLimitIndex } from "@lib/rateLimit";
 
-// Public write endpoint: no auth, rate-limited per IP inside handleJoin.
-// Indexes are ensured once per process; a failed attempt is retried on the next request.
 let indexesReady: Promise<void> | null = null;
 
+/** Anonymous questionnaire: no auth, no email, rate-limited per IP inside handleSurvey. */
 export async function POST(req: Request) {
   const { db } = await connectToDatabase();
   indexesReady ??= Promise.all([ensurePeopleIndexes(db), ensureRateLimitIndex(db)])
     .then(() => undefined)
-    .catch((e) => {
-      indexesReady = null;
-      throw e;
-    });
+    .catch((e) => { indexesReady = null; throw e; });
   await indexesReady;
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const raw = await req.json().catch(() => ({}));
-  const result = await handleJoin(raw, ip, {
+  const result = await handleSurvey(raw, ip, {
     db,
     resendApiKey: process.env.RESEND_API_KEY,
-    resendFrom: process.env.RESEND_FROM,
-    tokenSecret: process.env.JOIN_TOKEN_SECRET ?? process.env.NEXTAUTH_SECRET,
     siteUrl: process.env.NEXTAUTH_URL ?? "https://www.sportsdataverse.org",
     log: (m) => console.warn(m),
   });

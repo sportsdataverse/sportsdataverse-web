@@ -21,6 +21,7 @@ per-package R pkgdown sites) — this repo is the org front door, NOT a docs sit
   packages/projects/people/rate_limits, NOT Supabase). Newsletter sender is **Resend**
   (`RESEND_API_KEY`, `lib/newsletter.ts`); the subscriber list of record is Mongo `people`.
   Analytics is **Plausible** (`next-plausible`), not GA. Auth via Auth.js v5 (GitHub OAuth, org-membership JWT). API route handlers in `frontend/app/api/`.
+- **Community:** `/join`, `/survey`, `/join/confirmed`; `POST /api/join`, `POST /api/survey`, `GET /api/join/confirm`. Questions are data in `frontend/content/survey.ts`; engine + handlers in `frontend/lib/{survey,join}.ts`; see `frontend/SETUP-community.md`.
 - **Data pipeline:** `python/data_fetcher.py` (uv-managed) pulls GitHub/package stats; the
   `cron.yml` is **manual-only** (`workflow_dispatch`); it has never committed anything, because
   the fetcher's luigi targets land under `python/tmp/`, which the repo does not track.

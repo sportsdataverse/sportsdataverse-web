@@ -65,6 +65,11 @@ export function fakeDb() {
           }
           return d ?? null;
         },
+        async insertOne(doc: Doc) {
+          const d = { _id: `id-${nextId++}`, ...doc };
+          rows(name).push(d);
+          return { insertedId: d._id, acknowledged: true };
+        },
       };
     },
   };
