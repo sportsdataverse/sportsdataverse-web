@@ -1,4 +1,5 @@
 import supportOptions from "@content/support";
+import TrackedLink from "@components/site/TrackedLink";
 
 /**
  * Support strip — Ko-fi, DigitalOcean referral, PayPal. Server component;
@@ -21,11 +22,12 @@ export default function SupportCallout() {
       </p>
       <div className="mt-5 flex flex-wrap gap-3">
         {supportOptions.map(({ name, url, Icon }, i) => (
-          <a
+          <TrackedLink
             key={name}
             href={url}
-            target="_blank"
-            rel="noopener noreferrer"
+            event="support_click"
+            platform={name.toLowerCase().replace(/[^a-z]+/g, "-")}
+            placement="callout"
             className={
               i === 0
                 ? "inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
@@ -34,7 +36,7 @@ export default function SupportCallout() {
           >
             <Icon className="size-4" aria-hidden="true" />
             {name}
-          </a>
+          </TrackedLink>
         ))}
       </div>
     </div>
