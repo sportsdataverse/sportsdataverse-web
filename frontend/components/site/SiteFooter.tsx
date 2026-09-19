@@ -1,4 +1,5 @@
 import Link from "next/link";
+import NewsletterSignup from "@components/site/NewsletterSignup";
 import { DO_REFERRAL_URL, KOFI_URL, PAYPAL_URL } from "@content/support";
 
 const GROUPS: { title: string; links: { href: string; label: string; external?: boolean }[] }[] = [
@@ -43,13 +44,14 @@ const GROUPS: { title: string; links: { href: string; label: string; external?: 
 export default function SiteFooter() {
   return (
     <footer className="border-t border-border bg-card">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 md:grid-cols-5">
-        <div>
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 md:grid-cols-6">
+        <div className="md:col-span-2">
           <span className="font-script text-xl text-primary">SportsDataverse</span>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
             Open-source sports data and tooling — play-by-play, models, and
             packages in R, Python, and Node.js, free for everyone.
           </p>
+          <NewsletterSignup placement="footer" />
         </div>
         {GROUPS.map((g) => (
           <div key={g.title}>
