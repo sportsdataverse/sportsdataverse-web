@@ -18,7 +18,9 @@ per-package R pkgdown sites) — this repo is the org front door, NOT a docs sit
   (meta, social, support, Framer Motion variants). `frontend/data/*.json` = seed projects/users.
 - **Backends:** Supabase (`views` table + `views_sum()` RPC — page-view counter;
   schema in `frontend/supabase/schema.sql`) and **MongoDB** (`MONGODB_URI` + `DB_NAME` —
-  packages/projects, NOT Supabase). Auth via Auth.js v5 (GitHub OAuth, org-membership JWT). API route handlers in `frontend/app/api/`.
+  packages/projects/people/rate_limits, NOT Supabase). Newsletter sender is **Resend**
+  (`RESEND_API_KEY`, `lib/newsletter.ts`); the subscriber list of record is Mongo `people`.
+  Analytics is **Plausible** (`next-plausible`), not GA. Auth via Auth.js v5 (GitHub OAuth, org-membership JWT). API route handlers in `frontend/app/api/`.
 - **Data pipeline:** `python/data_fetcher.py` (uv-managed) pulls GitHub/package stats; the
   `cron.yml` is **manual-only** (`workflow_dispatch`); it has never committed anything, because
   the fetcher's luigi targets land under `python/tmp/`, which the repo does not track.
@@ -35,6 +37,7 @@ npm run build          # next build
 npm run start          # next start (serve the production build)
 npm run lint           # eslint .  (flat config: eslint.config.mjs)
 npm run tsc            # tsc --noEmit
+npm run test:lib       # node --test over test/*.test.ts (lib/ logic, no DB needed)
 ```
 
 Python data-fetcher (from repo-root `python/`, requires uv 0.4+):
@@ -55,7 +58,7 @@ uv lock --upgrade && uv sync       # bump deps
   (Next 16 dropped `domains`); allowed hosts are githubusercontent/cloudinary/imgur only —
   add new image hosts there. `typescript.ignoreBuildErrors: false` (build fails on type errors).
 - `.env.local` (template `frontend/.env.example`) is required to run — keys span Supabase,
-  MongoDB, NextAuth/GitHub, Mailchimp, Google Analytics, EmailJS, `REVALIDATE_SECRET`.
+  MongoDB, NextAuth/GitHub, Resend, Google Analytics, EmailJS, `REVALIDATE_SECRET`.
 
 ## Gotchas
 

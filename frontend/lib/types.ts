@@ -90,6 +90,7 @@ export type SupportMe = {
   name: string;
   url: string;
   Icon: IconType;
+  platform: string;
 };
 
 export type FormInput = {
