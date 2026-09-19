@@ -16,7 +16,7 @@ test('first signup inserts a pending person wanting only the newsletter', async 
   assert.deepEqual(p.wants, { discord: false, newsletter: true, stickers: false, package: false });
   assert.deepEqual(p.signup, { placement: 'footer' });
   assert.equal(p.ip, '1.2.3.4');
-  assert.equal(p.createdAt, T0);
+  assert.equal((p.createdAt as Date).getTime(), T0.getTime());
 });
 
 test('a second signup with the same email updates, never duplicates', async () => {
@@ -26,8 +26,8 @@ test('a second signup with the same email updates, never duplicates', async () =
   assert.equal(r.created, false);
   assert.equal(dump('people').length, 1);
   const [p] = dump('people');
-  assert.equal(p.createdAt, T0);
-  assert.equal(p.updatedAt, T1);
+  assert.equal((p.createdAt as Date).getTime(), T0.getTime());
+  assert.equal((p.updatedAt as Date).getTime(), T1.getTime());
   assert.deepEqual(p.signup, { placement: 'footer' }); // first placement wins
 });
 
