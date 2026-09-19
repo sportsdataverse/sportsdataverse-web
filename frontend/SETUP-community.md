@@ -1,7 +1,7 @@
 # Community features — setup
 
 What an operator does once so the site's people-facing features work. Code
-side: `lib/join.ts`, `lib/people.ts`, `lib/newsletter.ts`, `lib/rateLimit.ts`.
+side: `lib/join.ts`, `lib/joinSchema.ts`, `lib/people.ts`, `lib/newsletter.ts`, `lib/rateLimit.ts`.
 
 ## Newsletter (Resend)
 
@@ -33,13 +33,14 @@ custom events so they show up in the dashboard with their props.
 
 **Event props:**
 - `follow_click`: `platform` is `github`, `bluesky`, or `twitter`; `placement` is
-  `footer`, `footer-bar`, or `callout`.
+  `footer` only.
 - `support_click`: `platform` is `kofi`, `paypal`, or `digitalocean`; `placement` is
   `footer`, `footer-bar`, or `callout`.
 
-**Note:** `next-plausible` loads its script only in production builds, so events
-are unobservable under `npm run dev`. Test events with a production deployment
-(Vercel Preview or Production).
+**Note:** `next-plausible` enables its script only when `NEXT_PUBLIC_VERCEL_ENV` is
+`production` or unset, so events fire on the production deployment only — not on a
+Vercel Preview. Locally or on a Preview, verify by stubbing `window.plausible` in
+DevTools and clicking a tracked link.
 
 ## Rate limiting
 

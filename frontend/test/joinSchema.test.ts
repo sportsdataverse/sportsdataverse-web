@@ -8,6 +8,10 @@ test('normalizes the email and defaults wants.newsletter to true', () => {
   assert.deepEqual(r.data, { email: 'alice@example.org', wants: { newsletter: true } });
 });
 
+test('rejects wants.newsletter: false', () => {
+  assert.equal(joinSchema.safeParse({ email: 'a@b.co', wants: { newsletter: false } }).success, false);
+});
+
 test('rejects a non-email and an unknown placement', () => {
   assert.equal(joinSchema.safeParse({ email: 'not-an-email' }).success, false);
   assert.equal(joinSchema.safeParse({ email: 'a@b.co', placement: 'sidebar' }).success, false);

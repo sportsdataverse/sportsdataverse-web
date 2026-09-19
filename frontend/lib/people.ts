@@ -18,8 +18,8 @@ export type PersonDoc = {
   newsletter?: { resendContactId: string; syncedAt: Date } | { skipped: string };
   createdAt: Date;
   updatedAt: Date;
-  ip?: string; // abuse handling only; see the privacy page
 };
+// No IP on the person: rate_limits holds it with a TTL; PR 2 adds a purged 30-day copy if abuse handling needs it.
 
 export type PersonId = PersonDoc["_id"];
 
@@ -34,13 +34,13 @@ export async function ensurePeopleIndexes(db: Db): Promise<void> {
 
 export async function upsertNewsletterSignup(
   db: Db,
-  input: { email: string; ip?: string; placement?: string },
+  input: { email: string; placement?: string },
   now: Date = new Date()
 ): Promise<{ personId: PersonId; created: boolean }> {
   const res = await people(db).findOneAndUpdate(
     { email: input.email },
     {
-      $set: { "wants.newsletter": true, updatedAt: now, ...(input.ip ? { ip: input.ip } : {}) },
+      $set: { "wants.newsletter": true, updatedAt: now },
       $setOnInsert: {
         email: input.email,
         status: "pending",

@@ -34,7 +34,7 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
 
   const { email, placement } = parsed.data;
   const now = (deps.now ?? (() => new Date()))();
-  const { personId } = await upsertNewsletterSignup(deps.db, { email, ip, placement }, now);
+  const { personId } = await upsertNewsletterSignup(deps.db, { email, placement }, now);
 
   if (isReservedEmail(email)) {
     await markNewsletterSkipped(deps.db, personId, "reserved-domain");

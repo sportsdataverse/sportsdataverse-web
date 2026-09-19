@@ -8,14 +8,13 @@ const T1 = new Date('2026-09-19T13:00:00Z');
 
 test('first signup inserts a pending person wanting only the newsletter', async () => {
   const { db, dump } = fakeDb();
-  const r = await upsertNewsletterSignup(db, { email: 'a@b.co', ip: '1.2.3.4', placement: 'footer' }, T0);
+  const r = await upsertNewsletterSignup(db, { email: 'a@b.co', placement: 'footer' }, T0);
   assert.equal(r.created, true);
   const [p] = dump('people');
   assert.equal(p.email, 'a@b.co');
   assert.equal(p.status, 'pending');
   assert.deepEqual(p.wants, { discord: false, newsletter: true, stickers: false, package: false });
   assert.deepEqual(p.signup, { placement: 'footer' });
-  assert.equal(p.ip, '1.2.3.4');
   assert.equal((p.createdAt as Date).getTime(), T0.getTime());
 });
 

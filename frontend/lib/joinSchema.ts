@@ -2,11 +2,12 @@ import { z } from "zod";
 
 /**
  * Body of `POST /api/join`. PR 1 accepts the newsletter-only shape; later PRs
- * widen it from `content/survey.ts`. Unknown keys are stripped (zod default).
+ * widen it from `content/survey.ts`. `wants.newsletter` must be `true` — PR 1's
+ * endpoint can only subscribe, never unsubscribe. Unknown keys are stripped (zod default).
  */
 export const joinSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address").max(254),
-  wants: z.object({ newsletter: z.boolean() }).default({ newsletter: true }),
+  wants: z.object({ newsletter: z.literal(true) }).default({ newsletter: true }),
   // where the form lived; a person keeps the first one they signed up from
   placement: z.enum(["footer", "about", "join"]).optional(),
 });
