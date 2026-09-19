@@ -34,18 +34,26 @@ async function contactFrom(res: Response): Promise<{ contactId: string; unsubscr
  */
 export async function subscribeToResend(
   email: string,
-  deps: ResendDeps
+  deps: ResendDeps,
+  properties?: Record<string, string>
 ): Promise<{ contactId: string; unsubscribed: boolean }> {
   if (!deps.apiKey) throw new Error("RESEND_API_KEY is not set");
   const created = await call(deps, "/contacts", {
     method: "POST",
-    body: JSON.stringify({ email, unsubscribed: false }),
+    body: JSON.stringify({ email, unsubscribed: false, ...(properties ? { properties } : {}) }),
   });
   if (created.ok) return contactFrom(created);
   if (created.status === 409) {
-    const existing = await call(deps, `/contacts/${encodeURIComponent(email)}`, { method: "GET" });
+    const path = `/contacts/${encodeURIComponent(email)}`;
+    const existing = await call(deps, path, { method: "GET" });
     if (!existing.ok) throw new Error(`Resend ${existing.status}: ${(await existing.text()).slice(0, 200)}`);
-    return contactFrom(existing);
+    const contact = await contactFrom(existing);
+    if (properties) {
+      // a fresher profile: update properties only — never the unsubscribed flag (see above)
+      const patched = await call(deps, path, { method: "PATCH", body: JSON.stringify({ properties }) });
+      if (!patched.ok) throw new Error(`Resend ${patched.status}: ${(await patched.text()).slice(0, 200)}`);
+    }
+    return contact;
   }
   throw new Error(`Resend ${created.status}: ${(await created.text()).slice(0, 200)}`);
 }

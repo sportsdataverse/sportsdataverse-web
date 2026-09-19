@@ -43,3 +43,21 @@ test('throws on a missing key, a non-2xx, and a body without an id', async () =>
   const empty = fakeFetch([{ status: 200, body: {} }]);
   await assert.rejects(subscribeToResend('a@b.co', { apiKey: 'k', fetchImpl: empty.fetchImpl }), /no contact id/);
 });
+
+test('properties ride on create, and are PATCHed onto an existing contact', async () => {
+  const props = { role: 'developer', languages: 'R' };
+  const created = fakeFetch([{ status: 200, body: { object: 'contact', id: 'c-1' } }]);
+  await subscribeToResend('a@b.co', { apiKey: 'k', fetchImpl: created.fetchImpl }, props);
+  assert.deepEqual(JSON.parse(String(created.calls[0].init.body)), { email: 'a@b.co', unsubscribed: false, properties: props });
+
+  const existing = fakeFetch([
+    { status: 409, body: { message: 'exists' } },
+    { status: 200, body: { object: 'contact', id: 'c-old', unsubscribed: false } },
+    { status: 200, body: { object: 'contact', id: 'c-old' } },
+  ]);
+  const r = await subscribeToResend('a@b.co', { apiKey: 'k', fetchImpl: existing.fetchImpl }, props);
+  assert.deepEqual(r, { contactId: 'c-old', unsubscribed: false });
+  assert.equal(existing.calls[2].init.method, 'PATCH');
+  assert.equal(existing.calls[2].url, 'https://api.resend.com/contacts/a%40b.co');
+  assert.deepEqual(JSON.parse(String(existing.calls[2].init.body)), { properties: props });
+});
