@@ -13,15 +13,16 @@ const COPY = {
 
 export default async function ConfirmedPage({ searchParams }: { searchParams: Promise<{ state?: string }> }) {
   const { state } = await searchParams;
-  const c = COPY[(state as keyof typeof COPY) ?? "ok"] ?? COPY.ok;
+  const key: keyof typeof COPY = state && state in COPY ? (state as keyof typeof COPY) : "ok";
+  const c = COPY[key];
   return (
     <div className="mx-auto max-w-3xl px-4 pb-20">
       <PageHeader eyebrow="Newsletter" title={c.title}>{c.body}</PageHeader>
       <div className="mt-10 space-y-10">
-        {state ? (
-          <Link href="/join" className="text-primary underline-offset-4 hover:underline">Sign up again</Link>
-        ) : (
+        {key === "ok" ? (
           <FollowUs placement="confirmed" />
+        ) : (
+          <Link href="/join" className="text-primary underline-offset-4 hover:underline">Sign up again</Link>
         )}
       </div>
     </div>
