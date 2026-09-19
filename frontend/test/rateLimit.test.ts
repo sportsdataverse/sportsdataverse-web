@@ -23,7 +23,7 @@ test('allows `limit` hits per window, then refuses with a retry-after, then rese
 
 test('fakeDb increments nested dotted paths correctly', async () => {
   const { db, dump } = fakeDb();
-  const coll = db.collection('test');
+  const coll = db.collection<{ _id: string; stats: { visits: number } }>('test');
   // Upsert with initial nested value
   await coll.findOneAndUpdate(
     { _id: 'doc1' },
@@ -34,6 +34,6 @@ test('fakeDb increments nested dotted paths correctly', async () => {
   await coll.updateOne({ _id: 'doc1' }, { $inc: { 'stats.visits': 1 } });
   await coll.updateOne({ _id: 'doc1' }, { $inc: { 'stats.visits': 1 } });
   // Assert accumulated value (5 + 1 + 1 = 7)
-  const docs = dump('test');
+  const docs = dump('test') as unknown as { stats: { visits: number } }[];
   assert.equal(docs[0].stats.visits, 7);
 });
