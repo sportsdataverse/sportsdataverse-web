@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "tsc": "tsc --noEmit",
     "test:scripts": "node --test scripts/lighthouse-verdicts.test.mjs",
+    "test:lib": "node --test --experimental-strip-types test/*.test.ts",
     "visual-check": "node scripts/visual-check.mjs",
     "walkthrough": "node scripts/walkthrough.mjs",
     "lighthouse-compare": "node scripts/lighthouse-compare.mjs"
