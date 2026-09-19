@@ -114,11 +114,11 @@ attached by the author:
   never paste numbers the workflow did not measure.
 - **Walkthrough video** (`cd frontend && BASE=$PREVIEW_URL npm run walkthrough -- / /packages`, or
   `-- --steps scripts/walkthroughs/<flow>.mjs` for a scripted flow): records the site being used, desktop + mobile
-  in the default theme, writing `frontend/img/walkthrough/*.mp4` (git-ignored; `.webm` too, mp4 needs `ffmpeg` on
-  PATH). A steps module is plain Playwright (`export default async (page, base) => { … }`) — one flow per file,
+  in the default theme, writing `frontend/img/walkthrough/*.webm` and, when `ffmpeg` is on PATH, `*.mp4`
+  (git-ignored). Attach the mp4 when you have it, else the webm — GitHub's PR editor accepts both. A steps module is plain Playwright (`export default async (page, base) => { … }`) — one flow per file,
   under ~60 s, kept in `scripts/walkthroughs/` so the next PR to that flow re-records the same thing.
-  Attach the mp4 by dragging it into the PR description under **Walkthrough** (GitHub hosts it and renders a
-  player; `raw.githubusercontent` cannot, so this step is not automated). Record against the PR's Vercel Preview,
+  Drag the clip into the PR description under **Walkthrough** (GitHub hosts it and renders a player;
+  `raw.githubusercontent` cannot, so this step is not automated — the workflow produces items 1–2 only). Record against the PR's Vercel Preview,
   never `next dev`. A copy/colour-only change still gets one — the scroll-through of the affected route is enough;
   a change that adds or alters an interaction (form, flow, nav, toggle, gated page) gets a steps module that
   exercises it. `WALKTHROUGH_SCHEMES=light,dark` when the change is theme-sensitive.

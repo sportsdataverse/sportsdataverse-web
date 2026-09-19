@@ -13,8 +13,9 @@
 Evidence routes: / /packages
 
 ## Walkthrough
-<!-- Drag the mp4 from `cd frontend && BASE=$PREVIEW_URL npm run walkthrough -- <routes>` (or
-     `-- --steps scripts/walkthroughs/<flow>.mjs` for an interaction) here. Required alongside the
+<!-- Drag the clip from `cd frontend && BASE=$PREVIEW_URL npm run walkthrough -- <routes>` (or
+     `-- --steps scripts/walkthroughs/<flow>.mjs` for an interaction) here: the mp4, or the webm if
+     you have no ffmpeg — GitHub accepts either. Required alongside the
      screenshots, not instead of them. See CLAUDE.md "PR evidence". -->
 
 ## Checklist
