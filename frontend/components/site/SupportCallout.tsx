@@ -21,12 +21,12 @@ export default function SupportCallout() {
         project at no cost to you.
       </p>
       <div className="mt-5 flex flex-wrap gap-3">
-        {supportOptions.map(({ name, url, Icon }, i) => (
+        {supportOptions.map(({ name, url, Icon, platform }, i) => (
           <TrackedLink
             key={name}
             href={url}
             event="support_click"
-            platform={name.toLowerCase().replace(/[^a-z]+/g, "-")}
+            platform={platform}
             placement="callout"
             className={
               i === 0

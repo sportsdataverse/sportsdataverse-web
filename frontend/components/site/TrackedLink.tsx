@@ -10,14 +10,17 @@ type Props = ComponentProps<"a"> & {
 };
 
 /** External link that reports { platform, placement } to Plausible on click. */
-export default function TrackedLink({ event, platform, placement, children, ...rest }: Props) {
+export default function TrackedLink({ event, platform, placement, children, onClick, ...rest }: Props) {
   const plausible = usePlausible();
   return (
     <a
+      {...rest}
       target="_blank"
       rel="noopener noreferrer"
-      {...rest}
-      onClick={() => plausible(event, { props: { platform, placement } })}
+      onClick={(e) => {
+        onClick?.(e);
+        plausible(event, { props: { platform, placement } });
+      }}
     >
       {children}
     </a>

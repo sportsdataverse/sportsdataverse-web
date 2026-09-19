@@ -14,16 +14,19 @@ const supportOptions: SupportMe[] = [
     name: "Buy us a coffee",
     url: KOFI_URL,
     Icon: SiKofi,
+    platform: "kofi",
   },
   {
     name: "DigitalOcean credit",
     url: DO_REFERRAL_URL,
     Icon: SiDigitalocean,
+    platform: "digitalocean",
   },
   {
     name: "PayPal",
     url: PAYPAL_URL,
     Icon: BsPaypal,
+    platform: "paypal",
   },
 ];
 
