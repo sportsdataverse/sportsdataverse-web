@@ -36,10 +36,16 @@ export default function QuestionFlow({ mode, dynamicOptions, intro }: Props) {
   const [phase, setPhase] = useState<"form" | "sending" | "done" | "error">("form");
   const [message, setMessage] = useState("");
 
-  // sections with at least one visible question, in order; a section that hides entirely is skipped
+  // sections with at least one visible question, in order; a section that hides entirely is skipped.
+  // Only the current-and-earlier sections are live-filtered by answers so far — a later section
+  // whose questions are all showIf-gated (e.g. followup, before any profile answer exists) still
+  // counts as present, so the denominator doesn't change out from under the step count as you answer.
   const steps = useMemo(
-    () => sections.filter((s) => visibleQuestions(questions, [s], answers).length > 0),
-    [questions, sections, answers]
+    () =>
+      sections.filter((s, i) =>
+        i <= step ? visibleQuestions(questions, [s], answers).length > 0 : questions.some((q) => q.section === s)
+      ),
+    [questions, sections, answers, step]
   );
   const section = steps[Math.min(step, steps.length - 1)];
   const visible = visibleQuestions(questions, [section], answers);
@@ -116,7 +122,7 @@ export default function QuestionFlow({ mode, dynamicOptions, intro }: Props) {
                 return (
                   <label
                     key={o.value}
-                    className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                    className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
                       checked ? "border-primary bg-primary/10 text-primary" : "border-border bg-background hover:border-primary/50"
                     }`}
                   >
