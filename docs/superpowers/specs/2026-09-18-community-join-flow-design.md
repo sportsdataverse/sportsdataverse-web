@@ -19,6 +19,7 @@ Give sportsdataverse.org a front door for people, not just packages:
 - Discord OAuth `guilds.join`; named-voucher confirmation emails; a survey dashboard beyond count-by tables.
 - Field-level encryption of addresses (delete-on-ship covers it; revisit if requests pile up unshipped).
 - Substack. It has no supported subscribe API, no tags, no RSS ingest; it can only be a manual mirror. Not part of the pipeline.
+- Kit / Buttondown / MailerLite free tiers: each puts its badge in every email. Rejected 2026-09-19; Resend is badge-free at every tier.
 - Any merch storefront code. A "Shop" nav link to a print-on-demand store (Fourthwall / Spring / Redbubble) is the whole feature.
 - **Supporter status / perks on the site.** Patreon and Ko-fi Discord role sync is switched on as platform config (no code). No `people.supporter`, no auto-admit for donors — that arrives with the API-paywall spec.
 - **The API paywall.** Separate spec. This one only guarantees `people.githubLogin` is unique so a sponsor→person join is trivial later.
@@ -34,7 +35,7 @@ Give sportsdataverse.org a front door for people, not just packages:
 | `packageSchema` + `published` flag | `frontend/lib/packageSchema.ts` | submissions are unpublished package docs |
 | `/packages/manage` CMS | `frontend/app/(site)/packages/manage` | package review queue (badge for org-tier requests) |
 | `AdminTabs` | `frontend/app/(platform)/platform/admin/AdminTabs.tsx` | new "People" tab |
-| `public/feed.xml` (written at build by `getRSS()` from the home page) | `frontend/lib/generateRSS.ts` | Kit RSS-feed broadcast for blog posts. A snippets feed does not exist yet — PR 1 adds `public/snippets-feed.xml` from the same generator |
+| `public/feed.xml` (written at build by `getRSS()` from the home page) | `frontend/lib/generateRSS.ts` | Source for the weekly feed→broadcast job (Resend has no RSS ingest). A snippets feed does not exist yet — added with that job |
 | `python/data_fetcher.py` GitHub pull | `python/` | weekly release digest source |
 
 ## Data model (MongoDB, same DB as `packages`)
@@ -121,7 +122,7 @@ Server: `joinSchema`/`surveySchema` are built from the same list (zod per `type`
 
 ## Follow and fund
 
-`components/FollowUs.tsx` — GitHub org (follow; star sdv-py), Bluesky, Twitter, YouTube, Discord (Discord only shown to approved people). `components/SupportUs.tsx` — from `content/support.ts`, which gains **GitHub Sponsors** (primary, first) and **Patreon**; order Sponsors → Ko-fi → Patreon → DigitalOcean referral. Placements for both: site footer, `/join` and `/survey` thank-you pages, `/about`, the Resend invite and sticker emails, and (Kit-side config) the RSS broadcast template footer.
+`components/FollowUs.tsx` — GitHub org (follow; star sdv-py), Bluesky, Twitter, YouTube, Discord (Discord only shown to approved people). `components/SupportUs.tsx` — from `content/support.ts`, which gains **GitHub Sponsors** (primary, first) and **Patreon**; order Sponsors → Ko-fi → Patreon → DigitalOcean referral. Placements for both: site footer, `/join` and `/survey` thank-you pages, `/about`, the Resend invite and sticker emails, and (Resend-side config) the Broadcast template footer.
 
 Every link fires a GA event `follow_click { platform, placement }` / `support_click { platform, placement }` via the existing `/api/beacon` pattern. That plus `discoveredVia` / `updatesVia` / `newsChannel` is the channel report on the Population tab.
 
@@ -149,21 +150,21 @@ Invite: `POST /channels/{DISCORD_INVITE_CHANNEL_ID}/invites` with `{ max_uses: 3
 
 ### Newsletter
 
-Provider: **Kit** (list + tags + editor + RSS broadcasts). Transactional: **Resend**.
+Provider: **Resend** for everything — Contacts (list mirror), Broadcasts (issues), transactional. Chosen 2026-09-19 over Kit/Buttondown because it injects **no badge or ad at any tier**; the cost is that RSS-to-email is our own cron rather than a dashboard toggle.
 
-- `lib/newsletter.ts` rewritten: `subscribeNewsletter({ email, tags })` → Kit `POST /v4/subscribers` then `POST /v4/tags/{id}/subscribers` per tag. Tags = `role:*`, `lang:*`, `sport:*`. Returns the subscriber id, stored on `people.newsletter`.
+- `lib/newsletter.ts` rewritten: `subscribeToResend(email)` → Resend `POST /contacts` (global contacts; a 409 falls back to `GET /contacts/{email}`). Returns the contact id, stored on `people.newsletter.resendContactId`. Segmentation by `role:*` / `lang:*` / `sport:*` uses Resend contact **properties** + segments (PR 2).
 - Delete `app/api/mailchimp/route.ts`, `app/api/newsletter/route.ts`, the Substack post in `lib/newsletter.ts`, `md5` + `@mailchimp/mailchimp_marketing` deps, and `MAILCHIMP_*` / `NEXT_PUBLIC_NEWSLETTER_URL` from `.env.example`.
-- Footer `NewsletterSignup` component (site layout) posts `{ email, wants: { newsletter: true } }` to `/api/join` — every subscriber lands in `people` first, then Kit.
-- Kit-side config (documented in `frontend/SETUP-community.md`, not code): RSS feed broadcast on `/feed.xml` (blog, review-then-send), a second RSS feed on `/snippets-feed.xml` (new, same generator) in digest mode sent to `lang:*` tags.
+- Footer `NewsletterSignup` component (site layout) posts `{ email, wants: { newsletter: true } }` to `/api/join` — every subscriber lands in `people` first, then Resend.
+- Resend-side config (documented in `frontend/SETUP-community.md`, not code): verified sending domain, API key, a footer block with support links in the Broadcast template. Blog and snippet issues come from the feed→broadcast cron (below), not an RSS setting.
 
 Content routing (the operating model, also in SETUP-community.md):
 
 | Content | Tool | Who writes |
 |---|---|---|
-| Blog post | Kit RSS broadcast from `feed.xml` | nobody extra — the MDX merge is the publish |
-| Snippets | Kit RSS digest, monthly, by language tag | nobody extra |
+| Blog post | Resend Broadcast created by the weekly feed→broadcast cron from `feed.xml` (draft; a member clicks send) | nobody extra — the MDX merge is the publish |
+| Snippets | same cron, monthly digest, sent to the matching `lang:*` segment | nobody extra |
 | Package releases | Resend broadcast, weekly, generated | nobody — `python/` cron builds it from GitHub releases |
-| Announcements | Kit broadcast, editor | any member with a Kit seat |
+| Announcements | Resend Broadcast, dashboard editor | any member with a Resend seat |
 | Invites / sticker / package-listed emails | Resend transactional | system |
 
 ### Survey
@@ -187,22 +188,22 @@ Content routing (the operating model, also in SETUP-community.md):
 | `POST /api/platform/admin/people/[id]/approve` | `requireWriter()` | mint invite, email, stamp reviewer |
 | `POST /api/platform/admin/people/[id]/decline` | `requireWriter()` | reason, optional notify |
 | `POST /api/platform/admin/people/[id]/resend` | `requireWriter()` | re-email stored or fresh invite |
-| `GET /api/platform/admin/people/population` | `requireWriter()` | `$group` counts by role / language / sport / status; channel funnel (`discoveredVia` × `updatesVia` × `newsChannel`) and `follow_click`/`support_click` totals by placement; plus passive numbers (Discord member count via bot `GET /guilds/{id}?with_counts=true`, Kit subscriber count, CRAN/PyPI downloads from the existing `/api/stats`) |
+| `GET /api/platform/admin/people/population` | `requireWriter()` | `$group` counts by role / language / sport / status; channel funnel (`discoveredVia` × `updatesVia` × `newsChannel`) and `follow_click`/`support_click` totals by placement; plus passive numbers (Discord member count via bot `GET /guilds/{id}?with_counts=true`, Resend contact count, CRAN/PyPI downloads from the existing `/api/stats`) |
 | `GET /api/platform/admin/stickers` · `POST …/[id]/ship` | `requireWriter()` | only place addresses are readable |
 | `/platform/api-key` (existing) | `isOrgMember` | adds per-key quota + current usage readout (needs the sdv-db fields below) |
 
-Env additions: `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_INVITE_CHANNEL_ID`, `KIT_API_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`. Removed: `MAILCHIMP_*`, `NEXT_PUBLIC_NEWSLETTER_URL`, EmailJS keys.
+Env additions: `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_INVITE_CHANNEL_ID`, `RESEND_API_KEY`, `EMAIL_FROM`. Removed: `MAILCHIMP_*`, `NEXT_PUBLIC_NEWSLETTER_URL`, EmailJS keys.
 
 ## Cross-repo work (not website code)
 
 1. **sdv-db — per-key rate limits.** `rate_limit` (req/day) + usage counter per Data API key, 429 on exceed, both readable through the keys API so `/platform/api-key` can show them. Own PR in sdv-db. Gate on who can mint is unchanged.
 2. **sportsdataverse/.github — org hardening runbook** (`docs/runbooks/github-org-permissions.md`) + `FUNDING.yml`. Read-only audit script (`gh api`): owners, base permission, every private repo with its visibility/teams, PAT + OAuth policies, 2FA enforcement, outside collaborators. Then a checklist a human executes: base permission → **No permission**; teams `core`, `maintainers`, per-sport with explicit repo grants; fine-grained PAT approval required; classic PAT restricted; OAuth app access restrictions on; 2FA required; outside-collaborator review. Confirmation-first for every switch — nothing is flipped by a script.
-3. **Kit / Discord / Patreon / Ko-fi config** — captured in `frontend/SETUP-community.md`: bot + channel, RSS broadcasts, broadcast template footer with support links, Discord role sync.
+3. **Resend / Discord / Patreon / Ko-fi config** — captured in `frontend/SETUP-community.md`: bot + channel, sending domain, broadcast template footer with support links, Discord role sync.
 
 ## Errors
 
 - Discord API failure on approve: person stays `pending`, route returns 502 with the Discord error; reviewer retries. Never mark approved without a stored invite code.
-- Kit failure on join: person is still saved; `newsletter.syncedAt` absent; a nightly `python/` job (or admin "retry sync" button) resubscribes unsynced rows. Newsletter is best-effort, the person record is not.
+- Resend failure on join: person is still saved; `newsletter.syncedAt` absent; a nightly `python/` job (or admin "retry sync" button) resubscribes unsynced rows. Newsletter is best-effort, the person record is not.
 - Resend failure: logged, does not fail the approve (code is on screen and resendable).
 - Rate-limit exceeded: 429 with a plain message; no CAPTCHA until abuse is observed.
 
@@ -218,7 +219,7 @@ Env additions: `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_INVITE_CHANNEL_
 
 ## Delivery order
 
-1. **PR 1 — newsletter footer + follow/fund.** `lib/newsletter.ts` → Kit; delete Mailchimp/Substack; `NewsletterSignup`, `FollowUs`, `SupportUs` in the footer and `/about`; `content/support.ts` gains Sponsors + Patreon; minimal `/api/join` handling `{ email, wants.newsletter }` into `people`. Ships the owned list and the money links immediately.
+1. **PR 1 — newsletter footer + follow/fund.** `lib/newsletter.ts` → Resend Contacts; delete Mailchimp/Substack; `NewsletterSignup`, `FollowUs`, `SupportUs` in the footer and `/about`; `content/support.ts` gains Sponsors + Patreon; minimal `/api/join` handling `{ email, wants.newsletter }` into `people`. Ships the owned list and the money links immediately.
 2. **PR 2 — survey engine + Discord.** `content/survey.ts`, `<QuestionFlow>`, `/survey`, full `/join`, schemas from the question list, auto-admit, admin People tab (Queue), Discord bot, Resend transactional, thank-you pages with Follow/Support.
 3. **PR 3 — packages + population.** Package section of `/join`, CMS badges, Population sub-tab with channel funnel + passive signals, `/platform/api-key` quota readout (once sdv-db ships fields).
 4. **PR 4 — stickers.** `sticker_requests`, address section, Stickers sub-tab, privacy page update, Shop link.
