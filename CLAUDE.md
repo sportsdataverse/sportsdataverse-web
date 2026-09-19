@@ -121,7 +121,8 @@ Every PR that touches `frontend/` carries three pieces of evidence, all produced
   plain Playwright (`export default async (page, base) => { … }`) — one flow per file, under ~60 s, kept in
   `scripts/walkthroughs/` so the next PR to that flow re-records the same thing. Locally:
   `cd frontend && BASE=$PREVIEW_URL npm run walkthrough -- / /packages` or `-- --steps scripts/walkthroughs/<flow>.mjs`
-  writes `frontend/img/walkthrough/*.webm` (+ `*.mp4` with `ffmpeg` on PATH; git-ignored). Record against a
+  writes `frontend/img/walkthrough/*.webm` (+ `*.mp4` with `ffmpeg` on PATH; git-ignored); recording needs
+  Playwright's own ffmpeg once, `playwright-core install ffmpeg` (no browser download). Record against a
   deployed preview, never `next dev`; `WALKTHROUGH_SCHEMES=light,dark` when the change is theme-sensitive.
   A clip you record by hand (fork PR, or a flow the workflow cannot reach, e.g. behind `/platform` auth) is
   dragged into the PR description under **Walkthrough** — mp4 or webm, GitHub accepts both.
