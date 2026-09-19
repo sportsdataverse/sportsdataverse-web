@@ -10,6 +10,16 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-18-community-join-flow-design.md` (sections: Data model → `people`; Flows → Newsletter; Follow and fund; Pages and routes → `POST /api/join`; Errors; Delivery order → PR 1).
 
+## Amendments (from execution and review, 2026-09-19 — these override the task text below)
+
+- **No per-person IP.** `PersonDoc.ip` and the `ip` argument of `upsertNewsletterSignup` were removed; IP lives only in the TTL-managed `rate_limits` docs. PR 2 may add a purged 30-day copy if abuse handling needs it. Tasks 4–5 still show `ip` — do not reintroduce it.
+- **`wants.newsletter` is `z.literal(true)`** in PR 1 (the endpoint can only subscribe); PR 2 widens it.
+- **Privacy page updated in PR 1**, not PR 4: collection starts here.
+- **Opted-out contacts are reported, not reset:** on 409 the client reads the existing contact's `unsubscribed` and the person gets `newsletter.unsubscribed: true`; the anonymous form never flips an opt-out.
+- **Plausible fires only on the production deployment** (`NEXT_PUBLIC_VERCEL_ENV`), not on Previews or `next dev`; `follow_click` placement is `footer` only.
+- `SupportMe.platform` added so footer and callout share one platform vocabulary.
+- Relative imports among `lib/*.ts` and from `test/*.ts` use explicit `.ts` extensions (`allowImportingTsExtensions` enabled).
+
 ## Global Constraints
 
 - All node commands run from `frontend/` (`npm`, `legacy-peer-deps` is in `.npmrc` — never remove it).
