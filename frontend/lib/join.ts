@@ -7,8 +7,8 @@ import { contactProperties, projectProfile, validateAnswers, type Profile } from
 import { signConfirmToken, verifyConfirmToken } from "./confirmToken.ts";
 import { confirmEmail, sendEmail } from "./email.ts";
 import {
-  findPersonById, markNewsletterConfirmed, markNewsletterPending, markNewsletterSkipped, markNewsletterSynced,
-  recordSurvey, upsertJoin, upsertNewsletterSignup, type PersonId,
+  findPersonById, markConfirmedAt, markNewsletterConfirmed, markNewsletterPending, markNewsletterSkipped, markNewsletterSynced,
+  recordSurvey, upsertJoin, upsertNewsletterSignup, type PersonDoc, type PersonId,
 } from "./people.ts";
 
 /**
@@ -53,7 +53,12 @@ async function syncContact(deps: JoinDeps, personId: PersonId, email: string, pr
   const now = nowOf(deps);
   try {
     const props = profile ? contactProperties(profile) : undefined;
-    const { contactId, unsubscribed } = await subscribeToResend(email, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl }, props);
+    const { contactId, unsubscribed } = await subscribeToResend(
+      email,
+      { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl, log: deps.log },
+      props,
+      { resubscribe: confirmed }
+    );
     if (confirmed) await markNewsletterConfirmed(deps.db, personId, contactId, now);
     else await markNewsletterSynced(deps.db, personId, contactId, now, unsubscribed);
   } catch (e) {
@@ -62,7 +67,18 @@ async function syncContact(deps: JoinDeps, personId: PersonId, email: string, pr
   }
 }
 
-async function beginOptIn(deps: JoinDeps, personId: PersonId, email: string, profile: Profile | undefined): Promise<string> {
+async function beginOptIn(
+  deps: JoinDeps,
+  personId: PersonId,
+  email: string,
+  profile: Profile | undefined,
+  existing: PersonDoc["newsletter"] | undefined
+): Promise<string> {
+  if (existing && "resendContactId" in existing && !existing.unsubscribed) {
+    // already synced (e.g. re-signup after confirming once before): refresh properties, don't re-send a link
+    await syncContact(deps, personId, email, profile, false);
+    return CONFIRMED_MSG;
+  }
   if (isReservedEmail(email)) {
     await markNewsletterSkipped(deps.db, personId, "reserved-domain");
     return CONFIRMED_MSG;
@@ -107,11 +123,11 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
   if (lim) return lim;
 
   const now = nowOf(deps);
-  const { personId } = answers && profile
+  const { personId, newsletter } = answers && profile
     ? await upsertJoin(deps.db, { email, name, answers, profile, wants, placement }, now)
     : await upsertNewsletterSignup(deps.db, { email, placement }, now);
 
-  const message = wants.newsletter ? await beginOptIn(deps, personId, email, profile) : "Thanks — we've got your answers.";
+  const message = wants.newsletter ? await beginOptIn(deps, personId, email, profile, newsletter) : "Thanks — we've got your answers.";
   return { status: 200, body: { success: true, message } };
 }
 
@@ -135,8 +151,9 @@ export async function handleConfirm(
   if (!v.ok) return { redirect: v.reason === "expired" ? "/join/confirmed?state=expired" : "/join/confirmed?state=invalid" };
   const person = await findPersonById(deps.db, v.personId);
   if (!person?.email) return { redirect: "/join/confirmed?state=invalid" };
-  if (person.newsletter && "resendContactId" in person.newsletter && person.newsletter.confirmedAt) return { redirect: "/join/confirmed" }; // idempotent
   if (person.newsletter && "skipped" in person.newsletter) return { redirect: "/join/confirmed" }; // reserved-domain: never reaches Resend
+  if (person.newsletter && "resendContactId" in person.newsletter && person.newsletter.confirmedAt) return { redirect: "/join/confirmed" }; // idempotent
+  await markConfirmedAt(deps.db, person._id, nowOf(deps));
   await syncContact(deps, person._id, person.email, person.profile, true);
   return { redirect: "/join/confirmed" };
 }

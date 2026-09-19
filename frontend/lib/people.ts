@@ -23,7 +23,7 @@ export type PersonDoc = {
   // pending: a confirmation email was sent (double opt-in); confirmedAt is set when the link is used.
   newsletter?:
     | { resendContactId: string; syncedAt: Date; unsubscribed?: true; confirmedAt?: Date }
-    | { pending: { sentAt: Date } }
+    | { pending: { sentAt: Date }; confirmedAt?: Date }
     | { skipped: string };
   createdAt: Date;
   updatedAt: Date;
@@ -45,7 +45,7 @@ export async function upsertNewsletterSignup(
   db: Db,
   input: { email: string; placement?: string },
   now: Date = new Date()
-): Promise<{ personId: PersonId; created: boolean }> {
+): Promise<{ personId: PersonId; created: boolean; newsletter: PersonDoc["newsletter"] | undefined }> {
   const res = await people(db).findOneAndUpdate(
     { email: input.email },
     {
@@ -63,7 +63,7 @@ export async function upsertNewsletterSignup(
     { upsert: true, returnDocument: "after", includeResultMetadata: true }
   );
   if (!res.value) throw new Error("people upsert returned no document");
-  return { personId: res.value._id, created: Boolean(res.lastErrorObject?.upserted) };
+  return { personId: res.value._id, created: Boolean(res.lastErrorObject?.upserted), newsletter: res.value.newsletter };
 }
 
 export async function markNewsletterSynced(
@@ -111,7 +111,7 @@ export async function upsertJoin(
     placement?: string;
   },
   now: Date = new Date()
-): Promise<{ personId: PersonId; created: boolean }> {
+): Promise<{ personId: PersonId; created: boolean; newsletter: PersonDoc["newsletter"] | undefined }> {
   const res = await people(db).findOneAndUpdate(
     { email: input.email },
     {
@@ -135,7 +135,7 @@ export async function upsertJoin(
     { upsert: true, returnDocument: "after", includeResultMetadata: true }
   );
   if (!res.value) throw new Error("people upsert returned no document");
-  return { personId: res.value._id, created: Boolean(res.lastErrorObject?.upserted) };
+  return { personId: res.value._id, created: Boolean(res.lastErrorObject?.upserted), newsletter: res.value.newsletter };
 }
 
 export async function markNewsletterPending(db: Db, personId: PersonId, now: Date = new Date()): Promise<void> {
@@ -152,6 +152,10 @@ export async function markNewsletterConfirmed(
     { _id: personId },
     { $set: { newsletter: { resendContactId, syncedAt: now, confirmedAt: now } } }
   );
+}
+
+export async function markConfirmedAt(db: Db, personId: PersonId, now: Date = new Date()): Promise<void> {
+  await people(db).updateOne({ _id: personId }, { $set: { "newsletter.confirmedAt": now } });
 }
 
 export async function findPersonById(db: Db, id: string): Promise<PersonDoc | null> {
