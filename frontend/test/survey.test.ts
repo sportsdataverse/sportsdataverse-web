@@ -58,3 +58,9 @@ test('profile projection and contact properties', () => {
     role: 'developer', languages: 'R', sports: 'CFB', discovered_via: 'twitter', updates_via: 'github,email', news_channel: 'email',
   });
 });
+
+test('a follow-up is accepted only when its trigger was itself accepted in this call', () => {
+  const r = validateAnswers(QUESTIONS, ['followup'], { languages: ['R'], packages_r: ['cfbfastR'] });
+  assert.equal(r.ok, true);
+  assert.equal((r as { answers: Record<string, unknown> }).answers.packages_r, undefined);
+});

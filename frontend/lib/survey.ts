@@ -49,7 +49,9 @@ export function validateAnswers(
   const input = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const answers: Answers = {};
   // walk in list order so showIf sees exactly the answers a user could have given before it
-  for (const q of visibleQuestions(questions, sections, input as Answers)) {
+  for (const q of questions) {
+    if (!sections.includes(q.section)) continue;
+    if (q.showIf && !q.showIf(answers)) continue; // only what has already been accepted
     const v = input[q.id];
     if (v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0)) {
       if (q.required) return { ok: false, message: `${q.label} — required` };
