@@ -6,21 +6,21 @@
 
 ## Evidence
 <!-- The pr-evidence workflow posts the four screenshots (desktop/mobile × light/dark) of this PR's
-     Vercel preview and a Lighthouse comparison against the base as a comment, updated on every push.
-     Pick the pages it measures (up to 4) with the line below; public (site) routes only.
-     Fork PR, or nothing under frontend/? See CLAUDE.md "PR evidence". -->
+     Vercel preview, a walkthrough clip per route, and a Lighthouse comparison against the base as a
+     comment, updated on every push. Pick the pages (up to 4) with the first line; public (site) routes
+     only. Name committed scripts/walkthroughs/*.mjs flows (up to 4) with the second line when the PR
+     adds or alters an interaction. Fork PR, or nothing under frontend/? See CLAUDE.md "PR evidence". -->
 
 Evidence routes: / /packages
+Walkthrough steps:
 
 ## Walkthrough
-<!-- Drag the clip from `cd frontend && BASE=$PREVIEW_URL npm run walkthrough -- <routes>` (or
-     `-- --steps scripts/walkthroughs/<flow>.mjs` for an interaction) here: the mp4, or the webm if
-     you have no ffmpeg — GitHub accepts either. Required alongside the
-     screenshots, not instead of them. See CLAUDE.md "PR evidence". -->
+<!-- Only for a clip the workflow cannot record (fork PR, or a flow behind /platform auth): drag the
+     mp4/webm from a local `npm run walkthrough` here. Otherwise write "see evidence comment". -->
 
 ## Checklist
 - [ ] `npm run lint` and `npm run tsc` pass
 - [ ] `Evidence routes:` names the pages this change affects most
 - [ ] The pr-evidence comment is green, or every regression it flags is explained here
-- [ ] A walkthrough video of the change is attached above (recorded against the Vercel preview)
+- [ ] The evidence comment links a walkthrough clip for every affected route/flow (`Walkthrough steps:` names any new interaction), or one is attached above
 - [ ] _Or_ evidence not applicable: no `frontend/` change, or a fork PR with a locally shot screenshot matrix attached
