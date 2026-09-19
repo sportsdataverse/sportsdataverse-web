@@ -117,7 +117,7 @@ Every PR that touches `frontend/` carries three pieces of evidence, all produced
   never paste numbers the workflow did not measure.
 - **Walkthrough video:** the workflow runs `frontend/scripts/walkthrough.mjs` against the PR's Vercel Preview
   (desktop + mobile, default theme), publishes the mp4s beside the screenshots on `pr-previews`, and links them
-  in the comment (a link plays in the browser; GitHub does not inline third-party video). A steps module is
+  in the comment (each link downloads the clip — `raw.githubusercontent` serves octet-stream; GitHub does not inline third-party video). A steps module is
   plain Playwright (`export default async (page, base) => { … }`) — one flow per file, under ~60 s, kept in
   `scripts/walkthroughs/` so the next PR to that flow re-records the same thing. Locally:
   `cd frontend && BASE=$PREVIEW_URL npm run walkthrough -- / /packages` or `-- --steps scripts/walkthroughs/<flow>.mjs`
