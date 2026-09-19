@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import FollowUs from "@components/site/FollowUs";
@@ -12,8 +13,6 @@ type Props = {
   mode: "survey" | "join";
   /** options for questions with `optionsKey`, filled by the server page (plain data only) */
   dynamicOptions: Record<string, { value: string; label: string }[]>;
-  /** shown above the first section */
-  intro?: string;
 };
 
 const SECTION_TITLES: Record<Section, string> = {
@@ -25,7 +24,7 @@ const SECTION_TITLES: Record<Section, string> = {
 
 // The question list is imported here, not passed as a prop: it carries `showIf`
 // functions, which a server component cannot serialise into client props.
-export default function QuestionFlow({ mode, dynamicOptions, intro }: Props) {
+export default function QuestionFlow({ mode, dynamicOptions }: Props) {
   const questions = QUESTIONS;
   const sections: Section[] = mode === "join" ? JOIN_SECTIONS : SURVEY_SECTIONS;
   const submitTo = mode === "join" ? "/api/join" : "/api/survey";
@@ -69,7 +68,7 @@ export default function QuestionFlow({ mode, dynamicOptions, intro }: Props) {
   async function submit() {
     setPhase("sending");
     setMessage("");
-    const body = isJoin ? { email: contact.email, name: contact.name || undefined, answers, placement } : { answers };
+    const body = isJoin ? { email: contact.email, name: contact.name.trim() || undefined, answers, placement } : { answers };
     try {
       const res = await fetch(submitTo, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const data = (await res.json().catch(() => ({}))) as { message?: string };
@@ -85,6 +84,11 @@ export default function QuestionFlow({ mode, dynamicOptions, intro }: Props) {
     return (
       <div className="space-y-10" role="status" aria-live="polite">
         <p className="text-lg">{message}</p>
+        {!isJoin ? (
+          <p className="text-sm text-muted-foreground">
+            Want the newsletter or a Discord invite? <Link href="/join" className="text-primary underline-offset-4 hover:underline">Join here</Link>.
+          </p>
+        ) : null}
         <FollowUs placement={isJoin ? "join-thanks" : "survey-thanks"} />
         <SupportCallout />
       </div>
@@ -101,13 +105,12 @@ export default function QuestionFlow({ mode, dynamicOptions, intro }: Props) {
         else setStep((s) => s + 1);
       }}
     >
-      {step === 0 && intro ? <p className="max-w-2xl text-muted-foreground">{intro}</p> : null}
       <p className="eyebrow">
         Step {step + 1} of {steps.length} · {SECTION_TITLES[section]}
       </p>
 
       {visible.map((q) => (
-        <fieldset key={q.id} className="space-y-3">
+        <fieldset key={q.id} className="space-y-3" aria-required={q.required ? "true" : undefined}>
           <legend className="font-medium">
             {q.label}
             {q.required ? <span aria-hidden className="text-muted-foreground"> *</span> : null}
@@ -131,6 +134,7 @@ export default function QuestionFlow({ mode, dynamicOptions, intro }: Props) {
                       name={q.id}
                       value={o.value}
                       checked={checked}
+                      required={q.required && q.type === "single"}
                       onChange={() => (q.type === "multi" ? toggle(q.id, o.value) : set(q.id, o.value))}
                       className="sr-only"
                     />

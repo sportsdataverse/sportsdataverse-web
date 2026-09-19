@@ -42,6 +42,8 @@ test('free-list options (packages) accept any short string, limited count', () =
   assert.equal(r.ok, true);
   const tooMany = validateAnswers(QUESTIONS, SURVEY_SECTIONS, { ...base, packages_r: Array.from({ length: 41 }, (_, i) => `p${i}`) });
   assert.equal(tooMany.ok, false);
+  const deduped = validateAnswers(QUESTIONS, SURVEY_SECTIONS, { ...base, packages_r: ['cfbfastR', 'cfbfastR', 'hoopR'] });
+  assert.deepEqual((deduped as { answers: Record<string, unknown> }).answers.packages_r, ['cfbfastR', 'hoopR']);
 });
 
 test('join sections require the wants answers', () => {

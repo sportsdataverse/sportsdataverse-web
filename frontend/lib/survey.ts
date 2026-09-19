@@ -52,11 +52,12 @@ export function validateAnswers(
   for (const q of questions) {
     if (!sections.includes(q.section)) continue;
     if (q.showIf && !q.showIf(answers)) continue; // only what has already been accepted
-    const v = input[q.id];
+    let v = input[q.id];
     if (v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0)) {
       if (q.required) return { ok: false, message: `${q.label} — required` };
       continue;
     }
+    if (q.type === "multi" && Array.isArray(v)) v = [...new Set(v)];
     const err = checkOne(q, v);
     if (err) return { ok: false, message: err };
     answers[q.id] = v as string | string[];

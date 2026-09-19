@@ -13,7 +13,7 @@ const COPY = {
 
 export default async function ConfirmedPage({ searchParams }: { searchParams: Promise<{ state?: string }> }) {
   const { state } = await searchParams;
-  const key: keyof typeof COPY = state && state in COPY ? (state as keyof typeof COPY) : "ok";
+  const key: keyof typeof COPY = state && Object.hasOwn(COPY, state) ? (state as keyof typeof COPY) : "ok";
   const c = COPY[key];
   return (
     <div className="mx-auto max-w-3xl px-4 pb-20">

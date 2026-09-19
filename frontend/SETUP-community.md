@@ -29,10 +29,18 @@ RSS-to-email; the weekly feed→broadcast job is the release-digest cron in the 
 
 ## Double opt-in
 
-Newsletter signup becomes double opt-in the moment `RESEND_FROM` is set (e.g.
-`SportsDataverse <news@sportsdataverse.org>`). Set it only after the domain is verified
-in Resend → Domains, or confirmation mail cannot be sent and nobody can confirm.
-Until then signup is single opt-in (contact created immediately).
+Newsletter signup becomes double opt-in once `RESEND_FROM` is set (e.g.
+`SportsDataverse <news@sportsdataverse.org>`) (and a token secret exists —
+`JOIN_TOKEN_SECRET`, falling back to `NEXTAUTH_SECRET`, which Auth.js already requires).
+Set `RESEND_FROM` only after the domain is verified in Resend → Domains, or confirmation
+mail cannot be sent and nobody can confirm. Until then signup is single opt-in (contact
+created immediately).
+
+**Deploy order:**
+1. `npm run resend:properties`
+2. deploy with `RESEND_FROM` unset
+3. verify the domain
+4. set `RESEND_FROM`
 
 - Confirmation links are `/api/join/confirm?t=<token>`: an HMAC over the person id +
   expiry (7 days), signed with `JOIN_TOKEN_SECRET` (falls back to `NEXTAUTH_SECRET`).
@@ -66,7 +74,7 @@ custom events so they show up in the dashboard with their props.
 
 **Event props:**
 - `follow_click`: `platform` is `github`, `bluesky`, or `twitter`; `placement` is
-  `footer` only.
+  `footer`, `join-thanks`, `survey-thanks`, or `confirmed`.
 - `support_click`: `platform` is `kofi`, `paypal`, or `digitalocean`; `placement` is
   `footer`, `footer-bar`, or `callout`.
 
