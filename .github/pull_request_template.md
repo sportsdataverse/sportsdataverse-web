@@ -23,4 +23,4 @@ Walkthrough steps:
 - [ ] `Evidence routes:` names the pages this change affects most
 - [ ] The pr-evidence comment is green, or every regression it flags is explained here
 - [ ] The evidence comment links a walkthrough clip for every affected route/flow (`Walkthrough steps:` names any new interaction), or one is attached above
-- [ ] _Or_ evidence not applicable: no `frontend/` change, or a fork PR with a locally shot screenshot matrix attached
+- [ ] _Or_ evidence not applicable: no `frontend/` change. A fork PR attaches BOTH the locally shot screenshot matrix and the local walkthrough clips (mp4 or webm)
