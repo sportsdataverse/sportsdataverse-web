@@ -15,7 +15,8 @@ export type PersonDoc = {
   // pending = not yet reviewed (the Discord queue filters on wants.discord too)
   status: "pending" | "approved" | "declined" | "auto" | "survey";
   signup?: { placement: string };
-  newsletter?: { resendContactId: string; syncedAt: Date } | { skipped: string };
+  // unsubscribed: the Resend contact exists but opted out; we never flip it from this form
+  newsletter?: { resendContactId: string; syncedAt: Date; unsubscribed?: true } | { skipped: string };
   createdAt: Date;
   updatedAt: Date;
 };
@@ -61,9 +62,13 @@ export async function markNewsletterSynced(
   db: Db,
   personId: PersonId,
   resendContactId: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  unsubscribed = false
 ): Promise<void> {
-  await people(db).updateOne({ _id: personId }, { $set: { newsletter: { resendContactId, syncedAt: now } } });
+  await people(db).updateOne(
+    { _id: personId },
+    { $set: { newsletter: { resendContactId, syncedAt: now, ...(unsubscribed ? { unsubscribed: true as const } : {}) } } }
+  );
 }
 
 export async function markNewsletterSkipped(db: Db, personId: PersonId, reason: string): Promise<void> {

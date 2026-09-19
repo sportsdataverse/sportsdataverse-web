@@ -40,8 +40,8 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
     await markNewsletterSkipped(deps.db, personId, "reserved-domain");
   } else {
     try {
-      const { contactId } = await subscribeToResend(email, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
-      await markNewsletterSynced(deps.db, personId, contactId, now);
+      const { contactId, unsubscribed } = await subscribeToResend(email, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
+      await markNewsletterSynced(deps.db, personId, contactId, now, unsubscribed);
     } catch (e) {
       // best-effort: the person is saved; an admin "retry sync" lands in PR 2
       deps.log?.(`resend sync failed for person ${String(personId)}: ${(e as Error).message}`);

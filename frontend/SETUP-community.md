@@ -13,7 +13,9 @@ transactional mail later PRs add.
 2. resend.com → API Keys → create a key with **full access** (contacts need write).
 3. Set `RESEND_API_KEY` locally (`.env.local`) and on Vercel (Production + Preview).
 4. Every subscriber is stored in Mongo `people` first, then created as a Resend
-   Contact (`POST /contacts`; an existing contact is looked up instead). If Resend is
+   Contact (`POST /contacts`; an existing contact is looked up instead — and if that
+   contact had unsubscribed, the person is recorded as `newsletter.unsubscribed: true`
+   rather than re-subscribed: an anonymous form must not undo someone's opt-out). If Resend is
    down the person is still stored with no `newsletter.syncedAt`; the admin
    "retry sync" arrives with the People tab (PR 2).
 5. Reserved test domains (`example.com`, `.test`, …) are stored with

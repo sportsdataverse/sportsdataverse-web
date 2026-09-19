@@ -42,6 +42,20 @@ test('Resend failure still returns 200 and keeps the person unsynced', async () 
   assert.match(logs[0], /resend sync failed/);
 });
 
+test('an address that opted out in Resend is recorded as unsubscribed, not re-subscribed', async () => {
+  const { db, dump } = fakeDb();
+  let n = 0;
+  const fetchImpl = (async () => {
+    n += 1;
+    const body = n === 1 ? { message: 'Contact already exists' } : { object: 'contact', id: 'c-old', unsubscribed: true };
+    return new Response(JSON.stringify(body), { status: n === 1 ? 409 : 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const r = await handleJoin({ email: 'a@b.co' }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl });
+  assert.equal(r.status, 200);
+  assert.equal(n, 2); // POST then GET; never a PATCH that flips unsubscribed
+  assert.equal((dump('people')[0].newsletter as { unsubscribed?: true }).unsubscribed, true);
+});
+
 test('a reserved-domain email is stored but never sent to Resend', async () => {
   const { db, dump } = fakeDb();
   const k = okResend();

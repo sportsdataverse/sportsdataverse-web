@@ -20,27 +20,32 @@ async function call(deps: ResendDeps, path: string, init: RequestInit): Promise<
   });
 }
 
-async function idFrom(res: Response): Promise<string> {
-  const body = (await res.json()) as { id?: unknown };
+async function contactFrom(res: Response): Promise<{ contactId: string; unsubscribed: boolean }> {
+  const body = (await res.json()) as { id?: unknown; unsubscribed?: unknown };
   if (typeof body.id !== "string" || !body.id) throw new Error("Resend response had no contact id");
-  return body.id;
+  return { contactId: body.id, unsubscribed: body.unsubscribed === true };
 }
 
+/**
+ * Create the contact, or on 409 read the existing one. An existing contact's
+ * `unsubscribed` flag is reported, never reset: this form is anonymous, so
+ * re-subscribing an address that opted out would let anyone undo someone
+ * else's unsubscribe. The confirmed double opt-in (PR 2) is the way back in.
+ */
 export async function subscribeToResend(
   email: string,
   deps: ResendDeps
-): Promise<{ contactId: string }> {
+): Promise<{ contactId: string; unsubscribed: boolean }> {
   if (!deps.apiKey) throw new Error("RESEND_API_KEY is not set");
   const created = await call(deps, "/contacts", {
     method: "POST",
     body: JSON.stringify({ email, unsubscribed: false }),
   });
-  if (created.ok) return { contactId: await idFrom(created) };
+  if (created.ok) return contactFrom(created);
   if (created.status === 409) {
-    // already a contact: fetch it so the person record can hold the id
     const existing = await call(deps, `/contacts/${encodeURIComponent(email)}`, { method: "GET" });
     if (!existing.ok) throw new Error(`Resend ${existing.status}: ${(await existing.text()).slice(0, 200)}`);
-    return { contactId: await idFrom(existing) };
+    return contactFrom(existing);
   }
   throw new Error(`Resend ${created.status}: ${(await created.text()).slice(0, 200)}`);
 }
