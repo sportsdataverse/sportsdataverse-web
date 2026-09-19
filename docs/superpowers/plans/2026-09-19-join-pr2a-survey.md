@@ -835,7 +835,7 @@ git commit -m "feat(newsletter): contact properties on subscribe; one-shot scrip
 **Interfaces:**
 - Consumes: Tasks 1–4.
 - Produces: `joinBodySchema` (email, optional `name` ≤ 80, optional `answers: Record<string, unknown>`, optional `placement`) — the PR 1 footer body `{ email, wants: { newsletter: true }, placement }` still validates (no `answers` → newsletter-only path). `surveyBodySchema` = `{ answers: Record<string, unknown> }`.
-- `JoinDeps` gains `resendFrom?: string; tokenSecret?: string; siteUrl: string`. `handleJoin` returns as before; `handleSurvey(rawBody, ip, deps): Promise<JoinResult>`; `handleConfirm(token: string, deps): Promise<{ redirect: "/join/confirmed" | "/join/confirmed?state=expired" | "/join/confirmed?state=invalid" }>`.
+- `JoinDeps` gains `resendFrom?: string; tokenSecret?: string; siteUrl?: string` (default `https://www.sportsdataverse.org`, so PR 1's existing tests need no change). `handleJoin` returns as before; `handleSurvey(rawBody, ip, deps): Promise<JoinResult>`; `handleConfirm(token: string, deps): Promise<{ redirect: "/join/confirmed" | "/join/confirmed?state=expired" | "/join/confirmed?state=invalid" }>`.
 
 - [ ] **Step 1: Update the schemas** — `frontend/lib/joinSchema.ts` becomes:
 
@@ -1001,7 +1001,7 @@ export type JoinDeps = {
   resendApiKey: string | undefined;
   resendFrom?: string; // e.g. "SportsDataverse <news@sportsdataverse.org>"; undefined = single opt-in
   tokenSecret?: string; // JOIN_TOKEN_SECRET ?? NEXTAUTH_SECRET
-  siteUrl: string; // absolute origin used in the confirm link
+  siteUrl?: string; // absolute origin used in the confirm link; defaults to the production site
   fetchImpl?: typeof fetch;
   now?: () => Date;
   log?: (msg: string) => void;
@@ -1011,6 +1011,7 @@ export type JoinResult = { status: 200 | 400 | 429; body: { success: boolean; me
 
 const JOIN_LIMIT = { limit: 5, windowSec: 3600 };
 const SURVEY_LIMIT = { limit: 10, windowSec: 3600 };
+const DEFAULT_SITE = "https://www.sportsdataverse.org";
 const CONFIRMED_MSG = "You're on the list.";
 const PENDING_MSG = "Almost there — check your inbox and confirm your email.";
 
@@ -1048,7 +1049,7 @@ async function beginOptIn(deps: JoinDeps, personId: PersonId, email: string, pro
   }
   const now = nowOf(deps);
   const token = signConfirmToken(String(personId), deps.tokenSecret, now);
-  const url = `${deps.siteUrl}/api/join/confirm?t=${token}`;
+  const url = `${deps.siteUrl ?? DEFAULT_SITE}/api/join/confirm?t=${token}`;
   try {
     await sendEmail({ from: deps.resendFrom, to: email, ...confirmEmail(url) }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
     await markNewsletterPending(deps.db, personId, now);
@@ -1495,22 +1496,30 @@ export async function packageOptions(): Promise<Record<"packages_r" | "packages_
 export default async (page, base) => {
   await page.goto(base + '/survey', { waitUntil: 'networkidle', timeout: 90_000 });
   const form = page.getByRole('form', { name: 'Survey' });
-  const pick = async (...labels) => { for (const l of labels) { await form.getByText(l, { exact: true }).click(); await page.waitForTimeout(250); } };
-  await pick('Developer / engineer', 'R', 'CFB');
+  // the three channel questions on the discovery step share option labels, so
+  // address each by its fieldset (legend text) rather than by label alone
+  const inSet = (legend) => form.locator('fieldset').filter({ hasText: legend });
+  const pick = async (legend, ...labels) => {
+    for (const l of labels) { await inSet(legend).getByText(l, { exact: true }).click(); await page.waitForTimeout(250); }
+  };
+  await pick('What best describes you?', 'Developer / engineer');
+  await pick('Which languages', 'R');
+  await pick('Which sports', 'CFB');
   await form.getByRole('button', { name: 'Next' }).click();
   await page.waitForTimeout(600);
-  await pick('Twitter / X', 'GitHub', 'Email / newsletter');
+  await pick('first find', 'Twitter / X');
+  await pick('hear about updates', 'GitHub', 'Email / newsletter');
+  await pick('news delivered', 'Email / newsletter');
   await form.getByRole('button', { name: 'Next' }).click();
   await page.waitForTimeout(600);
   // follow-ups: at least the data types + following question are visible
-  await pick('Play-by-play', 'Yes');
+  await pick('mostly pull', 'Play-by-play');
+  await pick('following us', 'Yes');
   await form.getByRole('button', { name: 'Send answers' }).click();
   await page.getByRole('status').filter({ hasText: 'Thanks' }).waitFor({ timeout: 15_000 });
   await page.waitForTimeout(1500);
 };
 ```
-
-(`pick('Email / newsletter')` on the discovery step clicks the first matching label — `updatesVia` and `newsChannel` both list it; add a second `await form.getByText('Email / newsletter', { exact: true }).nth(1).click()` after it so `newsChannel` is answered too.)
 
 - [ ] **Step 5: Verify**
 
@@ -1628,18 +1637,25 @@ In `frontend/components/site/SiteFooter.tsx`, add as the FIRST entry of the `Com
 export default async (page, base) => {
   await page.goto(base + '/join', { waitUntil: 'networkidle', timeout: 90_000 });
   const form = page.getByRole('form', { name: 'Join form' });
-  const pick = async (...labels) => { for (const l of labels) { await form.getByText(l, { exact: true }).first().click(); await page.waitForTimeout(250); } };
-  await pick('Student', 'Python', 'NBA');
+  const inSet = (legend) => form.locator('fieldset').filter({ hasText: legend });
+  const pick = async (legend, ...labels) => {
+    for (const l of labels) { await inSet(legend).getByText(l, { exact: true }).click(); await page.waitForTimeout(250); }
+  };
+  await pick('What best describes you?', 'Student');
+  await pick('Which languages', 'Python');
+  await pick('Which sports', 'NBA');
   await form.getByRole('button', { name: 'Next' }).click();
   await page.waitForTimeout(600);
-  await pick('GitHub', 'Discord');
-  await form.getByText('Email / newsletter', { exact: true }).nth(1).click(); // newsChannel
+  await pick('first find', 'GitHub');
+  await pick('hear about updates', 'Discord');
+  await pick('news delivered', 'Email / newsletter');
   await form.getByRole('button', { name: 'Next' }).click();
   await page.waitForTimeout(600);
-  await pick('Box scores');
+  await pick('mostly pull', 'Box scores');
   await form.getByRole('button', { name: 'Next' }).click();
   await page.waitForTimeout(600);
-  await pick('Yes, sign me up', 'No');
+  await pick('Email newsletter', 'Yes, sign me up');
+  await pick('invite to the Discord', 'No');
   await form.getByPlaceholder('you@example.com').fill('walkthrough@example.com');
   await form.getByRole('button', { name: 'Join' }).click();
   await page.getByRole('status').filter({ hasText: 'on the list' }).waitFor({ timeout: 15_000 });
