@@ -30,6 +30,7 @@ const GROUPS: {
   {
     title: "Community",
     links: [
+      { href: "/join", label: "Join — newsletter & Discord" },
       { href: "https://github.com/sportsdataverse", label: "GitHub", external: true, track: { event: "follow_click", platform: "github" } },
       { href: "https://bsky.app/profile/sportsdataverse.org", label: "Bluesky — @sportsdataverse.org", external: true, track: { event: "follow_click", platform: "bluesky" } },
       { href: "https://twitter.com/sportsdataverse", label: "Twitter / X", external: true, track: { event: "follow_click", platform: "twitter" } },

@@ -1,0 +1,29 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import PageHeader from "@components/site/PageHeader";
+import FollowUs from "@components/site/FollowUs";
+
+export const metadata: Metadata = { title: "Subscription confirmed", robots: { index: false } };
+
+const COPY = {
+  ok: { title: "You're on the list", body: "Your email is confirmed. The next issue will find you." },
+  expired: { title: "That link has expired", body: "Confirmation links last 7 days. Sign up again and we'll send a fresh one." },
+  invalid: { title: "That link didn't work", body: "It may have been cut off in your mail client. Sign up again and we'll send a fresh one." },
+} as const;
+
+export default async function ConfirmedPage({ searchParams }: { searchParams: Promise<{ state?: string }> }) {
+  const { state } = await searchParams;
+  const c = COPY[(state as keyof typeof COPY) ?? "ok"] ?? COPY.ok;
+  return (
+    <div className="mx-auto max-w-3xl px-4 pb-20">
+      <PageHeader eyebrow="Newsletter" title={c.title}>{c.body}</PageHeader>
+      <div className="mt-10 space-y-10">
+        {state ? (
+          <Link href="/join" className="text-primary underline-offset-4 hover:underline">Sign up again</Link>
+        ) : (
+          <FollowUs placement="confirmed" />
+        )}
+      </div>
+    </div>
+  );
+}
