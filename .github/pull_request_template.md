@@ -12,8 +12,14 @@
 
 Evidence routes: / /packages
 
+## Walkthrough
+<!-- Drag the mp4 from `cd frontend && BASE=$PREVIEW_URL npm run walkthrough -- <routes>` (or
+     `-- --steps scripts/walkthroughs/<flow>.mjs` for an interaction) here. Required alongside the
+     screenshots, not instead of them. See CLAUDE.md "PR evidence". -->
+
 ## Checklist
 - [ ] `npm run lint` and `npm run tsc` pass
 - [ ] `Evidence routes:` names the pages this change affects most
 - [ ] The pr-evidence comment is green, or every regression it flags is explained here
+- [ ] A walkthrough video of the change is attached above (recorded against the Vercel preview)
 - [ ] _Or_ evidence not applicable: no `frontend/` change, or a fork PR with a locally shot screenshot matrix attached

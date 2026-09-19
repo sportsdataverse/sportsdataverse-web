@@ -92,11 +92,15 @@ Any change that touches a rendered page, a component, MDX content, or styles —
 
 ## PR evidence — REQUIRED on every PR, posted automatically
 
-Every PR that touches `frontend/` carries two pieces of evidence, both produced by
-**`.github/workflows/pr-evidence.yml`** and kept in ONE PR comment that each push updates:
+Every PR that touches `frontend/` carries three pieces of evidence. The first two are produced by
+**`.github/workflows/pr-evidence.yml`** and kept in ONE PR comment that each push updates; the third is
+attached by the author:
 
 1. **The four preview screenshots** of the PR (the matrix above), above-the-fold thumbnails linking to full pages.
 2. **A Lighthouse comparison of the PR against its base** on the same page(s).
+3. **A walkthrough video** of the change being used (below). Screenshots show what it looks like; the video
+   shows what it does. Both are required — the video is not a substitute for the matrix and the matrix is
+   not a fallback for the video.
 
 - **Nothing is built in CI.** Vercel deploys every commit with the real environment and reports it to GitHub's
   deployments API. The workflow waits for the **Preview** deployment of the PR head and compares it with the
@@ -104,9 +108,20 @@ Every PR that touches `frontend/` carries two pieces of evidence, both produced 
 - **Pages:** an `Evidence routes: /a /b` line in the PR description (max 4); default `/ /packages`.
 - **Not applicable:** a PR that changes nothing under `frontend/` needs no evidence, and says so. A **fork PR** gets
   no evidence run (read-only token, no authorized preview): attach the screenshot matrix from a local
-  `visual-check` run by hand — screenshots are fine to attach, but never type scores or metrics into a PR.
+  `visual-check` run and the walkthrough by hand — screenshots and video are fine to attach, but never type
+  scores or metrics into a PR.
 - **When the workflow fails** (usually: the Vercel preview failed to build), fix the cause or explain in the PR;
   never paste numbers the workflow did not measure.
+- **Walkthrough video** (`cd frontend && BASE=$PREVIEW_URL npm run walkthrough -- / /packages`, or
+  `-- --steps scripts/walkthroughs/<flow>.mjs` for a scripted flow): records the site being used, desktop + mobile
+  in the default theme, writing `frontend/img/walkthrough/*.mp4` (git-ignored; `.webm` too, mp4 needs `ffmpeg` on
+  PATH). A steps module is plain Playwright (`export default async (page, base) => { … }`) — one flow per file,
+  under ~60 s, kept in `scripts/walkthroughs/` so the next PR to that flow re-records the same thing.
+  Attach the mp4 by dragging it into the PR description under **Walkthrough** (GitHub hosts it and renders a
+  player; `raw.githubusercontent` cannot, so this step is not automated). Record against the PR's Vercel Preview,
+  never `next dev`. A copy/colour-only change still gets one — the scroll-through of the affected route is enough;
+  a change that adds or alters an interaction (form, flow, nav, toggle, gated page) gets a steps module that
+  exercises it. `WALKTHROUGH_SCHEMES=light,dark` when the change is theme-sensitive.
 - **Local run:** `cd frontend && npm run lighthouse-compare -- --base-url https://sportsdataverse.org --head-url "$PREVIEW_URL" --shots / /packages`,
   then `node scripts/pr-evidence-comment.mjs --out img/lighthouse/<run>` for the comment markdown.
 

@@ -85,3 +85,4 @@ venv.bak/
 # visual-check.mjs / lighthouse-compare.mjs output (posted on the PR, not committed)
 /frontend/img/visual/
 /frontend/img/lighthouse/
+/frontend/img/walkthrough/
