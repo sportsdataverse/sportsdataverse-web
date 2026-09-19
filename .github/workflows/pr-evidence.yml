@@ -1,8 +1,10 @@
 name: pr-evidence
 
 # Posts the review evidence CLAUDE.md "PR evidence" requires on every PR that touches
-# frontend/: the desktop/mobile x light/dark screenshots of the PR and a Lighthouse
-# comparison against its base, as ONE comment that each push updates.
+# frontend/: the desktop/mobile x light/dark screenshots of the PR, a Lighthouse
+# comparison against its base, and a walkthrough video per evidence route (plus any
+# `Walkthrough steps: scripts/walkthroughs/<flow>.mjs` the PR names), as ONE comment
+# that each push updates.
 #
 # Nothing is built here. Vercel already deploys every commit with the project's real
 # environment, and reports each deployment to GitHub's deployments API:
@@ -50,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
-      contents: write        # push screenshots to the pr-previews branch (publish step only)
+      contents: write        # push screenshots + clips to the pr-previews branch (publish step only)
       pull-requests: write   # post / update the evidence comment (comment step only)
       deployments: read      # find the Vercel deployments
     env:
@@ -74,7 +76,12 @@ jobs:
           node-version: 22
 
       - name: Install review tools (deliberately not repo dependencies)
-        run: npm i -g --no-audit --no-fund lighthouse@12 playwright-core@1
+        # recordVideo (walkthrough.mjs) needs Playwright's own ffmpeg build; the mp4 conversion
+        # needs a real one, which ubuntu-latest no longer ships
+        run: |
+          npm i -g --no-audit --no-fund lighthouse@12 playwright-core@1
+          playwright-core install ffmpeg
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg >/dev/null
 
       - name: Resolve routes
         id: routes
@@ -87,6 +94,14 @@ jobs:
           routes="$(printf '%s\n' "${line:-$DEFAULT_ROUTES}" | tr ' ,' '\n\n' | grep -E '^/[A-Za-z0-9/_.-]*$' | head -4 | tr '\n' ' ' || true)"
           echo "routes=${routes:-$DEFAULT_ROUTES}" >> "$GITHUB_OUTPUT"
           echo "routes: ${routes:-$DEFAULT_ROUTES}"
+          # optional scripted flows: only committed files under scripts/walkthroughs/ (at most 4)
+          sline="$(printf '%s\n' "$body" | sed -n 's/^[[:space:]]*Walkthrough steps:[[:space:]]*//Ip' | head -1 | tr -d '`\r')"
+          steps=""
+          for f in $(printf '%s\n' "$sline" | tr ' ,' '\n\n' | grep -E '^scripts/walkthroughs/[A-Za-z0-9_-]+\.mjs$' | head -4); do
+            [ -f "frontend/$f" ] && steps="$steps $f"
+          done
+          echo "steps=${steps# }" >> "$GITHUB_OUTPUT"
+          echo "steps: ${steps:-(none)}"
 
       - name: Find the Vercel deployments
         id: deploys
@@ -152,6 +167,26 @@ jobs:
             --runs 3 --shots --out "$EVIDENCE_DIR" $ROUTES
           echo "exit=$?" >> "$GITHUB_OUTPUT"
 
+      - name: Walkthrough videos
+        id: walkthrough
+        if: always() && steps.deploys.outcome == 'success'
+        working-directory: frontend
+        env:
+          ROUTES: ${{ steps.routes.outputs.routes }}
+          STEPS: ${{ steps.routes.outputs.steps }}
+          BASE: ${{ steps.deploys.outputs.head_url }}
+          OUT: ${{ env.EVIDENCE_DIR }}/walkthrough
+          VISUAL_CHECK_EXECUTABLE: /usr/bin/google-chrome
+          VISUAL_CHECK_NO_SANDBOX: '1'
+        run: |
+          export NODE_PATH="$(npm root -g)"
+          set +e
+          rc=0
+          # ROUTES / STEPS are validated above; word splitting into separate args is intended
+          node scripts/walkthrough.mjs $ROUTES || rc=$?
+          for f in $STEPS; do node scripts/walkthrough.mjs --steps "$f" || rc=$?; done
+          echo "exit=$rc" >> "$GITHUB_OUTPUT"
+
       - name: Keep raw reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -161,14 +196,15 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-      - name: Publish screenshots to pr-previews
+      - name: Publish screenshots + walkthrough clips to pr-previews
         id: publish
-        if: always() && steps.compare.outcome == 'success'
+        if: always() && (steps.compare.outcome == 'success' || steps.walkthrough.outcome == 'success')
         env:
           PUSH_TOKEN: ${{ github.token }}
         run: |
           shots="$EVIDENCE_DIR/shots"
-          if ! ls "$shots"/*.jpg >/dev/null 2>&1; then echo "no screenshots to publish"; exit 0; fi
+          clips="$EVIDENCE_DIR/walkthrough"
+          if ! ls "$shots"/*.jpg "$clips"/*.mp4 "$clips"/*.webm >/dev/null 2>&1; then echo "nothing to publish"; exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           wt="$RUNNER_TEMP/pr-previews"
@@ -181,7 +217,9 @@ jobs:
             git -C "$wt" rm -rfq .
           fi
           mkdir -p "$wt/$dest"
-          cp "$shots"/*.jpg "$wt/$dest/"
+          cp "$shots"/*.jpg "$wt/$dest/" 2>/dev/null || true
+          # mp4 when the conversion ran, else the webm (browsers play both from a raw link)
+          for w in "$clips"/*.webm; do [ -f "$w" ] || continue; [ -f "${w%.webm}.mp4" ] && cp "${w%.webm}.mp4" "$wt/$dest/" || cp "$w" "$wt/$dest/"; done
           git -C "$wt" add "$dest"
           # a re-run of the same commit can reproduce identical images: nothing to commit, still publish
           if ! git -C "$wt" diff --cached --quiet; then
@@ -228,8 +266,8 @@ jobs:
             gh api -X POST "repos/$REPO/issues/$PR/comments" -F "body=@$body" --jq .html_url
           fi
 
-      - name: Fail when the comparison did not complete
-        if: steps.compare.outputs.exit != '0'
+      - name: Fail when the comparison or a walkthrough did not complete
+        if: steps.compare.outputs.exit != '0' || steps.walkthrough.outputs.exit != '0'
         run: |
-          echo "lighthouse-compare exited '${{ steps.compare.outputs.exit }}'; the posted comment lists what failed."
+          echo "lighthouse-compare exited '${{ steps.compare.outputs.exit }}', walkthrough exited '${{ steps.walkthrough.outputs.exit }}'; the posted comment lists what failed."
           exit 1

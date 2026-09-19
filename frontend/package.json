@@ -11,6 +11,7 @@
     "tsc": "tsc --noEmit",
     "test:scripts": "node --test scripts/lighthouse-verdicts.test.mjs",
     "visual-check": "node scripts/visual-check.mjs",
+    "walkthrough": "node scripts/walkthrough.mjs",
     "lighthouse-compare": "node scripts/lighthouse-compare.mjs"
   },
   "dependencies": {

@@ -1,5 +1,6 @@
 // Builds the PR evidence comment from a lighthouse-compare.mjs output directory: the
-// desktop/mobile x light/dark screenshot table per route plus the Lighthouse comparison.
+// desktop/mobile x light/dark screenshot table per route, the walkthrough clips
+// (<out>/walkthrough/*.mp4, from walkthrough.mjs) and the Lighthouse comparison.
 // Used by .github/workflows/pr-evidence.yml; runs locally too.
 //
 //   node scripts/pr-evidence-comment.mjs --out img/lighthouse/<run> \
@@ -8,7 +9,7 @@
 // --image-base is where <out>/shots/*.jpg were published; pin it to a commit SHA so a
 // later push can't change what an old comment shows.
 import { parseArgs } from 'node:util';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const MARKER = '<!-- pr-evidence -->';
@@ -64,13 +65,37 @@ if (!summary) {
   out.push('', 'Thumbnails show the first screen; click one for the full page.');
 }
 
+out.push('', '### Walkthrough');
+const clipsDir = join(opt.out, 'walkthrough');
+// mp4 when the conversion ran, else the webm -- the same choice the publish step makes
+const allClips = existsSync(clipsDir) ? readdirSync(clipsDir) : [];
+const clips = allClips.filter((f) => f.endsWith('.mp4') || (f.endsWith('.webm') && !allClips.includes(f.replace(/\.webm$/, '.mp4')))).sort();
+if (!clips.length) {
+  out.push('', 'No clips: the walkthrough did not run or every route failed to load. See the run log.');
+} else {
+  // one row per flow; raw.githubusercontent serves the clip as octet-stream, so a link downloads it
+  const byFlow = new Map();
+  for (const f of clips) {
+    const m = f.match(/^(.*)-(desktop|mobile)-(light|dark)\.(mp4|webm)$/);
+    if (!m) continue;
+    if (!byFlow.has(m[1])) byFlow.set(m[1], []);
+    byFlow.get(m[1]).push({ file: f, label: `${m[2]} ${m[3]}` });
+  }
+  out.push('', 'Recorded against the PR preview: a scroll-through of each evidence route, plus any `Walkthrough steps:` flow the PR names. Each link downloads the clip (a few hundred KB).', '', '| flow | clips |', '|---|---|');
+  for (const [flow, list] of byFlow) {
+    const links = list.map((c) => (opt['image-base'] ? `[${c.label}](${opt['image-base']}/${c.file})` : `\`walkthrough/${c.file}\``)).join(' · ');
+    out.push(`| \`${flow}\` | ${links} |`);
+  }
+}
+
 out.push('', '### Lighthouse: PR vs base', '', lighthouse ?? 'No Lighthouse results: see the run log.');
 
 out.push('', '<details><summary>Method</summary>', '',
   '- **Deployments, not builds:** base is the Vercel **Production** deployment of the PR\'s base commit (or the live site when Vercel no longer lists one); PR is Vercel\'s **Preview** deployment of the PR head. Both run with the project\'s real environment.',
   '- **Warm-up:** each route is fetched twice on both sides before measuring, so a cold serverless render or an edge-cache miss doesn\'t land on one side.',
   '- **Runs:** Lighthouse CLI with simulated throttling, mobile and desktop presets, base and PR runs alternating. A delta is flagged only when the gap between the base and PR run ranges clears an absolute floor **and** the median moved by a relative floor (`frontend/scripts/lighthouse-verdicts.mjs`; Performance, already a 0–100 score, needs only the 3-point gap).',
-  '- **Tooling:** `frontend/scripts/lighthouse-compare.mjs` and `visual-check.mjs`; see CLAUDE.md "PR evidence".',
+  '- **Walkthrough:** `frontend/scripts/walkthrough.mjs` records the PR preview (desktop + mobile, default theme) and the clips are published beside the screenshots, pinned to a commit.',
+  '- **Tooling:** `frontend/scripts/lighthouse-compare.mjs`, `visual-check.mjs` and `walkthrough.mjs`; see CLAUDE.md "PR evidence".',
   '', '</details>');
 
 process.stdout.write(`${out.join('\n')}\n`);
