@@ -49,12 +49,16 @@ created immediately).
 
 ## Contact properties (segmentation)
 
-Every contact carries `role`, `languages`, `sports`, `discovered_via`, `updates_via`,
-`news_channel` (strings; lists comma-joined) from the join form's profile. Resend
-refuses unknown property keys, so create them once per account:
+Contacts created from the **full join form** carry `role`, `languages`, `sports`,
+`discovered_via`, `updates_via`, `news_channel` (strings; lists comma-joined) from that
+person's profile. A newsletter-only signup (the footer form) has no profile, so its
+contact carries none of them. Resend refuses unknown property keys, so create them once
+per account — keep the key out of your shell history by sourcing `.env.local` rather
+than putting it on the command line:
 
 ```sh
-RESEND_API_KEY=re_... npm run resend:properties
+set -a; . .env.local; set +a
+npm run resend:properties
 ```
 
 Then build Segments in Resend (e.g. `languages contains R`) to target Broadcasts.
