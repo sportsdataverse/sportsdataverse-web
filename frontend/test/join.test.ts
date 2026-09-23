@@ -232,3 +232,55 @@ test('double opt-in: a failed confirmation-email send tells the truth and leaves
   assert.equal(dump('people')[0].newsletter, undefined);
   assert.match(logs[0], /confirmation email failed/);
 });
+
+test('a re-signup keeps the double opt-in confirmation on the record', async () => {
+  const { db, dump } = fakeDb();
+  const site = { siteUrl: 'https://www.sportsdataverse.org', tokenSecret: 's3cret' };
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    calls.push(String(url));
+    const isEmail = String(url).endsWith('/emails');
+    return new Response(JSON.stringify(isEmail ? { id: 'em-1' } : { object: 'contact', id: 'c-1' }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    });
+  }) as typeof fetch;
+  const deps = { db, resendApiKey: 'k', fetchImpl, ...site, resendFrom: 'SDV <news@sportsdataverse.org>' };
+
+  await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '1.1.1.1', deps);
+  const token = String(calls.find((u) => u.endsWith('/emails')) && JSON.stringify(calls));
+  assert.ok(token); // the confirmation mail went out
+  const { personId } = { personId: String((dump('people')[0] as { _id: unknown })._id) };
+  await handleConfirm(signConfirmToken(personId, 's3cret'), deps);
+  const confirmedAt = (dump('people')[0].newsletter as { confirmedAt?: Date }).confirmedAt;
+  assert.ok(confirmedAt, 'confirmed once');
+
+  // same person fills the footer form again -> refresh only, confirmation preserved
+  await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '1.1.1.1', deps);
+  const nl = dump('people')[0].newsletter as { resendContactId: string; confirmedAt?: Date };
+  assert.equal(nl.resendContactId, 'c-1');
+  assert.equal((nl.confirmedAt as Date).getTime(), (confirmedAt as Date).getTime());
+});
+
+test('turning the newsletter off retires the pending invite and blocks the old link', async () => {
+  const { db, dump } = fakeDb();
+  const site = { siteUrl: 'https://www.sportsdataverse.org', tokenSecret: 's3cret' };
+  const k = okResend();
+  const deps = { db, resendApiKey: 'k', fetchImpl: k.fetchImpl, ...site, resendFrom: 'SDV <news@sportsdataverse.org>' };
+  const ANSWERS = {
+    role: 'developer', languages: ['R'], sports: ['CFB'],
+    discoveredVia: 'github', updatesVia: ['github'], newsChannel: 'email',
+    dataTypes: ['pbp'], packages_r: ['cfbfastR'],
+  };
+
+  await handleJoin({ email: 'a@b.co', answers: { ...ANSWERS, wants_newsletter: 'yes', wants_discord: 'no' } }, '1.1.1.1', deps);
+  const personId = String((dump('people')[0] as { _id: unknown })._id);
+  assert.deepEqual(Object.keys(dump('people')[0].newsletter as object), ['pending']);
+  const token = signConfirmToken(personId, 's3cret');
+
+  await handleJoin({ email: 'a@b.co', answers: { ...ANSWERS, wants_newsletter: 'no', wants_discord: 'no' } }, '1.1.1.1', deps);
+  assert.equal(dump('people')[0].newsletter, undefined, 'the unused invite is gone');
+
+  const r = await handleConfirm(token, deps);
+  assert.equal(r.redirect, '/join/confirmed?state=invalid');
+  assert.equal(dump('people')[0].newsletter, undefined, 'an opted-out person is never subscribed');
+});

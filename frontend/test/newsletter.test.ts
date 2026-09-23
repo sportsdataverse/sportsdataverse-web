@@ -88,3 +88,23 @@ test('a property Resend rejects is retried without properties, not lost', async 
   assert.equal(calls[1].init.method, 'POST');
   assert.deepEqual(JSON.parse(String(calls[1].init.body)), { email: 'a@b.co', unsubscribed: false });
 });
+
+test('a 4xx that does not name a property is not retried', async () => {
+  const { fetchImpl, calls } = fakeFetch([{ status: 429, body: { message: 'Too many requests' } }]);
+  await assert.rejects(
+    subscribeToResend('a@b.co', { apiKey: 'k', fetchImpl }, { role: 'developer' }),
+    /Resend 429/
+  );
+  assert.equal(calls.length, 1, 'no pointless second create');
+});
+
+test('the property-rejection retry logs no email address', async () => {
+  const logs: string[] = [];
+  const { fetchImpl } = fakeFetch([
+    { status: 422, body: { message: 'Unknown property key: role' } },
+    { status: 200, body: { object: 'contact', id: 'c-1' } },
+  ]);
+  await subscribeToResend('a@b.co', { apiKey: 'k', fetchImpl, log: (m) => logs.push(m) }, { role: 'developer' });
+  assert.equal(logs.length, 1);
+  assert.ok(!logs[0].includes('a@b.co'), logs[0]);
+});

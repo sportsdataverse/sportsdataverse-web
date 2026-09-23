@@ -8,7 +8,7 @@ import { signConfirmToken, verifyConfirmToken } from "./confirmToken.ts";
 import { confirmEmail, sendEmail } from "./email.ts";
 import {
   findPersonById, markConfirmedAt, markNewsletterConfirmed, markNewsletterPending, markNewsletterSkipped, markNewsletterSynced,
-  recordSurvey, upsertJoin, upsertNewsletterSignup, type PersonDoc, type PersonId,
+  clearNewsletterPending, recordSurvey, upsertJoin, upsertNewsletterSignup, type PersonDoc, type PersonId,
 } from "./people.ts";
 
 /**
@@ -49,7 +49,9 @@ async function limited(deps: JoinDeps, key: string, lim: { limit: number; window
 }
 
 /** Immediate contact create (single opt-in, or the confirm step of double opt-in). */
-async function syncContact(deps: JoinDeps, personId: PersonId, email: string, profile: Profile | undefined, confirmed: boolean): Promise<void> {
+async function syncContact(deps: JoinDeps, personId: PersonId, email: string, profile: Profile | undefined, confirmed: boolean,
+  /** an earlier double opt-in on this person; a refresh must not erase it */
+  keepConfirmedAt?: Date): Promise<void> {
   const now = nowOf(deps);
   try {
     const props = profile ? contactProperties(profile) : undefined;
@@ -60,7 +62,7 @@ async function syncContact(deps: JoinDeps, personId: PersonId, email: string, pr
       { resubscribe: confirmed }
     );
     if (confirmed) await markNewsletterConfirmed(deps.db, personId, contactId, now);
-    else await markNewsletterSynced(deps.db, personId, contactId, now, unsubscribed);
+    else await markNewsletterSynced(deps.db, personId, contactId, now, unsubscribed, keepConfirmedAt);
   } catch (e) {
     // best-effort: the person is saved; the admin retry-sync (PR 2b) picks it up
     deps.log?.(`resend sync failed for person ${String(personId)}: ${(e as Error).message}`);
@@ -75,8 +77,9 @@ async function beginOptIn(
   existing: PersonDoc["newsletter"] | undefined
 ): Promise<string> {
   if (existing && "resendContactId" in existing && !existing.unsubscribed) {
-    // already synced (e.g. re-signup after confirming once before): refresh properties, don't re-send a link
-    await syncContact(deps, personId, email, profile, false);
+    // already synced (e.g. re-signup after confirming once before): refresh properties, don't re-send a
+    // link, and keep the confirmation timestamp — it is this person's proof of consent
+    await syncContact(deps, personId, email, profile, false, existing.confirmedAt);
     return CONFIRMED_MSG;
   }
   if (isReservedEmail(email)) {
@@ -127,6 +130,10 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
     ? await upsertJoin(deps.db, { email, name, answers, profile, wants, placement }, now)
     : await upsertNewsletterSignup(deps.db, { email, placement }, now);
 
+  if (!wants.newsletter && newsletter && "pending" in newsletter) {
+    // they turned the newsletter off before confirming: retire the unused invite
+    await clearNewsletterPending(deps.db, personId);
+  }
   const message = wants.newsletter ? await beginOptIn(deps, personId, email, profile, newsletter) : "Thanks — we've got your answers.";
   return { status: 200, body: { success: true, message } };
 }
@@ -152,6 +159,8 @@ export async function handleConfirm(
   const person = await findPersonById(deps.db, v.personId);
   if (!person?.email) return { redirect: "/join/confirmed?state=invalid" };
   if (person.newsletter && "skipped" in person.newsletter) return { redirect: "/join/confirmed" }; // reserved-domain: never reaches Resend
+  // the person turned the newsletter off after the link was sent: an old link must not subscribe them
+  if (person.wants?.newsletter === false) return { redirect: "/join/confirmed?state=invalid" };
   if (person.newsletter && "resendContactId" in person.newsletter && person.newsletter.confirmedAt) return { redirect: "/join/confirmed" }; // idempotent
   await markConfirmedAt(deps.db, person._id, nowOf(deps));
   await syncContact(deps, person._id, person.email, person.profile, true);

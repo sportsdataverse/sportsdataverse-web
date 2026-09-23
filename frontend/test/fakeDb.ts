@@ -32,6 +32,12 @@ function apply(doc: Doc, update: Doc, inserting: boolean) {
   for (const [k, v] of Object.entries((update.$inc as Doc) ?? {})) {
     setPath(doc, k, (Number(getPath(doc, k) ?? 0) + Number(v)));
   }
+  for (const k of Object.keys((update.$unset as Doc) ?? {})) {
+    const parts = k.split('.');
+    let cur: Doc | undefined = doc;
+    for (const seg of parts.slice(0, -1)) cur = typeof cur?.[seg] === 'object' ? (cur[seg] as Doc) : undefined;
+    if (cur) delete cur[parts[parts.length - 1]];
+  }
 }
 
 let nextId = 1;

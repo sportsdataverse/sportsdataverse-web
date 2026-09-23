@@ -34,9 +34,11 @@ async function contactFrom(res: Response): Promise<{ contactId: string; unsubscr
  * click is proof of ownership; the anonymous form itself must not let anyone
  * undo someone else's unsubscribe.
  *
- * If Resend rejects the create because of `properties` (a 4xx other than the
- * 409-exists case — e.g. a property key that was never registered), retry
- * once without them so a config gap never loses the subscriber.
+ * If Resend rejects the create because of the `properties` themselves (the
+ * error names a property — e.g. a key that was never registered), retry once
+ * without them so a config gap never loses the subscriber. Other 4xx answers
+ * (auth, rate limit, a bad address) are NOT retried: a second attempt would
+ * fail the same way, or worse succeed while silently dropping the profile.
  */
 export async function subscribeToResend(
   email: string,
@@ -50,6 +52,8 @@ export async function subscribeToResend(
     body: JSON.stringify({ email, unsubscribed: false, ...(properties ? { properties } : {}) }),
   });
   if (created.ok) return contactFrom(created);
+  // a Response body can only be read once; everything below needs it
+  const failed = await created.text();
   if (created.status === 409) {
     const path = `/contacts/${encodeURIComponent(email)}`;
     const existing = await call(deps, path, { method: "GET" });
@@ -70,12 +74,13 @@ export async function subscribeToResend(
     }
     return contact;
   }
-  if (created.status >= 400 && created.status < 500 && properties) {
+  if (created.status >= 400 && created.status < 500 && properties && /propert/i.test(failed)) {
     const retry = await call(deps, "/contacts", { method: "POST", body: JSON.stringify({ email, unsubscribed: false }) });
     if (retry.ok) {
-      deps.log?.(`Resend rejected contact properties for ${email} (${created.status}); retried without them`);
+      // no address in the log line: server logs outlive their usefulness and this is personal data
+      deps.log?.(`Resend rejected contact properties (${created.status}); retried without them`);
       return contactFrom(retry);
     }
   }
-  throw new Error(`Resend ${created.status}: ${(await created.text()).slice(0, 200)}`);
+  throw new Error(`Resend ${created.status}: ${failed.slice(0, 200)}`);
 }

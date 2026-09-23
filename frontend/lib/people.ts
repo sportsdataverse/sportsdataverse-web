@@ -71,12 +71,32 @@ export async function markNewsletterSynced(
   personId: PersonId,
   resendContactId: string,
   now: Date = new Date(),
-  unsubscribed = false
+  unsubscribed = false,
+  /** carried forward by a re-sync: proof of a completed double opt-in is never overwritten */
+  confirmedAt?: Date
 ): Promise<void> {
   await people(db).updateOne(
     { _id: personId },
-    { $set: { newsletter: { resendContactId, syncedAt: now, ...(unsubscribed ? { unsubscribed: true as const } : {}) } } }
+    {
+      $set: {
+        newsletter: {
+          resendContactId,
+          syncedAt: now,
+          ...(unsubscribed ? { unsubscribed: true as const } : {}),
+          ...(confirmedAt ? { confirmedAt } : {}),
+        },
+      },
+    }
   );
+}
+
+/**
+ * Drop an unused confirmation invite. Called when a re-submitted join form
+ * turns the newsletter off: the old link must stop working, but a contact that
+ * already exists (`resendContactId`) or a recorded skip is left alone.
+ */
+export async function clearNewsletterPending(db: Db, personId: PersonId): Promise<void> {
+  await people(db).updateOne({ _id: personId }, { $unset: { newsletter: "" } });
 }
 
 export async function markNewsletterSkipped(db: Db, personId: PersonId, reason: string): Promise<void> {
