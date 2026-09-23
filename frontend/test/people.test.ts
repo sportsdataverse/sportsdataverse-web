@@ -38,3 +38,45 @@ test('sync bookkeeping', async () => {
   await markNewsletterSkipped(db, personId, 'reserved-domain');
   assert.deepEqual(dump('people')[0].newsletter, { skipped: 'reserved-domain' });
 });
+
+import { recordSurvey, upsertJoin, markNewsletterPending, markNewsletterConfirmed, findPersonById } from '../lib/people.ts';
+import type { Profile } from '../lib/survey.ts';
+
+const PROFILE = { role: 'developer', languages: ['R'], sports: ['CFB'], discoveredVia: 'twitter', updatesVia: ['github'], newsChannel: 'email' } as const;
+
+test('recordSurvey inserts an anonymous row', async () => {
+  const { db, dump } = fakeDb();
+  const { personId } = await recordSurvey(db, { answers: { role: 'developer' }, profile: PROFILE as unknown as Profile }, T0);
+  assert.ok(personId);
+  const [p] = dump('people');
+  assert.equal(p.status, 'survey');
+  assert.equal(p.email, undefined);
+  assert.deepEqual(p.profile, PROFILE);
+  assert.deepEqual(p.wants, { discord: false, newsletter: false, stickers: false, package: false });
+});
+
+test('upsertJoin creates with profile + wants, then updates the same email without duplicating', async () => {
+  const { db, dump } = fakeDb();
+  const a = await upsertJoin(db, { email: 'a@b.co', name: 'A', answers: { role: 'developer' }, profile: PROFILE as unknown as Profile, wants: { newsletter: true, discord: true }, placement: 'join' }, T0);
+  assert.equal(a.created, true);
+  const b = await upsertJoin(db, { email: 'a@b.co', answers: { role: 'student' }, profile: { ...PROFILE, role: 'student' } as unknown as Profile, wants: { newsletter: false, discord: true } }, T1);
+  assert.equal(b.created, false);
+  assert.equal(dump('people').length, 1);
+  const [p] = dump('people');
+  assert.equal(p.name, 'A');
+  assert.equal((p.profile as { role: string }).role, 'student');
+  assert.deepEqual(p.wants, { discord: true, newsletter: false, stickers: false, package: false });
+  assert.equal(p.status, 'pending');
+  assert.equal((p.createdAt as Date).getTime(), T0.getTime());
+});
+
+test('opt-in bookkeeping: pending, then confirmed', async () => {
+  const { db, dump } = fakeDb();
+  const { personId } = await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROFILE as unknown as Profile, wants: { newsletter: true, discord: false } }, T0);
+  await markNewsletterPending(db, personId, T0);
+  assert.deepEqual(dump('people')[0].newsletter, { pending: { sentAt: T0 } });
+  await markNewsletterConfirmed(db, personId, 'c-1', T1);
+  assert.deepEqual(dump('people')[0].newsletter, { resendContactId: 'c-1', syncedAt: T1, confirmedAt: T1 });
+  const found = await findPersonById(db, String(personId));
+  assert.equal(found?.email, 'a@b.co');
+});

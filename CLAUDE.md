@@ -21,6 +21,7 @@ per-package R pkgdown sites) — this repo is the org front door, NOT a docs sit
   packages/projects/people/rate_limits, NOT Supabase). Newsletter sender is **Resend**
   (`RESEND_API_KEY`, `lib/newsletter.ts`); the subscriber list of record is Mongo `people`.
   Analytics is **Plausible** (`next-plausible`), not GA. Auth via Auth.js v5 (GitHub OAuth, org-membership JWT). API route handlers in `frontend/app/api/`.
+- **Community:** `/join`, `/survey`, `/join/confirmed`; `POST /api/join`, `POST /api/survey`, `GET /api/join/confirm`. Questions are data in `frontend/content/survey.ts`; engine + handlers in `frontend/lib/{survey,join}.ts`; see `frontend/SETUP-community.md`.
 - **Data pipeline:** `python/data_fetcher.py` (uv-managed) pulls GitHub/package stats; the
   `cron.yml` is **manual-only** (`workflow_dispatch`); it has never committed anything, because
   the fetcher's luigi targets land under `python/tmp/`, which the repo does not track.
@@ -108,6 +109,9 @@ Every PR that touches `frontend/` carries three pieces of evidence, all produced
   deployments API. The workflow waits for the **Preview** deployment of the PR head and compares it with the
   **Production** deployment of the PR's merge-base (falling back to the live site if Vercel no longer lists one).
 - **Pages:** an `Evidence routes: /a /b` line in the PR description (max 4); default `/ /packages`.
+- **A page the PR adds** 404s on the base, so there is nothing to compare it with: it is measured on the
+  PR alone and reported as a new page, not as a failed comparison. A route that 404s on the **PR** is a
+  real failure and still fails the run.
 - **Flows:** a `Walkthrough steps: scripts/walkthroughs/a.mjs scripts/walkthroughs/b.mjs` line (max 4, must be
   committed files) records those interactions too. A PR that adds or alters an interaction (form, flow, nav,
   toggle, gated page) commits a steps module for it and names it here; a copy/colour change needs only the
