@@ -115,11 +115,11 @@ async function warm(side, route) {
     ms = performance.now() - t0;
     body = await res.text();
   }
-  if (!res.ok) throw new Error(`${side} ${URLS[side]}${route}: HTTP ${res.status}`);
   const title = (body.match(/<title[^>]*>([^<]*)/i)?.[1] ?? '').trim();
   say(`${side} ${route}: ${res.status} "${title}" ${(Buffer.byteLength(body) / 1024).toFixed(0)} KB, warm ${Math.round(ms)} ms`);
   const noindex = /noindex/i.test(res.headers.get('x-robots-tag') ?? '');
-  return { status: res.status, title, bytes: Buffer.byteLength(body), warmMs: Math.round(ms), finalUrl: res.url, noindex };
+  // a non-ok is NOT thrown: a 404 on the base is how a page this PR adds looks (see newRoutes)
+  return { ok: res.ok, status: res.status, title, bytes: Buffer.byteLength(body), warmMs: Math.round(ms), finalUrl: res.url, noindex };
 }
 
 // ---------------------------------------------------------------- lighthouse
@@ -182,17 +182,20 @@ function markdown(summary) {
   for (const route of routes) {
     const byPreset = summary.results[route];
     if (!byPreset) continue;
-    lines.push('', `#### \`${route}\``, '');
-    const cols = PRESETS.flatMap((p) => [`base ${p}`, `PR ${p}`]);
+    const isNew = (summary.newRoutes ?? []).includes(route);
+    const sides = isNew ? ['head'] : ['base', 'head'];
+    lines.push('', `#### \`${route}\`${isNew ? ' — new page' : ''}`, '');
+    if (isNew) lines.push(`This page does not exist on the base, so there is nothing to compare against; the numbers are the PR's own.`, '');
+    const cols = PRESETS.flatMap((p) => sides.map((t) => `${t === 'base' ? 'base' : 'PR'} ${p}`));
     lines.push(`| | ${cols.join(' | ')} |`, `|---|${cols.map(() => '---').join('|')}|`);
     const cell = (p, t, key) => (byPreset[p][t][key].median == null ? '–' : withRange(key, byPreset[p][t][key]));
-    const row = (label, fn) => lines.push(`| ${label} | ${PRESETS.flatMap((p) => ['base', 'head'].map((t) => fn(p, t))).join(' | ')} |`);
+    const row = (label, fn) => lines.push(`| ${label} | ${PRESETS.flatMap((p) => sides.map((t) => fn(p, t))).join(' | ')} |`);
     row('Performance', (p, t) => cell(p, t, 'performance'));
     row('Accessibility', (p, t) => fmt('accessibility', byPreset[p][t].accessibility.median));
     row('Best Practices', (p, t) => fmt('bestPractices', byPreset[p][t].bestPractices.median));
     // every Vercel deployment URL (Preview AND a Production deployment's *.vercel.app URL) sends
     // X-Robots-Tag: noindex; only the custom domain is indexable
-    const noindexSides = ['base', 'head'].filter((t) => summary.pages[t][route]?.noindex);
+    const noindexSides = sides.filter((t) => summary.pages[t][route]?.noindex);
     row(noindexSides.length ? 'SEO¹' : 'SEO', (p, t) => fmt('seo', byPreset[p][t].seo.median));
     row('FCP / LCP', (p, t) => `${fmt('fcp', byPreset[p][t].fcp.median)} / ${fmt('lcp', byPreset[p][t].lcp.median)}`);
     row('TBT', (p, t) => cell(p, t, 'tbt'));
@@ -203,12 +206,14 @@ function markdown(summary) {
     row('DOM elements', (p, t) => fmt('dom', byPreset[p][t].dom.median));
     const ignoreAudits = noindexSides.length ? ['is-crawlable'] : [];
     const originsOf = (side) => new Set(PRESETS.flatMap((p) => (raw[route]?.[p]?.[side] ?? []).flatMap((m) => m?.origins ?? [])));
-    const [baseOrigins, headOrigins] = [originsOf('base'), originsOf('head')];
+    const [baseOrigins, headOrigins] = isNew ? [new Set(), new Set()] : [originsOf('base'), originsOf('head')];
     const baseOnly = [...baseOrigins].filter((h) => !headOrigins.has(h));
     const headOnly = [...headOrigins].filter((h) => !baseOrigins.has(h));
     const productionOnly = baseOnly.filter((h) => PRODUCTION_ONLY_ORIGINS.some((o) => h === o || h.endsWith(`.${o}`)));
     const baseHandicapped = productionOnly.length > 0;
-    const found = PRESETS.flatMap((p) => verdicts(byPreset[p].base, byPreset[p].head, p, { ignoreAudits, baseHandicapped })).sort((a, b) => b.worse - a.worse);
+    const found = isNew
+      ? []
+      : PRESETS.flatMap((p) => verdicts(byPreset[p].base, byPreset[p].head, p, { ignoreAudits, baseHandicapped })).sort((a, b) => b.worse - a.worse);
     if (headOnly.length) found.unshift({ worse: true, line: `**New third-party origin${headOnly.length > 1 ? 's' : ''} on the PR:** ${headOnly.map((h) => `\`${h}\``).join(', ')}` });
     lines.push('');
     if (baseHandicapped) lines.push(`² The base loads ${productionOnly.map((h) => `\`${h}\``).join(', ')}, which only Production deployments load, so base timings read slower for reasons outside this PR. Timing improvements (Performance, FCP, LCP, TBT, Speed Index) are not reported; regressions still are.`, '');
@@ -217,8 +222,8 @@ function markdown(summary) {
       lines.push(`¹ ${who} \`X-Robots-Tag: noindex\` (every Vercel deployment URL does; only sportsdataverse.org is indexable), so Lighthouse\'s \`is-crawlable\` audit fails and SEO reads lower. That audit is left out of the verdicts.`, '');
     }
     if (found.length) for (const v of found) lines.push(`- ${v.worse ? '🔴' : '🟢'} ${v.line}`);
-    else lines.push('- No change beyond run-to-run noise (run ranges overlap, or the change is below the reporting floor).');
-    for (const p of PRESETS) for (const t of ['base', 'head']) for (const e of byPreset[p][t].errors) lines.push(`- ⚠️ failed run, ${t} ${p}: ${e}`);
+    else if (!isNew) lines.push('- No change beyond run-to-run noise (run ranges overlap, or the change is below the reporting floor).');
+    for (const p of PRESETS) for (const t of sides) for (const e of byPreset[p][t].errors) lines.push(`- ⚠️ failed run, ${t} ${p}: ${e}`);
   }
   return lines.join('\n');
 }
@@ -226,14 +231,30 @@ function markdown(summary) {
 // ---------------------------------------------------------------- main
 const failures = [];
 const pages = { base: {}, head: {} };
+// pages this PR adds: absent from the base, so there is nothing to compare them with. They are
+// measured on the head alone and reported as new -- not as a failed comparison.
+const newRoutes = new Set();
+const unmeasurable = new Set();
 const raw = {}; // raw[route][preset][side] = [run metrics]
 try {
-  for (const route of routes) for (const side of ['base', 'head']) pages[side][route] = await warm(side, route);
+  for (const route of routes) {
+    for (const side of ['base', 'head']) pages[side][route] = await warm(side, route);
+    const [b, h] = [pages.base[route], pages.head[route]];
+    if (!h.ok) {
+      failures.push(`head ${URLS.head}${route}: HTTP ${h.status}`);
+      unmeasurable.add(route);
+    } else if (!b.ok) {
+      if (b.status === 404) newRoutes.add(route);
+      else failures.push(`base ${URLS.base}${route}: HTTP ${b.status}`);
+    }
+  }
 
   for (const route of routes) {
+    if (unmeasurable.has(route)) continue;
+    const order = (run) => (newRoutes.has(route) ? ['head'] : run % 2 ? ['head', 'base'] : ['base', 'head']);
     for (const preset of PRESETS) {
       for (let run = 0; run < RUNS; run++) {
-        for (const side of run % 2 ? ['head', 'base'] : ['base', 'head']) {
+        for (const side of order(run)) {
           const report = join(OUT, 'reports', `${slug(route)}-${preset}-${side}-${run + 1}.json`);
           const m = await lighthouse(URLS[side] + route, preset, report);
           ((raw[route] ??= {})[preset] ??= {})[side] ??= [];
@@ -263,17 +284,17 @@ try {
 const summary = {
   base: { url: URLS.base, label: opt['base-label'] },
   head: { url: URLS.head, label: opt['head-label'] },
-  routes, presets: PRESETS, runs: RUNS, pages, results: {}, failures,
+  routes, newRoutes: [...newRoutes], presets: PRESETS, runs: RUNS, pages, results: {}, failures,
 };
 for (const [route, byPreset] of Object.entries(raw)) {
   for (const [preset, bySide] of Object.entries(byPreset)) {
-    (summary.results[route] ??= {})[preset] = { base: aggregate(bySide.base), head: aggregate(bySide.head) };
+    (summary.results[route] ??= {})[preset] = { base: aggregate(bySide.base ?? []), head: aggregate(bySide.head ?? []) };
   }
 }
-const cells = routes.flatMap((r) => PRESETS.map((p) => [r, p, summary.results[r]?.[p]]));
-const complete = cells.every(([, , c]) => c && c.base.runs > 0 && c.head.runs > 0);
+const cells = routes.filter((r) => !unmeasurable.has(r)).flatMap((r) => PRESETS.map((p) => [r, p, summary.results[r]?.[p]]));
+const complete = unmeasurable.size === 0 && cells.every(([r, , c]) => c && (newRoutes.has(r) || c.base.runs > 0) && c.head.runs > 0);
 for (const [r, p, c] of cells) {
-  for (const side of ['base', 'head']) {
+  for (const side of newRoutes.has(r) ? ['head'] : ['base', 'head']) {
     const got = c?.[side].runs ?? 0;
     if (got === RUNS) continue;
     const why = c?.[side].errors.length ? `: ${[...new Set(c[side].errors)].join('; ')}` : '';

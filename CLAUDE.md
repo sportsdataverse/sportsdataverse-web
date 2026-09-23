@@ -109,6 +109,9 @@ Every PR that touches `frontend/` carries three pieces of evidence, all produced
   deployments API. The workflow waits for the **Preview** deployment of the PR head and compares it with the
   **Production** deployment of the PR's merge-base (falling back to the live site if Vercel no longer lists one).
 - **Pages:** an `Evidence routes: /a /b` line in the PR description (max 4); default `/ /packages`.
+- **A page the PR adds** 404s on the base, so there is nothing to compare it with: it is measured on the
+  PR alone and reported as a new page, not as a failed comparison. A route that 404s on the **PR** is a
+  real failure and still fails the run.
 - **Flows:** a `Walkthrough steps: scripts/walkthroughs/a.mjs scripts/walkthroughs/b.mjs` line (max 4, must be
   committed files) records those interactions too. A PR that adds or alters an interaction (form, flow, nav,
   toggle, gated page) commits a steps module for it and names it here; a copy/colour change needs only the
