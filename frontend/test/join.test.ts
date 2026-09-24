@@ -601,6 +601,37 @@ test('the claim chain: a claimed record, an admin approval, and still no invite 
   assert.match(steal.body.message, /on file/i);
 });
 
+test('a handle bound before the decision is not a key to the invite an admin later mints', async () => {
+  const { db, dump } = fakeDb();
+  const deadDiscord = (async (url: string | URL | Request) => {
+    if (String(url).includes('discord.com')) return new Response('{"message":"Missing Permissions"}', { status: 403 });
+    return new Response(JSON.stringify({ id: 'em-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    db, resendApiKey: 'k', fetchImpl: deadDiscord, ...discordEnv, viewer: null,
+  }); // the victim joined signed out: nothing bound
+
+  // a vouched caller submits someone else's address while Discord is down, so the
+  // record keeps their handle and falls back into the queue
+  const attacker = { login: 'attacker', isOrgMember: true, isContributor: false };
+  await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '2.2.2.2', {
+    db, resendApiKey: 'k', fetchImpl: deadDiscord, ...discordEnv, viewer: attacker,
+  });
+  assert.equal(dump('people')[0].status, 'pending');
+  assert.equal(dump('people')[0].githubLogin, 'attacker', 'the handle is bound — which is exactly why it cannot be the key');
+
+  const d = discordFake();
+  await approve({ db, reviewer: 'saiemgilani', ...discordEnv, resendApiKey: 'k', fetchImpl: d.fetchImpl }, dump('people')[0]._id as never);
+  assert.equal((dump('people')[0].discord as { code: string }).code, 'inv123');
+
+  const r = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '3.3.3.3', {
+    db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer: attacker,
+  });
+  assert.doesNotMatch(r.body.message, /discord\.gg/, 'only a self-admission is echoed — an admin decision is relayed by hand');
+  assert.doesNotMatch(r.body.message, /inv123/);
+  assert.match(r.body.message, /on file/i);
+});
+
 test('an admin approval is never echoed as an invite — only a self-admission is', async () => {
   const { db, dump } = fakeDb();
   const d = discordFake();
