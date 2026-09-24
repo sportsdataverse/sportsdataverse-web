@@ -16,6 +16,8 @@ declare module "next-auth" {
     login?: string;
     /** True when the user is an active member of the sportsdataverse org. */
     isOrgMember?: boolean;
+    /** True when the user has a merged PR in the sportsdataverse org. */
+    isContributor?: boolean;
     /** Org role, when a member: "admin" | "member". */
     role?: "admin" | "member" | null;
   }
@@ -25,6 +27,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     login?: string;
     isOrgMember?: boolean;
+    isContributor?: boolean;
     role?: "admin" | "member" | null;
     /** GitHub OAuth access token — kept on the JWT only, never on the client session. */
     accessToken?: string;
