@@ -51,15 +51,58 @@ test('no sender configured still mints and stores the invite', async () => {
   assert.equal(net.calls.filter((u) => u.endsWith('/emails')).length, 0);
 });
 
-test('approve survives a Discord failure: the decision stands, the invite does not', async () => {
+test('approve leaves a person the invite failed for in the queue, not approved holding nothing', async () => {
   const { db, dump } = fakeDb();
   const id = await queued(db);
   const net = fakeNet(403);
   const r = await approve({ db, ...env, fetchImpl: net.fetchImpl }, id);
   assert.equal(r.ok, false);
   assert.match(r.message, /Discord 403/);
-  assert.equal(dump('people')[0].status, 'approved', 'the reviewer decision is recorded regardless');
+  assert.match(r.message, /queue/i, 'the admin is told where the person went');
+  // spec -> Errors: never mark approved without a stored invite code. The Queue
+  // view is status:"pending", so 'approved' here would hide them from every
+  // admin while they hold no invite at all.
+  assert.equal(dump('people')[0].status, 'pending', 'still in the queue a human works');
   assert.equal(dump('people')[0].discord, undefined);
+  assert.equal(dump('people')[0].reviewedAt, undefined, 'and no review was stamped');
+});
+
+test('approve with Discord unconfigured — the configuration this branch ships in — keeps the person in the queue', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db);
+  const net = fakeNet();
+  const r = await approve({ db, ...env, discordBotToken: undefined, discordChannelId: undefined, fetchImpl: net.fetchImpl }, id);
+  assert.equal(r.ok, false);
+  assert.match(r.message, /DISCORD_BOT_TOKEN is not set/);
+  assert.equal(dump('people')[0].status, 'pending');
+  assert.equal(net.calls.length, 0);
+});
+
+test('resendInvite refuses someone whose latest answer is "no Discord"', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db);
+  const setup = fakeNet();
+  await approve({ db, ...env, fetchImpl: setup.fetchImpl }, id); // -> auto/approved with a live invite
+  // they re-submit /join answering no: upsertJoin rewrites wants.discord and never touches status
+  await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROFILE as never, wants: { newsletter: false, discord: false } }, T0);
+  assert.equal(dump('people')[0].status, 'approved');
+  const net = fakeNet();
+  const r = await resendInvite({ db, ...env, fetchImpl: net.fetchImpl }, id);
+  assert.equal(r.ok, false);
+  assert.match(r.message, /didn.t ask for discord/i);
+  assert.equal(net.calls.length, 0, 'no invite is minted against a current "no"');
+});
+
+test('retrySync refuses a reserved-domain address instead of pushing it to the real list', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db, { newsletter: true, discord: false });
+  (dump('people')[0] as { newsletter?: unknown }).newsletter = { skipped: 'reserved-domain' };
+  const net = fakeNet();
+  const r = await retrySync({ db, ...env, fetchImpl: net.fetchImpl }, id);
+  assert.equal(r.ok, false);
+  assert.match(r.message, /reserved domain/i);
+  assert.equal(net.calls.length, 0, 'a CI walkthrough address never becomes a real contact');
+  assert.deepEqual(dump('people')[0].newsletter, { skipped: 'reserved-domain' }, 'and the marker is not overwritten');
 });
 
 test('approving twice reuses the stored invite instead of minting another', async () => {

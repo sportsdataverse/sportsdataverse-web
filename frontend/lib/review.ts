@@ -127,21 +127,20 @@ export async function approve(deps: ReviewDeps, personId: PersonId): Promise<Inv
   if (!found.person.wants.discord) {
     return { ok: false, emailed: false, message: "This person didn't ask for Discord — nothing to approve." };
   }
+  // spec -> Errors: "Never mark approved without a stored invite code." The
+  // invite comes first because the decision's meaning depends on it: the Queue
+  // view lists only `status: "pending"`, so stamping `approved` on a mint that
+  // failed would drop someone holding nothing out of the one view an admin
+  // works from. lib/join.ts rolls the same failure back to `pending` already.
+  const minted = await mintAndSend(deps, found.person, now);
+  if (!minted.ok) return { ...minted, message: `${minted.message} They stay in the queue.` };
   try {
     await setReviewStatus(deps.db, found.person._id, "approved", deps.reviewer, now);
   } catch {
     deps.log?.(`db write failed for person ${String(personId)}`);
-    return { ok: false, emailed: false, message: "Couldn't save that decision — try again." };
+    return { ...minted, ok: false, message: `${minted.message} The approval itself didn't save — try Approve again.` };
   }
-  // best-effort refresh: the decision already landed, so a failed re-read falls
-  // back to the pre-write snapshot rather than reporting the approval as failed
-  let refreshed: PersonDoc | null = null;
-  try {
-    refreshed = await findPersonById(deps.db, String(personId));
-  } catch {
-    deps.log?.(`db read failed for person ${String(personId)}`);
-  }
-  return mintAndSend(deps, refreshed ?? found.person, now);
+  return minted;
 }
 
 export async function resendInvite(deps: ReviewDeps, personId: PersonId): Promise<InviteResult> {
@@ -149,6 +148,11 @@ export async function resendInvite(deps: ReviewDeps, personId: PersonId): Promis
   const found = await safeFindPerson(deps, personId);
   if (!found.ok) return { ok: false, emailed: false, message: found.message };
   const { person } = found;
+  // the same gate approve has: a resend mints against the current answer, so
+  // someone whose latest /join said "no Discord" must not get a fresh invite
+  if (!person.wants.discord) {
+    return { ok: false, emailed: false, message: "This person didn't ask for Discord — nothing to resend." };
+  }
   // the human-review gate is the point: a resend must never be a back door
   // around a decision that already stands, or around one never made at all
   if (person.status === "declined") {
@@ -203,6 +207,11 @@ export async function retrySync(deps: ReviewDeps, personId: PersonId): Promise<{
   // the double opt-in design exists so we never hold an address nobody offered —
   // an admin retry button must not be the one path that skips consent
   if (!person.wants.newsletter) return { ok: false, message: "This person didn't ask for the newsletter — nothing to sync." };
+  // a reserved domain (@example.com and friends, from CI walkthroughs) was kept
+  // off the real list on purpose; a retry must not be the way it gets there
+  if (person.newsletter && "skipped" in person.newsletter) {
+    return { ok: false, message: "This address is a reserved domain — it is never sent to Resend." };
+  }
   // a confirmation was sent and never clicked: syncing now would hand Resend an address
   // whose owner never agreed. Single opt-in never writes `pending`, so it is unaffected.
   if (person.newsletter && "pending" in person.newsletter && !person.newsletter.confirmedAt) {
