@@ -257,6 +257,43 @@ test('a confirmation that never went out still records the pending marker, so Re
   assert.equal(contacts.calls, 0, 'an address whose owner never clicked the link never reaches Resend');
 });
 
+test('a re-signup never erases proof that this address already opted in', async () => {
+  const { db, dump } = fakeDb();
+  const confirmedAt = new Date('2026-01-01T00:00:00Z');
+  await handleJoin({ email: 'a@b.co' }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl });
+  (dump('people')[0] as { newsletter?: unknown }).newsletter = { resendContactId: 'c-1', syncedAt: confirmedAt, confirmedAt, unsubscribed: true };
+
+  // double opt-in now live, and Resend is down: the send fails
+  const deps = { db, resendApiKey: 'k', fetchImpl: (async () => new Response('boom', { status: 500 })) as typeof fetch, ...site, resendFrom: 'SDV <news@sportsdataverse.org>' };
+  const r = await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '1.1.1.1', deps);
+  assert.match(r.body.message, /try again/i);
+  const nl = dump('people')[0].newsletter as { resendContactId?: string; confirmedAt?: Date; unsubscribed?: true };
+  assert.equal(nl.resendContactId, 'c-1', 'the contact id survives');
+  assert.equal(nl.confirmedAt?.getTime(), confirmedAt.getTime(), 'and so does the proof of a completed double opt-in');
+  assert.equal(nl.unsubscribed, true, 'and the unsubscribe flag');
+});
+
+test('an unsubscribed address that re-signs up and clicks the new link is resubscribed', async () => {
+  const { db, dump } = fakeDb();
+  const confirmedAt = new Date('2026-01-01T00:00:00Z');
+  await handleJoin({ email: 'a@b.co' }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl });
+  (dump('people')[0] as { newsletter?: unknown }).newsletter = { resendContactId: 'c-1', syncedAt: confirmedAt, confirmedAt, unsubscribed: true };
+  const personId = String((dump('people')[0] as { _id: unknown })._id);
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    calls.push(String(url));
+    const isEmail = String(url).endsWith('/emails');
+    return new Response(JSON.stringify(isEmail ? { id: 'em-1' } : { object: 'contact', id: 'c-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const deps = { db, resendApiKey: 'k', fetchImpl, ...site, resendFrom: 'SDV <news@sportsdataverse.org>' };
+  await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '1.1.1.1', deps);
+
+  const c = await handleConfirm(signConfirmToken(personId, 's3cret'), deps);
+  assert.equal(c.redirect, '/join/confirmed');
+  assert.ok(calls.some((u) => u.includes('/contacts')), 'the click is not swallowed as "already confirmed"');
+  assert.equal((dump('people')[0].newsletter as { unsubscribed?: true }).unsubscribed, undefined);
+});
+
 test('a re-signup keeps the double opt-in confirmation on the record', async () => {
   const { db, dump } = fakeDb();
   const site = { siteUrl: 'https://www.sportsdataverse.org', tokenSecret: 's3cret' };

@@ -114,12 +114,18 @@ async function beginOptIn(
   const token = signConfirmToken(String(personId), deps.tokenSecret, now);
   const url = `${deps.siteUrl ?? DEFAULT_SITE}/api/join/confirm?t=${token}`;
   try {
-    // the marker is written BEFORE the send: it records "we asked this person to
+    // The marker is written BEFORE the send: it records "we asked this person to
     // confirm", which is true the moment we try. Writing it only on success left
     // a failed send indistinguishable from an ordinary unsynced row, and the
     // admin Retry-sync consent gate (lib/review.ts) keys on exactly this marker —
     // without it, one click subscribes an address whose owner never confirmed.
-    await markNewsletterPending(deps.db, personId, now);
+    // Never over a stronger record, though: `newsletter` is one state, not a bag
+    // (people.ts), and both of its readers key on `"pending" in newsletter`, so a
+    // record that kept `resendContactId` alongside a marker would be $unset
+    // wholesale by clearNewsletterPending. The only record that reaches here
+    // holding a contact is an unsubscribed one, and retrySync already refuses
+    // that on its own gate — so its proof of consent is kept, not overwritten.
+    if (!existing || "pending" in existing) await markNewsletterPending(deps.db, personId, now);
     await sendEmail({ from: deps.resendFrom, to: email, ...confirmEmail(url) }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
   } catch (e) {
     deps.log?.(`confirmation email failed for person ${String(personId)}: ${(e as Error).message}`);
@@ -271,7 +277,12 @@ export async function handleConfirm(
   if (person.newsletter && "skipped" in person.newsletter) return { redirect: "/join/confirmed" }; // reserved-domain: never reaches Resend
   // the person turned the newsletter off after the link was sent: an old link must not subscribe them
   if (person.wants?.newsletter === false) return { redirect: "/join/confirmed?state=invalid" };
-  if (person.newsletter && "resendContactId" in person.newsletter && person.newsletter.confirmedAt) return { redirect: "/join/confirmed" }; // idempotent
+  // idempotent — but an unsubscribed contact re-signing up and clicking the new
+  // link is asking to come back, and their earlier confirmation must not be read
+  // as "nothing to do" (it survives the re-signup now that the record is kept)
+  if (person.newsletter && "resendContactId" in person.newsletter && person.newsletter.confirmedAt && !person.newsletter.unsubscribed) {
+    return { redirect: "/join/confirmed" };
+  }
   await markConfirmedAt(deps.db, person._id, nowOf(deps));
   await syncContact(deps, person._id, person.email, person.profile, true);
   return { redirect: "/join/confirmed" };
