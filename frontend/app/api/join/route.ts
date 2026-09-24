@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@lib/mongodb";
+import { auth } from "@lib/auth";
 import { handleJoin } from "@lib/join";
 import { ensurePeopleIndexes } from "@lib/people";
 import { ensureRateLimitIndex } from "@lib/rateLimit";
@@ -19,6 +20,10 @@ export async function POST(req: Request) {
   await indexesReady;
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const raw = await req.json().catch(() => ({}));
+  const session = await auth();
+  const viewer = session?.login
+    ? { login: session.login, isOrgMember: Boolean(session.isOrgMember), isContributor: Boolean(session.isContributor) }
+    : null;
   const result = await handleJoin(raw, ip, {
     db,
     resendApiKey: process.env.RESEND_API_KEY,
@@ -26,6 +31,9 @@ export async function POST(req: Request) {
     tokenSecret: process.env.JOIN_TOKEN_SECRET ?? process.env.NEXTAUTH_SECRET,
     siteUrl: process.env.NEXTAUTH_URL ?? "https://www.sportsdataverse.org",
     log: (m) => console.warn(m),
+    viewer,
+    discordBotToken: process.env.DISCORD_BOT_TOKEN,
+    discordChannelId: process.env.DISCORD_INVITE_CHANNEL_ID,
   });
   return NextResponse.json(result.body, { status: result.status });
 }

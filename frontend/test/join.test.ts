@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { fakeDb } from './fakeDb.ts';
 import { handleJoin, handleSurvey, handleConfirm } from '../lib/join.ts';
 import { signConfirmToken } from '../lib/confirmToken.ts';
+import { setReviewStatus } from '../lib/people.ts';
 
 function resend(status: number, body: unknown) {
   let calls = 0;
@@ -283,4 +284,93 @@ test('turning the newsletter off retires the pending invite and blocks the old l
   const r = await handleConfirm(token, deps);
   assert.equal(r.redirect, '/join/confirmed?state=invalid');
   assert.equal(dump('people')[0].newsletter, undefined, 'an opted-out person is never subscribed');
+});
+
+const D_ANSWERS = {
+  role: 'developer', languages: ['R'], sports: ['CFB'],
+  discoveredVia: 'github', updatesVia: ['github'], newsChannel: 'discord',
+  dataTypes: ['pbp'], packages_r: ['cfbfastR'],
+  wants_newsletter: 'no', wants_discord: 'yes',
+};
+
+function discordFake() {
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    calls.push(String(url));
+    if (String(url).includes('discord.com')) {
+      return new Response(JSON.stringify({ code: 'inv123' }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ id: 'em-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  return { fetchImpl, calls };
+}
+const discordEnv = { discordBotToken: 'tok', discordChannelId: '42' };
+
+test('an org member asking for Discord is admitted on the spot', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv,
+    viewer: { login: 'octocat', isOrgMember: true, isContributor: false },
+  });
+  assert.equal(r.status, 200);
+  assert.match(r.body.message, /discord\.gg\/inv123/);
+  const [p] = dump('people');
+  assert.equal(p.status, 'auto');
+  assert.equal(p.githubLogin, 'octocat');
+  assert.equal((p.discord as { code: string }).code, 'inv123');
+});
+
+test('a stranger asking for Discord is queued, and no invite is minted', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer: null,
+  });
+  assert.equal(r.status, 200);
+  assert.match(r.body.message, /review/i);
+  assert.equal(d.calls.filter((u) => u.includes('discord.com')).length, 0);
+  const [p] = dump('people');
+  assert.equal(p.status, 'pending');
+  assert.equal(p.discord, undefined);
+});
+
+test('a second email for the same GitHub login does not collide', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const viewer = { login: 'octocat', isOrgMember: true, isContributor: false };
+  await handleJoin({ email: 'first@b.co', answers: D_ANSWERS }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer });
+  const r = await handleJoin({ email: 'second@b.co', answers: D_ANSWERS }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer });
+  assert.equal(r.status, 200, 'the second address must not 500 on the unique login index');
+  assert.equal(dump('people').length, 2);
+  assert.equal(dump('people').filter((p) => p.githubLogin === 'octocat').length, 1);
+});
+
+test('a recent decline is not re-opened by re-submitting', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const deps = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer: null };
+  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', deps);
+  const personId = (dump('people')[0] as { _id: unknown })._id;
+  await setReviewStatus(db, personId as never, 'declined', 'saiemgilani', new Date(), 'no vouch');
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', deps);
+  assert.equal(r.status, 200);
+  assert.equal(dump('people')[0].status, 'declined', 'still declined, not back in the queue');
+});
+
+test('Discord failing does not fail the request or lose the person', async () => {
+  const { db, dump } = fakeDb();
+  const logs: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    if (String(url).includes('discord.com')) return new Response('{"message":"Missing Permissions"}', { status: 403 });
+    return new Response(JSON.stringify({ id: 'em-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    db, resendApiKey: 'k', fetchImpl, ...discordEnv, log: (m) => logs.push(m),
+    viewer: { login: 'octocat', isOrgMember: true, isContributor: false },
+  });
+  assert.equal(r.status, 200);
+  assert.equal(dump('people')[0].status, 'auto');
+  assert.equal(dump('people')[0].discord, undefined);
+  assert.match(logs.join(' '), /discord invite failed/);
 });

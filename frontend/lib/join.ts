@@ -5,10 +5,12 @@ import { subscribeToResend } from "./newsletter.ts";
 import { allowRequest } from "./rateLimit.ts";
 import { contactProperties, projectProfile, validateAnswers, type Profile } from "./survey.ts";
 import { signConfirmToken, verifyConfirmToken } from "./confirmToken.ts";
-import { confirmEmail, sendEmail } from "./email.ts";
+import { confirmEmail, discordInviteEmail, sendEmail } from "./email.ts";
+import { createInvite, inviteUrl } from "./discord.ts";
 import {
-  findPersonById, markConfirmedAt, markNewsletterConfirmed, markNewsletterPending, markNewsletterSkipped, markNewsletterSynced,
-  clearNewsletterPending, recordSurvey, upsertJoin, upsertNewsletterSignup, type PersonDoc, type PersonId,
+  findPersonById, findPersonByEmail, linkGithubLogin, markConfirmedAt, markNewsletterConfirmed, markNewsletterPending,
+  markNewsletterSkipped, markNewsletterSynced, clearNewsletterPending, recordDiscordInvite, recordSurvey, setReviewStatus,
+  upsertJoin, upsertNewsletterSignup, type PersonDoc, type PersonId,
 } from "./people.ts";
 
 /**
@@ -28,6 +30,10 @@ export type JoinDeps = {
   fetchImpl?: typeof fetch;
   now?: () => Date;
   log?: (msg: string) => void;
+  /** the signed-in visitor, when there is one: the only source of auto-admit */
+  viewer?: { login: string; isOrgMember: boolean; isContributor: boolean } | null;
+  discordBotToken?: string;
+  discordChannelId?: string;
 };
 
 export type JoinResult = { status: 200 | 400 | 429; body: { success: boolean; message: string } };
@@ -38,6 +44,9 @@ const DEFAULT_SITE = "https://www.sportsdataverse.org";
 const CONFIRMED_MSG = "You're on the list.";
 const PENDING_MSG = "Almost there — check your inbox and confirm your email.";
 const SEND_FAILED_MSG = "We couldn't send the confirmation email just now. Please try again in a few minutes.";
+const QUEUED_MSG = "Thanks — a member will review your Discord request and email you.";
+const CONFIRMED_DISCORD_MSG = "You're already on the list for Discord — check your email for the invite.";
+const INVITE_FAILED_MSG = "You're approved for Discord, but we couldn't mint an invite just now. We'll email you one shortly.";
 
 const nowOf = (deps: JoinDeps) => (deps.now ?? (() => new Date()))();
 
@@ -103,6 +112,57 @@ async function beginOptIn(
   return PENDING_MSG;
 }
 
+/**
+ * Discord half of a join. Someone GitHub already vouches for (an org member, or
+ * anyone with a merged PR in the org) is admitted immediately; everyone else is
+ * queued for a member to review. A Discord outage never costs us the person:
+ * the decision is stored first and only the invite is retried later.
+ */
+async function admitOrQueue(
+  deps: JoinDeps,
+  personId: PersonId,
+  email: string,
+  existingStatus: PersonDoc["status"] | undefined
+): Promise<string> {
+  const now = nowOf(deps);
+  const viewer = deps.viewer ?? null;
+  if (viewer) await linkGithubLogin(deps.db, personId, viewer.login);
+
+  // a decision already taken stands: re-submitting is not an appeal
+  if (existingStatus === "declined" || existingStatus === "approved" || existingStatus === "auto") {
+    return existingStatus === "declined" ? QUEUED_MSG : CONFIRMED_DISCORD_MSG;
+  }
+
+  const vouched = Boolean(viewer && (viewer.isOrgMember || viewer.isContributor));
+  if (!vouched) {
+    await setReviewStatus(deps.db, personId, "pending", null, now);
+    return QUEUED_MSG;
+  }
+
+  await setReviewStatus(deps.db, personId, "auto", viewer!.login, now);
+  try {
+    const invite = await createInvite({
+      botToken: deps.discordBotToken,
+      channelId: deps.discordChannelId,
+      fetchImpl: deps.fetchImpl,
+      now: () => now,
+    });
+    await recordDiscordInvite(deps.db, personId, invite, now);
+    const url = inviteUrl(invite.code);
+    if (deps.resendFrom) {
+      try {
+        await sendEmail({ from: deps.resendFrom, to: email, ...discordInviteEmail(url) }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
+      } catch (e) {
+        deps.log?.(`discord invite email failed for person ${String(personId)}: ${(e as Error).message}`);
+      }
+    }
+    return `You're in — here's your Discord invite: ${url}`;
+  } catch (e) {
+    deps.log?.(`discord invite failed for person ${String(personId)}: ${(e as Error).message}`);
+    return INVITE_FAILED_MSG;
+  }
+}
+
 export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): Promise<JoinResult> {
   const parsed = joinBodySchema.safeParse(rawBody);
   if (!parsed.success) {
@@ -125,6 +185,7 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
   const lim = await limited(deps, `join:${ip}`, JOIN_LIMIT);
   if (lim) return lim;
 
+  const existing = answers && profile ? await findPersonByEmail(deps.db, email) : null;
   const now = nowOf(deps);
   const { personId, newsletter } = answers && profile
     ? await upsertJoin(deps.db, { email, name, answers, profile, wants, placement }, now)
@@ -135,7 +196,9 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
     await clearNewsletterPending(deps.db, personId);
   }
   const message = wants.newsletter ? await beginOptIn(deps, personId, email, profile, newsletter) : "Thanks — we've got your answers.";
-  return { status: 200, body: { success: true, message } };
+  const parts = [message];
+  if (wants.discord) parts.push(await admitOrQueue(deps, personId, email, existing?.status));
+  return { status: 200, body: { success: true, message: parts.filter(Boolean).join(" ") } };
 }
 
 export async function handleSurvey(rawBody: unknown, ip: string, deps: JoinDeps): Promise<JoinResult> {
