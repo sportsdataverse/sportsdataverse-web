@@ -46,6 +46,14 @@ const PENDING_MSG = "Almost there — check your inbox and confirm your email.";
 const SEND_FAILED_MSG = "We couldn't send the confirmation email just now. Please try again in a few minutes.";
 const QUEUED_MSG = "Thanks — a member will review your Discord request and email you.";
 const CONFIRMED_DISCORD_MSG = "You're already on the list for Discord — check your email for the invite.";
+/**
+ * The one answer every caller this request cannot identify gets, whatever the
+ * stored record says. An email address in a POST body is not proof of anything,
+ * so "we already admitted this address" and "we have never seen it" must read
+ * identically — otherwise the endpoint is a free membership oracle for anyone
+ * with a list of addresses, and (worse) a way to ask for someone else's invite.
+ */
+const ON_FILE_MSG = "Thanks — your Discord request is on file. If we can add you, you'll get an email.";
 
 const nowOf = (deps: JoinDeps) => (deps.now ?? (() => new Date()))();
 
@@ -129,12 +137,18 @@ async function admitOrQueue(
   const viewer = deps.viewer ?? null;
   const existingStatus = existing?.status;
 
+  // the caller is signed in as the person this record is about — the only
+  // proof of ownership this endpoint ever has, since the email came from the
+  // request body and a session cannot be forged into it
+  const isOwner = Boolean(viewer && existing?.githubLogin && viewer.login === existing.githubLogin);
+
   // a decision already taken stands: re-submitting is not an appeal
-  if (existingStatus === "declined") return QUEUED_MSG;
+  if (existingStatus === "declined") return ON_FILE_MSG;
   if (existingStatus === "approved" || existingStatus === "auto") {
-    // they already proved who they are once via OAuth; if we never emailed
-    // them (no verified sender configured) the only honest thing to do is
-    // hand back the invite we're holding, not repeat a promise we can't keep
+    if (!isOwner) return ON_FILE_MSG;
+    // they are signed in as this person; if we never emailed them (no verified
+    // sender configured) the only honest thing to do is hand back the invite
+    // we're holding, not repeat a promise we can't keep
     const code = existing?.discord?.code;
     if (!deps.resendFrom && code) return `You're already on the list for Discord — here's your invite: ${inviteUrl(code)}`;
     return CONFIRMED_DISCORD_MSG;
@@ -148,7 +162,7 @@ async function admitOrQueue(
   }
 
   const vouched = Boolean(viewer && (viewer.isOrgMember || viewer.isContributor));
-  if (!vouched) return QUEUED_MSG; // upsertJoin already left them "pending"; nothing more to stamp
+  if (!vouched) return ON_FILE_MSG; // upsertJoin already left them "pending"; nothing more to stamp
 
   await setReviewStatus(deps.db, personId, "auto", viewer!.login, now);
   try {

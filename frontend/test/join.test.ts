@@ -343,7 +343,7 @@ test('a stranger asking for Discord is queued, and no invite is minted', async (
     db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer: null,
   });
   assert.equal(r.status, 200);
-  assert.match(r.body.message, /review/i);
+  assert.match(r.body.message, /on file/i);
   assert.equal(d.calls.filter((u) => u.includes('discord.com')).length, 0);
   const [p] = dump('people');
   assert.equal(p.status, 'pending');
@@ -359,7 +359,7 @@ test('a signed-in visitor with no org membership and no merged PR is queued, not
     viewer: { login: 'rando', isOrgMember: false, isContributor: false },
   });
   assert.equal(r.status, 200);
-  assert.match(r.body.message, /review/i);
+  assert.match(r.body.message, /on file/i);
   assert.equal(d.calls.filter((u) => u.includes('discord.com')).length, 0, 'being signed in is not enough to mint an invite');
   const [p] = dump('people');
   assert.equal(p.status, 'pending');
@@ -404,8 +404,9 @@ test('a recent decline is not re-opened by re-submitting', async () => {
   const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', deps);
   assert.equal(r.status, 200);
   assert.equal(dump('people')[0].status, 'declined', 'still declined, not back in the queue');
-  assert.match(r.body.message, /a member will review your Discord request/, 'a declined applicant is never told they are on the list');
+  assert.match(r.body.message, /on file/i, 'a declined applicant is never told they are on the list');
   assert.doesNotMatch(r.body.message, /already on the list/i);
+  assert.doesNotMatch(r.body.message, /will review/i, 'and is never promised a review no queue will surface');
 });
 
 test('an approved person re-submitting without a session keeps their approval', async () => {
@@ -418,6 +419,59 @@ test('an approved person re-submitting without a session keeps their approval', 
   const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', deps);
   assert.equal(r.status, 200);
   assert.equal(dump('people')[0].status, 'approved', 'a human decision is not silently demoted by a re-submit');
+});
+
+test('an anonymous caller who knows an admitted address is never handed that person\'s invite', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const owner = { login: 'octocat', isOrgMember: true, isContributor: false };
+  const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv }; // no resendFrom: the live configuration
+  const admitted = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
+  assert.match(admitted.body.message, /discord\.gg\/inv123/, 'the owner got their invite');
+
+  // different IP, no session at all, only the address — which is public in commit metadata
+  const attacker = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '9.9.9.9', { ...base, viewer: null });
+  assert.equal(attacker.status, 200);
+  assert.doesNotMatch(attacker.body.message, /discord\.gg/, 'no invite URL reaches an unidentified caller');
+  assert.doesNotMatch(attacker.body.message, /inv123/, 'and neither does the bare code');
+  assert.match(attacker.body.message, /on file/i);
+  assert.equal(dump('people')[0].status, 'auto', 'the victim keeps their admission');
+  assert.equal(d.calls.filter((u) => u.includes('discord.com')).length, 1, 'and no second invite is minted');
+});
+
+test('a signed-in visitor is not handed the invite of a record that belongs to someone else', async () => {
+  const { db } = fakeDb();
+  const d = discordFake();
+  const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
+  await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    ...base, viewer: { login: 'octocat', isOrgMember: true, isContributor: false },
+  });
+  // vouched in their own right, but not the person this record is about
+  const r = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '2.2.2.2', {
+    ...base, viewer: { login: 'someoneelse', isOrgMember: true, isContributor: false },
+  });
+  assert.doesNotMatch(r.body.message, /discord\.gg/, 'a session vouches for its owner, not for every address they can type');
+  assert.match(r.body.message, /on file/i);
+});
+
+test('an unvouched caller cannot tell an admitted address from a declined or an unknown one', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
+  await handleJoin({ email: 'admitted@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    ...base, viewer: { login: 'octocat', isOrgMember: true, isContributor: false },
+  });
+  await handleJoin({ email: 'declined@b.co', answers: D_ANSWERS }, '2.2.2.2', { ...base, viewer: null });
+  const declinedId = dump('people').find((p) => p.email === 'declined@b.co')!._id;
+  await setReviewStatus(db, declinedId as never, 'declined', 'saiemgilani', new Date(), 'no vouch');
+
+  const probes = await Promise.all(
+    ['admitted@b.co', 'declined@b.co', 'stranger@b.co'].map((email, i) =>
+      handleJoin({ email, answers: D_ANSWERS }, `10.0.0.${i}`, { ...base, viewer: null })
+    )
+  );
+  assert.equal(new Set(probes.map((r) => r.body.message)).size, 1, 'one sentence for all three, or the response is a membership oracle');
+  assert.equal(new Set(probes.map((r) => r.status)).size, 1);
 });
 
 test('Discord failing does not fail the request, and the person falls back into the review queue', async () => {
