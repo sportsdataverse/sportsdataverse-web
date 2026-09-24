@@ -4,6 +4,7 @@ import { fakeDb } from './fakeDb.ts';
 import { handleJoin, handleSurvey, handleConfirm } from '../lib/join.ts';
 import { signConfirmToken } from '../lib/confirmToken.ts';
 import { setReviewStatus } from '../lib/people.ts';
+import { retrySync } from '../lib/review.ts';
 
 function resend(status: number, body: unknown) {
   let calls = 0;
@@ -230,8 +231,30 @@ test('double opt-in: a failed confirmation-email send tells the truth and leaves
   const r = await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '1.1.1.1', deps);
   assert.equal(r.status, 200);
   assert.match(r.body.message, /try again/i);
-  assert.equal(dump('people')[0].newsletter, undefined);
+  assert.equal((dump('people')[0].newsletter as { resendContactId?: string }).resendContactId, undefined, 'never synced');
   assert.match(logs[0], /confirmation email failed/);
+});
+
+test('a confirmation that never went out still records the pending marker, so Retry sync refuses it', async () => {
+  const { db, dump } = fakeDb();
+  const fetchImpl = (async () => new Response('rate limited', { status: 429 })) as typeof fetch;
+  const deps = { db, resendApiKey: 'k', fetchImpl, ...site, resendFrom: 'SDV <news@sportsdataverse.org>' };
+  const r = await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '1.1.1.1', deps);
+  assert.match(r.body.message, /try again/i);
+  assert.deepEqual(Object.keys(dump('people')[0].newsletter as object), ['pending'], 'the promise we made is on the record');
+
+  // the admin sees them in Unsynced and clicks Retry sync: the existing consent
+  // gate has to be able to see that this address was never confirmed
+  const contacts = { calls: 0 };
+  const retryFetch = (async () => {
+    contacts.calls += 1;
+    return new Response(JSON.stringify({ object: 'contact', id: 'c-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const id = (dump('people')[0] as { _id: unknown })._id;
+  const sync = await retrySync({ db, reviewer: 'saiemgilani', resendApiKey: 'k', fetchImpl: retryFetch }, id as never);
+  assert.equal(sync.ok, false);
+  assert.match(sync.message, /confirmed/i);
+  assert.equal(contacts.calls, 0, 'an address whose owner never clicked the link never reaches Resend');
 });
 
 test('a re-signup keeps the double opt-in confirmation on the record', async () => {

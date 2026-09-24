@@ -110,8 +110,13 @@ async function beginOptIn(
   const token = signConfirmToken(String(personId), deps.tokenSecret, now);
   const url = `${deps.siteUrl ?? DEFAULT_SITE}/api/join/confirm?t=${token}`;
   try {
-    await sendEmail({ from: deps.resendFrom, to: email, ...confirmEmail(url) }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
+    // the marker is written BEFORE the send: it records "we asked this person to
+    // confirm", which is true the moment we try. Writing it only on success left
+    // a failed send indistinguishable from an ordinary unsynced row, and the
+    // admin Retry-sync consent gate (lib/review.ts) keys on exactly this marker —
+    // without it, one click subscribes an address whose owner never confirmed.
     await markNewsletterPending(deps.db, personId, now);
+    await sendEmail({ from: deps.resendFrom, to: email, ...confirmEmail(url) }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
   } catch (e) {
     deps.log?.(`confirmation email failed for person ${String(personId)}: ${(e as Error).message}`);
     return SEND_FAILED_MSG;
