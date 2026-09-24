@@ -46,7 +46,14 @@ created immediately).
 - Confirmation links are `/api/join/confirm?t=<token>`: an HMAC over the person id +
   expiry (7 days), signed with `JOIN_TOKEN_SECRET` (falls back to `NEXTAUTH_SECRET`).
 - A person who signed up but has not confirmed has `newsletter.pending.sentAt`; the
-  Resend contact is created on confirm with `newsletter.confirmedAt`.
+  Resend contact is created on confirm with `newsletter.confirmedAt`. The marker is written
+  before the send, so an address whose confirmation mail failed still reads as unconfirmed —
+  but never over an existing contact record, whose `confirmedAt` / `unsubscribed` is that
+  person's own proof of consent.
+- `/api/join` answers a re-signup of an already-confirmed address exactly as it answers an
+  unknown one ("check your inbox for the link"). Two different sentences would let anyone with
+  a list of addresses test which are subscribed — the same reason the Discord half returns one
+  sentence to every caller it cannot identify.
 
 ## Contact properties (segmentation)
 
@@ -101,7 +108,11 @@ above):
   domain isn't verified yet:** nothing is emailed. An auto-admitted visitor still gets their
   invite, because the URL is right there in the `/join` response their browser just got.
   Someone an admin approves from the queue does not — the People tab shows the admin the link
-  ("Invite ready — send it yourself") and the admin relays it by hand.
+  ("Invite ready — send it yourself") and the admin relays it by hand. Re-submitting `/join`
+  only re-shows an invite to the person whose own signed-in, vouched request minted it
+  (`status: "auto"` stamped with their handle); every other caller — signed out, signed in as
+  someone else, or admin-approved — gets one neutral sentence, because the email in a request
+  body proves nothing about who is sending it.
 
 ## Reviewing people
 
@@ -111,9 +122,10 @@ above):
   mints (or reuses a still-live) invite per the email rule above **and only then** records the
   approval: if minting fails (Discord down, or the bot not created yet) nothing is stamped and
   the person stays in this queue, with the Discord error shown to you — an approval never
-  exists without an invite behind it. Approve, Decline and Resend invite all refuse a person
-  who never asked for Discord (`wants.discord: false`), and are only offered on rows that did,
-  so a newsletter subscriber cannot be decided about by mistake. Decline stores a reason and
+  exists without an invite behind it. Approve, Decline, Resend invite and Back to queue all
+  refuse a person who never asked for Discord (`wants.discord: false`), and are only offered on
+  rows that did, so a newsletter subscriber cannot be decided about by mistake — and nobody is
+  requeued into a `pending` state the Queue view (`wants.discord: true`) would not show. Decline stores a reason and
   only emails it when you tick "notify" (and only if `RESEND_FROM` is set). A decline stands —
   re-submitting `/join` does not reopen it — but it is not permanent: **Back to queue** on a
   declined row returns them to `pending` for a fresh look.
