@@ -82,8 +82,9 @@ Rate limits: 10/IP/hour for the survey, 5/IP/hour for join.
 Every invite is minted per person — 3 uses, 7 days, `unique: true` (`lib/discord.ts`) — so no
 invite link is ever shared or reused across people. Someone who is a `sportsdataverse` org
 member, or who has a merged PR anywhere in the org, is admitted the moment they ask
-(`status: "auto"`); everyone else lands in the Queue view below for an admin to approve or
-decline. Two things route what would otherwise be an on-the-spot admit into the queue instead:
+(`status: "auto"`) — **provided they are signed in**: `/join` carries its own GitHub sign-in
+button for exactly this, and a visitor with no session is always queued, org member or not.
+Everyone else lands in the Queue view below for an admin to approve or decline. Two things route what would otherwise be an on-the-spot admit into the queue instead:
 minting the invite failing (Discord down, bad token, wrong channel — the person is put back to
 `status: "pending"`, never left `"auto"` with no invite to show for it), and the visitor's
 GitHub login already belonging to a different `people` record (queued rather than risking a
@@ -107,18 +108,26 @@ above):
 `/platform/admin/people` (org members with the `admin` role) has three views:
 
 - **Queue** — pending Discord requests (`status: "pending"`, `wants.discord: true`). Approve
-  mints (or reuses a still-live) invite per the email rule above; a person who never asked for
-  Discord (`wants.discord: false`) cannot be approved into it — the route refuses with "nothing
-  to approve." Decline stores a reason and only emails it when you tick "notify" (and only if
-  `RESEND_FROM` is set). A decline stands — re-submitting `/join` does not reopen it.
+  mints (or reuses a still-live) invite per the email rule above **and only then** records the
+  approval: if minting fails (Discord down, or the bot not created yet) nothing is stamped and
+  the person stays in this queue, with the Discord error shown to you — an approval never
+  exists without an invite behind it. Approve, Decline and Resend invite all refuse a person
+  who never asked for Discord (`wants.discord: false`), and are only offered on rows that did,
+  so a newsletter subscriber cannot be decided about by mistake. Decline stores a reason and
+  only emails it when you tick "notify" (and only if `RESEND_FROM` is set). A decline stands —
+  re-submitting `/join` does not reopen it — but it is not permanent: **Back to queue** on a
+  declined row returns them to `pending` for a fresh look.
 - **Unsynced** — people who want the newsletter but have no Resend contact yet
   (`wants.newsletter: true`, no `newsletter.resendContactId`): a failed sync, a signup from
   before the key was set, or someone still waiting on their double opt-in confirmation link,
   since that link also leaves no `resendContactId` until it's clicked. "Retry sync" creates the
-  Resend contact with their profile properties immediately — it does not check whether a
-  confirmation link was ever clicked, so running it on someone mid-confirmation subscribes them
-  without that click. Someone who didn't ask for the newsletter, or who already unsubscribed,
-  cannot be synced — the route refuses.
+  Resend contact with their profile properties, but only for someone the record shows asked for
+  it. It refuses: an unclicked double opt-in (`newsletter.pending` with no `confirmedAt`) —
+  including one whose confirmation email failed to send, which is recorded the same way — a
+  reserved domain (`newsletter.skipped`, the `@example.com` addresses CI walkthroughs submit),
+  anyone who didn't ask for the newsletter, and anyone who already unsubscribed. Under single
+  opt-in (`RESEND_FROM` unset) no `pending` marker is ever written, so those rows sync
+  normally — the form tick is the consent.
 - **All** — everyone, for finding a specific person. "Delete" erases the Mongo record for a
   removal request; the Resend contact, if any, must be deleted separately in the Resend
   dashboard — deleting the record does not touch it.
