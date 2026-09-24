@@ -186,7 +186,9 @@ export default function PeopleClient() {
             </TableHeader>
             <TableBody>
               {people.map((p) => {
-                const canResend = Boolean(p.discordCode) || p.status === "approved" || p.status === "auto";
+                // resendInvite mints against the CURRENT answer, so it refuses a row whose
+                // latest /join said no Discord — don't offer a button that can only error
+                const canResend = p.wantsDiscord && (Boolean(p.discordCode) || p.status === "approved" || p.status === "auto");
                 const canRetrySync = p.wantsNewsletter && p.newsletterState !== "synced";
                 return (
                   <TableRow key={p.id}>
