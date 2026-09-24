@@ -54,18 +54,30 @@ export function fakeDb() {
   const store = new Map<string, Doc[]>();
   const rows = (name: string) => store.get(name) ?? store.set(name, []).get(name)!;
   let nextUpdateShouldFail: { code?: number } | null = null;
+  let nextReadShouldFail: { code?: number } | null = null;
+  // A real Mongo read hands back a freshly-deserialized document, not a
+  // reference into the driver's cache — mutating what a caller reads must
+  // never be visible to a later read or to `dump()`. structuredClone matches
+  // that on every path that hands a document back to a caller.
+  const cloned = <T>(d: T): T => structuredClone(d);
+  const consumeFailure = (flag: { code?: number } | null, reset: () => void): void => {
+    if (!flag) return;
+    reset();
+    const err = new Error('Simulated error') as any;
+    Object.assign(err, flag);
+    throw err;
+  };
   const db = {
     collection(name: string) {
       return {
         async createIndex() { return `${name}_idx`; },
-        async findOne(filter: Doc) { return rows(name).find((d) => matches(d, filter)) ?? null; },
+        async findOne(filter: Doc) {
+          consumeFailure(nextReadShouldFail, () => { nextReadShouldFail = null; });
+          const d = rows(name).find((doc) => matches(doc, filter));
+          return d ? cloned(d) : null;
+        },
         async updateOne(filter: Doc, update: Doc) {
-          if (nextUpdateShouldFail) {
-            const err = new Error('Simulated error') as any;
-            Object.assign(err, nextUpdateShouldFail);
-            nextUpdateShouldFail = null;
-            throw err;
-          }
+          consumeFailure(nextUpdateShouldFail, () => { nextUpdateShouldFail = null; });
           const d = rows(name).find((r) => matches(r, filter));
           if (d) apply(d, update, false);
           return { matchedCount: d ? 1 : 0, modifiedCount: d ? 1 : 0 };
@@ -81,10 +93,11 @@ export function fakeDb() {
           } else if (d) {
             apply(d, update, false);
           }
+          const value = d ? cloned(d) : null;
           if (opts.includeResultMetadata) {
-            return { value: d ?? null, ok: 1, lastErrorObject: { updatedExisting: !!d && !upserted, upserted: upserted ? d!._id : undefined } };
+            return { value, ok: 1, lastErrorObject: { updatedExisting: !!d && !upserted, upserted: upserted ? d!._id : undefined } };
           }
-          return d ?? null;
+          return value;
         },
         async insertOne(doc: Doc) {
           const d = { _id: `id-${nextId++}`, ...doc };
@@ -104,11 +117,13 @@ export function fakeDb() {
               return api;
             },
             limit(n: number) { out = out.slice(0, n); return api; },
-            async toArray() { return out; },
+            async toArray() { return out.map(cloned); },
           };
           return api;
         },
         async deleteOne(filter: Doc) {
+          // deletes are a write too: the same "next op fails" flag covers both
+          consumeFailure(nextUpdateShouldFail, () => { nextUpdateShouldFail = null; });
           const list = rows(name);
           const i = list.findIndex((d) => matches(d, filter));
           if (i < 0) return { deletedCount: 0 };
@@ -122,5 +137,6 @@ export function fakeDb() {
     db: db as unknown as import('mongodb').Db,
     dump: (name: string) => rows(name),
     failNextUpdateWith: (err: { code?: number }) => { nextUpdateShouldFail = err; },
+    failNextReadWith: (err: { code?: number }) => { nextReadShouldFail = err; },
   };
 }
