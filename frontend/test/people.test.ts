@@ -123,6 +123,17 @@ test('a github login is linked once and never stolen from another person', async
   assert.equal(await linkGithubLogin(db, b.personId, 'octocat'), false, 'already someone else');
 });
 
+test('a record already bound to a handle is never re-pointed to another', async () => {
+  const { db, dump } = fakeDb();
+  const a = await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: false, discord: true } }, T0);
+  assert.equal(await linkGithubLogin(db, a.personId, 'victimlogin'), true);
+  // the record's email came out of a request body, so a second caller must not
+  // be able to overwrite the handle it is already bound to
+  assert.equal(await linkGithubLogin(db, a.personId, 'attacker'), false);
+  assert.equal(dump('people')[0].githubLogin, 'victimlogin');
+  assert.equal(await linkGithubLogin(db, a.personId, 'VictimLogin'), true, 'the same handle in another case is the same person');
+});
+
 test('unsynced newsletter people are listed, excluding those with resendContactId or not newsletter subscribers', async () => {
   const { db, dump } = fakeDb();
   const a = await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: true, discord: false } }, T0);

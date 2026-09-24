@@ -252,11 +252,20 @@ export async function recordDiscordInvite(
  * ever see: this reports it instead of throwing.
  */
 export async function linkGithubLogin(db: Db, personId: PersonId, login: string): Promise<boolean> {
-  const owner = await people(db).findOne({ githubLogin: login });
+  // folded on write: GitHub handles are case-insensitive, and the unique index
+  // can only enforce that if every record spells the same handle the same way
+  const key = login.toLowerCase();
+  const person = await people(db).findOne({ _id: personId });
+  // This record is already bound to a different handle. Re-pointing it is how an
+  // ownership key stops being one: /join resolves the record from the request
+  // body's email, so overwriting here would let a caller claim someone else's
+  // record — and lock the rightful person out of ever linking their own.
+  if (person?.githubLogin && person.githubLogin !== key) return false;
+  const owner = await people(db).findOne({ githubLogin: key });
   if (owner && String(owner._id) !== String(personId)) return false;
   if (owner) return true;
   try {
-    await people(db).updateOne({ _id: personId }, { $set: { githubLogin: login } });
+    await people(db).updateOne({ _id: personId }, { $set: { githubLogin: key } });
     return true;
   } catch (e) {
     // unique index on githubLogin: another request linked it between our read and write

@@ -57,6 +57,10 @@ const ON_FILE_MSG = "Thanks — your Discord request is on file. If we can add y
 
 const nowOf = (deps: JoinDeps) => (deps.now ?? (() => new Date()))();
 
+/** GitHub handles are case-insensitive: `OctoCat` and `octocat` are one person. */
+const sameLogin = (a: string | undefined, b: string | undefined) =>
+  Boolean(a && b && a.toLowerCase() === b.toLowerCase());
+
 async function limited(deps: JoinDeps, key: string, lim: { limit: number; windowSec: number }): Promise<JoinResult | null> {
   const rl = await allowRequest(deps.db, key, { ...lim, now: deps.now });
   if (rl.allowed) return null;
@@ -142,32 +146,41 @@ async function admitOrQueue(
   const viewer = deps.viewer ?? null;
   const existingStatus = existing?.status;
 
-  // the caller is signed in as the person this record is about — the only
-  // proof of ownership this endpoint ever has, since the email came from the
-  // request body and a session cannot be forged into it
-  const isOwner = Boolean(viewer && existing?.githubLogin && viewer.login === existing.githubLogin);
+  // The echo is for a SELF-admission and nothing else: `auto` plus a reviewer
+  // stamp equal to the caller means this record's login was bound inside the
+  // same OAuth-vouched request that minted this invite, so the record's own
+  // history proves the binding. Matching `githubLogin` alone would not — it is
+  // written from a request whose email came out of the body (see
+  // linkGithubLogin), so it is a claim, not a proof. Someone an admin approved
+  // is relayed the link by hand, which is already the documented flow.
+  const selfAdmitted = Boolean(
+    viewer && existingStatus === "auto" && sameLogin(existing?.reviewedBy, viewer.login)
+  );
 
   // a decision already taken stands: re-submitting is not an appeal
   if (existingStatus === "declined") return ON_FILE_MSG;
   if (existingStatus === "approved" || existingStatus === "auto") {
-    if (!isOwner) return ON_FILE_MSG;
-    // they are signed in as this person; if we never emailed them (no verified
-    // sender configured) the only honest thing to do is hand back the invite
-    // we're holding, not repeat a promise we can't keep
+    if (!selfAdmitted) return ON_FILE_MSG;
+    // this is their own admission; if we never emailed them (no verified sender
+    // configured) the only honest thing to do is hand back the invite we're
+    // holding, not repeat a promise we can't keep
     const code = existing?.discord?.code;
     if (!deps.resendFrom && code) return `You're already on the list for Discord — here's your invite: ${inviteUrl(code)}`;
     return CONFIRMED_DISCORD_MSG;
   }
 
-  if (viewer) {
-    const linked = await linkGithubLogin(deps.db, personId, viewer.login);
-    // this GitHub identity already has a person record under another email —
-    // queue instead of minting a second invite for the same human
-    if (!linked) return QUEUED_MSG;
-  }
-
   const vouched = Boolean(viewer && (viewer.isOrgMember || viewer.isContributor));
   if (!vouched) return ON_FILE_MSG; // upsertJoin already left them "pending"; nothing more to stamp
+
+  // Bind the handle only here, behind the vouch. `githubLogin` is the record's
+  // ownership key, so only a session GitHub vouches for may write it: a
+  // signed-in stranger could otherwise stamp their handle on a queued person's
+  // row, locking the rightful person out of linking their own and showing the
+  // reviewing admin a handle that reads as identity and is not.
+  const linked = await linkGithubLogin(deps.db, personId, viewer!.login);
+  // this GitHub identity already has a person record under another email —
+  // queue instead of minting a second invite for the same human
+  if (!linked) return ON_FILE_MSG;
 
   await setReviewStatus(deps.db, personId, "auto", viewer!.login, now);
   try {

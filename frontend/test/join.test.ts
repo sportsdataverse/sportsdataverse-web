@@ -4,7 +4,7 @@ import { fakeDb } from './fakeDb.ts';
 import { handleJoin, handleSurvey, handleConfirm } from '../lib/join.ts';
 import { signConfirmToken } from '../lib/confirmToken.ts';
 import { setReviewStatus } from '../lib/people.ts';
-import { retrySync } from '../lib/review.ts';
+import { approve, retrySync } from '../lib/review.ts';
 
 function resend(status: number, body: unknown) {
   let calls = 0;
@@ -408,7 +408,7 @@ test('a second email for the same GitHub login is queued, not admitted a second 
   assert.match(r1.body.message, /discord\.gg\/inv123/);
   const r2 = await handleJoin({ email: 'second@b.co', answers: D_ANSWERS }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer });
   assert.equal(r2.status, 200, 'the second address must not 500 on the unique login index');
-  assert.match(r2.body.message, /review/i, 'the same GitHub identity does not get a second invite under a new email');
+  assert.match(r2.body.message, /on file/i, 'the same GitHub identity does not get a second invite under a new email');
   assert.equal(dump('people').length, 2);
   assert.equal(dump('people').filter((p) => p.githubLogin === 'octocat').length, 1);
   const second = dump('people').find((p) => p.email === 'second@b.co')!;
@@ -495,6 +495,89 @@ test('an unvouched caller cannot tell an admitted address from a declined or an 
   );
   assert.equal(new Set(probes.map((r) => r.body.message)).size, 1, 'one sentence for all three, or the response is a membership oracle');
   assert.equal(new Set(probes.map((r) => r.status)).size, 1);
+});
+
+test('a signed-in stranger cannot stamp their handle on someone else\'s queued record', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
+  await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: null }); // victim joined signed out
+  const r = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '9.9.9.9', {
+    ...base, viewer: { login: 'attacker', isOrgMember: false, isContributor: false },
+  });
+  assert.match(r.body.message, /on file/i);
+  assert.equal(dump('people')[0].githubLogin, undefined, 'the ownership key is only ever written by a vouched session');
+  assert.equal(dump('people')[0].status, 'pending');
+});
+
+test('the claim chain: a claimed record, an admin approval, and still no invite for the claimant', async () => {
+  const { db, dump } = fakeDb();
+  // the victim is a vouched contributor whose own mint failed, so their record
+  // is back in the queue still carrying their handle — the one state where a
+  // second caller reaches linkGithubLogin on an already-bound record
+  const deadDiscord = (async (url: string | URL | Request) => {
+    if (String(url).includes('discord.com')) return new Response('{"message":"Missing Permissions"}', { status: 403 });
+    return new Response(JSON.stringify({ id: 'em-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    db, resendApiKey: 'k', fetchImpl: deadDiscord, ...discordEnv,
+    viewer: { login: 'victimlogin', isOrgMember: true, isContributor: false },
+  });
+  assert.equal(dump('people')[0].status, 'pending');
+  assert.equal(dump('people')[0].githubLogin, 'victimlogin');
+
+  // an attacker — vouched in their own right, so they get all the way to the link
+  const d = discordFake();
+  const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
+  const claim = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '2.2.2.2', {
+    ...base, viewer: { login: 'attacker', isOrgMember: true, isContributor: false },
+  });
+  assert.match(claim.body.message, /on file/i);
+  assert.equal(dump('people')[0].githubLogin, 'victimlogin', "the rightful owner's handle survives");
+
+  // the admin works the queue and approves that row
+  const approved = await approve({ db, reviewer: 'saiemgilani', ...discordEnv, resendApiKey: 'k', fetchImpl: d.fetchImpl }, dump('people')[0]._id as never);
+  assert.equal(approved.ok, true);
+  assert.equal((dump('people')[0].discord as { code: string }).code, 'inv123');
+
+  const steal = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '3.3.3.3', {
+    ...base, viewer: { login: 'attacker', isOrgMember: true, isContributor: false },
+  });
+  assert.doesNotMatch(steal.body.message, /discord\.gg/, 'an approval an admin made is not a key the claimant can turn');
+  assert.doesNotMatch(steal.body.message, /inv123/);
+  assert.match(steal.body.message, /on file/i);
+});
+
+test('an admin approval is never echoed as an invite — only a self-admission is', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const viewer = { login: 'octocat', isOrgMember: false, isContributor: false };
+  const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
+  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer }); // unvouched -> queued
+  const id = dump('people')[0]._id;
+  await approve({ db, reviewer: 'saiemgilani', ...discordEnv, resendApiKey: 'k', fetchImpl: d.fetchImpl }, id as never);
+  assert.equal((dump('people')[0].discord as { code: string }).code, 'inv123');
+
+  // the same human, signed in as themselves, re-submitting: the admin relays the
+  // link by hand (SETUP-community.md), the endpoint never hands it out
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer });
+  assert.doesNotMatch(r.body.message, /discord\.gg/);
+  assert.match(r.body.message, /on file/i);
+});
+
+test('a handle that differs only in case is the same person', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
+  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    ...base, viewer: { login: 'OctoCat', isOrgMember: true, isContributor: false },
+  });
+  assert.equal(dump('people')[0].githubLogin, 'octocat', 'stored folded, so the unique index can do its job');
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    ...base, viewer: { login: 'octocat', isOrgMember: true, isContributor: false },
+  });
+  assert.match(r.body.message, /discord\.gg\/inv123/, 'GitHub handles are case-insensitive; the owner keeps their own invite');
+  assert.equal(d.calls.filter((u) => u.includes('discord.com')).length, 1, 'and no second invite is minted');
 });
 
 test('Discord failing does not fail the request, and the person falls back into the review queue', async () => {
