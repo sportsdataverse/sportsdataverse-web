@@ -23,7 +23,7 @@ function getPath(doc: Doc, path: string): unknown {
 }
 
 function matches(doc: Doc, filter: Doc) {
-  return Object.entries(filter).every(([k, v]) => String(doc[k]) === String(v));
+  return Object.entries(filter).every(([k, v]) => String(k.includes('.') ? getPath(doc, k) : doc[k]) === String(v));
 }
 
 function apply(doc: Doc, update: Doc, inserting: boolean) {
@@ -75,6 +75,30 @@ export function fakeDb() {
           const d = { _id: `id-${nextId++}`, ...doc };
           rows(name).push(d);
           return { insertedId: d._id, acknowledged: true };
+        },
+        find(filter: Doc = {}) {
+          let out = rows(name).filter((d) => matches(d, filter));
+          const api = {
+            sort(spec: Record<string, 1 | -1>) {
+              const [[key, dir]] = Object.entries(spec);
+              out = [...out].sort((a, b) => {
+                const av = Number(a[key] instanceof Date ? (a[key] as Date).getTime() : a[key] ?? 0);
+                const bv = Number(b[key] instanceof Date ? (b[key] as Date).getTime() : b[key] ?? 0);
+                return dir === 1 ? av - bv : bv - av;
+              });
+              return api;
+            },
+            limit(n: number) { out = out.slice(0, n); return api; },
+            async toArray() { return out; },
+          };
+          return api;
+        },
+        async deleteOne(filter: Doc) {
+          const list = rows(name);
+          const i = list.findIndex((d) => matches(d, filter));
+          if (i < 0) return { deletedCount: 0 };
+          list.splice(i, 1);
+          return { deletedCount: 1 };
         },
       };
     },
