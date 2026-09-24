@@ -191,6 +191,17 @@ test('retrySync sends the profile through as Resend contact properties', async (
   });
 });
 
+test('retrySync refuses someone who never clicked their confirmation link', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db, { newsletter: true, discord: false });
+  (dump('people')[0] as { newsletter?: unknown }).newsletter = { pending: { sentAt: T0 } };
+  const net = fakeNet();
+  const r = await retrySync({ db, ...env, fetchImpl: net.fetchImpl }, id);
+  assert.equal(r.ok, false);
+  assert.match(r.message, /confirmed/i);
+  assert.equal(net.calls.length, 0, 'never hands Resend an unconfirmed address');
+});
+
 test('retrySync carries an existing confirmedAt forward instead of losing it', async () => {
   const { db, dump } = fakeDb();
   const id = await queued(db, { newsletter: true, discord: false });

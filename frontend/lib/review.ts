@@ -203,6 +203,11 @@ export async function retrySync(deps: ReviewDeps, personId: PersonId): Promise<{
   // the double opt-in design exists so we never hold an address nobody offered —
   // an admin retry button must not be the one path that skips consent
   if (!person.wants.newsletter) return { ok: false, message: "This person didn't ask for the newsletter — nothing to sync." };
+  // a confirmation was sent and never clicked: syncing now would hand Resend an address
+  // whose owner never agreed. Single opt-in never writes `pending`, so it is unaffected.
+  if (person.newsletter && "pending" in person.newsletter && !person.newsletter.confirmedAt) {
+    return { ok: false, message: "This person hasn't confirmed their newsletter subscription yet — a retry won't add them." };
+  }
   if (person.newsletter && "unsubscribed" in person.newsletter && person.newsletter.unsubscribed) {
     return { ok: false, message: "This person unsubscribed from the newsletter — a retry won't resubscribe them." };
   }

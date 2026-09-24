@@ -262,6 +262,7 @@ export default function PeopleClient() {
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
                             placeholder="Reason"
+                            maxLength={300}
                             className="max-w-xs"
                           />
                           <label className="flex items-center gap-1 text-xs text-muted-foreground">
