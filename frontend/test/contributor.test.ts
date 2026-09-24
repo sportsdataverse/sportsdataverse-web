@@ -23,7 +23,8 @@ test('one merged PR in the org makes someone a contributor', async () => {
 
 test('no merged PRs, and any API failure, read as not a contributor', async () => {
   assert.equal(await fetchIsContributor('gho_x', fakeFetch(200, { total_count: 0 }).fetchImpl), false);
-  assert.equal(await fetchIsContributor('gho_x', fakeFetch(403, { message: 'rate limited' }).fetchImpl), false);
+  // total_count is present so this pins the !res.ok guard: drop the guard and this goes red
+  assert.equal(await fetchIsContributor('gho_x', fakeFetch(403, { message: 'rate limited', total_count: 5 }).fetchImpl), false);
   const boom = (async () => { throw new Error('network'); }) as unknown as typeof fetch;
   assert.equal(await fetchIsContributor('gho_x', boom), false);
 });
