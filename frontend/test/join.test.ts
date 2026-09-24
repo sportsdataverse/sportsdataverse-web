@@ -718,3 +718,40 @@ test('with a verified sender, the invite is emailed on admission and a re-submis
   assert.equal(r2.status, 200);
   assert.match(r2.body.message, /check your email/i);
 });
+
+test('a stale invite left on the row by a failed rollback is never echoed', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const owner = { login: 'octocat', isOrgMember: true, isContributor: false };
+  const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
+  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
+  // the shape a failed rollback leaves: this admission, someone else's older code
+  const row = dump('people')[0] as { discord: { invitedAt: Date }; reviewedAt: Date };
+  row.discord.invitedAt = new Date(row.reviewedAt.getTime() - 60_000);
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
+  assert.doesNotMatch(r.body.message, /discord\.gg/, 'an invite predating this admission is not ours to hand over');
+  assert.doesNotMatch(r.body.message, /inv123/);
+});
+
+test('an expired invite is not handed back as if it still worked', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const owner = { login: 'octocat', isOrgMember: true, isContributor: false };
+  const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
+  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
+  (dump('people')[0] as { discord: { expiresAt: Date } }).discord.expiresAt = new Date(Date.now() - 1000);
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
+  assert.doesNotMatch(r.body.message, /discord\.gg/, 'a dead link is worse than no link');
+});
+
+test('a re-signup never erases proof that this address completed double opt-in', async () => {
+  const { db, dump } = fakeDb();
+  const confirmedAt = new Date('2026-09-01T00:00:00Z');
+  const body = { email: 'a@b.co', wants: { newsletter: true, discord: false } } as never;
+  const deps = { db, resendApiKey: 'k', resendFrom: 'SDV <news@sportsdataverse.org>', tokenSecret: 's', fetchImpl: okResend().fetchImpl, viewer: null };
+  await handleJoin(body, '1.1.1.1', deps);
+  (dump('people')[0] as { newsletter?: unknown }).newsletter = { pending: { sentAt: new Date() }, confirmedAt };
+  await handleJoin(body, '1.1.1.1', deps);
+  const nl = dump('people')[0].newsletter as { confirmedAt?: Date };
+  assert.equal(nl.confirmedAt?.getTime(), confirmedAt.getTime(), 'the confirmation they already gave survives');
+});

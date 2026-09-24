@@ -132,7 +132,8 @@ async function beginOptIn(
     // wholesale by clearNewsletterPending. The only record that reaches here
     // holding a contact is an unsubscribed one, and retrySync already refuses
     // that on its own gate — so its proof of consent is kept, not overwritten.
-    if (!existing || "pending" in existing) await markNewsletterPending(deps.db, personId, now);
+    if (!existing || ("pending" in existing && !existing.confirmedAt))
+      await markNewsletterPending(deps.db, personId, now);
     await sendEmail({ from: deps.resendFrom, to: email, ...confirmEmail(url) }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
   } catch (e) {
     deps.log?.(`confirmation email failed for person ${String(personId)}: ${(e as Error).message}`);
@@ -177,8 +178,16 @@ async function admitOrQueue(
     // this is their own admission; if we never emailed them (no verified sender
     // configured) the only honest thing to do is hand back the invite we're
     // holding, not repeat a promise we can't keep
-    const code = existing?.discord?.code;
-    if (!deps.resendFrom && code) return `You're already on the list for Discord — here's your invite: ${inviteUrl(code)}`;
+    // only an invite minted for THIS admission and still alive: a failed rollback
+    // can leave a previous occupant's code on the row, and a 7-day invite dies
+    const d = existing?.discord;
+    const ours = Boolean(
+      d &&
+        d.expiresAt.getTime() > now.getTime() &&
+        existing?.reviewedAt &&
+        d.invitedAt.getTime() >= existing.reviewedAt.getTime()
+    );
+    if (!deps.resendFrom && ours && d) return `You're already on the list for Discord — here's your invite: ${inviteUrl(d.code)}`;
     return CONFIRMED_DISCORD_MSG;
   }
 
