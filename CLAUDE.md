@@ -21,7 +21,7 @@ per-package R pkgdown sites) — this repo is the org front door, NOT a docs sit
   packages/projects/people/rate_limits, NOT Supabase). Newsletter sender is **Resend**
   (`RESEND_API_KEY`, `lib/newsletter.ts`); the subscriber list of record is Mongo `people`.
   Analytics is **Plausible** (`next-plausible`), not GA. Auth via Auth.js v5 (GitHub OAuth, org-membership JWT). API route handlers in `frontend/app/api/`.
-- **Community:** `/join`, `/survey`, `/join/confirmed`; `POST /api/join`, `POST /api/survey`, `GET /api/join/confirm`. Questions are data in `frontend/content/survey.ts`; engine + handlers in `frontend/lib/{survey,join}.ts`; see `frontend/SETUP-community.md`.
+- **Community:** `/join`, `/survey`, `/join/confirmed`; `POST /api/join`, `POST /api/survey`, `GET /api/join/confirm`; review queue at `/platform/admin/people` (org members with the `admin` role) with `GET /api/platform/admin/people` (`?view=queue|unsynced|all`) and `POST /api/platform/admin/people/[id]/[action]` (`action` = `approve|decline|resend|retry-sync|delete`). Questions are data in `frontend/content/survey.ts`; engine + handlers in `frontend/lib/{survey,join,review,discord}.ts`; see `frontend/SETUP-community.md`.
 - **Data pipeline:** `python/data_fetcher.py` (uv-managed) pulls GitHub/package stats; the
   `cron.yml` is **manual-only** (`workflow_dispatch`); it has never committed anything, because
   the fetcher's luigi targets land under `python/tmp/`, which the repo does not track.
@@ -74,6 +74,25 @@ uv lock --upgrade && uv sync       # bump deps
 - **Turbopack root is pinned** in `next.config.ts` (`turbopack.root`) so a stray lockfile in the
   home dir isn't mis-detected as the workspace root — keep it when editing config.
 - Two backends, easy to confuse: **views = Supabase, packages/projects = MongoDB.**
+- **Mongo `people` is written before any outbound Resend/Discord call, never after** (`lib/join.ts`,
+  `lib/review.ts`). The person's record is saved first and the email/invite send is best-effort
+  around it, so a failed Resend or Discord call still looks like a success from outside — the
+  request/route returns normally, and the only trace is a `log()` line and, for Discord, the
+  person landing back in the review queue rather than a thrown error. Check the person's stored
+  state (`newsletter`, `discord`, `status`), not just "did the handler return 200," when
+  debugging a report that a signup or invite "didn't happen."
+- **`RESEND_FROM` gates two independent things**, not one: double opt-in for the newsletter
+  (`lib/join.ts` `beginOptIn`) and whether a minted Discord invite is emailed at all
+  (`lib/join.ts` `admitOrQueue`, `lib/review.ts` `mintAndSend`). It is currently **unset** in
+  production (the sending domain isn't verified yet), so both are off: newsletter signup is
+  single opt-in, and nobody gets an invite emailed — an auto-admitted visitor sees the invite
+  link in the `/join` response itself, and an admin-approved one has to be relayed by hand from
+  the People tab. Don't assume setting it only turns on the newsletter behavior.
+- **`node --test` (`npm run test:lib`) cannot load anything that imports `next-auth`** — it
+  hangs/fails outside the Next.js build pipeline. That's why the GitHub contributor check lives
+  in its own module, `frontend/lib/contributor.ts` (no `next-auth` import), separate from
+  `frontend/lib/auth.ts` which wires it into the session callback. Keep new auth-adjacent logic
+  that needs a unit test off `lib/auth.ts` the same way.
 
 ## Visual verification — REQUIRED for any UI change
 
