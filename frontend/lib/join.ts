@@ -42,7 +42,13 @@ const JOIN_LIMIT = { limit: 5, windowSec: 3600 };
 const SURVEY_LIMIT = { limit: 10, windowSec: 3600 };
 const DEFAULT_SITE = "https://www.sportsdataverse.org";
 const CONFIRMED_MSG = "You're on the list.";
-const PENDING_MSG = "Almost there — check your inbox and confirm your email.";
+/**
+ * One sentence for "we just sent you a link" and for "this address is already
+ * confirmed": with double opt-in live, two different sentences would tell an
+ * anonymous caller which addresses are on the list — the same oracle the
+ * Discord half closes, on the newsletter half.
+ */
+const PENDING_MSG = "Thanks — if this address still needs confirming, check your inbox for the link.";
 const SEND_FAILED_MSG = "We couldn't send the confirmation email just now. Please try again in a few minutes.";
 const QUEUED_MSG = "Thanks — a member will review your Discord request and email you.";
 const CONFIRMED_DISCORD_MSG = "You're already on the list for Discord — check your email for the invite.";
@@ -100,7 +106,8 @@ async function beginOptIn(
     // already synced (e.g. re-signup after confirming once before): refresh properties, don't re-send a
     // link, and keep the confirmation timestamp — it is this person's proof of consent
     await syncContact(deps, personId, email, profile, false, existing.confirmedAt);
-    return CONFIRMED_MSG;
+    // under double opt-in, answer exactly as an unknown address is answered
+    return deps.resendFrom && deps.tokenSecret ? PENDING_MSG : CONFIRMED_MSG;
   }
   if (isReservedEmail(email)) {
     await markNewsletterSkipped(deps.db, personId, "reserved-domain");

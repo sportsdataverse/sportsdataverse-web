@@ -236,6 +236,18 @@ test('requeue is the way back out of declined, and only out of declined', async 
   assert.match(again.message, /declined/i);
 });
 
+test('requeue refuses a row whose latest answer is "no Discord", which no queue would show', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db);
+  await decline({ db, ...env }, id, 'no vouch', false);
+  // they re-submit /join unticking Discord: wants.discord flips, status does not
+  await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROFILE as never, wants: { newsletter: true, discord: false } }, T0);
+  const r = await requeue({ db, ...env }, id);
+  assert.equal(r.ok, false);
+  assert.match(r.message, /didn.t ask for discord/i);
+  assert.equal(dump('people')[0].status, 'declined', 'never parked in a pending state no view lists');
+});
+
 test('retrySync creates the missing Resend contact; removePerson erases the record', async () => {
   const { db, dump } = fakeDb();
   const id = await queued(db, { newsletter: true, discord: false });

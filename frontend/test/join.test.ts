@@ -185,9 +185,25 @@ test('re-signup after single opt-in does not clobber the synced contact', async 
   }) as typeof fetch;
   const second = await handleJoin({ email: 'a@b.co' }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl, ...site, resendFrom: 'SDV <news@sportsdataverse.org>' });
   assert.equal(second.status, 200);
-  assert.equal(second.body.message, "You're on the list.");
+  assert.match(second.body.message, /check your inbox/i, 'the same sentence an unknown address gets');
   assert.ok(!calls.some((c) => c.url.endsWith('/emails')));
   assert.equal((dump('people')[0].newsletter as { resendContactId: string }).resendContactId, 'c-479e');
+});
+
+test('with double opt-in live, a subscribed address and an unknown one get the same answer', async () => {
+  const { db } = fakeDb();
+  const fetchImpl = (async (url: string | URL | Request) => {
+    const isEmail = String(url).endsWith('/emails');
+    return new Response(JSON.stringify(isEmail ? { id: 'em-1' } : { object: 'contact', id: 'c-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const single = { db, resendApiKey: 'k', fetchImpl, ...site };
+  const double = { ...single, resendFrom: 'SDV <news@sportsdataverse.org>' };
+  await handleJoin({ email: 'known@b.co' }, '1.1.1.1', single); // synced contact on file
+
+  const known = await handleJoin({ email: 'known@b.co' }, '2.2.2.2', double);
+  const unknown = await handleJoin({ email: 'stranger@b.co' }, '3.3.3.3', double);
+  assert.equal(known.body.message, unknown.body.message, 'no subscriber oracle on the newsletter half either');
+  assert.equal(known.status, unknown.status);
 });
 
 test('a confirmed click survives a Resend outage; a later retry completes the sync', async () => {

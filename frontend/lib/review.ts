@@ -219,6 +219,12 @@ export async function requeue(deps: ReviewDeps, personId: PersonId): Promise<{ o
   if (found.person.status !== "declined") {
     return { ok: false, message: "Only a declined person can be put back in the queue." };
   }
+  // the same gate approve, decline and resend have: the Queue view asks for
+  // `wants.discord: true`, so requeueing someone whose latest answer is "no"
+  // would drop them into `pending` where no view looks — invisible to everyone
+  if (!found.person.wants.discord) {
+    return { ok: false, message: "This person didn't ask for Discord — nothing to put back in the queue." };
+  }
   try {
     await setReviewStatus(deps.db, found.person._id, "pending", deps.reviewer, now);
   } catch {

@@ -233,7 +233,7 @@ export default function PeopleClient() {
                         {/* the only way back out of `declined`: no queue lists them and
                             /join will not re-open them, so without this the sole exit is
                             Delete, which also destroys their newsletter record */}
-                        {p.status === "declined" ? (
+                        {p.status === "declined" && p.wantsDiscord ? (
                           <Button
                             type="button"
                             variant="outline"
