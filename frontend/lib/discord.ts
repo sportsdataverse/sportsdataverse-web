@@ -23,12 +23,18 @@ export function inviteUrl(code: string): string {
 export async function createInvite(deps: DiscordDeps): Promise<{ code: string; expiresAt: Date }> {
   if (!deps.botToken) throw new Error("DISCORD_BOT_TOKEN is not set");
   if (!deps.channelId) throw new Error("DISCORD_INVITE_CHANNEL_ID is not set");
-  const res = await (deps.fetchImpl ?? fetch)(`${API}/channels/${deps.channelId}/invites`, {
-    method: "POST",
-    headers: { "content-type": "application/json", Authorization: `Bot ${deps.botToken}` },
-    body: JSON.stringify({ max_uses: INVITE_MAX_USES, max_age: INVITE_MAX_AGE_SEC, unique: true }),
-    signal: AbortSignal.timeout(8000),
-  });
+  let res: Response;
+  try {
+    res = await (deps.fetchImpl ?? fetch)(`${API}/channels/${deps.channelId}/invites`, {
+      method: "POST",
+      headers: { "content-type": "application/json", Authorization: `Bot ${deps.botToken}` },
+      body: JSON.stringify({ max_uses: INVITE_MAX_USES, max_age: INVITE_MAX_AGE_SEC, unique: true }),
+      signal: AbortSignal.timeout(8000),
+    });
+  } catch (e) {
+    // a timeout or a dead network rejects here, not with a Response — label it like the rest
+    throw new Error(`Discord request failed: ${(e as Error).message}`);
+  }
   if (!res.ok) throw new Error(`Discord ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const body = (await res.json()) as { code?: unknown; expires_at?: unknown };
   if (typeof body.code !== "string" || !body.code) throw new Error("Discord response had no invite code");

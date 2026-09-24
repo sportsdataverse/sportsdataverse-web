@@ -39,6 +39,11 @@ test('missing configuration and Discord errors throw with a usable message', asy
   await assert.rejects(createInvite({ botToken: 'tok', channelId: '42', fetchImpl: empty.fetchImpl }), /no invite code/);
 });
 
+test('a timeout or network failure throws a labelled error like every other path', async () => {
+  const boom = (async () => { throw new Error('The operation was aborted'); }) as unknown as typeof fetch;
+  await assert.rejects(createInvite({ botToken: 'tok', channelId: '42', fetchImpl: boom }), /Discord request failed: The operation was aborted/);
+});
+
 test('inviteUrl builds the public join link', () => {
   assert.equal(inviteUrl('abc123'), 'https://discord.gg/abc123');
 });
