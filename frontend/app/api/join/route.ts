@@ -5,7 +5,9 @@ import { handleJoin } from "@lib/join";
 import { ensurePeopleIndexes } from "@lib/people";
 import { ensureRateLimitIndex } from "@lib/rateLimit";
 
-// Public write endpoint: no auth, rate-limited per IP inside handleJoin.
+// Public write endpoint: no auth required to submit, rate-limited per IP inside
+// handleJoin. A signed-in session is read best-effort (see the auth() call below)
+// only to vouch a visitor for Discord auto-admit — it never gates the request.
 // Indexes are ensured once per process; a failed attempt is retried on the next request.
 let indexesReady: Promise<void> | null = null;
 
@@ -20,7 +22,9 @@ export async function POST(req: Request) {
   await indexesReady;
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const raw = await req.json().catch(() => ({}));
-  const session = await auth();
+  // this endpoint stays public even when auth is broken or slow: a viewer we
+  // can't resolve is just no viewer, never a failed join
+  const session = await auth().catch(() => null);
   const viewer = session?.login
     ? { login: session.login, isOrgMember: Boolean(session.isOrgMember), isContributor: Boolean(session.isContributor) }
     : null;
