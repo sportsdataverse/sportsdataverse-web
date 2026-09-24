@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchIsContributor } from '../lib/auth.ts';
+import { fetchIsContributor } from '../lib/contributor.ts';
 
 function fakeFetch(status: number, body: unknown) {
   const calls: { url: string; init: RequestInit }[] = [];
