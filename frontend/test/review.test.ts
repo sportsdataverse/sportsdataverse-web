@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fakeDb } from './fakeDb.ts';
 import { upsertJoin, recordDiscordInvite, findPersonById } from '../lib/people.ts';
-import { approve, decline, resendInvite, retrySync, removePerson } from '../lib/review.ts';
+import { approve, decline, requeue, resendInvite, retrySync, removePerson } from '../lib/review.ts';
 
 const T0 = new Date('2026-09-24T12:00:00Z');
 const PROFILE = { role: 'developer', languages: ['R'], sports: ['CFB'], discoveredVia: 'github', updatesVia: ['github'], newsChannel: 'email' } as const;
@@ -207,6 +207,33 @@ test('decline with notify and a configured sender but no email on file still jus
   assert.equal(r.ok, true);
   assert.equal(r.message, 'Declined.');
   assert.equal(net.calls.filter((u) => u.endsWith('/emails')).length, 0);
+});
+
+test('decline refuses a newsletter-only row instead of stamping a Discord decision on it', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db, { newsletter: true, discord: false });
+  const net = fakeNet();
+  const r = await decline({ db, ...env, resendFrom: 'SDV <news@sportsdataverse.org>', fetchImpl: net.fetchImpl }, id, 'tidying up', true);
+  assert.equal(r.ok, false);
+  assert.match(r.message, /didn.t ask for discord/i);
+  assert.equal(dump('people')[0].status, 'pending', 'a footer subscriber is not locked out by a tidy-up click');
+  assert.equal(net.calls.length, 0, 'and is never mailed a Discord refusal');
+});
+
+test('requeue is the way back out of declined, and only out of declined', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db);
+  await decline({ db, ...env }, id, 'no vouch', false);
+  assert.equal(dump('people')[0].status, 'declined');
+
+  const back = await requeue({ db, ...env }, id);
+  assert.equal(back.ok, true);
+  assert.equal(dump('people')[0].status, 'pending', 'listed by the Queue view again');
+  assert.equal(dump('people')[0].reviewedBy, 'saiemgilani');
+
+  const again = await requeue({ db, ...env }, id);
+  assert.equal(again.ok, false, 'requeue is not a way to demote an approval');
+  assert.match(again.message, /declined/i);
 });
 
 test('retrySync creates the missing Resend contact; removePerson erases the record', async () => {

@@ -173,6 +173,13 @@ export async function decline(
   const now = nowOf(deps);
   const found = await safeFindPerson(deps, personId);
   if (!found.ok) return found;
+  // `declined` is the Discord decision, and every newsletter and survey row is
+  // stamped `pending` too — declining one of those says nothing true, mails a
+  // Discord refusal to someone who never mentioned Discord, and (before
+  // requeue existed) locked a future request out for good. Same gate approve has.
+  if (!found.person.wants.discord) {
+    return { ok: false, message: "This person didn't ask for Discord — nothing to decline." };
+  }
   try {
     await setReviewStatus(deps.db, found.person._id, "declined", deps.reviewer, now, reason);
   } catch {
@@ -196,6 +203,29 @@ export async function decline(
     deps.log?.(`decline email failed for person ${String(personId)}: ${summarizeError(e)}`);
     return { ok: true, message: "Declined; the email failed." };
   }
+}
+
+/**
+ * The way back out of `declined`. Without it the state is terminal: no view's
+ * queue lists a declined person, `/join` will not re-open them, and the only
+ * other exit is Delete, which also destroys their newsletter record. A misclick
+ * is not a lifetime ban, and someone declined in 2026 may be an org member in
+ * 2027 — this puts them back in front of the next admin.
+ */
+export async function requeue(deps: ReviewDeps, personId: PersonId): Promise<{ ok: boolean; message: string }> {
+  const now = nowOf(deps);
+  const found = await safeFindPerson(deps, personId);
+  if (!found.ok) return found;
+  if (found.person.status !== "declined") {
+    return { ok: false, message: "Only a declined person can be put back in the queue." };
+  }
+  try {
+    await setReviewStatus(deps.db, found.person._id, "pending", deps.reviewer, now);
+  } catch {
+    deps.log?.(`db write failed for person ${String(personId)}`);
+    return { ok: false, message: "Couldn't save that decision — try again." };
+  }
+  return { ok: true, message: "Back in the queue." };
 }
 
 export async function retrySync(deps: ReviewDeps, personId: PersonId): Promise<{ ok: boolean; message: string }> {

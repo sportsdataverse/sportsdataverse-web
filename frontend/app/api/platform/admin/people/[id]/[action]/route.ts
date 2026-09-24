@@ -3,9 +3,9 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { connectToDatabase } from "@lib/mongodb";
 import { requireAdminApp } from "@lib/platform/auth";
-import { approve, decline, removePerson, resendInvite, retrySync, type ReviewDeps } from "@lib/review";
+import { approve, decline, removePerson, requeue, resendInvite, retrySync, type ReviewDeps } from "@lib/review";
 
-const ACTIONS = new Set(["approve", "decline", "resend", "retry-sync", "delete"]);
+const ACTIONS = new Set(["approve", "decline", "requeue", "resend", "retry-sync", "delete"]);
 type Ctx = { params: Promise<{ id: string; action: string }> };
 
 const actionBodySchema = z.object({
@@ -50,6 +50,7 @@ export async function POST(req: Request, ctx: Ctx) {
   if (action === "approve") result = await approve(deps, personId);
   else if (action === "resend") result = await resendInvite(deps, personId);
   else if (action === "decline") result = await decline(deps, personId, body.reason || "No reason given", Boolean(body.notify));
+  else if (action === "requeue") result = await requeue(deps, personId);
   else if (action === "retry-sync") result = await retrySync(deps, personId);
   else if (action === "delete") result = await removePerson(deps, personId);
   else return NextResponse.json({ success: false, message: "unknown action" }, { status: 400 });

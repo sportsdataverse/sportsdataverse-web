@@ -14,7 +14,7 @@ import {
 } from "@components/ui/table";
 
 type View = "queue" | "unsynced" | "all";
-type Action = "approve" | "decline" | "resend" | "retry-sync" | "delete";
+type Action = "approve" | "decline" | "requeue" | "resend" | "retry-sync" | "delete";
 
 type PersonRow = {
   id: string;
@@ -209,15 +209,15 @@ export default function PeopleClient() {
                     <TableCell className="text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap items-center gap-2">
-                        {p.status === "pending" ? (
+                        {/* Approve and Decline are both Discord decisions, and every
+                            newsletter or survey row is stamped "pending" too — offering
+                            either on a row that never asked for Discord decides nothing
+                            and used to be a one-way trip. lib/review.ts refuses both. */}
+                        {p.status === "pending" && p.wantsDiscord ? (
                           <>
-                            {/* approve mints a Discord invite — never offer it to someone who
-                                didn't ask for Discord; lib/review.ts's approve() refuses this too */}
-                            {p.wantsDiscord ? (
-                              <Button type="button" size="sm" disabled={busy === `${p.id}:approve`} onClick={() => act(p.id, "approve")}>
-                                Approve
-                              </Button>
-                            ) : null}
+                            <Button type="button" size="sm" disabled={busy === `${p.id}:approve`} onClick={() => act(p.id, "approve")}>
+                              Approve
+                            </Button>
                             <Button
                               type="button"
                               variant="outline"
@@ -227,6 +227,20 @@ export default function PeopleClient() {
                               Decline
                             </Button>
                           </>
+                        ) : null}
+                        {/* the only way back out of `declined`: no queue lists them and
+                            /join will not re-open them, so without this the sole exit is
+                            Delete, which also destroys their newsletter record */}
+                        {p.status === "declined" ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={busy === `${p.id}:requeue`}
+                            onClick={() => act(p.id, "requeue")}
+                          >
+                            Back to queue
+                          </Button>
                         ) : null}
                         {canResend ? (
                           <Button type="button" variant="outline" size="sm" disabled={busy === `${p.id}:resend`} onClick={() => act(p.id, "resend")}>
