@@ -99,6 +99,17 @@ test('an expired stored invite is replaced on resend', async () => {
   assert.equal(net.calls.filter((u) => u.includes('discord.com')).length, 1);
 });
 
+test('approve refuses a newsletter-only signup instead of minting them a Discord invite they never asked for', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db, { newsletter: true, discord: false });
+  const net = fakeNet();
+  const r = await approve({ db, ...env, fetchImpl: net.fetchImpl }, id);
+  assert.equal(r.ok, false);
+  assert.match(r.message, /didn.t ask for discord/i);
+  assert.equal(dump('people')[0].status, 'pending', 'no decision is recorded either');
+  assert.equal(net.calls.length, 0, 'never touches Discord for someone who did not ask for it');
+});
+
 test('resendInvite refuses a declined person instead of minting them a live invite', async () => {
   const { db } = fakeDb();
   const id = await queued(db);
@@ -141,6 +152,17 @@ test('decline with notify but no configured sender still just declines — no cr
   assert.equal(r.ok, true);
   assert.equal(r.message, 'Declined.');
   assert.equal(dump('people')[0].status, 'declined');
+  assert.equal(net.calls.filter((u) => u.endsWith('/emails')).length, 0);
+});
+
+test('decline with notify and a configured sender but no email on file still just declines — no crash, no email', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db);
+  delete (dump('people')[0] as { email?: string }).email;
+  const net = fakeNet();
+  const r = await decline({ db, ...env, resendFrom: 'SDV <news@sportsdataverse.org>', fetchImpl: net.fetchImpl }, id, 'no vouch', true);
+  assert.equal(r.ok, true);
+  assert.equal(r.message, 'Declined.');
   assert.equal(net.calls.filter((u) => u.endsWith('/emails')).length, 0);
 });
 
@@ -188,6 +210,19 @@ test('retrySync reports when Resend already has the contact marked unsubscribed'
   const r = await retrySync({ db, ...env, fetchImpl: net.fetchImpl }, id);
   assert.equal(r.ok, true);
   assert.match(r.message, /unsubscribed in Resend/);
+});
+
+test('retrySync reports an orphaned Resend contact instead of blaming the sync when only the write fails', async () => {
+  const { db, dump, failNextUpdateWith } = fakeDb();
+  const id = await queued(db, { newsletter: true, discord: false });
+  const net = fakeNet();
+  failNextUpdateWith({ code: 91 }); // the next write is markNewsletterSynced, after subscribeToResend already succeeded
+  const r = await retrySync({ db, ...env, fetchImpl: net.fetchImpl }, id);
+  assert.equal(r.ok, false);
+  assert.match(r.message, /couldn.t record it here/i);
+  assert.doesNotMatch(r.message, /Simulated error/, 'the driver error must not leak through as the cause');
+  assert.equal(dump('people')[0].newsletter, undefined, 'the write never landed, so the person is still unsynced');
+  assert.equal(net.calls.length, 1, 'Resend was called exactly once, not retried inside this call');
 });
 
 test('retrySync refuses someone who never opted into the newsletter', async () => {

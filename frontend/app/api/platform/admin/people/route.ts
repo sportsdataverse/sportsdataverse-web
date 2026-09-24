@@ -23,16 +23,29 @@ function row(p: PersonDoc) {
   };
 }
 
+// Same cap every view uses to fetch, and the same filter each view's query
+// applies — kept alongside listPeople/listUnsyncedNewsletter (lib/people.ts)
+// so `total` always describes the same population the rows come from.
+const FETCH_CAP = 200;
+
+function filterFor(view: string): Record<string, unknown> {
+  if (view === "unsynced") return { "wants.newsletter": true, "newsletter.resendContactId": { $exists: false } };
+  if (view === "all") return {};
+  return { status: "pending", "wants.discord": true };
+}
+
 export async function GET(req: Request) {
   const { deny } = await requireAdminApp();
   if (deny) return deny;
   const view = new URL(req.url).searchParams.get("view") ?? "queue";
   const { db } = await connectToDatabase();
-  const people =
+  const [people, total] = await Promise.all([
     view === "unsynced"
-      ? await listUnsyncedNewsletter(db)
+      ? listUnsyncedNewsletter(db, FETCH_CAP)
       : view === "all"
-        ? await listPeople(db, { limit: 200 })
-        : await listPeople(db, { status: "pending", wantsDiscord: true });
-  return NextResponse.json({ people: people.map(row) });
+        ? listPeople(db, { limit: FETCH_CAP })
+        : listPeople(db, { status: "pending", wantsDiscord: true, limit: FETCH_CAP }),
+    db.collection("people").countDocuments(filterFor(view)),
+  ]);
+  return NextResponse.json({ people: people.map(row), total });
 }

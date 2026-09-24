@@ -122,6 +122,11 @@ export async function approve(deps: ReviewDeps, personId: PersonId): Promise<Inv
   const now = nowOf(deps);
   const found = await safeFindPerson(deps, personId);
   if (!found.ok) return { ok: false, emailed: false, message: found.message };
+  // approve mints and sends a Discord invite — never for someone who did not
+  // ask for one, no matter which admin view the button was clicked from
+  if (!found.person.wants.discord) {
+    return { ok: false, emailed: false, message: "This person didn't ask for Discord — nothing to approve." };
+  }
   try {
     await setReviewStatus(deps.db, found.person._id, "approved", deps.reviewer, now);
   } catch {
@@ -201,20 +206,28 @@ export async function retrySync(deps: ReviewDeps, personId: PersonId): Promise<{
   if (person.newsletter && "unsubscribed" in person.newsletter && person.newsletter.unsubscribed) {
     return { ok: false, message: "This person unsubscribed from the newsletter — a retry won't resubscribe them." };
   }
+  let contactId: string, unsubscribed: boolean;
   try {
     const props = person.profile ? contactProperties(person.profile) : undefined;
-    const { contactId, unsubscribed } = await subscribeToResend(
+    ({ contactId, unsubscribed } = await subscribeToResend(
       person.email,
       { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl, log: deps.log },
       props
-    );
-    const confirmedAt = person.newsletter && "confirmedAt" in person.newsletter ? person.newsletter.confirmedAt : undefined;
-    await markNewsletterSynced(deps.db, person._id, contactId, now, unsubscribed, confirmedAt);
-    return { ok: true, message: unsubscribed ? "Synced — the contact is unsubscribed in Resend." : "Synced." };
+    ));
   } catch (e) {
     deps.log?.(`retry sync failed for person ${String(personId)}: ${summarizeError(e)}`);
     return { ok: false, message: (e as Error).message };
   }
+  const confirmedAt = person.newsletter && "confirmedAt" in person.newsletter ? person.newsletter.confirmedAt : undefined;
+  try {
+    await markNewsletterSynced(deps.db, person._id, contactId, now, unsubscribed, confirmedAt);
+  } catch {
+    // subscribeToResend is a create-or-find by email — a later retry finds the
+    // same contact rather than duplicating it, so this is safe to say plainly
+    deps.log?.(`retry sync record failed for person ${String(personId)}`);
+    return { ok: false, message: "Resend has the contact, but we couldn't record it here — try Retry sync again." };
+  }
+  return { ok: true, message: unsubscribed ? "Synced — the contact is unsubscribed in Resend." : "Synced." };
 }
 
 export async function removePerson(deps: ReviewDeps, personId: PersonId): Promise<{ ok: boolean; message: string }> {

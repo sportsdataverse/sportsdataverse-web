@@ -50,6 +50,7 @@ const STATUS_VARIANT: Record<PersonRow["status"], "default" | "outline" | "destr
 export default function PeopleClient() {
   const [view, setView] = useState<View>("queue");
   const [people, setPeople] = useState<PersonRow[] | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [result, setResult] = useState<ActionResult | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -57,13 +58,20 @@ export default function PeopleClient() {
   const [reason, setReason] = useState("");
   const [notify, setNotify] = useState(false);
 
+  function openDecline(id: string) {
+    setDeclineFor((cur) => (cur === id ? null : id));
+    setReason("");
+    setNotify(false);
+  }
+
   const load = useCallback(async (v: View) => {
     setLoadError(false);
     try {
       const res = await fetch(`/api/platform/admin/people?view=${v}`);
       if (!res.ok) throw new Error(String(res.status));
-      const data = (await res.json()) as { people: PersonRow[] };
+      const data = (await res.json()) as { people: PersonRow[]; total: number };
       setPeople(data.people);
+      setTotal(data.total);
     } catch {
       setLoadError(true);
     }
@@ -71,6 +79,8 @@ export default function PeopleClient() {
 
   useEffect(() => {
     setPeople(null);
+    setTotal(null);
+    setResult(null);
     void load(view);
   }, [view, load]);
 
@@ -121,19 +131,33 @@ export default function PeopleClient() {
         ))}
       </div>
 
-      {result ? (
-        <div role="status" className="space-y-2 rounded-lg border border-border bg-card p-3 text-sm">
-          <p>{result.message}</p>
-          {result.inviteUrl ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Input readOnly value={result.inviteUrl} onFocus={(e) => e.currentTarget.select()} className="max-w-md" />
-              <Button type="button" variant="outline" size="sm" onClick={() => copyInvite(result.inviteUrl!)}>
-                Copy
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      {/* Mounted unconditionally so the live region already exists in the accessibility
+          tree before the first action — a role="status" node that appears and gets its
+          text in the same commit is generally not announced by screen readers. */}
+      <div
+        role="status"
+        className={
+          result
+            ? `space-y-2 rounded-lg border p-3 text-sm ${
+                result.success ? "border-border bg-card" : "border-destructive/60 bg-destructive/10 text-destructive"
+              }`
+            : "sr-only"
+        }
+      >
+        {result ? (
+          <>
+            <p>{result.message}</p>
+            {result.inviteUrl ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Input readOnly value={result.inviteUrl} onFocus={(e) => e.currentTarget.select()} className="max-w-md" />
+                <Button type="button" variant="outline" size="sm" onClick={() => copyInvite(result.inviteUrl!)}>
+                  Copy
+                </Button>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </div>
 
       {loadError ? (
         <p className="text-sm text-muted-foreground">Couldn&apos;t load people.</p>
@@ -142,8 +166,14 @@ export default function PeopleClient() {
       ) : people.length === 0 ? (
         <p className="text-sm text-muted-foreground">No one here.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <Table>
+        <div className="space-y-2">
+          {total !== null && total > people.length ? (
+            <p className="text-xs text-muted-foreground">
+              Showing {people.length} of {total} — narrow the view or ask for pagination to see the rest.
+            </p>
+          ) : null}
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Person</TableHead>
@@ -181,14 +211,18 @@ export default function PeopleClient() {
                       <div className="flex flex-wrap items-center gap-2">
                         {p.status === "pending" ? (
                           <>
-                            <Button type="button" size="sm" disabled={busy === `${p.id}:approve`} onClick={() => act(p.id, "approve")}>
-                              Approve
-                            </Button>
+                            {/* approve mints a Discord invite — never offer it to someone who
+                                didn't ask for Discord; lib/review.ts's approve() refuses this too */}
+                            {p.wantsDiscord ? (
+                              <Button type="button" size="sm" disabled={busy === `${p.id}:approve`} onClick={() => act(p.id, "approve")}>
+                                Approve
+                              </Button>
+                            ) : null}
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => setDeclineFor(declineFor === p.id ? null : p.id)}
+                              onClick={() => openDecline(p.id)}
                             >
                               Decline
                             </Button>
@@ -249,7 +283,8 @@ export default function PeopleClient() {
                 );
               })}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </div>
       )}
     </div>
