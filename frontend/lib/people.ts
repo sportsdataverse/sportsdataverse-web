@@ -255,14 +255,23 @@ export async function linkGithubLogin(db: Db, personId: PersonId, login: string)
   const owner = await people(db).findOne({ githubLogin: login });
   if (owner && String(owner._id) !== String(personId)) return false;
   if (owner) return true;
-  await people(db).updateOne({ _id: personId }, { $set: { githubLogin: login } });
-  return true;
+  try {
+    await people(db).updateOne({ _id: personId }, { $set: { githubLogin: login } });
+    return true;
+  } catch (e) {
+    // unique index on githubLogin: another request linked it between our read and write
+    if ((e as { code?: number }).code === 11000) return false;
+    throw e;
+  }
 }
 
 /** People who want the newsletter but have no Resend contact yet (failed sync, or never tried). */
 export async function listUnsyncedNewsletter(db: Db, limit = 50): Promise<PersonDoc[]> {
-  const all = await people(db).find({ "wants.newsletter": true }).sort({ createdAt: -1 }).limit(REVIEW_LIST_CAP).toArray();
-  return all.filter((p) => !(p.newsletter && "resendContactId" in p.newsletter)).slice(0, limit);
+  return people(db)
+    .find({ "wants.newsletter": true, "newsletter.resendContactId": { $exists: false } })
+    .sort({ createdAt: -1 })
+    .limit(Math.min(limit, REVIEW_LIST_CAP))
+    .toArray();
 }
 
 export async function deletePerson(db: Db, personId: PersonId): Promise<boolean> {

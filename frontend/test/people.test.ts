@@ -123,12 +123,24 @@ test('a github login is linked once and never stolen from another person', async
   assert.equal(await linkGithubLogin(db, b.personId, 'octocat'), false, 'already someone else');
 });
 
-test('unsynced newsletter people are listed, and a person can be deleted', async () => {
+test('unsynced newsletter people are listed, excluding those with resendContactId or not newsletter subscribers', async () => {
   const { db, dump } = fakeDb();
   const a = await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: true, discord: false } }, T0);
-  await upsertJoin(db, { email: 'c@d.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: false, discord: false } }, T0);
+  const b = await upsertJoin(db, { email: 'b@b.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: true, discord: false } }, T0);
+  const c = await upsertJoin(db, { email: 'c@d.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: false, discord: false } }, T0);
+  // Mark b as synced with resendContactId
+  await markNewsletterSynced(db, b.personId, 'c-synced', T0);
   const unsynced = await listUnsyncedNewsletter(db);
-  assert.deepEqual(unsynced.map((p) => p.email), ['a@b.co']);
+  assert.deepEqual(unsynced.map((p) => p.email), ['a@b.co'], 'excludes synced and non-newsletter people');
   assert.equal(await deletePerson(db, a.personId), true);
-  assert.equal(dump('people').length, 1);
+  assert.equal(dump('people').length, 2);
+});
+
+test('a github login race (concurrent link attempts) resolves to false for the second requester', async () => {
+  const { db, failNextUpdateWith } = fakeDb();
+  const a = await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: false, discord: true } }, T0);
+  // Simulate race: updateOne fails with E11000 and linkGithubLogin handles it gracefully
+  failNextUpdateWith({ code: 11000 });
+  const result = await linkGithubLogin(db, a.personId, 'racing-login');
+  assert.equal(result, false, 'reports false on E11000 instead of throwing');
 });

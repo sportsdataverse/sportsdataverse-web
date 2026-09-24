@@ -23,7 +23,15 @@ function getPath(doc: Doc, path: string): unknown {
 }
 
 function matches(doc: Doc, filter: Doc) {
-  return Object.entries(filter).every(([k, v]) => String(k.includes('.') ? getPath(doc, k) : doc[k]) === String(v));
+  return Object.entries(filter).every(([k, v]) => {
+    const path = k.includes('.') ? getPath(doc, k) : doc[k];
+    // Support $exists operator
+    if (typeof v === 'object' && v !== null && '$exists' in v) {
+      const exists = path !== undefined;
+      return exists === (v as { $exists: boolean }).$exists;
+    }
+    return String(path) === String(v);
+  });
 }
 
 function apply(doc: Doc, update: Doc, inserting: boolean) {
@@ -45,12 +53,19 @@ let nextId = 1;
 export function fakeDb() {
   const store = new Map<string, Doc[]>();
   const rows = (name: string) => store.get(name) ?? store.set(name, []).get(name)!;
+  let nextUpdateShouldFail: { code?: number } | null = null;
   const db = {
     collection(name: string) {
       return {
         async createIndex() { return `${name}_idx`; },
         async findOne(filter: Doc) { return rows(name).find((d) => matches(d, filter)) ?? null; },
         async updateOne(filter: Doc, update: Doc) {
+          if (nextUpdateShouldFail) {
+            const err = new Error('Simulated error') as any;
+            Object.assign(err, nextUpdateShouldFail);
+            nextUpdateShouldFail = null;
+            throw err;
+          }
           const d = rows(name).find((r) => matches(r, filter));
           if (d) apply(d, update, false);
           return { matchedCount: d ? 1 : 0, modifiedCount: d ? 1 : 0 };
@@ -103,5 +118,9 @@ export function fakeDb() {
       };
     },
   };
-  return { db: db as unknown as import('mongodb').Db, dump: (name: string) => rows(name) };
+  return {
+    db: db as unknown as import('mongodb').Db,
+    dump: (name: string) => rows(name),
+    failNextUpdateWith: (err: { code?: number }) => { nextUpdateShouldFail = err; },
+  };
 }
