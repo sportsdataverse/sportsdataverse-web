@@ -278,7 +278,12 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
     : await upsertNewsletterSignup(deps.db, { email, placement }, now);
 
   let pkgNote = "";
-  if (wants.package && parsed.data.pkg) {
+  // Reserved-domain addresses (walkthrough@example.com and friends) are stored like any
+  // signup but never reach an outbound side effect — see isReservedEmail's other callers
+  // in beginOptIn/handleConfirm. A package submission is exactly that kind of side effect
+  // (it lands in the member CMS queue), so the PR-evidence walkthrough can exercise this
+  // whole flow, including the fieldset, without dropping a fake package in front of a reviewer.
+  if (wants.package && parsed.data.pkg && !isReservedEmail(email)) {
     const { orgTier, ...pkg } = parsed.data.pkg;
     pkgNote = (await submitPackage(deps.db, pkg, personId, Boolean(orgTier), now)).message;
   }

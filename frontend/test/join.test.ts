@@ -833,3 +833,14 @@ test('no package is stored when the person could not be written', async () => {
   ));
   assert.equal(dump('packages').length, 0, 'never a submission pointing at nobody');
 });
+
+test('a reserved-domain submission stores the person and wants.package but inserts no package (the PR-evidence walkthrough must not queue a fake one)', async () => {
+  const { db, dump } = fakeDb();
+  const r = await handleJoin(
+    { email: 'walkthrough@example.com', answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: PKG } as never,
+    '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null }
+  );
+  assert.equal(r.status, 200);
+  assert.equal((dump('people')[0].wants as { package: boolean }).package, true);
+  assert.equal(dump('packages').length, 0);
+});
