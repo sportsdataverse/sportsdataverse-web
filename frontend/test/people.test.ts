@@ -39,7 +39,7 @@ test('sync bookkeeping', async () => {
   assert.deepEqual(dump('people')[0].newsletter, { skipped: 'reserved-domain' });
 });
 
-import { recordSurvey, upsertJoin, markNewsletterPending, markNewsletterConfirmed, findPersonById, listPeople, setReviewStatus, recordDiscordInvite, linkGithubLogin, listUnsyncedNewsletter, deletePerson } from '../lib/people.ts';
+import { recordSurvey, upsertJoin, upsertSurvey, markNewsletterPending, markNewsletterConfirmed, findPersonById, listPeople, setReviewStatus, recordDiscordInvite, linkGithubLogin, listUnsyncedNewsletter, deletePerson } from '../lib/people.ts';
 import type { Profile } from '../lib/survey.ts';
 
 const PROFILE = { role: 'developer', languages: ['R'], sports: ['CFB'], discoveredVia: 'twitter', updatesVia: ['github'], newsChannel: 'email' } as const;
@@ -154,4 +154,73 @@ test('a github login race (concurrent link attempts) resolves to false for the s
   failNextUpdateWith({ code: 11000 });
   const result = await linkGithubLogin(db, a.personId, 'racing-login');
   assert.equal(result, false, 'reports false on E11000 instead of throwing');
+});
+
+const ID1 = { name: 'Pat Doe', location: { country: 'US', region: 'TX' }, socials: { github: 'octocat' }, affiliations: [{ type: 'media' as const, org: 'The Ringer' }] };
+const ID2 = { name: 'Pat D.', location: { country: 'CA', region: 'ON' } };
+const PROF = { role: 'developer', languages: ['R'], sports: ['CFB'], discoveredVia: 'github', updatesVia: ['github'], newsChannel: 'discord' } as never;
+
+test('upsertJoin stores the latest identity, and a resubmission without socials or affiliations removes them', async () => {
+  const { db, dump } = fakeDb();
+  await upsertJoin(db, { email: 'a@b.co', identity: ID1, answers: { role: 'developer' }, profile: PROF, wants: { newsletter: false, discord: true } }, T0);
+  let p = dump('people')[0];
+  assert.equal(p.name, 'Pat Doe');
+  assert.deepEqual(p.location, ID1.location);
+  assert.deepEqual(p.socials, { github: 'octocat' });
+  assert.equal((p.lastSubmittedAt as Date).getTime(), T0.getTime());
+  await upsertJoin(db, { email: 'a@b.co', identity: ID2, answers: { role: 'developer' }, profile: PROF, wants: { newsletter: false, discord: true } }, T1);
+  p = dump('people')[0];
+  assert.equal(dump('people').length, 1);
+  assert.equal(p.name, 'Pat D.');
+  assert.equal(p.socials, undefined, 'latest wins: no socials this time means none stored');
+  assert.equal(p.affiliations, undefined);
+});
+
+test('upsertJoin without identity leaves identity fields alone (the queue helpers in other tests rely on it)', async () => {
+  const { db, dump } = fakeDb();
+  await upsertJoin(db, { email: 'a@b.co', identity: ID1, answers: {}, profile: PROF, wants: { newsletter: false, discord: true } }, T0);
+  await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROF, wants: { newsletter: false, discord: true } }, T1);
+  assert.equal(dump('people')[0].name, 'Pat Doe');
+});
+
+test('upsertSurvey creates a survey person with every want false', async () => {
+  const { db, dump } = fakeDb();
+  const r = await upsertSurvey(db, { email: 's@b.co', identity: ID1, answers: { role: 'student' }, profile: PROF }, T0);
+  assert.equal(r.created, true);
+  const p = dump('people')[0];
+  assert.equal(p.status, 'survey');
+  assert.deepEqual(p.wants, { discord: false, newsletter: false, stickers: false, package: false });
+  assert.equal((p.answers as Record<string, unknown>).role, 'student');
+  assert.equal(p.name, 'Pat Doe');
+});
+
+test('upsertSurvey on a /join person never touches wants, status, newsletter or the wants_* answers', async () => {
+  const { db, dump } = fakeDb();
+  await upsertJoin(db, {
+    email: 'a@b.co', identity: ID1,
+    answers: { role: 'developer', languages: ['R'], packages_r: ['cfbfastR'], wants_discord: 'yes', wants_newsletter: 'yes' },
+    profile: PROF, wants: { newsletter: true, discord: true },
+  }, T0);
+  await db.collection('people').updateOne({ email: 'a@b.co' }, { $set: { newsletter: { resendContactId: 'c1', syncedAt: T0 } } });
+  await upsertSurvey(db, { email: 'a@b.co', identity: ID2, answers: { role: 'student', languages: ['Python'] }, profile: PROF }, T1);
+  const p = dump('people')[0];
+  assert.equal(dump('people').length, 1);
+  assert.equal(p.status, 'pending');
+  assert.deepEqual(p.wants, { newsletter: true, discord: true, package: false, stickers: false });
+  assert.deepEqual(p.newsletter, { resendContactId: 'c1', syncedAt: T0 });
+  const a = p.answers as Record<string, unknown>;
+  assert.equal(a.wants_discord, 'yes');
+  assert.equal(a.wants_newsletter, 'yes');
+  assert.equal(a.role, 'student');
+  assert.deepEqual(a.languages, ['Python']);
+  assert.equal(a.packages_r, undefined, 'a survey question not answered this time is cleared, not left stale');
+  assert.equal(p.name, 'Pat D.');
+});
+
+test('upsertSurvey never matches a legacy anonymous row (no email)', async () => {
+  const { db, dump } = fakeDb();
+  await db.collection('people').insertOne({ answers: { role: 'hobbyist' }, status: 'survey', wants: { discord: false, newsletter: false, stickers: false, package: false }, createdAt: T0 });
+  await upsertSurvey(db, { email: 's@b.co', identity: ID1, answers: { role: 'student' }, profile: PROF }, T1);
+  assert.equal(dump('people').length, 2);
+  assert.equal((dump('people')[0].answers as Record<string, unknown>).role, 'hobbyist');
 });
