@@ -1321,6 +1321,21 @@ test('/survey stores an identified person and a survey response', async () => {
   assert.equal(dump('responses')[0].source, 'survey');
 });
 
+// M6(b): the response doc was only ever checked for `source` — pin the rest too,
+// so a future change that stores the wrong personId or drops/mangles the
+// submitted identity/answers on the way into `responses` is caught here.
+test('/survey response document carries the submitted identity, answers and personId', async () => {
+  const { db, dump } = fakeDb();
+  const r = await handleSurvey({ email: 'a@b.co', identity: IDENTITY, answers: S_ANSWERS }, '1.1.1.1', { db });
+  assert.equal(r.status, 200);
+  const p = dump('people')[0];
+  const resp = dump('responses')[0];
+  assert.equal(resp.source, 'survey');
+  assert.equal(String(resp.personId), String(p._id));
+  assert.deepEqual(resp.identity, IDENTITY);
+  assert.deepEqual(resp.answers, S_ANSWERS);
+});
+
 test('/survey replies identically for a new and a known email', async () => {
   const { db } = fakeDb();
   const first = await handleSurvey({ email: 's@b.co', identity: IDENTITY, answers: S_ANSWERS }, '1.1.1.1', { db });
@@ -1390,4 +1405,37 @@ test('the queued reply for a promoted survey respondent is identical to a brand-
   });
   assert.equal(promoted.body.message, fresh.body.message);
   assert.equal(promoted.status, fresh.status);
+});
+
+// T3-M1: the only server-side guard for this spec rule on /survey had no test —
+// deleting the `affiliationError` check in handleSurvey stayed green before this.
+test('/survey: an industry or researcher role without an affiliation is refused', async () => {
+  const { db, dump } = fakeDb();
+  const r = await handleSurvey({ email: 'a@b.co', identity: IDENTITY, answers: { ...S_ANSWERS, role: 'industry' } }, '1.1.1.1', { db });
+  assert.equal(r.status, 400);
+  assert.match((r.body as { message: string }).message, /^Affiliation: /);
+  assert.equal(dump('people').length, 0);
+  assert.equal(dump('responses').length, 0);
+});
+
+// M6(a): promoteSurveyRespondent is issued unconditionally on every /join —
+// refactoring it to run only `if (existing?.status === "survey")` is a no-op
+// for behavior (the filter in the update already makes it a no-op for anyone
+// else) but brings back a round-trip-count timing tell. Pin the write count
+// on `people` instead of the visible outcome, since the outcome is identical
+// either way.
+test('promoteSurveyRespondent write count is the same for a brand-new /join and one that finds an existing survey row', async () => {
+  const { db: freshDb } = fakeDb();
+  const fresh = await handleJoin({ email: 'fresh@b.co', identity: IDENTITY, answers: D_ANSWERS } as never, '1.1.1.1', { db: freshDb, viewer: null });
+  assert.equal(fresh.status, 200);
+  const freshWrites = freshDb.writes('people');
+
+  const { db: surveyDb } = fakeDb();
+  await handleSurvey({ email: 'was-survey@b.co', identity: IDENTITY, answers: S_ANSWERS }, '1.1.1.1', { db: surveyDb });
+  const before = surveyDb.writes('people');
+  const promoted = await handleJoin({ email: 'was-survey@b.co', identity: IDENTITY, answers: D_ANSWERS } as never, '1.1.1.2', { db: surveyDb, viewer: null });
+  assert.equal(promoted.status, 200);
+  const promotedWrites = surveyDb.writes('people') - before;
+
+  assert.equal(promotedWrites, freshWrites, 'the same number of `people` writes whatever status was stored before /join');
 });
