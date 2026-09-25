@@ -198,13 +198,17 @@ export default function PeopleClient() {
                       {p.email ? <div className="text-xs text-muted-foreground">{p.email}</div> : null}
                       {p.githubLogin ? (
                         <div className="text-xs text-muted-foreground">@{p.githubLogin}</div>
-                      ) : p.claimedGithubLogin ? (
-                        // They signed in and said this is them, but nothing vouched for it.
-                        // Labelled so nobody reads a claim as an identity.
+                      ) : null}
+                      {/* A claim is shown whenever it is not the verified handle — including
+                          ALONGSIDE one. A row can hold both: an admit whose invite failed keeps
+                          the handle it bound and returns to the queue, and a later signed-in
+                          submission on that address records a different claim. Hiding the
+                          second is hiding exactly what the reviewer needs to notice. */}
+                      {p.claimedGithubLogin && p.claimedGithubLogin !== p.githubLogin ? (
                         <div className="text-xs text-muted-foreground">
                           @{p.claimedGithubLogin}{" "}
                           <span className="rounded border border-border px-1 py-px text-[10px] uppercase tracking-wide">
-                            unverified
+                            {p.githubLogin ? "unverified claim" : "unverified"}
                           </span>
                         </div>
                       ) : null}

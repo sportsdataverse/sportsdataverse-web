@@ -17,8 +17,8 @@ transactional mail later PRs add.
    Contact (`POST /contacts`; an existing contact is looked up instead — and if that
    contact had unsubscribed, the person is recorded as `newsletter.unsubscribed: true`
    rather than re-subscribed: an anonymous form must not undo someone's opt-out). If Resend is
-   down the person is still stored with no `newsletter.syncedAt`; the admin
-   "retry sync" arrives with the People tab (PR 2).
+   down the person is still stored with no `newsletter.syncedAt`; the
+   "retry sync" action in the People tab fixes it.
 5. Reserved test domains (`example.com`, `.test`, …) are stored with
    `newsletter.skipped = "reserved-domain"` and never sent to Resend — that is what
    the CI walkthrough submits.
@@ -91,7 +91,7 @@ invite link is ever shared or reused across people. Someone who is a `sportsdata
 member, or who has a merged PR anywhere in the org, is admitted the moment they ask
 (`status: "auto"`) — **provided they are signed in**: `/join` carries its own GitHub sign-in
 button for exactly this, and a visitor with no session is always queued, org member or not.
-Everyone else lands in the Queue view below for an admin to approve or decline. Two things route what would otherwise be an on-the-spot admit into the queue instead:
+Everyone else lands in the Queue view below for any org member to approve or decline. Two things route what would otherwise be an on-the-spot admit into the queue instead:
 minting the invite failing (Discord down, bad token, wrong channel — the person is put back to
 `status: "pending"`, never left `"auto"` with no invite to show for it), and the visitor's
 GitHub login already belonging to a different `people` record (queued rather than risking a
@@ -99,7 +99,7 @@ second invite for the same human). Without `DISCORD_BOT_TOKEN` or `DISCORD_INVIT
 set, minting fails the same way — the request is still recorded, just always queued.
 
 **The invite link and `RESEND_FROM`.** Minting an invite — the on-the-spot auto-admit at
-`/join`, or an admin's Approve/Resend in the People tab — always returns the invite URL in
+`/join`, or a reviewer's Approve/Resend in the People tab — always returns the invite URL in
 that response; whether it is *also emailed* depends on `RESEND_FROM` (see Double opt-in
 above):
 - **`RESEND_FROM` set:** the invite is emailed too, best-effort — a failed send is logged and
@@ -107,11 +107,11 @@ above):
 - **`RESEND_FROM` unset — the configuration currently live in production, since the sending
   domain isn't verified yet:** nothing is emailed. An auto-admitted visitor still gets their
   invite, because the URL is right there in the `/join` response their browser just got.
-  Someone an admin approves from the queue does not — the People tab shows the admin the link
-  ("Invite ready — send it yourself") and the admin relays it by hand. Re-submitting `/join`
+  Someone approved from the queue does not — the People tab shows the reviewer the link
+  ("Invite ready — send it yourself") and they relay it by hand. Re-submitting `/join`
   only re-shows an invite to the person whose own signed-in, vouched request minted it
   (`status: "auto"` stamped with their handle); every other caller — signed out, signed in as
-  someone else, or admin-approved — gets one neutral sentence, because the email in a request
+  someone else, or approved from the queue — gets one neutral sentence, because the email in a request
   body proves nothing about who is sending it.
 
 ## Reviewing people
@@ -140,8 +140,9 @@ above):
   anyone who didn't ask for the newsletter, and anyone who already unsubscribed. Under single
   opt-in (`RESEND_FROM` unset) no `pending` marker is ever written, so those rows sync
   normally — the form tick is the consent.
-- **All** — everyone, for finding a specific person. "Delete" erases the Mongo record for a
-  removal request; the Resend contact, if any, must be deleted separately in the Resend
+- **All** — everyone, for finding a specific person. "Delete" is the one **admin-only**
+  action — every other one is reversible by a reviewer, erasing the record is not. It erases
+  the Mongo record for a removal request; the Resend contact, if any, must be deleted separately in the Resend
   dashboard — deleting the record does not touch it.
 
 ## Click tracking (Plausible)

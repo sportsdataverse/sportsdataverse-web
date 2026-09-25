@@ -184,7 +184,7 @@ Content routing (the operating model, also in SETUP-community.md):
 | `POST /api/join` | none; IP rate limit 5/hour (Upstash-free: in-memory per instance is not enough on Vercel — use a `rate_limits` Mongo doc with TTL index) | zod `joinSchema`; fan-out: people upsert, Kit, package insert, sticker insert, auto-admit |
 | `POST /api/survey` | none; same limiter | zod `surveySchema` |
 | `GET /platform/people` | `isOrgMember` | tabs: Queue · Population · Stickers |
-| `GET /api/platform/people?status=` | `requireWriter()` | list, no addresses |
+| `GET /api/platform/people?view=queue\|unsynced\|all` | org member | list, no addresses |
 | `POST /api/platform/people/[id]/approve` | `requireWriter()` | mint invite, email, stamp reviewer |
 | `POST /api/platform/people/[id]/decline` | `requireWriter()` | reason, optional notify |
 | `POST /api/platform/people/[id]/resend` | `requireWriter()` | re-email stored or fresh invite |
