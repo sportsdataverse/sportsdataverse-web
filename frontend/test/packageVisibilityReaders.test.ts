@@ -15,9 +15,18 @@ import { fileURLToPath } from 'node:url';
 // write-only statement passes on its own — so a write path needs no exemption,
 // and is caught the moment it starts reading.
 //
-// Known limit: a collection reached through a variable
-// (`const c = db.collection("packages"); … c.find({})`) is invisible to a text
-// scan. Keep `collection("packages")` and the read in one statement.
+// A statement that spreads the filter AND sets its own `$or` is flagged too: the
+// second `$or` key replaces the filter's, so the rule is silently dropped while
+// its name is still in the text. Combine with `$and: [PUBLIC_PACKAGE_FILTER, …]`.
+//
+// Known limits:
+// - a collection reached through a variable
+//   (`const c = db.collection("packages"); … c.find({})`) is invisible to a text
+//   scan. Keep `collection("packages")` and the read in one statement.
+// - a statement ends at the next `;`. In a file written without semicolons it
+//   runs on to a later statement, so a later filtered read can cover an earlier
+//   unfiltered one. The repo is formatted with semicolons; keep it that way in
+//   any file that reads `packages`.
 const here = path.dirname(fileURLToPath(import.meta.url));
 const frontendRoot = path.resolve(here, '..'); // test/ -> frontend/
 
@@ -30,7 +39,8 @@ const SOURCE = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
 // every document, including unapproved submissions, to review them.
 const ALLOWLIST = new Set(['app/(site)/packages/manage/page.tsx']);
 
-const COLLECTION = /collection\(\s*["']packages["']\s*\)/g;
+// the optional `<…>` is a type argument: `collection<PackageDoc>("packages")`
+const COLLECTION = /collection(?:<[^>]*>)?\(\s*["']packages["']\s*\)/g;
 const READ = /\.(find|findOne|findOneAndUpdate|findOneAndDelete|findOneAndReplace|countDocuments|estimatedDocumentCount|aggregate|distinct|watch)\s*\(/;
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -50,8 +60,11 @@ export function unfilteredReads(rel: string, text: string): string[] {
     const start = m.index ?? 0;
     const end = text.indexOf(';', start);
     const statement = text.slice(start, end === -1 ? undefined : end);
-    if (READ.test(statement) && !statement.includes('PUBLIC_PACKAGE_FILTER')) {
-      found.push(`${rel}:${text.slice(0, start).split('\n').length}`);
+    if (!READ.test(statement)) continue;
+    const line = text.slice(0, start).split('\n').length;
+    if (!statement.includes('PUBLIC_PACKAGE_FILTER')) found.push(`${rel}:${line}`);
+    else if (/\.\.\.\s*PUBLIC_PACKAGE_FILTER/.test(statement) && statement.includes('$or')) {
+      found.push(`${rel}:${line} (spreads PUBLIC_PACKAGE_FILTER and sets its own $or, which replaces the filter's — combine with $and: [PUBLIC_PACKAGE_FILTER, …])`);
     }
   }
   return found;
@@ -83,4 +96,21 @@ test('the scanner judges each statement, not each file', () => {
 
   // the read-and-write methods count as reads: they return documents
   assert.deepEqual(unfilteredReads('f.ts', 'await db.collection("packages").findOneAndUpdate({ _id }, u);'), ['f.ts:1']);
+});
+
+test('the scanner sees a typed collection<…>("packages") read', () => {
+  assert.deepEqual(unfilteredReads('g.ts', 'const p = await db.collection<PackageDoc>("packages").find({}).toArray();'), ['g.ts:1']);
+  assert.deepEqual(unfilteredReads('g.ts', 'const p = await db.collection<PackageDoc>("packages").find(PUBLIC_PACKAGE_FILTER).toArray();'), []);
+});
+
+test('spreading the filter and then setting $or is flagged, since the second $or replaces the rule', () => {
+  const replaced = 'await db.collection("packages").find({ ...PUBLIC_PACKAGE_FILTER, $or: [{ repoType: "R" }] }).toArray();';
+  const [finding] = unfilteredReads('o.ts', replaced);
+  assert.match(finding ?? '', /^o\.ts:1 /);
+  assert.match(finding ?? '', /\$and: \[PUBLIC_PACKAGE_FILTER/, 'the message says how to combine them');
+  // the right way, and a spread with a plain extra condition (what /stats does), both pass
+  const combined = 'await db.collection("packages").find({ $and: [PUBLIC_PACKAGE_FILTER, { $or: [{ repoType: "R" }] }] }).toArray();';
+  assert.deepEqual(unfilteredReads('a.ts', combined), []);
+  const stats = 'await db.collection("packages").countDocuments({ ...PUBLIC_PACKAGE_FILTER, published: { $ne: false } });';
+  assert.deepEqual(unfilteredReads('s.ts', stats), []);
 });
