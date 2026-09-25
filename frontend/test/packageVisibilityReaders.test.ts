@@ -17,10 +17,15 @@ const ALLOWLIST = new Set([
   // The member CMS: it must see every document, including unapproved
   // submissions, so it deliberately reads `packages` unfiltered.
   'app/(site)/packages/manage/page.tsx',
-  // A write path (insertOne), not a reader — Task 2's submission flow. Same
-  // category as the insertOne/updateOne/deleteOne in app/api/packages/route.ts,
-  // which needs no entry here only because that file also contains
-  // PUBLIC_PACKAGE_FILTER (via getPkgs); this one has no read call at all.
+]);
+
+// Files allowlisted because they only WRITE. If one of them ever gains a read,
+// the allowlist would silently exempt that read from the filter forever — so
+// assert they stay write-only. (The member CMS above reads on purpose.)
+const WRITE_ONLY = new Set([
+  // Task 2's submission insert. Same category as the writes in
+  // app/api/packages/route.ts, which needs no entry only because that file
+  // also holds the filtered GET.
   'lib/packageSubmission.ts',
 ]);
 
@@ -42,6 +47,11 @@ test('every packages-collection reader is wired to PUBLIC_PACKAGE_FILTER, except
       const rel = path.relative(frontendRoot, file).split(path.sep).join('/');
       const text = fs.readFileSync(file, 'utf8');
       if (!/collection\(\s*["']packages["']\s*\)/.test(text)) continue;
+      if (WRITE_ONLY.has(rel)) {
+        // a write-only file that gains a read is a new, unfiltered public reader
+        if (/\.(find|findOne|countDocuments|estimatedDocumentCount|aggregate|distinct)\(/.test(text)) offenders.push(`${rel} (allowlisted as write-only, but reads)`);
+        continue;
+      }
       if (ALLOWLIST.has(rel)) continue;
       if (!text.includes('PUBLIC_PACKAGE_FILTER')) offenders.push(rel);
     }

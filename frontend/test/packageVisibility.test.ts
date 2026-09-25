@@ -10,6 +10,7 @@ const submitted = { title: 'strangerPkg', published: false, submittedBy: new Obj
 const approved = { title: 'approvedPkg', published: true, submittedBy: new ObjectId() };
 const submittedNoPublished = { title: 'noPublishedField', submittedBy: new ObjectId() }; // a submission before `published` is ever set
 const nullSubmittedBy = { title: 'nullSubmittedBy', published: false, submittedBy: null }; // present but null — Mongo's $exists still counts it as present
+const truthyNotTrue = { title: 'truthyNotTrue', published: 1, submittedBy: new ObjectId() }; // truthy but not `true`: Mongo's {published:true} does not match it, so neither may the predicate
 
 test('legacy and CMS-created packages stay visible; a submission is hidden until approved', () => {
   assert.equal(isPubliclyVisible(legacy), true, 'a legacy doc must not vanish');
@@ -20,7 +21,7 @@ test('legacy and CMS-created packages stay visible; a submission is hidden until
 });
 
 test('the Mongo filter agrees with the predicate on every fixture', async () => {
-  const fixtures = [legacy, created, submitted, approved, submittedNoPublished, nullSubmittedBy];
+  const fixtures = [legacy, created, submitted, approved, submittedNoPublished, nullSubmittedBy, truthyNotTrue];
   const { db } = fakeDb();
   for (const d of fixtures) await db.collection('packages').insertOne({ ...d });
   const visibleTitles = new Set(
