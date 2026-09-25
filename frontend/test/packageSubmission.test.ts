@@ -20,6 +20,9 @@ test('a submission is stored hidden, stamped with who sent it and what they aske
   const doc = dump('packages')[0];
   assert.equal(String(doc.submittedBy), String(person));
   assert.equal(doc.orgTierRequested, true);
+  assert.equal(String(doc._id), String(r.packageId), 'the returned id is the stored id');
+  assert.deepEqual(doc.createdAt, T0);
+  assert.deepEqual(doc.updatedAt, T0);
   assert.equal(isPubliclyVisible(doc), false, 'a stranger never reaches the public site');
 });
 
@@ -30,7 +33,9 @@ test('a client-supplied published flag never survives', async () => {
   // and even if something upstream let it through, the write overrides it
   const { db, dump } = fakeDb();
   await submitPackage(db, { ...GOOD, published: true } as never, new ObjectId(), false, T0);
-  assert.equal(dump('packages')[0].published, false);
+  const doc = dump('packages')[0];
+  assert.equal(doc.published, false);
+  assert.equal(doc.orgTierRequested, false, 'the false case is written too, not just the true one');
 });
 
 test('a malformed submission is refused', () => {
@@ -44,4 +49,33 @@ test('a database failure is reported, never thrown', async () => {
   const r = await submitPackage(db, GOOD, new ObjectId(), false, T0);
   assert.equal(r.ok, false);
   assert.match(r.message, /could not/i);
+});
+
+test('a forged _id, createdBy, updatedBy, or submittedBy on the input never reaches the write', async () => {
+  const { db, dump } = fakeDb();
+  const real = new ObjectId();
+  const forged = {
+    ...GOOD,
+    _id: 'attacker',
+    createdBy: 'saiemgilani',
+    updatedBy: 'saiemgilani',
+    submittedBy: new ObjectId(), // a foreign id the caller has no business setting
+  } as never;
+  const r = await submitPackage(db, forged, real, true, T0);
+  assert.equal(r.ok, true);
+  const doc = dump('packages')[0];
+  // the fake driver mints its own id for a doc with none — the point here is
+  // that the attacker's literal string never makes it into the collection
+  assert.notEqual(doc._id, 'attacker');
+  assert.equal(String(doc._id), String(r.packageId));
+  assert.equal('createdBy' in doc, false);
+  assert.equal('updatedBy' in doc, false);
+  assert.equal(String(doc.submittedBy), String(real), 'submittedBy is always the function argument, never the input');
+});
+
+test('an input that fails the schema is refused before any write', async () => {
+  const { db, dump } = fakeDb();
+  const r = await submitPackage(db, { ...GOOD, sourceHref: 'not-a-url' } as never, new ObjectId(), false, T0);
+  assert.equal(r.ok, false);
+  assert.equal(dump('packages').length, 0, 'a rejected submission writes nothing');
 });

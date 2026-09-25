@@ -7,11 +7,14 @@ export type { PackageSubmissionInput };
 /**
  * Store a visitor's package for a member to review.
  *
- * `published: false` comes LAST in the document so no field of the input can
- * override it, and `submittedBy` is what keeps it off the public site (see
- * lib/packageVisibility.ts — `published` alone is not a visibility flag here).
- * Never throws: a submission rides along with a join request, and a failed
- * insert must not fail the visitor.
+ * Parses `input` itself — a caller that skipped validation (or cast around
+ * it, as `as never` does) must not be able to smuggle `_id` or any other
+ * unmodeled key into the write; `parsed.data` is what's spread, never the
+ * raw `input`. `published: false` comes LAST in the document so no field of
+ * the (parsed) input can override it, and `submittedBy` is what keeps it off
+ * the public site (see lib/packageVisibility.ts — `published` alone is not a
+ * visibility flag here). Never throws: a submission rides along with a join
+ * request, and a failed insert must not fail the visitor.
  */
 export async function submitPackage(
   db: Db,
@@ -21,8 +24,12 @@ export async function submitPackage(
   now: Date
 ): Promise<{ ok: boolean; packageId?: ObjectId; message: string }> {
   try {
+    const parsed = packageSubmissionSchema.safeParse(input);
+    if (!parsed.success) {
+      return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid package submission." };
+    }
     const res = await db.collection("packages").insertOne({
-      ...input,
+      ...parsed.data,
       submittedBy,
       orgTierRequested,
       createdAt: now,
