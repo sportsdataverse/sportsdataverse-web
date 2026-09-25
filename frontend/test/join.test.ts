@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fakeDb } from './fakeDb.ts';
+import { CONTACT_EMAIL } from '../content/links.ts';
 import { handleJoin, handleSurvey, handleConfirm } from '../lib/join.ts';
 import { signConfirmToken } from '../lib/confirmToken.ts';
 import { setReviewStatus, recordDiscordInvite } from '../lib/people.ts';
@@ -886,12 +887,20 @@ test('a sticker request is stored apart from the person, never on it', async () 
   const person = dump('people')[0];
   assert.equal((person.wants as { stickers: boolean }).stickers, true);
   const personJson = JSON.stringify(person);
+  assert.equal(personJson.includes(STICKER.name), false, `no envelope name "${STICKER.name}" on the person record`);
   for (const v of Object.values(STICKER.address)) {
     assert.equal(personJson.includes(v), false, `no "${v}" on the person record`);
   }
   const req = dump('sticker_requests')[0];
   assert.equal(String(req.personId), String(person._id));
   assert.equal((req.address as { line1: string }).line1, '1 Main St');
+
+  // the /join reply itself must never echo the envelope name or address either
+  const replyJson = JSON.stringify(r.body);
+  assert.equal(replyJson.includes(STICKER.name), false, 'the /join reply never echoes the envelope name');
+  for (const v of Object.values(STICKER.address)) {
+    assert.equal(replyJson.includes(v), false, `the /join reply never echoes "${v}"`);
+  }
 });
 
 test('the sticker flag and payload must agree', async () => {
@@ -1030,6 +1039,7 @@ test('a created sticker request and an already-open one both get the sticker suc
   const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
   const r1 = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', deps);
   const r2 = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', deps);
-  assert.match(r1.body.message, /stickers are on the list/i, 'the created-request reply carries the success sentence');
-  assert.match(r2.body.message, /stickers are on the list/i, 'the already-open reply carries the same success sentence');
+  const note = `Stickers are on the list. If you'd already asked, we'll use the first address you gave — to change it, write to ${CONTACT_EMAIL}.`;
+  assert.ok(r1.body.message.includes(note), 'the created-request reply carries the self-explaining success sentence');
+  assert.ok(r2.body.message.includes(note), 'the already-open reply carries the identical sentence — the membership-oracle rule');
 });

@@ -241,14 +241,18 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input aria-label="Name on the envelope" placeholder="Name on the envelope" autoComplete="name" required maxLength={80}
+              pattern=".*\S.*" title="Can't be only spaces"
               value={sticker.name} onChange={(e) => setSticker((s) => ({ ...s, name: e.target.value }))} />
             <Input aria-label="Country" placeholder="Country" autoComplete="country-name" required maxLength={56}
+              pattern=".*\S.*" title="Can't be only spaces"
               value={sticker.country} onChange={(e) => setSticker((s) => ({ ...s, country: e.target.value }))} />
             <Input aria-label="Address line 1" placeholder="Address line 1" autoComplete="address-line1" required maxLength={120}
+              pattern=".*\S.*" title="Can't be only spaces"
               value={sticker.line1} onChange={(e) => setSticker((s) => ({ ...s, line1: e.target.value }))} />
             <Input aria-label="Address line 2 (optional)" placeholder="Address line 2 (optional)" autoComplete="address-line2" maxLength={120}
               value={sticker.line2} onChange={(e) => setSticker((s) => ({ ...s, line2: e.target.value }))} />
             <Input aria-label="City" placeholder="City" autoComplete="address-level2" required maxLength={80}
+              pattern=".*\S.*" title="Can't be only spaces"
               value={sticker.city} onChange={(e) => setSticker((s) => ({ ...s, city: e.target.value }))} />
             <Input aria-label="State / region (if any)" placeholder="State / region (if any)" autoComplete="address-level1" maxLength={80}
               value={sticker.region} onChange={(e) => setSticker((s) => ({ ...s, region: e.target.value }))} />
