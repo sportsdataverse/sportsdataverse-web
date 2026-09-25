@@ -77,6 +77,24 @@ export default function PopulationPanel() {
             <Bars title="Language" counts={data.byLanguage} />
             <Bars title="Sport" counts={data.bySport} />
             <Bars title="Discord requests by status" counts={data.byStatus} />
+            <Bars
+              title="What people asked for"
+              counts={[
+                { key: "newsletter", count: data.wants.newsletter },
+                { key: "Discord", count: data.wants.discord },
+                { key: "package", count: data.wants.package },
+                { key: "stickers", count: data.wants.stickers },
+              ]}
+            />
+            <Bars
+              title="Newsletter status"
+              counts={[
+                { key: "synced", count: data.newsletter.synced },
+                { key: "pending", count: data.newsletter.pending },
+                { key: "skipped", count: data.newsletter.skipped },
+                { key: "unsubscribed", count: data.newsletter.unsubscribed },
+              ]}
+            />
             <section className="rounded-lg border border-border bg-card p-4">
               <h3 className="mb-2 font-barlow text-lg font-semibold">Follow / support clicks (last 91 days)</h3>
               {data.clicks.status === "ok" && data.clicks.rows.length > 0 ? (
