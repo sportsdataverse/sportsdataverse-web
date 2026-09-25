@@ -79,3 +79,11 @@ test('a 200 whose body is valid JSON but not an object is an error, never a thro
     assert.deepEqual(r.rows, []);
   }
 });
+
+test('the response is capped at the top 20 rows by count, since anyone can post a Plausible event to our site id', async () => {
+  const results = Array.from({ length: 25 }, (_, i) => ({ dimensions: ['follow_click', `platform${i}`, 'footer'], metrics: [i] }));
+  const { fetchImpl } = fakePlausible(200, { results });
+  const r = await fetchClickCounts({ apiKey: 'k', fetchImpl });
+  assert.equal(r.rows.length, 20);
+  assert.deepEqual(r.rows.map((row) => row.count), Array.from({ length: 20 }, (_, i) => 24 - i));
+});

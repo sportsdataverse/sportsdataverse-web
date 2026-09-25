@@ -38,7 +38,7 @@ export function aggregatePopulation(people: PersonDoc[]): Omit<Population, "pass
   const nl = { synced: 0, pending: 0, skipped: 0, unsubscribed: 0 };
   for (const p of people) {
     const n = p.newsletter;
-    if (!n) continue;
+    if (!n || typeof n !== "object") continue;
     if ("resendContactId" in n) (n.unsubscribed ? nl.unsubscribed++ : nl.synced++);
     else if ("pending" in n) nl.pending++;
     else if ("skipped" in n) nl.skipped++;
@@ -48,7 +48,11 @@ export function aggregatePopulation(people: PersonDoc[]): Omit<Population, "pass
     byRole: tally(pf.map((p) => p.role)),
     byLanguage: tally(pf.flatMap((p) => p.languages)),
     bySport: tally(pf.flatMap((p) => p.sports)),
-    byStatus: tally(people.map((p) => p.status)),
+    // status as stored means "Discord admission state" only for people who asked
+    // for Discord — a footer newsletter signup or a non-Discord /join applicant
+    // is stamped "pending" too, and pooling them would read as a review backlog
+    // that isn't there (the Queue tab shows the real one)
+    byStatus: tally(people.filter((p) => p.wants?.discord).map((p) => p.status)),
     funnel: {
       discoveredVia: tally(pf.map((p) => p.discoveredVia)),
       updatesVia: tally(pf.flatMap((p) => p.updatesVia)),
@@ -68,15 +72,22 @@ export async function loadPopulation(
   db: Db,
   deps: { discordBotToken?: string; discordGuildId?: string; plausibleApiKey?: string; plausibleSiteId?: string; fetchImpl?: typeof fetch }
 ): Promise<Population> {
-  // project only what is counted — the identifying fields never leave Mongo
-  const people = (await db
-    .collection("people")
-    .find({}, { projection: { status: 1, wants: 1, profile: 1, newsletter: 1 } })
-    .toArray()) as unknown as PersonDoc[];
-  // both external calls are best-effort and bounded by their own timeouts
-  const [clicks, discordMembers] = await Promise.all([
+  // project only what is counted — name/email/handles/answers never leave Mongo.
+  // `newsletter` is the one exception: it is projected whole, so a
+  // resendContactId or a skip reason does reach process memory here, but
+  // aggregatePopulation only tests key presence on it, so neither reaches the
+  // response.
+  // Mongo and both external calls run concurrently — each external call is
+  // best-effort and bounded by its own timeout, and none of the three should
+  // wait on another.
+  const [peopleRaw, clicks, discordMembers] = await Promise.all([
+    db
+      .collection("people")
+      .find({}, { projection: { status: 1, wants: 1, profile: 1, newsletter: 1 } })
+      .toArray(),
     fetchClickCounts({ apiKey: deps.plausibleApiKey, siteId: deps.plausibleSiteId, fetchImpl: deps.fetchImpl }),
     fetchMemberCount({ botToken: deps.discordBotToken, guildId: deps.discordGuildId, fetchImpl: deps.fetchImpl }),
   ]);
+  const people = peopleRaw as unknown as PersonDoc[];
   return { ...aggregatePopulation(people), clicks, passive: { discordMembers } };
 }

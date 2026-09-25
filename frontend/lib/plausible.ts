@@ -50,5 +50,7 @@ export async function fetchClickCounts(deps: { apiKey?: string; siteId?: string;
     rows.push({ event: d[0], platform: d[1], placement: d[2], count: m[0] });
   }
   rows.sort((a, b) => b.count - a.count);
-  return { status: "ok", rows };
+  // platform/placement are unauthenticated event props anyone can post to our
+  // site id; cap the response so a flood of distinct values can't inflate it
+  return { status: "ok", rows: rows.slice(0, 20) };
 }

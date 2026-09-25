@@ -75,7 +75,7 @@ export default function PopulationPanel() {
             <Bars title="Role" counts={data.byRole} />
             <Bars title="Language" counts={data.byLanguage} />
             <Bars title="Sport" counts={data.bySport} />
-            <Bars title="Status" counts={data.byStatus} />
+            <Bars title="Discord requests by status" counts={data.byStatus} />
             <section className="rounded-lg border border-border bg-card p-4">
               <h3 className="mb-2 font-barlow text-lg font-semibold">Follow / support clicks (last 91 days)</h3>
               {data.clicks.status === "ok" && data.clicks.rows.length > 0 ? (
