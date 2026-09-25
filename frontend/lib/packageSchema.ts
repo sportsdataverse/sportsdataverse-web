@@ -48,3 +48,11 @@ export type PackageDoc = PackageInput & {
   createdAt?: string;
   updatedAt?: string;
 };
+
+/**
+ * What a visitor may send through /join: `packageSchema` without `published`.
+ * A submission is always created hidden and the API stamps its provenance —
+ * the same rule the CMS applies to `createdBy`.
+ */
+export const packageSubmissionSchema = packageSchema.omit({ published: true });
+export type PackageSubmissionInput = z.infer<typeof packageSubmissionSchema>;

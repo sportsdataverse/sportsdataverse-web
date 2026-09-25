@@ -59,6 +59,7 @@ export function fakeDb() {
   const rows = (name: string) => store.get(name) ?? store.set(name, []).get(name)!;
   let nextUpdateShouldFail: { code?: number } | null = null;
   let nextReadShouldFail: { code?: number } | null = null;
+  const nextWriteFailure = new Map<string, Error>();
   // A real Mongo read hands back a freshly-deserialized document, not a
   // reference into the driver's cache — mutating what a caller reads must
   // never be visible to a later read or to `dump()`. structuredClone matches
@@ -81,12 +82,16 @@ export function fakeDb() {
           return d ? cloned(d) : null;
         },
         async updateOne(filter: Doc, update: Doc) {
+          const armed = nextWriteFailure.get(name);
+          if (armed) { nextWriteFailure.delete(name); throw armed; }
           consumeFailure(nextUpdateShouldFail, () => { nextUpdateShouldFail = null; });
           const d = rows(name).find((r) => matches(r, filter));
           if (d) apply(d, update, false);
           return { matchedCount: d ? 1 : 0, modifiedCount: d ? 1 : 0 };
         },
         async findOneAndUpdate(filter: Doc, update: Doc, opts: Doc = {}) {
+          const armed = nextWriteFailure.get(name);
+          if (armed) { nextWriteFailure.delete(name); throw armed; }
           let d = rows(name).find((r) => matches(r, filter));
           let upserted = false;
           if (!d && opts.upsert) {
@@ -104,6 +109,8 @@ export function fakeDb() {
           return value;
         },
         async insertOne(doc: Doc) {
+          const armed = nextWriteFailure.get(name);
+          if (armed) { nextWriteFailure.delete(name); throw armed; }
           const d = { _id: `id-${nextId++}`, ...doc };
           rows(name).push(d);
           return { insertedId: d._id, acknowledged: true };
@@ -126,6 +133,8 @@ export function fakeDb() {
           return api;
         },
         async deleteOne(filter: Doc) {
+          const armed = nextWriteFailure.get(name);
+          if (armed) { nextWriteFailure.delete(name); throw armed; }
           // deletes are a write too: the same "next op fails" flag covers both
           consumeFailure(nextUpdateShouldFail, () => { nextUpdateShouldFail = null; });
           const list = rows(name);
@@ -134,11 +143,27 @@ export function fakeDb() {
           list.splice(i, 1);
           return { deletedCount: 1 };
         },
+        async deleteMany(filter: Doc = {}) {
+          const armed = nextWriteFailure.get(name);
+          if (armed) { nextWriteFailure.delete(name); throw armed; }
+          const list = rows(name);
+          const keep = list.filter((d) => !matches(d, filter));
+          const deletedCount = list.length - keep.length;
+          list.length = 0;
+          list.push(...keep);
+          return { deletedCount };
+        },
       };
     },
+    /** Arms the next write — updateOne, findOneAndUpdate, insertOne, deleteOne or
+     *  deleteMany — on ONE collection to throw `err`. Scoped so a test can fail the
+     *  write it is about and not whatever write happens to come first. */
+    failNextWriteTo(collection: string, err: Error) { nextWriteFailure.set(collection, err); },
   };
   return {
-    db: db as unknown as import('mongodb').Db,
+    db: db as unknown as import('mongodb').Db & {
+      failNextWriteTo: (collection: string, err: Error) => void;
+    },
     dump: (name: string) => rows(name),
     failNextUpdateWith: (err: { code?: number }) => { nextUpdateShouldFail = err; },
     failNextReadWith: (err: { code?: number }) => { nextReadShouldFail = err; },
