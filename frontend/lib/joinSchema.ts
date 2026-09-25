@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { packageSubmissionSchema } from "./packageSchema.ts";
+import { stickerRequestSchema } from "./stickers.ts";
 
 /**
  * Bodies of the public write endpoints. Question answers are NOT typed here:
@@ -18,6 +19,9 @@ export const joinBodySchema = z.object({
   /** Present only when answers.wants_package === "yes". Validated by the same
    *  schema the CMS uses; `orgTier` is a request, never a grant. */
   pkg: packageSubmissionSchema.extend({ orgTier: z.boolean().optional() }).optional(),
+  /** Present only when answers.wants_stickers === "yes". Stored in
+   *  sticker_requests, never on the person — see lib/stickers.ts. */
+  sticker: stickerRequestSchema.optional(),
 });
 export type JoinBody = z.infer<typeof joinBodySchema>;
 

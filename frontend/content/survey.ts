@@ -82,6 +82,8 @@ export const QUESTIONS: Question[] = [
     options: [{ value: "yes", label: "Yes" }, { value: "no", label: "No" }] },
   { id: "wants_package", section: "wants", type: "single", label: "Have you built a package you'd like listed on sportsdataverse.org?", required: true,
     options: [{ value: "yes", label: "Yes — I'll add the details" }, { value: "no", label: "Not right now" }] },
+  { id: "wants_stickers", section: "wants", type: "single", label: "Would you like some SportsDataverse stickers in the mail?", required: true,
+    options: [{ value: "yes", label: "Yes please" }, { value: "no", label: "No thanks" }] },
 ];
 
 export const SURVEY_SECTIONS: Section[] = ["profile", "discovery", "followup"];

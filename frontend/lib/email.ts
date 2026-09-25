@@ -46,3 +46,15 @@ export function discordInviteEmail(url: string): { subject: string; html: string
     text: `You're in. This link adds you to the SportsDataverse Discord:\n\n${url}\n\nIt works for 7 days and a few uses, so don't share it around — ask us for another if someone else needs one.\n\n— SportsDataverse`,
   };
 }
+
+/** Confirms a sticker request. Deliberately does NOT repeat the address: the
+ *  typed email is not verified, so echoing it would send one person's postal
+ *  address to whatever inbox was typed. */
+export function stickerRequestEmail(): { subject: string; html: string; text: string } {
+  const body = "Got it — your sticker request is in. We mail them in batches, so it may be a few weeks. If your address changes before they ship, reply to this email and we'll update it.";
+  return {
+    subject: "Your SportsDataverse sticker request",
+    html: `<p>${body}</p>\n<p>— SportsDataverse</p>`,
+    text: `${body}\n\n— SportsDataverse`,
+  };
+}
