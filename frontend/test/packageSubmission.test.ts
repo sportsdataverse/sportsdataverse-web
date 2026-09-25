@@ -103,7 +103,7 @@ test('a script URL never reaches the database, even from a caller that skips par
   assert.equal(dump('packages').length, 0);
 });
 
-test('the same person resubmitting the same title updates one row, not a duplicate', async () => {
+test('the same person resubmitting the same title keeps one row, holding the FIRST submission', async () => {
   const { db, dump } = fakeDb();
   const person = new ObjectId();
   const T1 = new Date('2026-09-25T13:00:00Z');
@@ -113,11 +113,41 @@ test('the same person resubmitting the same title updates one row, not a duplica
   assert.equal(second.ok, true);
   const rows = dump('packages');
   assert.equal(rows.length, 1, 'one row, not two');
-  assert.equal(rows[0].content, 'An updated description.', 'holds the second submission');
-  assert.equal(rows[0].orgTierRequested, true);
-  assert.deepEqual(rows[0].createdAt, T0, 'createdAt is untouched by the update');
-  assert.deepEqual(rows[0].updatedAt, T1);
+  assert.equal(rows[0].content, GOOD.content, 'the first submission stands');
+  assert.equal(rows[0].orgTierRequested, false, 'and so does its org-tier answer');
+  assert.deepEqual(rows[0].createdAt, T0);
+  assert.deepEqual(rows[0].updatedAt, T0, 'a resubmission writes nothing');
   assert.equal(second.packageId, undefined, 'no new id — nothing was created');
+  assert.equal(second.message, first.message, 'the same sentence either way, or the reply says whether that person submitted that title');
+});
+
+test('a second submission with different links for the same email and title leaves the first links untouched', async () => {
+  const { db, dump } = fakeDb();
+  const victim = new ObjectId();
+  const links = { docsHref: 'https://hoopr.sportsdataverse.org', logoHref: 'https://example.org/hoopR.png', dataRepoHref: 'https://github.com/sportsdataverse/hoopR-data' };
+  await submitPackage(db, { ...GOOD, ...links }, victim, false, T0);
+  // anyone who types the victim's email and package title reaches the same submittedBy
+  const r = await submitPackage(
+    db,
+    {
+      ...GOOD,
+      sourceHref: 'https://evil.example/hoopR',
+      docsHref: 'https://evil.example/docs',
+      logoHref: 'https://evil.example/logo.png',
+      dataRepoHref: 'https://evil.example/data',
+    },
+    victim,
+    true,
+    T0
+  );
+  assert.equal(r.ok, true);
+  const rows = dump('packages');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].sourceHref, GOOD.sourceHref);
+  assert.equal(rows[0].docsHref, links.docsHref);
+  assert.equal(rows[0].logoHref, links.logoHref);
+  assert.equal(rows[0].dataRepoHref, links.dataRepoHref);
+  assert.equal(rows[0].orgTierRequested, false);
 });
 
 test('the same person submitting two different titles leaves two rows', async () => {
@@ -134,7 +164,7 @@ test('the same person submitting two different titles leaves two rows', async ()
   assert.equal(dump('packages').length, 2);
 });
 
-test('resubmitting a title that was already published starts a new pending row, not an edit to the live one', async () => {
+test('resubmitting a title that was already published changes nothing: no edit to the live row, no duplicate listing', async () => {
   const { db, dump } = fakeDb();
   const person = new ObjectId();
   await submitPackage(db, GOOD, person, false, T0);
@@ -142,7 +172,7 @@ test('resubmitting a title that was already published starts a new pending row, 
   const second = await submitPackage(db, { ...GOOD, content: 'A fresh pitch for the same package.' }, person, false, T0);
   assert.equal(second.ok, true);
   const rows = dump('packages');
-  assert.equal(rows.length, 2, 'the live row is untouched, a new pending row is added');
-  assert.equal(rows.find((r) => r.published === true)?.content, GOOD.content, 'the live listing keeps its original content');
-  assert.equal(rows.find((r) => r.published === false)?.content, 'A fresh pitch for the same package.');
+  assert.equal(rows.length, 1, 'no second row that could be approved into a duplicate listing');
+  assert.equal(rows[0].published, true, 'the live listing stays published');
+  assert.equal(rows[0].content, GOOD.content, 'and keeps its original content');
 });

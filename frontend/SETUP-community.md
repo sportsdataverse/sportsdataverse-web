@@ -187,11 +187,13 @@ runs on every pull request that touches `frontend/` (`npm run build` does not
 run it).
 
 Submission links are restricted to `http://`/`https://` (zod's `.url()` alone would
-also accept `javascript:` or `data:`). One submission per person per package title
-stays open at a time: a resubmission of the same title updates the pending row in
-place rather than stacking a duplicate; a different title, or resubmitting an
-already-published title, opens a fresh pending row instead of silently editing the
-live listing. A reserved test address (`example.com`, `.test`, …) — what the
+also accept `javascript:` or `data:`). One row per person per package title, and
+the first submission wins: resubmitting the same title — pending or already
+published — changes nothing and gets the same reply, so a retry cannot stack a
+duplicate, and someone who knows a submitter's email and package title (the
+email is not verified) cannot rewrite the links on a pending submission or touch
+a live listing. A correction goes through a member editing the row in the CMS. A
+different title is a separate submission. A reserved test address (`example.com`, `.test`, …) — what the
 PR-evidence walkthrough submits through the full join form — records the answers
 as always but never creates a `packages` document, so the walkthrough cannot leave
 a fake package in the CMS queue.
