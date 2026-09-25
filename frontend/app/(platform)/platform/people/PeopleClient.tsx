@@ -137,7 +137,9 @@ export default function PeopleClient({ isAdmin = false }: { isAdmin?: boolean })
             aria-pressed={view === v.value}
             onClick={() => setView(v.value)}
           >
-            {v.label}
+            {/* C1: a member's "all" is narrowed server-side to Discord requesters —
+                the tab must say so rather than promise everyone. */}
+            {v.value === "all" && !isAdmin ? "All Discord requests" : v.label}
           </Button>
         ))}
       </div>
