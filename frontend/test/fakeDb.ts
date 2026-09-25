@@ -87,7 +87,8 @@ function checkPathConflicts(update: Doc): void {
   }
   for (let i = 0; i < entries.length; i++) {
     for (let j = i + 1; j < entries.length; j++) {
-      if (entries[i].op === entries[j].op) continue;
+      // same operator too: Mongo rejects $set: { wants: {…}, 'wants.x': … } (a JS object
+      // cannot repeat a key, so within one operator only a prefix overlap can occur)
       const conflict = conflictingPath(entries[i].path, entries[j].path);
       if (conflict) throw new Error(`Updating the path '${conflict}' would create a conflict at '${conflict}'`);
     }

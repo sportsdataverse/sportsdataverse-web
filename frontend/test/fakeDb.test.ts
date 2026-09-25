@@ -32,3 +32,11 @@ test('sibling paths that merely share a prefix string do not throw', async () =>
     db.collection<{ _id: string }>('x').updateOne({ _id: 'a' }, { $set: { 'wants.a': 1 }, $setOnInsert: { 'wants.ab': 2 } })
   );
 });
+
+test('a parent and a child path inside ONE operator throws too', async () => {
+  const { db } = fakeDb();
+  await assert.rejects(
+    db.collection<{ _id: string }>('x').updateOne({ _id: 'a' }, { $set: { wants: { newsletter: true }, 'wants.package': true } }),
+    /conflict/
+  );
+});
