@@ -63,3 +63,17 @@ export async function submitPackage(
     return { ok: false, message: "We saved your answers but could not record the package — please try again in a few minutes." };
   }
 }
+
+/**
+ * At most one submission per (submitter, title). The upsert above already keys on
+ * that pair; without a unique index two simultaneous requests could both insert.
+ * The server retries an upsert that loses that race as an update, so the losing
+ * request matches the winner and changes nothing. Partial on `submittedBy`, so
+ * legacy and member-created packages, which have none, are exempt.
+ */
+export async function ensurePackageIndexes(db: Db): Promise<void> {
+  await db.collection("packages").createIndex(
+    { submittedBy: 1, title: 1 },
+    { unique: true, partialFilterExpression: { submittedBy: { $exists: true } } }
+  );
+}
