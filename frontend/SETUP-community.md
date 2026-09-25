@@ -142,7 +142,10 @@ above):
   normally — the form tick is the consent.
 - **All** — everyone, for finding a specific person. "Delete" is the one **admin-only**
   action — every other one is reversible by a reviewer, erasing the record is not. It erases
-  the Mongo record for a removal request; the Resend contact, if any, must be deleted separately in the Resend
+  the Mongo record for a removal request, and first any package the person submitted that is
+  not yet published (if that fails, the record is kept, so Delete can simply be retried); a
+  published package stays, since it is a public org listing — delete it in `/packages/manage`
+  if the request covers it. The Resend contact, if any, must be deleted separately in the Resend
   dashboard — deleting the record does not touch it.
 
 ## Click tracking (Plausible)
