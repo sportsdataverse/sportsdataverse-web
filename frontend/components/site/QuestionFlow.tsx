@@ -138,7 +138,7 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
           </legend>
           {q.help ? <p className="text-sm text-muted-foreground">{q.help}</p> : null}
           {q.type === "text" ? (
-            <Input value={String(answers[q.id] ?? "")} onChange={(e) => set(q.id, e.target.value)} required={q.required} maxLength={200} />
+            <Input aria-label={q.label} value={String(answers[q.id] ?? "")} onChange={(e) => set(q.id, e.target.value)} required={q.required} maxLength={200} />
           ) : (
             <div className="flex flex-wrap gap-2">
               {opts(q).map((o) => {
@@ -172,7 +172,7 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
         <fieldset className="space-y-3">
           <legend className="font-medium">Your package</legend>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input placeholder="Package name" required maxLength={120} value={pkg.title}
+            <Input aria-label="Package name" placeholder="Package name" required maxLength={120} value={pkg.title}
               onChange={(e) => setPkg((p) => ({ ...p, title: e.target.value }))} />
             <Select value={pkg.repoType} onValueChange={(v) => setPkg((p) => ({ ...p, repoType: v as (typeof REPO_TYPES)[number] }))}>
               <SelectTrigger className="w-full" aria-label="Language">
@@ -184,14 +184,14 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
                 ))}
               </SelectContent>
             </Select>
-            <Input placeholder="Sport or category (e.g. MBB)" required maxLength={120} value={pkg.sports}
+            <Input aria-label="Sport or category" placeholder="Sport or category (e.g. MBB)" required maxLength={120} value={pkg.sports}
               onChange={(e) => setPkg((p) => ({ ...p, sports: e.target.value }))} />
-            <Input type="url" placeholder="https://github.com/you/your-package" required value={pkg.sourceHref}
+            <Input type="url" aria-label="Source repository URL" placeholder="https://github.com/you/your-package" required value={pkg.sourceHref}
               onChange={(e) => setPkg((p) => ({ ...p, sourceHref: e.target.value }))} />
-            <Input type="url" placeholder="https://your-package-docs.example (optional)" value={pkg.docsHref}
+            <Input type="url" aria-label="Documentation URL (optional)" placeholder="https://your-package-docs.example (optional)" value={pkg.docsHref}
               onChange={(e) => setPkg((p) => ({ ...p, docsHref: e.target.value }))} />
           </div>
-          <textarea className={textareaClass}
+          <textarea aria-label="What your package does" className={textareaClass}
             placeholder="What does it do?" required maxLength={2000} value={pkg.content}
             onChange={(e) => setPkg((p) => ({ ...p, content: e.target.value }))} />
           <label className="flex items-center gap-2 text-sm">
@@ -205,8 +205,8 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
         <fieldset className="space-y-3">
           <legend className="font-medium">Where can we reach you?</legend>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input type="text" placeholder="Name (optional)" autoComplete="name" value={contact.name} onChange={(e) => setContact((c) => ({ ...c, name: e.target.value }))} maxLength={80} />
-            <Input type="email" placeholder="you@example.com" autoComplete="email" required value={contact.email} onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))} />
+            <Input type="text" aria-label="Name (optional)" placeholder="Name (optional)" autoComplete="name" value={contact.name} onChange={(e) => setContact((c) => ({ ...c, name: e.target.value }))} maxLength={80} />
+            <Input type="email" aria-label="Email address" placeholder="you@example.com" autoComplete="email" required value={contact.email} onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))} />
           </div>
         </fieldset>
       ) : null}
