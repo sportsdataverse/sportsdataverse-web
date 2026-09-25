@@ -6,6 +6,7 @@ import { ensurePeopleIndexes } from "@lib/people";
 import { ensureRateLimitIndex } from "@lib/rateLimit";
 import { ensurePackageIndexes } from "@lib/packageSubmission";
 import { ensureStickerIndexes } from "@lib/stickers";
+import { ensureResponseIndexes } from "@lib/responses";
 
 // Public write endpoint: no auth required to submit, rate-limited per IP inside
 // handleJoin. A signed-in session is read best-effort (see the auth() call below)
@@ -15,7 +16,7 @@ let indexesReady: Promise<void> | null = null;
 
 export async function POST(req: Request) {
   const { db } = await connectToDatabase();
-  indexesReady ??= Promise.all([ensurePeopleIndexes(db), ensureRateLimitIndex(db), ensurePackageIndexes(db), ensureStickerIndexes(db)])
+  indexesReady ??= Promise.all([ensurePeopleIndexes(db), ensureRateLimitIndex(db), ensurePackageIndexes(db), ensureStickerIndexes(db), ensureResponseIndexes(db)])
     .then(() => undefined)
     .catch((e) => {
       indexesReady = null;

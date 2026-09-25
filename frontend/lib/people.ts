@@ -122,23 +122,6 @@ export async function markNewsletterSkipped(db: Db, personId: PersonId, reason: 
   await people(db).updateOne({ _id: personId }, { $set: { newsletter: { skipped: reason } } });
 }
 
-export async function recordSurvey(
-  db: Db,
-  input: { answers: Answers; profile: Profile },
-  now: Date = new Date()
-): Promise<{ personId: PersonId }> {
-  const doc = {
-    answers: input.answers,
-    profile: input.profile,
-    wants: { discord: false, newsletter: false, stickers: false, package: false },
-    status: "survey" as const,
-    createdAt: now,
-    updatedAt: now,
-  };
-  const res = await people(db).insertOne(doc as unknown as PersonDoc);
-  return { personId: res.insertedId };
-}
-
 /** The latest submission wins outright: optional parts it left out are removed,
  *  not kept from an older one. History lives in `responses`. */
 function identityUpdate(identity: Identity, now: Date): { $set: Record<string, unknown>; $unset: Record<string, ""> } {
@@ -155,7 +138,6 @@ export async function upsertJoin(
   db: Db,
   input: {
     email: string;
-    name?: string;
     identity?: Identity;
     answers: Answers;
     profile: Profile;
@@ -176,7 +158,6 @@ export async function upsertJoin(
         "wants.package": input.wants.package ?? false,
         "wants.stickers": input.wants.stickers ?? false,
         updatedAt: now,
-        ...(input.name && !input.identity ? { name: input.name } : {}),
         ...id.$set,
       },
       ...(Object.keys(id.$unset).length ? { $unset: id.$unset } : {}),

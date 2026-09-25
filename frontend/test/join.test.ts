@@ -88,15 +88,15 @@ const FULL = {
 };
 const site = { siteUrl: 'https://www.sportsdataverse.org', tokenSecret: 's3cret' };
 
-test('survey: anonymous row stored, no Resend call, 400 on an incomplete profile', async () => {
+test('survey: identified row stored, no Resend call, 400 on an incomplete profile', async () => {
   const { db, dump } = fakeDb();
   const k = okResend();
-  const r = await handleSurvey({ answers: FULL }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: k.fetchImpl, ...site });
+  const r = await handleSurvey({ email: 'a@b.co', identity: IDENTITY, answers: FULL }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: k.fetchImpl, ...site });
   assert.equal(r.status, 200);
   assert.equal(k.calls(), 0);
   assert.equal(dump('people')[0].status, 'survey');
   assert.equal((dump('people')[0].profile as { role: string }).role, 'developer');
-  const bad = await handleSurvey({ answers: { role: 'developer' } }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: k.fetchImpl, ...site });
+  const bad = await handleSurvey({ email: 'a@b.co', identity: IDENTITY, answers: { role: 'developer' } }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: k.fetchImpl, ...site });
   assert.equal(bad.status, 400);
 });
 
@@ -107,7 +107,7 @@ test('join with a profile, single opt-in (no RESEND_FROM): contact created with 
     calls.push({ url: String(url), body: String(init?.body ?? '') });
     return new Response(JSON.stringify({ object: 'contact', id: 'c-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
   }) as typeof fetch;
-  const r = await handleJoin({ email: 'a@b.co', name: 'Ann', answers: { ...FULL, wants_newsletter: 'yes', wants_discord: 'no', wants_package: 'no', wants_stickers: 'no' }, placement: 'join' }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl, ...site });
+  const r = await handleJoin({ email: 'a@b.co', identity: { ...IDENTITY, name: 'Ann' }, answers: { ...FULL, wants_newsletter: 'yes', wants_discord: 'no', wants_package: 'no', wants_stickers: 'no' }, placement: 'join' }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl, ...site });
   assert.equal(r.status, 200);
   assert.equal(calls.length, 1);
   assert.equal(JSON.parse(calls[0].body).properties.languages, 'R');
@@ -120,7 +120,7 @@ test('join with a profile, single opt-in (no RESEND_FROM): contact created with 
 test('join with wants_newsletter=no stores the profile and never calls Resend', async () => {
   const { db, dump } = fakeDb();
   const k = okResend();
-  const r = await handleJoin({ email: 'a@b.co', answers: { ...FULL, wants_newsletter: 'no', wants_discord: 'yes', wants_package: 'no', wants_stickers: 'no' } }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: k.fetchImpl, ...site });
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...FULL, wants_newsletter: 'no', wants_discord: 'yes', wants_package: 'no', wants_stickers: 'no' } }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: k.fetchImpl, ...site });
   assert.equal(r.status, 200);
   assert.equal(k.calls(), 0);
   assert.deepEqual(dump('people')[0].wants, { discord: true, newsletter: false, stickers: false, package: false });
@@ -369,12 +369,12 @@ test('turning the newsletter off retires the pending invite and blocks the old l
     dataTypes: ['pbp'], packages_r: ['cfbfastR'],
   };
 
-  await handleJoin({ email: 'a@b.co', answers: { ...ANSWERS, wants_newsletter: 'yes', wants_discord: 'no', wants_package: 'no', wants_stickers: 'no' } }, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...ANSWERS, wants_newsletter: 'yes', wants_discord: 'no', wants_package: 'no', wants_stickers: 'no' } }, '1.1.1.1', deps);
   const personId = String((dump('people')[0] as { _id: unknown })._id);
   assert.deepEqual(Object.keys(dump('people')[0].newsletter as object), ['pending']);
   const token = signConfirmToken(personId, 's3cret');
 
-  await handleJoin({ email: 'a@b.co', answers: { ...ANSWERS, wants_newsletter: 'no', wants_discord: 'no', wants_package: 'no', wants_stickers: 'no' } }, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...ANSWERS, wants_newsletter: 'no', wants_discord: 'no', wants_package: 'no', wants_stickers: 'no' } }, '1.1.1.1', deps);
   assert.equal(dump('people')[0].newsletter, undefined, 'the unused invite is gone');
 
   const r = await handleConfirm(token, deps);
@@ -388,6 +388,8 @@ const D_ANSWERS = {
   dataTypes: ['pbp'], packages_r: ['cfbfastR'],
   wants_newsletter: 'no', wants_discord: 'yes', wants_package: 'no', wants_stickers: 'no',
 };
+
+const IDENTITY = { name: 'Pat Doe', location: { country: 'US', region: 'TX' } };
 
 function discordFake() {
   const calls: string[] = [];
@@ -405,7 +407,7 @@ const discordEnv = { discordBotToken: 'tok', discordChannelId: '42' };
 test('an org member asking for Discord is admitted on the spot', async () => {
   const { db, dump } = fakeDb();
   const d = discordFake();
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv,
     viewer: { login: 'octocat', isOrgMember: true, isContributor: false },
   });
@@ -421,7 +423,7 @@ test('an org member asking for Discord is admitted on the spot', async () => {
 test('a non-member contributor (a merged PR, no org membership) is admitted on the spot', async () => {
   const { db, dump } = fakeDb();
   const d = discordFake();
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv,
     viewer: { login: 'contribber', isOrgMember: false, isContributor: true },
   });
@@ -435,7 +437,7 @@ test('a non-member contributor (a merged PR, no org membership) is admitted on t
 test('a stranger asking for Discord is queued, and no invite is minted', async () => {
   const { db, dump } = fakeDb();
   const d = discordFake();
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer: null,
   });
   assert.equal(r.status, 200);
@@ -450,7 +452,7 @@ test('a stranger asking for Discord is queued, and no invite is minted', async (
 test('a signed-in visitor with no org membership and no merged PR is queued, not admitted', async () => {
   const { db, dump } = fakeDb();
   const d = discordFake();
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv,
     viewer: { login: 'rando', isOrgMember: false, isContributor: false },
   });
@@ -467,8 +469,8 @@ test('re-submitting while unvouched never stamps a review that never happened', 
   const { db, dump } = fakeDb();
   const d = discordFake();
   const deps = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer: null };
-  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', deps);
-  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', deps);
   assert.equal(dump('people')[0].reviewedAt, undefined);
   assert.equal(dump('people')[0].reviewedBy, undefined);
 });
@@ -477,9 +479,9 @@ test('a second email for the same GitHub login is queued, not admitted a second 
   const { db, dump } = fakeDb();
   const d = discordFake();
   const viewer = { login: 'octocat', isOrgMember: true, isContributor: false };
-  const r1 = await handleJoin({ email: 'first@b.co', answers: D_ANSWERS }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer });
+  const r1 = await handleJoin({ email: 'first@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer });
   assert.match(r1.body.message, /discord\.gg\/inv123/);
-  const r2 = await handleJoin({ email: 'second@b.co', answers: D_ANSWERS }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer });
+  const r2 = await handleJoin({ email: 'second@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer });
   assert.equal(r2.status, 200, 'the second address must not 500 on the unique login index');
   assert.match(r2.body.message, /on file/i, 'the same GitHub identity does not get a second invite under a new email');
   assert.equal(dump('people').length, 2);
@@ -494,10 +496,10 @@ test('a recent decline is not re-opened by re-submitting', async () => {
   const { db, dump } = fakeDb();
   const d = discordFake();
   const deps = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer: null };
-  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', deps);
   const personId = (dump('people')[0] as { _id: unknown })._id;
   await setReviewStatus(db, personId as never, 'declined', 'saiemgilani', new Date(), 'no vouch');
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', deps);
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', deps);
   assert.equal(r.status, 200);
   assert.equal(dump('people')[0].status, 'declined', 'still declined, not back in the queue');
   assert.match(r.body.message, /on file/i, 'a declined applicant is never told they are on the list');
@@ -509,10 +511,10 @@ test('an approved person re-submitting without a session keeps their approval', 
   const { db, dump } = fakeDb();
   const d = discordFake();
   const deps = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer: null };
-  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', deps);
   const personId = (dump('people')[0] as { _id: unknown })._id;
   await setReviewStatus(db, personId as never, 'approved', 'saiemgilani', new Date());
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', deps);
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', deps);
   assert.equal(r.status, 200);
   assert.equal(dump('people')[0].status, 'approved', 'a human decision is not silently demoted by a re-submit');
 });
@@ -522,11 +524,11 @@ test('an anonymous caller who knows an admitted address is never handed that per
   const d = discordFake();
   const owner = { login: 'octocat', isOrgMember: true, isContributor: false };
   const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv }; // no resendFrom: the live configuration
-  const admitted = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
+  const admitted = await handleJoin({ email: 'victim@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
   assert.match(admitted.body.message, /discord\.gg\/inv123/, 'the owner got their invite');
 
   // different IP, no session at all, only the address — which is public in commit metadata
-  const attacker = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '9.9.9.9', { ...base, viewer: null });
+  const attacker = await handleJoin({ email: 'victim@b.co', identity: IDENTITY, answers: D_ANSWERS }, '9.9.9.9', { ...base, viewer: null });
   assert.equal(attacker.status, 200);
   assert.doesNotMatch(attacker.body.message, /discord\.gg/, 'no invite URL reaches an unidentified caller');
   assert.doesNotMatch(attacker.body.message, /inv123/, 'and neither does the bare code');
@@ -539,11 +541,11 @@ test('a signed-in visitor is not handed the invite of a record that belongs to s
   const { db } = fakeDb();
   const d = discordFake();
   const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
-  await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  await handleJoin({ email: 'victim@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     ...base, viewer: { login: 'octocat', isOrgMember: true, isContributor: false },
   });
   // vouched in their own right, but not the person this record is about
-  const r = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '2.2.2.2', {
+  const r = await handleJoin({ email: 'victim@b.co', identity: IDENTITY, answers: D_ANSWERS }, '2.2.2.2', {
     ...base, viewer: { login: 'someoneelse', isOrgMember: true, isContributor: false },
   });
   assert.doesNotMatch(r.body.message, /discord\.gg/, 'a session vouches for its owner, not for every address they can type');
@@ -554,16 +556,16 @@ test('an unvouched caller cannot tell an admitted address from a declined or an 
   const { db, dump } = fakeDb();
   const d = discordFake();
   const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
-  await handleJoin({ email: 'admitted@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  await handleJoin({ email: 'admitted@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     ...base, viewer: { login: 'octocat', isOrgMember: true, isContributor: false },
   });
-  await handleJoin({ email: 'declined@b.co', answers: D_ANSWERS }, '2.2.2.2', { ...base, viewer: null });
+  await handleJoin({ email: 'declined@b.co', identity: IDENTITY, answers: D_ANSWERS }, '2.2.2.2', { ...base, viewer: null });
   const declinedId = dump('people').find((p) => p.email === 'declined@b.co')!._id;
   await setReviewStatus(db, declinedId as never, 'declined', 'saiemgilani', new Date(), 'no vouch');
 
   const probes = await Promise.all(
     ['admitted@b.co', 'declined@b.co', 'stranger@b.co'].map((email, i) =>
-      handleJoin({ email, answers: D_ANSWERS }, `10.0.0.${i}`, { ...base, viewer: null })
+      handleJoin({ email, identity: IDENTITY, answers: D_ANSWERS }, `10.0.0.${i}`, { ...base, viewer: null })
     )
   );
   assert.equal(new Set(probes.map((r) => r.body.message)).size, 1, 'one sentence for all three, or the response is a membership oracle');
@@ -574,8 +576,8 @@ test('a signed-in stranger cannot stamp their handle on someone else\'s queued r
   const { db, dump } = fakeDb();
   const d = discordFake();
   const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
-  await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: null }); // victim joined signed out
-  const r = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '9.9.9.9', {
+  await handleJoin({ email: 'victim@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: null }); // victim joined signed out
+  const r = await handleJoin({ email: 'victim@b.co', identity: IDENTITY, answers: D_ANSWERS }, '9.9.9.9', {
     ...base, viewer: { login: 'attacker', isOrgMember: false, isContributor: false },
   });
   assert.match(r.body.message, /on file/i);
@@ -592,7 +594,7 @@ test('the claim chain: a claimed record, an admin approval, and still no invite 
     if (String(url).includes('discord.com')) return new Response('{"message":"Missing Permissions"}', { status: 403 });
     return new Response(JSON.stringify({ id: 'em-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
   }) as typeof fetch;
-  await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  await handleJoin({ email: 'victim@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     db, resendApiKey: 'k', fetchImpl: deadDiscord, ...discordEnv,
     viewer: { login: 'victimlogin', isOrgMember: true, isContributor: false },
   });
@@ -602,7 +604,7 @@ test('the claim chain: a claimed record, an admin approval, and still no invite 
   // an attacker — vouched in their own right, so they get all the way to the link
   const d = discordFake();
   const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
-  const claim = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '2.2.2.2', {
+  const claim = await handleJoin({ email: 'victim@b.co', identity: IDENTITY, answers: D_ANSWERS }, '2.2.2.2', {
     ...base, viewer: { login: 'attacker', isOrgMember: true, isContributor: false },
   });
   assert.match(claim.body.message, /on file/i);
@@ -613,7 +615,7 @@ test('the claim chain: a claimed record, an admin approval, and still no invite 
   assert.equal(approved.ok, true);
   assert.equal((dump('people')[0].discord as { code: string }).code, 'inv123');
 
-  const steal = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '3.3.3.3', {
+  const steal = await handleJoin({ email: 'victim@b.co', identity: IDENTITY, answers: D_ANSWERS }, '3.3.3.3', {
     ...base, viewer: { login: 'attacker', isOrgMember: true, isContributor: false },
   });
   assert.doesNotMatch(steal.body.message, /discord\.gg/, 'an approval an admin made is not a key the claimant can turn');
@@ -627,14 +629,14 @@ test('a handle bound before the decision is not a key to the invite an admin lat
     if (String(url).includes('discord.com')) return new Response('{"message":"Missing Permissions"}', { status: 403 });
     return new Response(JSON.stringify({ id: 'em-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
   }) as typeof fetch;
-  await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  await handleJoin({ email: 'victim@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     db, resendApiKey: 'k', fetchImpl: deadDiscord, ...discordEnv, viewer: null,
   }); // the victim joined signed out: nothing bound
 
   // a vouched caller submits someone else's address while Discord is down, so the
   // record keeps their handle and falls back into the queue
   const attacker = { login: 'attacker', isOrgMember: true, isContributor: false };
-  await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '2.2.2.2', {
+  await handleJoin({ email: 'victim@b.co', identity: IDENTITY, answers: D_ANSWERS }, '2.2.2.2', {
     db, resendApiKey: 'k', fetchImpl: deadDiscord, ...discordEnv, viewer: attacker,
   });
   assert.equal(dump('people')[0].status, 'pending');
@@ -644,7 +646,7 @@ test('a handle bound before the decision is not a key to the invite an admin lat
   await approve({ db, reviewer: 'saiemgilani', ...discordEnv, resendApiKey: 'k', fetchImpl: d.fetchImpl }, dump('people')[0]._id as never);
   assert.equal((dump('people')[0].discord as { code: string }).code, 'inv123');
 
-  const r = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '3.3.3.3', {
+  const r = await handleJoin({ email: 'victim@b.co', identity: IDENTITY, answers: D_ANSWERS }, '3.3.3.3', {
     db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer: attacker,
   });
   assert.doesNotMatch(r.body.message, /discord\.gg/, 'only a self-admission is echoed — an admin decision is relayed by hand');
@@ -657,14 +659,14 @@ test('an admin approval is never echoed as an invite — only a self-admission i
   const d = discordFake();
   const viewer = { login: 'octocat', isOrgMember: false, isContributor: false };
   const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
-  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer }); // unvouched -> queued
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer }); // unvouched -> queued
   const id = dump('people')[0]._id;
   await approve({ db, reviewer: 'saiemgilani', ...discordEnv, resendApiKey: 'k', fetchImpl: d.fetchImpl }, id as never);
   assert.equal((dump('people')[0].discord as { code: string }).code, 'inv123');
 
   // the same human, signed in as themselves, re-submitting: the admin relays the
   // link by hand (SETUP-community.md), the endpoint never hands it out
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer });
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer });
   assert.doesNotMatch(r.body.message, /discord\.gg/);
   assert.match(r.body.message, /on file/i);
 });
@@ -673,11 +675,11 @@ test('a handle that differs only in case is the same person', async () => {
   const { db, dump } = fakeDb();
   const d = discordFake();
   const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
-  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     ...base, viewer: { login: 'OctoCat', isOrgMember: true, isContributor: false },
   });
   assert.equal(dump('people')[0].githubLogin, 'octocat', 'stored folded, so the unique index can do its job');
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     ...base, viewer: { login: 'octocat', isOrgMember: true, isContributor: false },
   });
   assert.match(r.body.message, /discord\.gg\/inv123/, 'GitHub handles are case-insensitive; the owner keeps their own invite');
@@ -691,7 +693,7 @@ test('Discord failing does not fail the request, and the person falls back into 
     if (String(url).includes('discord.com')) return new Response('{"message":"Missing Permissions"}', { status: 403 });
     return new Response(JSON.stringify({ id: 'em-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
   }) as typeof fetch;
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     db, resendApiKey: 'k', fetchImpl, ...discordEnv, log: (m) => logs.push(m),
     viewer: { login: 'octocat', isOrgMember: true, isContributor: false },
   });
@@ -707,8 +709,8 @@ test('a re-submission with no verified sender hands back the invite instead of p
   const d = discordFake();
   const viewer = { login: 'octocat', isOrgMember: true, isContributor: false };
   const deps = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer }; // no resendFrom configured
-  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', deps);
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', deps);
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', deps);
   assert.equal(r.status, 200);
   assert.match(r.body.message, /discord\.gg\/inv123/, 'no sender configured — the code is handed back directly');
   assert.doesNotMatch(r.body.message, /check your email/i);
@@ -727,14 +729,14 @@ test('with a verified sender, the invite is emailed on admission and a re-submis
   }) as typeof fetch;
   const viewer = { login: 'octocat', isOrgMember: true, isContributor: false };
   const deps = { db, resendApiKey: 'k', fetchImpl, ...discordEnv, viewer, resendFrom: 'SDV <news@sportsdataverse.org>' };
-  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', deps);
   const emailCall = calls.find((c) => c.url.endsWith('/emails'));
   assert.ok(emailCall, 'the invite email was sent — this is the only coverage discordInviteEmail has');
   const sent = JSON.parse(emailCall!.body);
   assert.deepEqual(sent.to, ['a@b.co']);
   assert.match(sent.text, /discord\.gg\/inv123/);
 
-  const r2 = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', deps);
+  const r2 = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', deps);
   assert.equal(r2.status, 200);
   assert.match(r2.body.message, /check your email/i);
 });
@@ -744,11 +746,11 @@ test('a stale invite left on the row by a failed rollback is never echoed', asyn
   const d = discordFake();
   const owner = { login: 'octocat', isOrgMember: true, isContributor: false };
   const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
-  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
   // the shape a failed rollback leaves: this admission, someone else's older code
   const row = dump('people')[0] as { discord: { invitedAt: Date }; reviewedAt: Date };
   row.discord.invitedAt = new Date(row.reviewedAt.getTime() - 60_000);
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
   assert.doesNotMatch(r.body.message, /discord\.gg/, 'an invite predating this admission is not ours to hand over');
   assert.doesNotMatch(r.body.message, /inv123/);
 });
@@ -758,9 +760,9 @@ test('an expired invite is not handed back as if it still worked', async () => {
   const d = discordFake();
   const owner = { login: 'octocat', isOrgMember: true, isContributor: false };
   const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
-  await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
   (dump('people')[0] as { discord: { expiresAt: Date } }).discord.expiresAt = new Date(Date.now() - 1000);
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: owner });
   assert.doesNotMatch(r.body.message, /discord\.gg/, 'a dead link is worse than no link');
 });
 
@@ -780,7 +782,7 @@ test('a signed-in visitor we cannot vouch for has their handle recorded as a cla
   const { db, dump } = fakeDb();
   const d = discordFake();
   const stranger = { login: 'Drifter', isOrgMember: false, isContributor: false };
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer: stranger,
   });
   const row = dump('people')[0];
@@ -796,12 +798,12 @@ test('a claimed handle never becomes a key to an invite an admin later mints', a
   const d = discordFake();
   const claimant = { login: 'Drifter', isOrgMember: false, isContributor: false };
   const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
-  await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: claimant });
+  await handleJoin({ email: 'victim@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: claimant });
   const personId = (dump('people')[0] as { _id: unknown })._id;
   // an admin approves the row and an invite is recorded against it
   await setReviewStatus(db, personId as never, 'approved', 'saiemgilani', new Date());
   await recordDiscordInvite(db, personId as never, { code: 'SECRET9', expiresAt: new Date(Date.now() + 86_400_000) }, new Date());
-  const again = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: claimant });
+  const again = await handleJoin({ email: 'victim@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: claimant });
   assert.doesNotMatch(again.body.message, /discord\.gg/, 'a claim is not ownership');
   assert.doesNotMatch(again.body.message, /SECRET9/);
 });
@@ -811,7 +813,7 @@ const PKG = { title: 'hoopR', repoType: 'R', sports: 'MBB', content: 'PBP and bo
 test('a package submitted through /join is stored hidden and linked to the person', async () => {
   const { db, dump } = fakeDb();
   const r = await handleJoin(
-    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: { ...PKG, orgTier: true } } as never,
+    { email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: { ...PKG, orgTier: true } } as never,
     '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null }
   );
   assert.equal(r.status, 200);
@@ -827,9 +829,9 @@ test('a package submitted through /join is stored hidden and linked to the perso
 test('a re-submission updates wants.package without a Mongo path conflict', async () => {
   const { db, dump } = fakeDb();
   const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
-  await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'no' } } as never, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_package: 'no' } } as never, '1.1.1.1', deps);
   const r = await handleJoin(
-    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: PKG } as never, '1.1.1.1', deps
+    { email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: PKG } as never, '1.1.1.1', deps
   );
   assert.equal(r.status, 200);
   assert.equal((dump('people')[0].wants as { package: boolean }).package, true, 'the second answer is recorded');
@@ -839,10 +841,10 @@ test('a re-submission updates wants.package without a Mongo path conflict', asyn
 test('the package flag and payload must agree', async () => {
   const { db, dump } = fakeDb();
   const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
-  const r0 = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'no' }, pkg: PKG } as never, '1.1.1.1', deps);
+  const r0 = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_package: 'no' }, pkg: PKG } as never, '1.1.1.1', deps);
   assert.equal(r0.status, 200, 'a payload the flag disowns is dropped, not rejected');
   assert.equal(dump('packages').length, 0, 'a payload with the flag off is not a submission');
-  const r = await handleJoin({ email: 'c@b.co', answers: { ...D_ANSWERS, wants_package: 'yes' } } as never, '2.2.2.2', deps);
+  const r = await handleJoin({ email: 'c@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_package: 'yes' } } as never, '2.2.2.2', deps);
   assert.equal(r.status, 400);
   assert.match(r.body.message, /package/i);
 });
@@ -851,7 +853,7 @@ test('no package is stored when the person could not be written', async () => {
   const { db, dump } = fakeDb();
   db.failNextWriteTo('people', new Error('mongo down'));
   await assert.rejects(handleJoin(
-    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: PKG } as never,
+    { email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: PKG } as never,
     '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null }
   ));
   assert.equal(dump('packages').length, 0, 'never a submission pointing at nobody');
@@ -860,7 +862,7 @@ test('no package is stored when the person could not be written', async () => {
 test('a reserved-domain submission stores the person and wants.package but inserts no package (the PR-evidence walkthrough must not queue a fake one)', async () => {
   const { db, dump } = fakeDb();
   const r = await handleJoin(
-    { email: 'walkthrough@example.com', answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: PKG } as never,
+    { email: 'walkthrough@example.com', identity: IDENTITY, answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: PKG } as never,
     '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null }
   );
   assert.equal(r.status, 200);
@@ -873,7 +875,7 @@ test('a failed package write still returns 200, keeps the person, and logs a cat
   const logs: string[] = [];
   db.failNextWriteTo('packages', new Error('mongo down'));
   const r = await handleJoin(
-    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: PKG } as never,
+    { email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: PKG } as never,
     '5.5.5.5', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null, log: (m: string) => logs.push(m) }
   );
   assert.equal(r.status, 200);
@@ -887,19 +889,19 @@ test('a malformed package request never spends the join rate limit', async () =>
   const { db } = fakeDb();
   const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
   for (let i = 0; i < 5; i++) {
-    const r = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'yes' } } as never, '6.6.6.6', deps);
+    const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_package: 'yes' } } as never, '6.6.6.6', deps);
     assert.equal(r.status, 400);
   }
-  const r = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'no' } } as never, '6.6.6.6', deps);
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_package: 'no' } } as never, '6.6.6.6', deps);
   assert.equal(r.status, 200, 'the sixth, valid request from the same IP still has a slot');
 });
 
-const STICKER = { name: 'Pat Doe', address: { line1: '1 Main St', line2: 'Unit 4B', city: 'Durham', region: 'NC', postal: '27701', country: 'US' } };
+const STICKER = { name: 'Sam Envelope', address: { line1: '1 Main St', line2: 'Unit 4B', city: 'Durham', region: 'NC', postal: '27701', country: 'Canada' } };
 
 test('a sticker request is stored apart from the person, never on it', async () => {
   const { db, dump } = fakeDb();
   const r = await handleJoin(
-    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never,
+    { email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never,
     '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null }
   );
   assert.equal(r.status, 200);
@@ -925,9 +927,9 @@ test('a sticker request is stored apart from the person, never on it', async () 
 test('the sticker flag and payload must agree', async () => {
   const { db, dump } = fakeDb();
   const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
-  await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'no' }, sticker: STICKER } as never, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'no' }, sticker: STICKER } as never, '1.1.1.1', deps);
   assert.equal(dump('sticker_requests').length, 0, 'an address with the flag off is never stored');
-  const r = await handleJoin({ email: 'c@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' } } as never, '2.2.2.2', deps);
+  const r = await handleJoin({ email: 'c@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' } } as never, '2.2.2.2', deps);
   assert.equal(r.status, 400);
   assert.match(r.body.message, /address|sticker/i);
 });
@@ -941,7 +943,7 @@ test('the got-it email never carries the address, and no log line does either', 
     return new Response(JSON.stringify({ id: 'x' }), { status: 200 });
   }) as typeof fetch;
   await handleJoin(
-    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1',
+    { email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1',
     { db, resendApiKey: 'k', resendFrom: 'SDV <n@sportsdataverse.org>', tokenSecret: 's', fetchImpl, viewer: null, log: (m) => logs.push(m) }
   );
   for (const blob of [...sent, ...logs]) {
@@ -955,7 +957,7 @@ test('no sticker request is stored when the person could not be written', async 
   const { db, dump } = fakeDb();
   db.failNextWriteTo('people', new Error('mongo down'));
   await assert.rejects(handleJoin(
-    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never,
+    { email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never,
     '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null }
   ));
   assert.equal(dump('sticker_requests').length, 0);
@@ -964,7 +966,7 @@ test('no sticker request is stored when the person could not be written', async 
 test('a reserved-domain address records wants.stickers but creates no sticker request', async () => {
   const { db, dump } = fakeDb();
   const r = await handleJoin(
-    { email: 'walkthrough@example.com', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never,
+    { email: 'walkthrough@example.com', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never,
     '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null }
   );
   assert.equal(r.status, 200);
@@ -984,8 +986,8 @@ test('a second submission keeps the first address, replies identically, and mail
   }) as typeof fetch;
   const deps = { db, resendApiKey: 'k', resendFrom: 'SDV <news@sportsdataverse.org>', tokenSecret: 's3cret', fetchImpl, viewer: null };
   const ALT = { name: 'Pat Doe', address: { ...STICKER.address, line1: '2 Other Ave' } };
-  const r1 = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', deps);
-  const r2 = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: ALT } as never, '1.1.1.1', deps);
+  const r1 = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', deps);
+  const r2 = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: ALT } as never, '1.1.1.1', deps);
   assert.equal(dump('sticker_requests').length, 1, 'one open request');
   assert.equal((dump('sticker_requests')[0].address as { line1: string }).line1, '1 Main St', 'the first address wins');
   assert.equal(r1.body.message, r2.body.message, 'created vs. already-open must read identically');
@@ -997,7 +999,7 @@ test('a failed sticker write returns 200, keeps the person, logs a category, and
   const logs: string[] = [];
   db.failNextWriteTo('sticker_requests', new Error('mongo down'));
   const r = await handleJoin(
-    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never,
+    { email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never,
     '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null, log: (m: string) => logs.push(m) }
   );
   assert.equal(r.status, 200);
@@ -1018,7 +1020,7 @@ test('a failed got-it email still returns the same success reply and keeps the s
     return new Response(JSON.stringify({ object: 'contact', id: 'c-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
   }) as typeof fetch;
   const failDeps = { db: db1, resendApiKey: 'k', resendFrom: 'SDV <n@sportsdataverse.org>', tokenSecret: 's', fetchImpl: failingFetch, viewer: null, log: (m: string) => logs.push(m) };
-  const rFail = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', failDeps);
+  const rFail = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', failDeps);
   assert.equal(rFail.status, 200);
   assert.equal(dump1('sticker_requests').length, 1, 'the request is stored regardless of the email failing');
   assert.ok(logs.length > 0, 'the email failure is logged');
@@ -1028,16 +1030,16 @@ test('a failed got-it email still returns the same success reply and keeps the s
 
   const { db: db2 } = fakeDb();
   const okDeps = { db: db2, resendApiKey: 'k', resendFrom: 'SDV <n@sportsdataverse.org>', tokenSecret: 's', fetchImpl: okResend().fetchImpl, viewer: null };
-  const rOk = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', okDeps);
+  const rOk = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', okDeps);
   assert.equal(rFail.body.message, rOk.body.message, 'membership-oracle rule: the reply never differs by whether the email sent');
 });
 
 test('a resubmission with a changed answer updates wants.stickers', async () => {
   const { db, dump } = fakeDb();
   const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
-  await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'no' } } as never, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'no' } } as never, '1.1.1.1', deps);
   assert.equal((dump('people')[0].wants as { stickers: boolean }).stickers, false);
-  await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', deps);
   assert.equal((dump('people')[0].wants as { stickers: boolean }).stickers, true, 'the second, changed answer is recorded');
 });
 
@@ -1045,11 +1047,11 @@ test('the sticker write runs only after the rate limit: a rate-limited request c
   const { db, dump } = fakeDb();
   const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
   for (let i = 0; i < 5; i++) {
-    const r = await handleJoin({ email: `u${i}@b.co`, answers: { ...D_ANSWERS, wants_stickers: 'no' } } as never, '7.7.7.7', deps);
+    const r = await handleJoin({ email: `u${i}@b.co`, identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'no' } } as never, '7.7.7.7', deps);
     assert.equal(r.status, 200);
   }
   const r = await handleJoin(
-    { email: 'u5@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '7.7.7.7', deps
+    { email: 'u5@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '7.7.7.7', deps
   );
   assert.equal(r.status, 429, 'the sixth request from this IP is rate-limited');
   assert.equal(dump('sticker_requests').length, 0, 'a rate-limited request never reaches the sticker write');
@@ -1058,8 +1060,8 @@ test('the sticker write runs only after the rate limit: a rate-limited request c
 test('a created sticker request and an already-open one both get the sticker success sentence', async () => {
   const { db } = fakeDb();
   const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
-  const r1 = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', deps);
-  const r2 = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', deps);
+  const r1 = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', deps);
+  const r2 = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', deps);
   const note = `Stickers are on the list. If you'd already asked, we'll use the first address you gave — to change it, write to ${CONTACT_EMAIL}.`;
   assert.ok(r1.body.message.includes(note), 'the created-request reply carries the self-explaining success sentence');
   assert.ok(r2.body.message.includes(note), 'the already-open reply carries the identical sentence — the membership-oracle rule');
@@ -1137,7 +1139,7 @@ test('with defer supplied, a created sticker request makes zero Resend calls bef
   }) as typeof fetch;
   const { defer, tasks } = collectDefer();
   const r = await handleJoin(
-    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1',
+    { email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1',
     { db, resendApiKey: 'k', resendFrom: 'SDV <n@sportsdataverse.org>', tokenSecret: 's', fetchImpl, viewer: null, defer }
   );
   assert.equal(r.status, 200);
@@ -1156,7 +1158,7 @@ test('with defer supplied, a vouched Discord admission records the Discord call 
     return new Response(JSON.stringify({ id: 'em-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
   }) as typeof fetch;
   const { defer, tasks } = collectDefer();
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     db, resendApiKey: 'k', fetchImpl, ...discordEnv, resendFrom: 'SDV <news@sportsdataverse.org>',
     viewer: { login: 'octocat', isOrgMember: true, isContributor: false },
     defer,
@@ -1219,7 +1221,7 @@ test('a failing Discord invite email still returns the invite URL and keeps the 
   }) as typeof fetch;
   const { defer, tasks } = collectDefer();
   const viewer = { login: 'octocat', isOrgMember: true, isContributor: false };
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     db, resendApiKey: 'k', fetchImpl, ...discordEnv, resendFrom: 'SDV <news@sportsdataverse.org>',
     viewer, log: (m: string) => logs.push(m), defer,
   });
@@ -1237,7 +1239,7 @@ test('a defer that throws synchronously is logged, and the minted invite still r
   const logs: string[] = [];
   const viewer = { login: 'octocat', isOrgMember: true, isContributor: false };
   const throwingDefer = () => { throw new Error('after() is unavailable'); };
-  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.1', {
     db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, resendFrom: 'SDV <news@sportsdataverse.org>',
     viewer, defer: throwingDefer, log: (m) => logs.push(m),
   });
@@ -1248,4 +1250,93 @@ test('a defer that throws synchronously is logged, and the minted invite still r
   assert.equal(dump('people')[0].status, 'auto', 'the mint already committed; a broken defer must not roll it back to pending');
   assert.match(logs.join(' '), /could not schedule/);
   assert.equal(d.calls.filter((u) => u.includes('api.resend.com')).length, 0, 'the email is not sent inline as a fallback');
+});
+
+test('a questionnaire /join without identity is refused, naming what is missing', async () => {
+  const { db, dump } = fakeDb();
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS } as never, '1.1.1.1', { db, viewer: null });
+  assert.equal(r.status, 400);
+  assert.match((r.body as { message: string }).message, /name and where you're based/i);
+  assert.equal(dump('people').length, 0);
+});
+
+test('the footer newsletter signup (email only, no answers) still needs no identity', async () => {
+  const { db, dump } = fakeDb();
+  const r = await handleJoin({ email: 'a@b.co', placement: 'footer' }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null });
+  assert.equal(r.status, 200);
+  assert.equal(dump('people').length, 1);
+  assert.equal(dump('responses').length, 0, 'a footer signup is not a questionnaire submission');
+});
+
+test('/join stores the identity on the person and appends a response', async () => {
+  const { db, dump } = fakeDb();
+  const r = await handleJoin({ email: 'a@b.co', identity: { ...IDENTITY, socials: { github: '@octocat' } }, answers: D_ANSWERS } as never, '1.1.1.1', { db, viewer: null });
+  assert.equal(r.status, 200);
+  const p = dump('people')[0];
+  assert.equal(p.name, 'Pat Doe');
+  assert.deepEqual(p.socials, { github: 'octocat' });
+  const resp = dump('responses');
+  assert.equal(resp.length, 1);
+  assert.equal(resp[0].source, 'join');
+  assert.equal(String(resp[0].personId), String(p._id));
+});
+
+test('an industry or researcher role without an affiliation is refused', async () => {
+  const { db, dump } = fakeDb();
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, role: 'industry' } } as never, '1.1.1.1', { db, viewer: null });
+  assert.equal(r.status, 400);
+  assert.match((r.body as { message: string }).message, /^Affiliation: /);
+  assert.equal(dump('people').length, 0);
+});
+
+test('a failed response insert keeps the person and the reply unchanged', async () => {
+  const { db, dump } = fakeDb();
+  const logs: string[] = [];
+  const ok = await handleJoin({ email: 'b@b.co', identity: IDENTITY, answers: D_ANSWERS } as never, '1.1.1.2', { db, viewer: null });
+  db.failNextWriteTo('responses', new Error('mongo down'));
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS } as never, '1.1.1.1', { db, viewer: null, log: (m) => logs.push(m) });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body, ok.body);
+  assert.ok(dump('people').some((p) => p.email === 'a@b.co'));
+  assert.match(logs.join(' '), /response insert failed for person/);
+  assert.ok(!logs.join(' ').includes('a@b.co'), 'log lines carry the person id, never the email');
+});
+
+const S_ANSWERS = { role: 'developer', languages: ['R'], sports: ['CFB'], discoveredVia: 'github', updatesVia: ['github'], newsChannel: 'discord', dataTypes: ['pbp'], packages_r: ['cfbfastR'] };
+
+test('/survey now requires an email and identity', async () => {
+  const { db, dump } = fakeDb();
+  const r = await handleSurvey({ answers: S_ANSWERS }, '1.1.1.1', { db });
+  assert.equal(r.status, 400);
+  assert.equal(dump('people').length, 0);
+});
+
+test('/survey stores an identified person and a survey response', async () => {
+  const { db, dump } = fakeDb();
+  const r = await handleSurvey({ email: 'S@B.co', identity: IDENTITY, answers: S_ANSWERS }, '1.1.1.1', { db });
+  assert.equal(r.status, 200);
+  const p = dump('people')[0];
+  assert.equal(p.email, 's@b.co');
+  assert.equal(p.status, 'survey');
+  assert.equal(dump('responses')[0].source, 'survey');
+});
+
+test('/survey replies identically for a new and a known email', async () => {
+  const { db } = fakeDb();
+  const first = await handleSurvey({ email: 's@b.co', identity: IDENTITY, answers: S_ANSWERS }, '1.1.1.1', { db });
+  const again = await handleSurvey({ email: 's@b.co', identity: IDENTITY, answers: S_ANSWERS }, '1.1.1.2', { db });
+  const other = await handleSurvey({ email: 't@b.co', identity: IDENTITY, answers: S_ANSWERS }, '1.1.1.3', { db });
+  assert.deepEqual(again, first);
+  assert.deepEqual(other, first);
+});
+
+test('/survey for a /join person keeps their Discord request', async () => {
+  const { db, dump } = fakeDb();
+  await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS } as never, '1.1.1.1', { db, viewer: null });
+  await handleSurvey({ email: 'a@b.co', identity: IDENTITY, answers: S_ANSWERS }, '1.1.1.2', { db });
+  const p = dump('people')[0];
+  assert.equal(dump('people').length, 1);
+  assert.equal((p.wants as { discord: boolean }).discord, true);
+  assert.equal(p.status, 'pending');
+  assert.equal(dump('responses').length, 2);
 });

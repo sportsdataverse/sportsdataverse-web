@@ -1,6 +1,9 @@
 import { z } from "zod";
+import { identitySchema } from "./identity.ts";
 import { packageSubmissionSchema } from "./packageSchema.ts";
 import { stickerRequestSchema } from "./stickers.ts";
+
+export const emailSchema = z.string().trim().toLowerCase().email("Enter a valid email address").max(254);
 
 /**
  * Bodies of the public write endpoints. Question answers are NOT typed here:
@@ -8,13 +11,16 @@ import { stickerRequestSchema } from "./stickers.ts";
  * questions cannot be smuggled in. Unknown keys are stripped (zod default).
  */
 export const joinBodySchema = z.object({
-  email: z.string().trim().toLowerCase().email("Enter a valid email address").max(254),
-  name: z.string().trim().min(1).max(80).optional(),
+  email: emailSchema,
   // PR 1 footer shape: no answers, wants.newsletter true. Keeps PR 1's default
   // (dropping it broke joinSchema.test.ts's "defaults wants.newsletter to true"
   // deepEqual — the field is otherwise unread whenever `answers` is present).
   wants: z.object({ newsletter: z.literal(true) }).default({ newsletter: true }),
   answers: z.record(z.unknown()).optional(),
+  /** Required whenever `answers` is present (a questionnaire submission); the
+   *  footer newsletter form sends no answers and no identity. Enforced in
+   *  handleJoin, where the message can say what is missing. */
+  identity: identitySchema.optional(),
   placement: z.enum(["footer", "about", "join"]).optional(),
   /** Present only when answers.wants_package === "yes". Validated by the same
    *  schema the CMS uses; `orgTier` is a request, never a grant. */
@@ -25,7 +31,12 @@ export const joinBodySchema = z.object({
 });
 export type JoinBody = z.infer<typeof joinBodySchema>;
 
-export const surveyBodySchema = z.object({ answers: z.record(z.unknown()) });
+/** /survey is identified since 2026-09-25: email and identity are required. */
+export const surveyBodySchema = z.object({
+  email: emailSchema,
+  identity: identitySchema,
+  answers: z.record(z.unknown()),
+});
 
 /** @deprecated PR 1 name; the footer form still sends this shape and joinBodySchema accepts it. */
 export const joinSchema = joinBodySchema;

@@ -39,25 +39,14 @@ test('sync bookkeeping', async () => {
   assert.deepEqual(dump('people')[0].newsletter, { skipped: 'reserved-domain' });
 });
 
-import { recordSurvey, upsertJoin, upsertSurvey, markNewsletterPending, markNewsletterConfirmed, findPersonById, listPeople, setReviewStatus, recordDiscordInvite, linkGithubLogin, listUnsyncedNewsletter, deletePerson } from '../lib/people.ts';
+import { upsertJoin, upsertSurvey, markNewsletterPending, markNewsletterConfirmed, findPersonById, listPeople, setReviewStatus, recordDiscordInvite, linkGithubLogin, listUnsyncedNewsletter, deletePerson } from '../lib/people.ts';
 import type { Profile } from '../lib/survey.ts';
 
 const PROFILE = { role: 'developer', languages: ['R'], sports: ['CFB'], discoveredVia: 'twitter', updatesVia: ['github'], newsChannel: 'email' } as const;
 
-test('recordSurvey inserts an anonymous row', async () => {
-  const { db, dump } = fakeDb();
-  const { personId } = await recordSurvey(db, { answers: { role: 'developer' }, profile: PROFILE as unknown as Profile }, T0);
-  assert.ok(personId);
-  const [p] = dump('people');
-  assert.equal(p.status, 'survey');
-  assert.equal(p.email, undefined);
-  assert.deepEqual(p.profile, PROFILE);
-  assert.deepEqual(p.wants, { discord: false, newsletter: false, stickers: false, package: false });
-});
-
 test('upsertJoin creates with profile + wants, then updates the same email without duplicating', async () => {
   const { db, dump } = fakeDb();
-  const a = await upsertJoin(db, { email: 'a@b.co', name: 'A', answers: { role: 'developer' }, profile: PROFILE as unknown as Profile, wants: { newsletter: true, discord: true }, placement: 'join' }, T0);
+  const a = await upsertJoin(db, { email: 'a@b.co', identity: { name: 'A', location: { country: 'US', region: 'TX' } }, answers: { role: 'developer' }, profile: PROFILE as unknown as Profile, wants: { newsletter: true, discord: true }, placement: 'join' }, T0);
   assert.equal(a.created, true);
   const b = await upsertJoin(db, { email: 'a@b.co', answers: { role: 'student' }, profile: { ...PROFILE, role: 'student' } as unknown as Profile, wants: { newsletter: false, discord: true } }, T1);
   assert.equal(b.created, false);
