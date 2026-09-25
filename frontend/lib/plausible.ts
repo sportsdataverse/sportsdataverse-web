@@ -4,6 +4,17 @@ export type ClickCounts = { status: "unconfigured" | "ok" | "error"; httpStatus?
 const ENDPOINT = "https://plausible.io/api/v2/query";
 const DEFAULT_SITE = "sportsdataverse.org"; // app/providers.tsx reports under this domain
 
+// The platform/placement values the site actually emits, through TrackedLink, from:
+// components/site/FollowUs.tsx (github, bluesky, twitter), components/site/SiteFooter.tsx
+// (footer, footer-bar), components/site/SupportCallout.tsx (callout, with kofi,
+// digitalocean and paypal from content/support.ts), app/(site)/join/confirmed/page.tsx
+// (confirmed) and components/site/QuestionFlow.tsx (join-thanks, survey-thanks).
+// Anyone can POST an event carrying any text to Plausible for our domain, so a row with
+// any other value is not ours: it is dropped, never shown to members. A new TrackedLink
+// value must be added here or its clicks never appear on the Population tab.
+const PLATFORMS = new Set(["github", "bluesky", "twitter", "kofi", "digitalocean", "paypal"]);
+const PLACEMENTS = new Set(["footer", "footer-bar", "callout", "confirmed", "join-thanks", "survey-thanks"]);
+
 /**
  * follow_click / support_click totals by platform and placement, last 91 days,
  * from the Plausible Stats API v2. Never throws. Reports WHY it has no numbers —
@@ -47,10 +58,11 @@ export async function fetchClickCounts(deps: { apiKey?: string; siteId?: string;
     const m = r?.metrics;
     if (!Array.isArray(d) || d.length !== 3 || !d.every((x) => typeof x === "string")) continue;
     if (!Array.isArray(m) || typeof m[0] !== "number") continue;
+    if (!PLATFORMS.has(d[1]) || !PLACEMENTS.has(d[2])) continue;
     rows.push({ event: d[0], platform: d[1], placement: d[2], count: m[0] });
   }
   rows.sort((a, b) => b.count - a.count);
-  // platform/placement are unauthenticated event props anyone can post to our
-  // site id; cap the response so a flood of distinct values can't inflate it
+  // at most 2 events x 6 platforms x 6 placements survive the allowlist; the cap
+  // keeps the tab short either way
   return { status: "ok", rows: rows.slice(0, 20) };
 }

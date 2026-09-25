@@ -241,6 +241,11 @@ Once the key is set but the goals or properties above are still missing, the tab
 no longer says "not configured" — it can show zero rows instead, with a hint to
 check that the goals and properties are set up correctly.
 
+Anyone can send Plausible an event for our domain with any property text, so the
+tab shows only rows whose `platform` and `placement` are values the site emits
+(the lists under Click tracking above, kept in `lib/plausible.ts`). A new tracked
+link with a new value must be added there, or its clicks never appear.
+
 **Do not add cross-tabs or free-text breakdowns to this tab.** A reviewer
 established this as a durable privacy rule: single-variable counts (role, sport,
 language, status, …) are safe because a member can already see any individual

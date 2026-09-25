@@ -80,10 +80,34 @@ test('a 200 whose body is valid JSON but not an object is an error, never a thro
   }
 });
 
-test('the response is capped at the top 20 rows by count, since anyone can post a Plausible event to our site id', async () => {
-  const results = Array.from({ length: 25 }, (_, i) => ({ dimensions: ['follow_click', `platform${i}`, 'footer'], metrics: [i] }));
+test('the response is capped at the top 20 rows by count', async () => {
+  const platforms = ['github', 'bluesky', 'twitter', 'kofi', 'digitalocean', 'paypal'];
+  const placements = ['footer', 'footer-bar', 'callout', 'confirmed'];
+  const results = platforms.flatMap((pl, i) =>
+    placements.map((pc, j) => ({ dimensions: ['follow_click', pl, pc], metrics: [i * placements.length + j] }))
+  ); // 24 real rows, counts 0..23
   const { fetchImpl } = fakePlausible(200, { results });
   const r = await fetchClickCounts({ apiKey: 'k', fetchImpl });
   assert.equal(r.rows.length, 20);
-  assert.deepEqual(r.rows.map((row) => row.count), Array.from({ length: 20 }, (_, i) => 24 - i));
+  assert.deepEqual(r.rows.map((row) => row.count), Array.from({ length: 20 }, (_, i) => 23 - i));
+});
+
+test('a row whose platform or placement the site never emits is dropped, however many events it has', async () => {
+  // anyone can POST a Plausible event for our domain with any property text
+  const { fetchImpl } = fakePlausible(200, {
+    results: [
+      { dimensions: ['follow_click', 'Visit evil.example for free data', 'footer'], metrics: [900] },
+      { dimensions: ['support_click', 'kofi', 'email me at someone@example.com'], metrics: [800] },
+      { dimensions: ['follow_click', '(none)', '(none)'], metrics: [700] },
+      { dimensions: ['follow_click', 'github', 'footer'], metrics: [3] },
+      { dimensions: ['support_click', 'kofi', 'join-thanks'], metrics: [2] },
+      { dimensions: ['follow_click', 'bluesky', 'survey-thanks'], metrics: [1] },
+    ],
+  });
+  const r = await fetchClickCounts({ apiKey: 'k', fetchImpl });
+  assert.deepEqual(r.rows, [
+    { event: 'follow_click', platform: 'github', placement: 'footer', count: 3 },
+    { event: 'support_click', platform: 'kofi', placement: 'join-thanks', count: 2 },
+    { event: 'follow_click', platform: 'bluesky', placement: 'survey-thanks', count: 1 },
+  ]);
 });
