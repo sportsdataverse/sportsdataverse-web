@@ -1,4 +1,5 @@
 import type { Db } from "mongodb";
+import { CONTACT_EMAIL } from "../content/links.ts";
 import { QUESTIONS, JOIN_SECTIONS, SURVEY_SECTIONS } from "../content/survey.ts";
 import { isReservedEmail, joinBodySchema, surveyBodySchema } from "./joinSchema.ts";
 import { subscribeToResend } from "./newsletter.ts";
@@ -304,7 +305,7 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
   if (wants.stickers && parsed.data.sticker && !isReservedEmail(email)) {
     try {
       stickerCreated = (await upsertStickerRequest(deps.db, personId, parsed.data.sticker, now)).created;
-      stickerNote = "Stickers are on the list.";
+      stickerNote = `Stickers are on the list. If you'd already asked, we'll use the first address you gave — to change it, write to ${CONTACT_EMAIL}.`;
     } catch {
       deps.log?.(`sticker request write failed for person ${String(personId)}`);
       stickerNote = "We couldn't record the sticker request — try again in a bit.";

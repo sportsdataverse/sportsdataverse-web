@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sendEmail, confirmEmail, stickerRequestEmail } from '../lib/email.ts';
-import { FOLLOW_LINKS, KOFI_URL, PAYPAL_URL, DO_REFERRAL_URL } from '../content/links.ts';
+import { FOLLOW_LINKS, KOFI_URL, PAYPAL_URL, DO_REFERRAL_URL, CONTACT_EMAIL } from '../content/links.ts';
 
 test('sendEmail posts to Resend /emails with the bearer key and returns the id', async () => {
   const calls: { url: string; init: RequestInit }[] = [];
@@ -32,8 +32,12 @@ test('confirmEmail carries the link in both bodies', () => {
 
 test('stickerRequestEmail warns a stranger who never asked, and links follow + support from one source', () => {
   const e = stickerRequestEmail();
-  assert.match(e.html, /Reply and we'll cancel the request/, 'html carries the unrequested-stranger warning');
-  assert.match(e.text, /Reply and we'll cancel the request/, 'text carries the unrequested-stranger warning');
+  // There is no reply-to on this email (sendEmail sets none); every instruction
+  // points at CONTACT_EMAIL instead — a mailto link in html, the bare address in text.
+  assert.match(e.html, new RegExp(`Write to <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a> and we'll cancel the request`), 'html carries the unrequested-stranger warning as a mailto link');
+  assert.match(e.text, new RegExp(`Write to ${CONTACT_EMAIL} and we'll cancel the request`), 'text carries the unrequested-stranger warning as the bare address');
+  assert.doesNotMatch(e.html, /[Rr]eply/, 'no "reply" instruction remains — sendEmail sets no reply_to');
+  assert.doesNotMatch(e.text, /[Rr]eply/, 'no "reply" instruction remains — sendEmail sets no reply_to');
   for (const l of FOLLOW_LINKS) {
     assert.ok(e.html.includes(l.href), `html missing follow link ${l.href}`);
     assert.ok(e.text.includes(l.href), `text missing follow link ${l.href}`);
