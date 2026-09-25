@@ -16,6 +16,7 @@ type Address = {
 type StickerRow = {
   id: string;
   name: string;
+  email: string | null;
   address: Address | null;
   createdAt: string;
 };
@@ -95,6 +96,9 @@ export default function StickersClient() {
             <div key={r.id} className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-border bg-card p-4">
               <div className="font-inter text-sm">
                 <p className="font-semibold">{r.name}</p>
+                {/* Secondary to the mailing name/address above: this is for matching a
+                    message from the requester to their row, not for the envelope. */}
+                <p className="text-xs text-muted-foreground">{r.email ?? "no matching person"}</p>
                 {r.address ? (
                   <address className="not-italic text-muted-foreground">
                     <div>{r.address.line1}</div>
