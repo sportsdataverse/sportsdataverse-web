@@ -117,6 +117,12 @@ export function fakeDb() {
   let nextUpdateShouldFail: { code?: number } | null = null;
   let nextReadShouldFail: { code?: number } | null = null;
   const nextWriteFailure = new Map<string, Error>();
+  // How many write operations — updateOne, findOneAndUpdate, insertOne, deleteOne,
+  // deleteMany — have run on one collection. Counted on entry, so an armed failure
+  // still counts as a write that ran (a real Mongo call that errors still went out
+  // over the wire). Lets a test pin "exactly one write", which a split write defeats.
+  const writeCounts = new Map<string, number>();
+  const countWrite = (name: string) => writeCounts.set(name, (writeCounts.get(name) ?? 0) + 1);
   // A real Mongo read hands back a freshly-deserialized document, not a
   // reference into the driver's cache — mutating what a caller reads must
   // never be visible to a later read or to `dump()`. structuredClone matches
@@ -142,6 +148,7 @@ export function fakeDb() {
           return d ? cloned(d) : null;
         },
         async updateOne(filter: Doc, update: Doc, opts: Doc = {}) {
+          countWrite(name);
           const armed = nextWriteFailure.get(name);
           if (armed) { nextWriteFailure.delete(name); throw armed; }
           consumeFailure(nextUpdateShouldFail, () => { nextUpdateShouldFail = null; });
@@ -160,6 +167,7 @@ export function fakeDb() {
           return { matchedCount: 0, modifiedCount: 0, upsertedId: null, acknowledged: true };
         },
         async findOneAndUpdate(filter: Doc, update: Doc, opts: Doc = {}) {
+          countWrite(name);
           const armed = nextWriteFailure.get(name);
           if (armed) { nextWriteFailure.delete(name); throw armed; }
           checkPathConflicts(update);
@@ -180,6 +188,7 @@ export function fakeDb() {
           return value;
         },
         async insertOne(doc: Doc) {
+          countWrite(name);
           const armed = nextWriteFailure.get(name);
           if (armed) { nextWriteFailure.delete(name); throw armed; }
           const d = { _id: `id-${nextId++}`, ...doc };
@@ -204,6 +213,7 @@ export function fakeDb() {
           return api;
         },
         async deleteOne(filter: Doc) {
+          countWrite(name);
           const armed = nextWriteFailure.get(name);
           if (armed) { nextWriteFailure.delete(name); throw armed; }
           // deletes are a write too: the same "next op fails" flag covers both
@@ -215,6 +225,7 @@ export function fakeDb() {
           return { deletedCount: 1 };
         },
         async deleteMany(filter: Doc = {}) {
+          countWrite(name);
           const armed = nextWriteFailure.get(name);
           if (armed) { nextWriteFailure.delete(name); throw armed; }
           const list = rows(name);
@@ -230,10 +241,13 @@ export function fakeDb() {
      *  deleteMany — on ONE collection to throw `err`. Scoped so a test can fail the
      *  write it is about and not whatever write happens to come first. */
     failNextWriteTo(collection: string, err: Error) { nextWriteFailure.set(collection, err); },
+    /** How many writes have run on one collection so far — see writeCounts above. */
+    writes(collection: string) { return writeCounts.get(collection) ?? 0; },
   };
   return {
     db: db as unknown as import('mongodb').Db & {
       failNextWriteTo: (collection: string, err: Error) => void;
+      writes: (collection: string) => number;
     },
     dump: (name: string) => rows(name),
     failNextUpdateWith: (err: { code?: number }) => { nextUpdateShouldFail = err; },

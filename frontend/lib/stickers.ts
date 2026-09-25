@@ -1,9 +1,25 @@
 import type { Db, ObjectId } from "mongodb";
 import { z } from "zod";
 
-const line = (max: number) => z.string().trim().min(1).max(max);
+// C0/C1 controls (NUL, tab, newline, ESC, ...), the bidi-override/isolate controls, and the
+// Unicode line/paragraph separators: each can garble a printed mailing label or, for the bidi
+// controls, spoof the text an admin reads in a confirm dialog. \p{Cf} is NOT blocked wholesale —
+// ZWNJ/ZWJ (U+200C/200D) are legitimate in Persian and Indic names and addresses.
+const FORBIDDEN_CHARS = /[\u0000-\u001F\u007F-\u009F\u2028\u2029\u202A-\u202E\u2066-\u2069]/;
+const noControlOrBidi = (s: string) => !FORBIDDEN_CHARS.test(s);
+const CONTROL_OR_BIDI_MESSAGE = "contains a disallowed control or bidi character";
+
+const line = (max: number) =>
+  z.string().trim().min(1).max(max).refine(noControlOrBidi, CONTROL_OR_BIDI_MESSAGE);
 const optLine = (max: number) =>
-  z.preprocess((v) => (v === "" || v == null ? undefined : v), z.string().trim().max(max).optional());
+  z.preprocess(
+    (v) => {
+      if (typeof v !== "string") return v == null ? undefined : v;
+      const trimmed = v.trim();
+      return trimmed === "" ? undefined : trimmed;
+    },
+    z.string().max(max).refine(noControlOrBidi, CONTROL_OR_BIDI_MESSAGE).optional()
+  );
 
 /** region and postal are optional: many countries have neither, and a required
  *  field turns a real address into a rejected form. */
@@ -60,7 +76,13 @@ export async function upsertStickerRequest(
     // Lost a concurrent race to the unique index below: another request for this
     // person created the open one first, so this one is "already open", not a
     // failure. The server normally retries this itself; this is the safety net.
-    if ((e as { code?: number }).code === 11000) return { created: false };
+    // Checked by WHICH index raised it, not just the 11000 code: any other unique
+    // index added to this collection in the future must surface as a real error,
+    // not be silently swallowed as "already open".
+    const err = e as { code?: number; keyPattern?: Record<string, unknown> };
+    if (err.code === 11000 && err.keyPattern?.personId === 1 && err.keyPattern?.status === 1) {
+      return { created: false };
+    }
     throw e;
   }
 }

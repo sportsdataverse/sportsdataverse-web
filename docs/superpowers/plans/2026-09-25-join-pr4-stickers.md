@@ -211,12 +211,19 @@ export async function upsertStickerRequest(
 /**
  * At most one OPEN request per person. The upsert above keys on it, but an
  * upsert is not unique without an index — PR 3 measured duplicates in 28 of 30
- * trials of concurrent upserts on real MongoDB without one. The server retries a
- * losing upsert as an update that changes nothing. Partial on status
+ * trials of concurrent upserts on real MongoDB without one. Partial on status
  * "requested", so shipped history does not collide.
+ *
+ * The key is { personId, status } — EXACTLY the upsert's query fields — on
+ * purpose: the server only retries a losing upsert as a no-op update when the
+ * query's fields match the unique index's fields; keyed on personId alone, 98
+ * of 4,500 concurrent upserts on MongoDB 7 threw E11000 instead of being retried.
  */
 export async function ensureStickerIndexes(db: Db): Promise<void> {
-  await col(db).createIndex({ personId: 1 }, { unique: true, partialFilterExpression: { status: "requested" } });
+  await col(db).createIndex(
+    { personId: 1, status: 1 },
+    { unique: true, partialFilterExpression: { status: "requested" } }
+  );
 }
 
 /** The ONLY read that returns addresses. Its one caller is the admin-gated
