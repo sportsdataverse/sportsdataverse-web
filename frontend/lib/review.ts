@@ -2,6 +2,7 @@ import type { Db } from "mongodb";
 import { createInvite, inviteUrl } from "./discord.ts";
 import { discordInviteEmail, sendEmail } from "./email.ts";
 import { subscribeToResend } from "./newsletter.ts";
+import { deleteStickerRequestsForPerson } from "./stickers.ts";
 import { contactProperties } from "./survey.ts";
 import {
   deletePerson, findPersonById, markNewsletterSynced, recordDiscordInvite, setReviewStatus,
@@ -281,12 +282,21 @@ export async function retrySync(deps: ReviewDeps, personId: PersonId): Promise<{
 }
 
 /**
- * Erase a person, and first their package submissions still awaiting review —
- * left behind, one would stay publishable in the CMS pointing at nobody. If
- * that delete fails, the person is kept, so a retry can finish both. A
- * published package stays: it is a public org listing, not the person's record.
+ * Erase a person, and first their sticker requests and package submissions
+ * still awaiting review. Addresses go first because they are the most
+ * sensitive thing the record points at — left behind, a postal address
+ * would be stranded with no owner; a pending package, left behind, would
+ * stay publishable in the CMS pointing at nobody. If any delete fails, the
+ * person is kept, so a retry can finish the rest. A published package stays:
+ * it is a public org listing, not the person's record.
  */
 export async function removePerson(deps: ReviewDeps, personId: PersonId): Promise<{ ok: boolean; message: string }> {
+  try {
+    await deleteStickerRequestsForPerson(deps.db, personId);
+  } catch {
+    deps.log?.(`sticker delete failed for person ${String(personId)}`);
+    return { ok: false, message: "Couldn't remove their sticker request — nothing was deleted. Try again." };
+  }
   try {
     await deps.db.collection("packages").deleteMany({ submittedBy: personId, published: { $ne: true } });
   } catch {
@@ -301,6 +311,6 @@ export async function removePerson(deps: ReviewDeps, personId: PersonId): Promis
     return { ok: false, message: "Couldn't delete that record — try again." };
   }
   return gone
-    ? { ok: true, message: "Deleted. Remove the Resend contact by hand if they had one." }
+    ? { ok: true, message: "Deleted, with any sticker request and pending package. Remove the Resend contact by hand if they had one." }
     : { ok: false, message: "No such person." };
 }
