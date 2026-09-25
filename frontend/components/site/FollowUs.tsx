@@ -1,10 +1,5 @@
 import TrackedLink from "@components/site/TrackedLink";
-
-const LINKS = [
-  { platform: "github", label: "GitHub — sportsdataverse", href: "https://github.com/sportsdataverse" },
-  { platform: "bluesky", label: "Bluesky — @sportsdataverse.org", href: "https://bsky.app/profile/sportsdataverse.org" },
-  { platform: "twitter", label: "Twitter / X — @SportsDataverse", href: "https://twitter.com/sportsdataverse" },
-];
+import { FOLLOW_LINKS } from "@content/links";
 
 /** Follow links with follow_click tracking; used on thank-you views. */
 export default function FollowUs({ placement }: { placement: string }) {
@@ -12,7 +7,7 @@ export default function FollowUs({ placement }: { placement: string }) {
     <div>
       <p className="eyebrow">Follow along</p>
       <ul className="mt-3 flex flex-wrap gap-3">
-        {LINKS.map((l) => (
+        {FOLLOW_LINKS.map((l) => (
           <li key={l.platform}>
             <TrackedLink
               href={l.href}

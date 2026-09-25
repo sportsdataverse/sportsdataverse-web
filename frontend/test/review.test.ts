@@ -4,6 +4,7 @@ import { fakeDb } from './fakeDb.ts';
 import { upsertJoin, recordDiscordInvite, findPersonById } from '../lib/people.ts';
 import { approve, decline, requeue, resendInvite, retrySync, removePerson } from '../lib/review.ts';
 import { submitPackage } from '../lib/packageSubmission.ts';
+import { upsertStickerRequest } from '../lib/stickers.ts';
 
 const T0 = new Date('2026-09-24T12:00:00Z');
 const PROFILE = { role: 'developer', languages: ['R'], sports: ['CFB'], discoveredVia: 'github', updatesVia: ['github'], newsChannel: 'email' } as const;
@@ -29,6 +30,7 @@ const PKG = {
   content: 'Play-by-play and box scores for college and pro basketball.',
   sourceHref: 'https://github.com/sportsdataverse/hoopR',
 };
+const ADDR = { name: 'Pat', address: { line1: '1 Main St', city: 'Durham', country: 'US' } };
 const env = { discordBotToken: 'tok', discordChannelId: '42', resendApiKey: 'k', reviewer: 'saiemgilani', now: () => T0 };
 
 test('approve mints an invite, stores it, emails it, and stamps the reviewer', async () => {
@@ -444,4 +446,36 @@ test('a database write failure resolves to a result object without recording a d
   const r3 = await removePerson({ db, ...env, fetchImpl: net.fetchImpl }, id);
   assert.equal(r3.ok, false);
   assert.equal(dump('people').length, 1, 'a failed delete must not remove the record');
+});
+
+test('deleting a person deletes every sticker request and address they left', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db, { newsletter: false, discord: true });
+  await upsertStickerRequest(db, id, ADDR, T0);
+  const r = await removePerson({ db, ...env }, id);
+  assert.equal(r.ok, true);
+  assert.equal(dump('people').length, 0);
+  assert.equal(dump('sticker_requests').length, 0, 'no address outlives a deletion request');
+});
+
+test('if the sticker requests cannot be removed, the person is not removed either', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db, { newsletter: false, discord: true });
+  await upsertStickerRequest(db, id, ADDR, T0);
+  db.failNextWriteTo('sticker_requests', new Error('mongo down'));
+  const r = await removePerson({ db, ...env }, id);
+  assert.equal(r.ok, false);
+  assert.equal(dump('people').length, 1, 'the person stays so the admin can retry the whole thing');
+  assert.equal(dump('sticker_requests').length, 1);
+});
+
+test('if the pending package cannot be removed, the person is not removed either, even with a sticker request present', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db, { newsletter: false, discord: true });
+  await upsertStickerRequest(db, id, ADDR, T0);
+  await submitPackage(db, PKG, id, false, T0);
+  db.failNextWriteTo('packages', new Error('mongo down'));
+  const r = await removePerson({ db, ...env }, id);
+  assert.equal(r.ok, false);
+  assert.equal(dump('people').length, 1, 'never a person gone with their submission left behind');
 });

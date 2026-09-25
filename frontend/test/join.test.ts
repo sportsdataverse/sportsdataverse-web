@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fakeDb } from './fakeDb.ts';
+import { CONTACT_EMAIL } from '../content/links.ts';
 import { handleJoin, handleSurvey, handleConfirm } from '../lib/join.ts';
 import { signConfirmToken } from '../lib/confirmToken.ts';
 import { setReviewStatus, recordDiscordInvite } from '../lib/people.ts';
@@ -106,20 +107,20 @@ test('join with a profile, single opt-in (no RESEND_FROM): contact created with 
     calls.push({ url: String(url), body: String(init?.body ?? '') });
     return new Response(JSON.stringify({ object: 'contact', id: 'c-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
   }) as typeof fetch;
-  const r = await handleJoin({ email: 'a@b.co', name: 'Ann', answers: { ...FULL, wants_newsletter: 'yes', wants_discord: 'no', wants_package: 'no' }, placement: 'join' }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl, ...site });
+  const r = await handleJoin({ email: 'a@b.co', name: 'Ann', answers: { ...FULL, wants_newsletter: 'yes', wants_discord: 'no', wants_package: 'no', wants_stickers: 'no' }, placement: 'join' }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl, ...site });
   assert.equal(r.status, 200);
   assert.equal(calls.length, 1);
   assert.equal(JSON.parse(calls[0].body).properties.languages, 'R');
   const [p] = dump('people');
   assert.equal(p.name, 'Ann');
-  assert.deepEqual(p.wants, { discord: false, newsletter: true, stickers: false, package: false });
+  assert.deepEqual(p.wants, { discord: false, newsletter: true, stickers: false, package: false }); // wants_stickers 'no' → stickers false
   assert.equal((p.newsletter as { resendContactId: string }).resendContactId, 'c-1');
 });
 
 test('join with wants_newsletter=no stores the profile and never calls Resend', async () => {
   const { db, dump } = fakeDb();
   const k = okResend();
-  const r = await handleJoin({ email: 'a@b.co', answers: { ...FULL, wants_newsletter: 'no', wants_discord: 'yes', wants_package: 'no' } }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: k.fetchImpl, ...site });
+  const r = await handleJoin({ email: 'a@b.co', answers: { ...FULL, wants_newsletter: 'no', wants_discord: 'yes', wants_package: 'no', wants_stickers: 'no' } }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: k.fetchImpl, ...site });
   assert.equal(r.status, 200);
   assert.equal(k.calls(), 0);
   assert.deepEqual(dump('people')[0].wants, { discord: true, newsletter: false, stickers: false, package: false });
@@ -349,12 +350,12 @@ test('turning the newsletter off retires the pending invite and blocks the old l
     dataTypes: ['pbp'], packages_r: ['cfbfastR'],
   };
 
-  await handleJoin({ email: 'a@b.co', answers: { ...ANSWERS, wants_newsletter: 'yes', wants_discord: 'no', wants_package: 'no' } }, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', answers: { ...ANSWERS, wants_newsletter: 'yes', wants_discord: 'no', wants_package: 'no', wants_stickers: 'no' } }, '1.1.1.1', deps);
   const personId = String((dump('people')[0] as { _id: unknown })._id);
   assert.deepEqual(Object.keys(dump('people')[0].newsletter as object), ['pending']);
   const token = signConfirmToken(personId, 's3cret');
 
-  await handleJoin({ email: 'a@b.co', answers: { ...ANSWERS, wants_newsletter: 'no', wants_discord: 'no', wants_package: 'no' } }, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', answers: { ...ANSWERS, wants_newsletter: 'no', wants_discord: 'no', wants_package: 'no', wants_stickers: 'no' } }, '1.1.1.1', deps);
   assert.equal(dump('people')[0].newsletter, undefined, 'the unused invite is gone');
 
   const r = await handleConfirm(token, deps);
@@ -366,7 +367,7 @@ const D_ANSWERS = {
   role: 'developer', languages: ['R'], sports: ['CFB'],
   discoveredVia: 'github', updatesVia: ['github'], newsChannel: 'discord',
   dataTypes: ['pbp'], packages_r: ['cfbfastR'],
-  wants_newsletter: 'no', wants_discord: 'yes', wants_package: 'no',
+  wants_newsletter: 'no', wants_discord: 'yes', wants_package: 'no', wants_stickers: 'no',
 };
 
 function discordFake() {
@@ -872,4 +873,175 @@ test('a malformed package request never spends the join rate limit', async () =>
   }
   const r = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'no' } } as never, '6.6.6.6', deps);
   assert.equal(r.status, 200, 'the sixth, valid request from the same IP still has a slot');
+});
+
+const STICKER = { name: 'Pat Doe', address: { line1: '1 Main St', line2: 'Unit 4B', city: 'Durham', region: 'NC', postal: '27701', country: 'US' } };
+
+test('a sticker request is stored apart from the person, never on it', async () => {
+  const { db, dump } = fakeDb();
+  const r = await handleJoin(
+    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never,
+    '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null }
+  );
+  assert.equal(r.status, 200);
+  const person = dump('people')[0];
+  assert.equal((person.wants as { stickers: boolean }).stickers, true);
+  const personJson = JSON.stringify(person);
+  assert.equal(personJson.includes(STICKER.name), false, `no envelope name "${STICKER.name}" on the person record`);
+  for (const v of Object.values(STICKER.address)) {
+    assert.equal(personJson.includes(v), false, `no "${v}" on the person record`);
+  }
+  const req = dump('sticker_requests')[0];
+  assert.equal(String(req.personId), String(person._id));
+  assert.equal((req.address as { line1: string }).line1, '1 Main St');
+
+  // the /join reply itself must never echo the envelope name or address either
+  const replyJson = JSON.stringify(r.body);
+  assert.equal(replyJson.includes(STICKER.name), false, 'the /join reply never echoes the envelope name');
+  for (const v of Object.values(STICKER.address)) {
+    assert.equal(replyJson.includes(v), false, `the /join reply never echoes "${v}"`);
+  }
+});
+
+test('the sticker flag and payload must agree', async () => {
+  const { db, dump } = fakeDb();
+  const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
+  await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'no' }, sticker: STICKER } as never, '1.1.1.1', deps);
+  assert.equal(dump('sticker_requests').length, 0, 'an address with the flag off is never stored');
+  const r = await handleJoin({ email: 'c@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' } } as never, '2.2.2.2', deps);
+  assert.equal(r.status, 400);
+  assert.match(r.body.message, /address|sticker/i);
+});
+
+test('the got-it email never carries the address, and no log line does either', async () => {
+  const { db } = fakeDb();
+  const sent: string[] = [];
+  const logs: string[] = [];
+  const fetchImpl = (async (_u: unknown, init?: RequestInit) => {
+    sent.push(String(init?.body ?? ''));
+    return new Response(JSON.stringify({ id: 'x' }), { status: 200 });
+  }) as typeof fetch;
+  await handleJoin(
+    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1',
+    { db, resendApiKey: 'k', resendFrom: 'SDV <n@sportsdataverse.org>', tokenSecret: 's', fetchImpl, viewer: null, log: (m) => logs.push(m) }
+  );
+  for (const blob of [...sent, ...logs]) {
+    for (const v of Object.values(STICKER.address)) {
+      assert.equal(blob.includes(v), false, `no "${v}" in a sent request body or log line`);
+    }
+  }
+});
+
+test('no sticker request is stored when the person could not be written', async () => {
+  const { db, dump } = fakeDb();
+  db.failNextWriteTo('people', new Error('mongo down'));
+  await assert.rejects(handleJoin(
+    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never,
+    '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null }
+  ));
+  assert.equal(dump('sticker_requests').length, 0);
+});
+
+test('a reserved-domain address records wants.stickers but creates no sticker request', async () => {
+  const { db, dump } = fakeDb();
+  const r = await handleJoin(
+    { email: 'walkthrough@example.com', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never,
+    '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null }
+  );
+  assert.equal(r.status, 200);
+  assert.equal((dump('people')[0].wants as { stickers: boolean }).stickers, true);
+  assert.equal(dump('sticker_requests').length, 0);
+  // the reply is the one every sticker request gets, so the evidence walkthrough shows it
+  assert.match((r.body as { message: string }).message, /Stickers are on the list\./);
+});
+
+test('a second submission keeps the first address, replies identically, and mails once', async () => {
+  const { db, dump } = fakeDb();
+  const sent: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    sent.push(String(url));
+    const isEmail = String(url).endsWith('/emails');
+    return new Response(JSON.stringify(isEmail ? { id: 'em-1' } : { object: 'contact', id: 'c-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const deps = { db, resendApiKey: 'k', resendFrom: 'SDV <news@sportsdataverse.org>', tokenSecret: 's3cret', fetchImpl, viewer: null };
+  const ALT = { name: 'Pat Doe', address: { ...STICKER.address, line1: '2 Other Ave' } };
+  const r1 = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', deps);
+  const r2 = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: ALT } as never, '1.1.1.1', deps);
+  assert.equal(dump('sticker_requests').length, 1, 'one open request');
+  assert.equal((dump('sticker_requests')[0].address as { line1: string }).line1, '1 Main St', 'the first address wins');
+  assert.equal(r1.body.message, r2.body.message, 'created vs. already-open must read identically');
+  assert.equal(sent.filter((u) => u.endsWith('/emails')).length, 1, 'a repeat submission is not mailed again');
+});
+
+test('a failed sticker write returns 200, keeps the person, logs a category, and never logs the address', async () => {
+  const { db, dump } = fakeDb();
+  const logs: string[] = [];
+  db.failNextWriteTo('sticker_requests', new Error('mongo down'));
+  const r = await handleJoin(
+    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never,
+    '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null, log: (m: string) => logs.push(m) }
+  );
+  assert.equal(r.status, 200);
+  assert.equal(dump('people').length, 1, 'the person is stored');
+  assert.match(r.body.message, /couldn't record the sticker request/i);
+  assert.equal(dump('sticker_requests').length, 0, 'no request row on a failed write');
+  assert.ok(logs.length > 0, 'the failure is logged');
+  for (const v of Object.values(STICKER.address)) {
+    assert.ok(!logs.some((m) => m.includes(v)), `log never carries "${v}"`);
+  }
+});
+
+test('a failed got-it email still returns the same success reply and keeps the stored request', async () => {
+  const { db: db1, dump: dump1 } = fakeDb();
+  const logs: string[] = [];
+  const failingFetch = (async (url: string | URL | Request) => {
+    if (String(url).endsWith('/emails')) throw new Error('resend down');
+    return new Response(JSON.stringify({ object: 'contact', id: 'c-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const failDeps = { db: db1, resendApiKey: 'k', resendFrom: 'SDV <n@sportsdataverse.org>', tokenSecret: 's', fetchImpl: failingFetch, viewer: null, log: (m: string) => logs.push(m) };
+  const rFail = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', failDeps);
+  assert.equal(rFail.status, 200);
+  assert.equal(dump1('sticker_requests').length, 1, 'the request is stored regardless of the email failing');
+  assert.ok(logs.length > 0, 'the email failure is logged');
+  for (const v of Object.values(STICKER.address)) {
+    assert.ok(!logs.some((m) => m.includes(v)), `log never carries "${v}"`);
+  }
+
+  const { db: db2 } = fakeDb();
+  const okDeps = { db: db2, resendApiKey: 'k', resendFrom: 'SDV <n@sportsdataverse.org>', tokenSecret: 's', fetchImpl: okResend().fetchImpl, viewer: null };
+  const rOk = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', okDeps);
+  assert.equal(rFail.body.message, rOk.body.message, 'membership-oracle rule: the reply never differs by whether the email sent');
+});
+
+test('a resubmission with a changed answer updates wants.stickers', async () => {
+  const { db, dump } = fakeDb();
+  const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
+  await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'no' } } as never, '1.1.1.1', deps);
+  assert.equal((dump('people')[0].wants as { stickers: boolean }).stickers, false);
+  await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', deps);
+  assert.equal((dump('people')[0].wants as { stickers: boolean }).stickers, true, 'the second, changed answer is recorded');
+});
+
+test('the sticker write runs only after the rate limit: a rate-limited request creates no sticker row', async () => {
+  const { db, dump } = fakeDb();
+  const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
+  for (let i = 0; i < 5; i++) {
+    const r = await handleJoin({ email: `u${i}@b.co`, answers: { ...D_ANSWERS, wants_stickers: 'no' } } as never, '7.7.7.7', deps);
+    assert.equal(r.status, 200);
+  }
+  const r = await handleJoin(
+    { email: 'u5@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '7.7.7.7', deps
+  );
+  assert.equal(r.status, 429, 'the sixth request from this IP is rate-limited');
+  assert.equal(dump('sticker_requests').length, 0, 'a rate-limited request never reaches the sticker write');
+});
+
+test('a created sticker request and an already-open one both get the sticker success sentence', async () => {
+  const { db } = fakeDb();
+  const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
+  const r1 = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', deps);
+  const r2 = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1', deps);
+  const note = `Stickers are on the list. If you'd already asked, we'll use the first address you gave — to change it, write to ${CONTACT_EMAIL}.`;
+  assert.ok(r1.body.message.includes(note), 'the created-request reply carries the self-explaining success sentence');
+  assert.ok(r2.body.message.includes(note), 'the already-open reply carries the identical sentence — the membership-oracle rule');
 });

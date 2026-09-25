@@ -138,7 +138,7 @@ export async function upsertJoin(
     name?: string;
     answers: Answers;
     profile: Profile;
-    wants: { newsletter: boolean; discord: boolean; package?: boolean };
+    wants: { newsletter: boolean; discord: boolean; package?: boolean; stickers?: boolean };
     placement?: string;
   },
   now: Date = new Date()
@@ -152,6 +152,7 @@ export async function upsertJoin(
         "wants.newsletter": input.wants.newsletter,
         "wants.discord": input.wants.discord,
         "wants.package": input.wants.package ?? false,
+        "wants.stickers": input.wants.stickers ?? false,
         updatedAt: now,
         ...(input.name ? { name: input.name } : {}),
       },
@@ -159,7 +160,6 @@ export async function upsertJoin(
         email: input.email,
         status: "pending",
         createdAt: now,
-        "wants.stickers": false,
         ...(input.placement ? { "signup.placement": input.placement } : {}),
       },
     },

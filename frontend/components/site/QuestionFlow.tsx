@@ -43,6 +43,10 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
     sourceHref: "", docsHref: "", logoHref: "", dataRepoHref: "", orgTier: false,
   });
   const wantsPackage = answers.wants_package === "yes";
+  const [sticker, setSticker] = useState({
+    name: "", line1: "", line2: "", city: "", region: "", postal: "", country: "",
+  });
+  const wantsStickers = answers.wants_stickers === "yes";
   const [step, setStep] = useState(0);
   const [phase, setPhase] = useState<"form" | "sending" | "done" | "error">("form");
   const [message, setMessage] = useState("");
@@ -94,6 +98,21 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
                   docsHref: pkg.docsHref.trim() || undefined,
                   logoHref: pkg.logoHref.trim() || undefined,
                   dataRepoHref: pkg.dataRepoHref.trim() || undefined,
+                },
+              }
+            : {}),
+          ...(wantsStickers
+            ? {
+                sticker: {
+                  name: sticker.name,
+                  address: {
+                    line1: sticker.line1,
+                    line2: sticker.line2.trim() || undefined,
+                    city: sticker.city,
+                    region: sticker.region.trim() || undefined,
+                    postal: sticker.postal.trim() || undefined,
+                    country: sticker.country,
+                  },
                 },
               }
             : {}),
@@ -211,6 +230,35 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
             <input type="checkbox" checked={pkg.orgTier} onChange={(e) => setPkg((p) => ({ ...p, orgTier: e.target.checked }))} />
             Consider this for the sportsdataverse GitHub org
           </label>
+        </fieldset>
+      ) : null}
+
+      {isJoin && last && wantsStickers ? (
+        <fieldset className="space-y-3">
+          <legend className="font-medium">Where should we mail the stickers?</legend>
+          <p className="text-sm text-muted-foreground">
+            Used only to mail them. We delete the address as soon as they ship.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input aria-label="Name on the envelope" placeholder="Name on the envelope" autoComplete="name" required maxLength={80}
+              pattern=".*\S.*" title="Can't be only spaces"
+              value={sticker.name} onChange={(e) => setSticker((s) => ({ ...s, name: e.target.value }))} />
+            <Input aria-label="Country" placeholder="Country" autoComplete="country-name" required maxLength={56}
+              pattern=".*\S.*" title="Can't be only spaces"
+              value={sticker.country} onChange={(e) => setSticker((s) => ({ ...s, country: e.target.value }))} />
+            <Input aria-label="Address line 1" placeholder="Address line 1" autoComplete="address-line1" required maxLength={120}
+              pattern=".*\S.*" title="Can't be only spaces"
+              value={sticker.line1} onChange={(e) => setSticker((s) => ({ ...s, line1: e.target.value }))} />
+            <Input aria-label="Address line 2 (optional)" placeholder="Address line 2 (optional)" autoComplete="address-line2" maxLength={120}
+              value={sticker.line2} onChange={(e) => setSticker((s) => ({ ...s, line2: e.target.value }))} />
+            <Input aria-label="City" placeholder="City" autoComplete="address-level2" required maxLength={80}
+              pattern=".*\S.*" title="Can't be only spaces"
+              value={sticker.city} onChange={(e) => setSticker((s) => ({ ...s, city: e.target.value }))} />
+            <Input aria-label="State / region (if any)" placeholder="State / region (if any)" autoComplete="address-level1" maxLength={80}
+              value={sticker.region} onChange={(e) => setSticker((s) => ({ ...s, region: e.target.value }))} />
+            <Input aria-label="Postal code (if any)" placeholder="Postal code (if any)" autoComplete="postal-code" maxLength={20}
+              value={sticker.postal} onChange={(e) => setSticker((s) => ({ ...s, postal: e.target.value }))} />
+          </div>
         </fieldset>
       ) : null}
 

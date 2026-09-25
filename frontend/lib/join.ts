@@ -1,13 +1,15 @@
 import type { Db } from "mongodb";
+import { CONTACT_EMAIL } from "../content/links.ts";
 import { QUESTIONS, JOIN_SECTIONS, SURVEY_SECTIONS } from "../content/survey.ts";
 import { isReservedEmail, joinBodySchema, surveyBodySchema } from "./joinSchema.ts";
 import { subscribeToResend } from "./newsletter.ts";
 import { allowRequest } from "./rateLimit.ts";
 import { contactProperties, projectProfile, validateAnswers, type Profile } from "./survey.ts";
 import { signConfirmToken, verifyConfirmToken } from "./confirmToken.ts";
-import { confirmEmail, discordInviteEmail, sendEmail } from "./email.ts";
+import { confirmEmail, discordInviteEmail, sendEmail, stickerRequestEmail } from "./email.ts";
 import { createInvite, inviteUrl } from "./discord.ts";
 import { submitPackage } from "./packageSubmission.ts";
+import { upsertStickerRequest } from "./stickers.ts";
 import {
   findPersonById, findPersonByEmail, linkGithubLogin, markConfirmedAt, markNewsletterConfirmed, markNewsletterPending,
   markNewsletterSkipped, markNewsletterSynced, clearNewsletterPending, recordDiscordInvite, recordSurvey, setReviewStatus,
@@ -247,7 +249,7 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
 
   // full /join: answers present → validate against the question list
   let profile: Profile | undefined;
-  let wants = { newsletter: true, discord: false, package: false };
+  let wants = { newsletter: true, discord: false, package: false, stickers: false };
   let answers: Record<string, string | string[]> | undefined;
   if (rawAnswers) {
     const v = validateAnswers(QUESTIONS, JOIN_SECTIONS, rawAnswers);
@@ -258,6 +260,7 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
       newsletter: answers.wants_newsletter === "yes",
       discord: answers.wants_discord === "yes",
       package: answers.wants_package === "yes",
+      stickers: answers.wants_stickers === "yes",
     };
   }
 
@@ -266,6 +269,9 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
   // a submission and are dropped.
   if (wants.package && !parsed.data.pkg) {
     return { status: 400, body: { success: false, message: "Add your package's details, or answer no to the package question." } };
+  }
+  if (wants.stickers && !parsed.data.sticker) {
+    return { status: 400, body: { success: false, message: "Add a mailing address for the stickers, or answer no to the sticker question." } };
   }
 
   const lim = await limited(deps, `join:${ip}`, JOIN_LIMIT);
@@ -290,6 +296,25 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
     pkgNote = pkgRes.message;
   }
 
+  // The note is the same whether this request was created or one was already
+  // open: a differing sentence would say whether this email has a request.
+  // Reserved test addresses get the same note but never a sticker request, as
+  // they never create a package — so the PR-evidence walkthrough shows the
+  // sentence a visitor sees and leaves nothing behind.
+  let stickerNote = "";
+  let stickerCreated = false;
+  if (wants.stickers && parsed.data.sticker) {
+    stickerNote = `Stickers are on the list. If you'd already asked, we'll use the first address you gave — to change it, write to ${CONTACT_EMAIL}.`;
+    if (!isReservedEmail(email)) {
+      try {
+        stickerCreated = (await upsertStickerRequest(deps.db, personId, parsed.data.sticker, now)).created;
+      } catch {
+        deps.log?.(`sticker request write failed for person ${String(personId)}`);
+        stickerNote = "We couldn't record the sticker request — try again in a bit.";
+      }
+    }
+  }
+
   if (!wants.newsletter && newsletter && "pending" in newsletter) {
     // they turned the newsletter off before confirming: retire the unused invite
     await clearNewsletterPending(deps.db, personId);
@@ -297,6 +322,14 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
   const message = wants.newsletter ? await beginOptIn(deps, personId, email, profile, newsletter) : "Thanks — we've got your answers.";
   const parts = [message];
   if (wants.discord) parts.push(await admitOrQueue(deps, personId, email, existing));
+  if (stickerCreated && deps.resendFrom) {
+    try {
+      await sendEmail({ from: deps.resendFrom, to: email, ...stickerRequestEmail() }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
+    } catch {
+      deps.log?.(`sticker confirmation email failed for person ${String(personId)}`);
+    }
+  }
+  if (stickerNote) parts.push(stickerNote);
   if (pkgNote) parts.push(pkgNote);
   return { status: 200, body: { success: true, message: parts.filter(Boolean).join(" ") } };
 }

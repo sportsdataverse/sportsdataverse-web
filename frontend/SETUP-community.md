@@ -41,7 +41,15 @@ created immediately).
 1. `npm run resend:properties`
 2. deploy with `RESEND_FROM` unset
 3. verify the domain
-4. set `RESEND_FROM`
+4. make `/join`'s Resend calls — the sticker got-it email and the newsletter
+   confirmation email — fire after the response is sent (Next's `after()`),
+   not before it. Until this lands, a `/join` that creates a new sticker
+   request (or newsletter signup) makes a Resend call and one that finds an
+   already-open request (or an already-known address) makes none — a timing
+   difference in the response that reveals whether someone already asked, on
+   both the sticker half and the newsletter half. Harmless today because
+   nothing sends while `RESEND_FROM` is unset; it must land before step 5.
+5. set `RESEND_FROM`
 
 - Confirmation links are `/api/join/confirm?t=<token>`: an HMAC over the person id +
   expiry (7 days), signed with `JOIN_TOKEN_SECRET` (falls back to `NEXTAUTH_SECRET`).
@@ -214,6 +222,61 @@ shows every row with no `submittedBy`, published or not. Changing that would hid
 every legacy package that has no `submittedBy` and predates the checkbox, so PR 3
 leaves it as is; only a visitor submission (`submittedBy` present) is gated on
 `published`.
+
+## Stickers
+
+The "where should we mail the stickers?" step of the full `/join` form writes a
+`sticker_requests` document with the submitter's `people` id, name, and postal
+address. Requests appear only at `/platform/admin/stickers` (`GET
+/api/platform/admin/stickers`) — **admin-only**, unlike the `/platform/people`
+review queue: a postal address is more sensitive than anything that queue shows,
+so it sits behind the same `admin` role gate as Keys/Errors/Traffic rather than
+being open to any org member. `listOpenStickerRequests` (`lib/stickers.ts`) is the
+one function that returns an address, and that route is its one caller.
+
+**Ship** and **Cancel** (`POST /api/platform/admin/stickers/[id]/[action]`,
+`ship|cancel`, admin-only) are the two actions on a request. Ship records who
+shipped it and when, and **erases the address in the same write** — there is
+never a moment where a request is marked shipped and still holding an address.
+The request row itself is kept as a record (name, ship date, who shipped it) and
+feeds the "N shipped so far" count. It does not block a new request: the
+one-open-request rule and its unique index cover only requests still waiting
+to ship, so someone whose stickers went out can simply ask again. Cancel deletes
+the request outright, address and all.
+
+A person can hold one open request at a time, and the **first one wins**: the
+email behind a `/join` submission is unverified, so letting a later submission
+silently overwrite an open request would let anyone who types a stranger's email
+address redirect that stranger's parcel. There is no update action — **Cancel,
+then the person asks again** is the whole procedure, and it is one an admin can
+actually carry out from the tab: the person writes to `sportsdataverse@gmail.com`
+(the `CONTACT_EMAIL` constant, `content/links.ts`) — to fix a typo in their own
+address, or because someone else's email ended up on a request naming them — the
+admin finds the matching row at `/platform/admin/stickers` by the email now shown
+on each row, clicks **Cancel**, and the person submits a fresh request on
+`/join`. **Until `RESEND_FROM` is set, no got-it email is sent at all** — the
+`/join` reply's sticker sentence is the only notice either of them gets, so it
+says outright that the first address wins and where to write to change it. Once
+`RESEND_FROM` is set, the got-it email (`stickerRequestEmail`, `lib/email.ts`) is
+sent only when `/join` actually creates a **new** request — not when the person
+already had one open. The email contains no address. Its line "Didn't ask for
+stickers? Write to sportsdataverse@gmail.com and we'll cancel the request."
+exists because of the first-wins rule: anyone who types someone else's email
+address into the sticker fieldset sends this email to that address's real owner,
+and writing in is how that person gets the bogus request cancelled. Before
+setting `RESEND_FROM`, see the added step in "Deploy order" below — the got-it
+email itself becomes a timing oracle once it starts sending.
+
+Reserved test addresses (`example.com`, `.test`, …) record the sticker answers
+like any other submission but never create a `sticker_requests` document, the
+same as package submissions above — the PR-evidence walkthrough submits through
+the sticker fieldset and leaves nothing behind.
+
+Deleting a person (`removePerson`, `lib/review.ts`) deletes their sticker
+requests — open or already shipped — before anything else: before their pending
+packages, before the `people` record itself. That order means a failure partway
+through a delete never leaves a person "gone" while their address is still on
+file somewhere.
 
 ## Population
 

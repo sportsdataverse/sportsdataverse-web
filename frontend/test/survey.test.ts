@@ -49,7 +49,7 @@ test('free-list options (packages) accept any short string, limited count', () =
 test('join sections require the wants answers', () => {
   const r = validateAnswers(QUESTIONS, JOIN_SECTIONS, { ...base });
   assert.equal(r.ok, false);
-  const ok = validateAnswers(QUESTIONS, JOIN_SECTIONS, { ...base, wants_newsletter: 'yes', wants_discord: 'no', wants_package: 'no' });
+  const ok = validateAnswers(QUESTIONS, JOIN_SECTIONS, { ...base, wants_newsletter: 'yes', wants_discord: 'no', wants_package: 'no', wants_stickers: 'no' });
   assert.equal(ok.ok, true);
 });
 
@@ -65,4 +65,9 @@ test('a follow-up is accepted only when its trigger was itself accepted in this 
   const r = validateAnswers(QUESTIONS, ['followup'], { languages: ['R'], packages_r: ['cfbfastR'] });
   assert.equal(r.ok, true);
   assert.equal((r as { answers: Record<string, unknown> }).answers.packages_r, undefined);
+});
+
+test('the stickers question is required, like the other wants questions', () => {
+  const q = QUESTIONS.find((x) => x.id === 'wants_stickers');
+  assert.equal(q?.required, true);
 });

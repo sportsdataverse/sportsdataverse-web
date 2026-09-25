@@ -1,13 +1,13 @@
 import { SiKofi, SiDigitalocean } from "react-icons/si";
 import { BsPaypal } from "react-icons/bs";
 import { SupportMe } from "@lib/types";
+import { KOFI_URL, PAYPAL_URL, DO_REFERRAL_URL } from "./links";
 
 // Canonical support links — mirror the org profile README
-// (github.com/sportsdataverse/.github → profile/README.md).
-export const KOFI_URL = "https://ko-fi.com/G2G0KJ588";
-export const PAYPAL_URL = "https://www.paypal.me/SaiemGilani";
-export const DO_REFERRAL_URL =
-  "https://www.digitalocean.com/?refcode=38816e14651f&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge";
+// (github.com/sportsdataverse/.github → profile/README.md). The values now
+// live in content/links.ts (zero imports, so lib/email.ts can use them too);
+// re-exported here so SiteFooter.tsx keeps compiling unchanged.
+export { KOFI_URL, PAYPAL_URL, DO_REFERRAL_URL };
 
 const supportOptions: SupportMe[] = [
   {
