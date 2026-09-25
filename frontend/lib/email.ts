@@ -57,9 +57,10 @@ export function discordInviteEmail(url: string): { subject: string; html: string
  *  HTML-entity-encoded and no longer match the literal URL. */
 export function stickerRequestEmail(): { subject: string; html: string; text: string } {
   const body = "Got it — your sticker request is in. We mail them in batches, so it may be a few weeks. If your address changes before they ship, reply to this email and we'll update it.";
-  // First-request-wins (lib/stickers.ts) means a stranger who typos someone
-  // else's email onto a sticker request is the one who gets this email, not
-  // the address owner — this is the only warning they get.
+  // /join emails are unverified and the first sticker request wins
+  // (lib/stickers.ts), so someone who types another person's email address
+  // sends this email to that person's inbox, not to their own. For that inbox's
+  // owner, this line is the only sign that someone requested stickers in their name.
   const warning = "Didn't ask for stickers? Reply and we'll cancel the request.";
   const followHtml = FOLLOW_LINKS.map((l) => `<a href="${l.href}">${l.label}</a>`).join(", ");
   const followText = FOLLOW_LINKS.map((l) => `${l.label}: ${l.href}`).join("\n");
