@@ -324,7 +324,7 @@ git commit -m "feat(packages): store a visitor submission hidden and stamped"
 
 **Interfaces:**
 - Consumes: `packageSubmissionSchema`, `submitPackage` (Task 2); `isPubliclyVisible` (Task 1).
-- Produces: question id `wants_package` (section `wants`); `joinBodySchema.pkg` = `packageSubmissionSchema.extend({ orgTier: z.boolean().optional() }).optional()`; `upsertJoin`'s `input.wants` becomes `{ newsletter: boolean; discord: boolean; package: boolean }`.
+- Produces: question id `wants_package` (section `wants`); `joinBodySchema.pkg` = `packageSubmissionSchema.extend({ orgTier: z.boolean().optional() }).optional()`; `upsertJoin`'s `input.wants` becomes `{ newsletter: boolean; discord: boolean; package?: boolean }`.
 
 **The trap in this task.** `upsertJoin` (`lib/people.ts`, ~136-165) writes `wants.newsletter` and `wants.discord` in `$set`, and `wants.stickers: false` and `wants.package: false` in `$setOnInsert`. To record `wants.package: true` you must move it to `$set` **and delete it from `$setOnInsert`**. Real MongoDB rejects an update naming the same path in both with *"Updating the path 'wants.package' would create a conflict"* — so leaving it in both makes **every** `/join` submission fail in production. `fakeDb` does not reproduce that today (it applies `$setOnInsert` blindly), so Step 3 makes it throw the way Mongo does before anything else changes. Leave `wants.stickers` in `$setOnInsert`; PR 4 moves it.
 
@@ -380,7 +380,7 @@ test('no package is stored when the person could not be written', async () => {
 });
 ```
 
-`D_ANSWERS` already exists in the file; it must include `wants_package` for the existing tests to keep validating once the question is `required`. Add `wants_package: 'no'` to its definition and confirm the whole suite still passes.
+**Every `handleJoin` payload that carries the wants section must now answer `wants_package`**, because the question is `required` like its siblings — otherwise those requests start returning 400. That is `D_ANSWERS` (~line 365) **and** four calls that build answers from other fixtures: `{ ...FULL, wants_newsletter, wants_discord }` at ~109 and ~122, and `{ ...ANSWERS, wants_newsletter, wants_discord }` at ~352 and ~357. Add `wants_package: 'no'` to each (or to the fixture definitions, if that keeps every test's meaning unchanged). Do not weaken any existing assertion, and list every fixture you touched in your report.
 
 - [ ] **Step 2: Run them and watch them fail**
 
@@ -422,7 +422,7 @@ Add `import { packageSubmissionSchema } from "./packageSchema.ts";` and, inside 
 
 - [ ] **Step 6: Record `wants.package`** (`frontend/lib/people.ts`, `upsertJoin`)
 
-Widen the input type to `wants: { newsletter: boolean; discord: boolean; package: boolean };`, add `"wants.package": input.wants.package,` to `$set`, and **delete** `"wants.package": false,` from `$setOnInsert`.
+Widen the input type to `wants: { newsletter: boolean; discord: boolean; package?: boolean };` — **optional**, because `upsertJoin` has 18 direct callers in `test/people.test.ts` and `test/review.test.ts` passing a two-key `wants`, and `npx tsc --noEmit` checks `test/` (`tsconfig.json` includes `**/*.ts`). Add `"wants.package": input.wants.package ?? false,` to `$set` — every submission states its own answer, the same as `newsletter` and `discord` — and **delete** `"wants.package": false,` from `$setOnInsert`.
 
 - [ ] **Step 7: Wire it through `handleJoin`** (`frontend/lib/join.ts`)
 
