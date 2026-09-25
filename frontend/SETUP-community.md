@@ -41,7 +41,15 @@ created immediately).
 1. `npm run resend:properties`
 2. deploy with `RESEND_FROM` unset
 3. verify the domain
-4. set `RESEND_FROM`
+4. make `/join`'s Resend calls — the sticker got-it email and the newsletter
+   confirmation email — fire after the response is sent (Next's `after()`),
+   not before it. Until this lands, a `/join` that creates a new sticker
+   request (or newsletter signup) makes a Resend call and one that finds an
+   already-open request (or an already-known address) makes none — a timing
+   difference in the response that reveals whether someone already asked, on
+   both the sticker half and the newsletter half. Harmless today because
+   nothing sends while `RESEND_FROM` is unset; it must land before step 5.
+5. set `RESEND_FROM`
 
 - Confirmation links are `/api/join/confirm?t=<token>`: an HMAC over the person id +
   expiry (7 days), signed with `JOIN_TOKEN_SECRET` (falls back to `NEXTAUTH_SECRET`).
@@ -239,18 +247,25 @@ the request outright, address and all.
 A person can hold one open request at a time, and the **first one wins**: the
 email behind a `/join` submission is unverified, so letting a later submission
 silently overwrite an open request would let anyone who types a stranger's email
-address redirect that stranger's parcel. If the real requester needs to change
-their address, they reply to the confirmation email and it's updated by hand; if
-a request needs clearing instead (a duplicate, or one that was never legitimate),
-an admin cancels it from `/platform/admin/stickers` and the person can submit a
-new one. The got-it email (`stickerRequestEmail`, `lib/email.ts`) is sent only
-when `/join` actually creates a **new** request — not when the person already had
-one open — and only when `RESEND_FROM` is set, the same gate as the Discord
-invite email above. The email contains no address. Its line "Didn't ask for
-stickers? Reply and we'll cancel the request." exists because of the first-wins
-rule: anyone who types someone else's email address into the sticker fieldset
-sends this email to that address's real owner, and replying is how that person
-gets the bogus request cancelled.
+address redirect that stranger's parcel. There is no update action — **Cancel,
+then the person asks again** is the whole procedure, and it is one an admin can
+actually carry out from the tab: the person writes to `sportsdataverse@gmail.com`
+(the `CONTACT_EMAIL` constant, `content/links.ts`) — to fix a typo in their own
+address, or because someone else's email ended up on a request naming them — the
+admin finds the matching row at `/platform/admin/stickers` by the email now shown
+on each row, clicks **Cancel**, and the person submits a fresh request on
+`/join`. **Until `RESEND_FROM` is set, no got-it email is sent at all** — the
+`/join` reply's sticker sentence is the only notice either of them gets, so it
+says outright that the first address wins and where to write to change it. Once
+`RESEND_FROM` is set, the got-it email (`stickerRequestEmail`, `lib/email.ts`) is
+sent only when `/join` actually creates a **new** request — not when the person
+already had one open. The email contains no address. Its line "Didn't ask for
+stickers? Write to sportsdataverse@gmail.com and we'll cancel the request."
+exists because of the first-wins rule: anyone who types someone else's email
+address into the sticker fieldset sends this email to that address's real owner,
+and writing in is how that person gets the bogus request cancelled. Before
+setting `RESEND_FROM`, see the added step in "Deploy order" below — the got-it
+email itself becomes a timing oracle once it starts sending.
 
 Reserved test addresses (`example.com`, `.test`, …) record the sticker answers
 like any other submission but never create a `sticker_requests` document, the
