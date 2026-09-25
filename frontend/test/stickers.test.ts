@@ -78,3 +78,15 @@ test('cancelling and deleting-for-person remove the address outright', async () 
   assert.equal(await deleteStickerRequestsForPerson(db, a), 1);
   assert.equal(dump('sticker_requests').length, 0);
 });
+
+test('losing a concurrent race to the unique index reads as "already open", not a failure', async () => {
+  const { db } = fakeDb();
+  db.failNextWriteTo('sticker_requests', Object.assign(new Error('E11000 duplicate key error'), { code: 11000 }));
+  assert.deepEqual(await upsertStickerRequest(db, new ObjectId(), US, T0), { created: false });
+});
+
+test('any other database error still surfaces', async () => {
+  const { db } = fakeDb();
+  db.failNextWriteTo('sticker_requests', new Error('mongo down'));
+  await assert.rejects(upsertStickerRequest(db, new ObjectId(), US, T0), /mongo down/);
+});
