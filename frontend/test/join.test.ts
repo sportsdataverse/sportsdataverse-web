@@ -204,6 +204,7 @@ test('with double opt-in live, a subscribed address and an unknown one get the s
   const known = await handleJoin({ email: 'known@b.co' }, '2.2.2.2', double);
   const unknown = await handleJoin({ email: 'stranger@b.co' }, '3.3.3.3', double);
   assert.equal(known.body.message, unknown.body.message, 'no subscriber oracle on the newsletter half either');
+  assert.match(known.body.message, /submit again/i, 'the recovery hint is state-independent, so it is on both replies');
   assert.equal(known.status, unknown.status);
 });
 
@@ -1205,4 +1206,43 @@ test('a deferred send that fails logs no email or address, and the task itself r
   await assert.doesNotReject(tasks[0]());
   assert.match(logs[0], /confirmation email failed/);
   assert.ok(!logs.some((m) => m.includes('a@b.co')), 'the log never carries the email or address');
+});
+
+test('a failing Discord invite email still returns the invite URL and keeps the person admitted', async () => {
+  const { db, dump } = fakeDb();
+  const logs: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    if (String(url).includes('discord.com')) {
+      return new Response(JSON.stringify({ code: 'inv123' }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    throw new Error('resend down');
+  }) as typeof fetch;
+  const { defer, tasks } = collectDefer();
+  const viewer = { login: 'octocat', isOrgMember: true, isContributor: false };
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    db, resendApiKey: 'k', fetchImpl, ...discordEnv, resendFrom: 'SDV <news@sportsdataverse.org>',
+    viewer, log: (m: string) => logs.push(m), defer,
+  });
+  assert.equal(r.status, 200);
+  assert.match(r.body.message, /discord\.gg\/inv123/, 'the reply still carries the invite URL — the mint succeeded and is not rolled back by an email failure');
+  assert.equal(dump('people')[0].status, 'auto', 'the person stays admitted even though the deferred email fails');
+  assert.equal(tasks.length, 1);
+  await assert.doesNotReject(tasks[0](), 'the deferred invite-email task resolves, it does not reject, even when the send fails');
+  assert.match(logs.join(' '), /discord invite email failed/);
+});
+
+test('a defer that throws synchronously propagates rather than rolling a minted invite back to pending', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const viewer = { login: 'octocat', isOrgMember: true, isContributor: false };
+  const throwingDefer = () => { throw new Error('after() is unavailable'); };
+  await assert.rejects(
+    handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+      db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, resendFrom: 'SDV <news@sportsdataverse.org>',
+      viewer, defer: throwingDefer,
+    }),
+    /after\(\) is unavailable/
+  );
+  assert.equal(dump('people')[0].status, 'auto', 'the mint already committed; a broken defer must not roll it back to pending');
+  assert.ok((dump('people')[0].discord as { code: string } | undefined)?.code, 'the invite stays on the record');
 });

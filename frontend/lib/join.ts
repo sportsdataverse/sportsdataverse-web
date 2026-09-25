@@ -62,7 +62,8 @@ const CONFIRMED_MSG = "You're on the list.";
  * anonymous caller which addresses are on the list — the same oracle the
  * Discord half closes, on the newsletter half.
  */
-const PENDING_MSG = "Thanks — if this address still needs confirming, check your inbox for the link.";
+const PENDING_MSG =
+  "Thanks — if this address still needs confirming, check your inbox for the link. No email in a few minutes? Submit again.";
 const QUEUED_MSG = "Thanks — a member will review your Discord request and email you.";
 const CONFIRMED_DISCORD_MSG = "You're already on the list for Discord — check your email for the invite.";
 /**
@@ -241,6 +242,12 @@ async function admitOrQueue(
   if (!linked) return ON_FILE_MSG;
 
   await setReviewStatus(deps.db, personId, "auto", viewer!.login, now);
+  // Reaching the mint at all already depends on the target's status (only an
+  // undecided record gets here), but the reply TEXT below tells this same
+  // GitHub-vouched caller exactly that outcome anyway, and it must carry the
+  // invite URL — so the mint stays synchronous, before the reply. Only the
+  // EMAIL is deferred.
+  let url: string;
   try {
     const invite = await createInvite({
       botToken: deps.discordBotToken,
@@ -248,23 +255,8 @@ async function admitOrQueue(
       fetchImpl: deps.fetchImpl,
       now: () => now,
     });
-    // The invite MINT (above) stays synchronous: the reply below carries the
-    // invite URL itself, and only a GitHub-vouched session ever reaches this
-    // branch — there is no stored-state timing question to close here, only
-    // the EMAIL is deferred, since whether it fires never differs by state.
     await recordDiscordInvite(deps.db, personId, invite, now);
-    const url = inviteUrl(invite.code);
-    if (deps.resendFrom) {
-      const from = deps.resendFrom;
-      await later(deps, async () => {
-        try {
-          await sendEmail({ from, to: email, ...discordInviteEmail(url) }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
-        } catch (e) {
-          deps.log?.(`discord invite email failed for person ${String(personId)}: ${(e as Error).message}`);
-        }
-      });
-    }
-    return `You're in — here's your Discord invite: ${url}`;
+    url = inviteUrl(invite.code);
   } catch (e) {
     // the invite either never minted or never got recorded — either way, this
     // person must not sit in "auto" with no usable invite and no queue that
@@ -273,6 +265,21 @@ async function admitOrQueue(
     await setReviewStatus(deps.db, personId, "pending", null, now);
     return QUEUED_MSG;
   }
+  // Outside the mint's try/catch on purpose: a live invite is already
+  // recorded and the reply below already carries its URL, so a synchronous
+  // throw out of `defer` itself must never be caught by the rollback above
+  // and reset this person to "pending" out from under a working invite.
+  if (deps.resendFrom) {
+    const from = deps.resendFrom;
+    await later(deps, async () => {
+      try {
+        await sendEmail({ from, to: email, ...discordInviteEmail(url) }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
+      } catch (e) {
+        deps.log?.(`discord invite email failed for person ${String(personId)}: ${(e as Error).message}`);
+      }
+    });
+  }
+  return `You're in — here's your Discord invite: ${url}`;
 }
 
 export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): Promise<JoinResult> {
