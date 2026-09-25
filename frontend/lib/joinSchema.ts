@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { packageSubmissionSchema } from "./packageSchema.ts";
 
 /**
  * Bodies of the public write endpoints. Question answers are NOT typed here:
@@ -14,6 +15,9 @@ export const joinBodySchema = z.object({
   wants: z.object({ newsletter: z.literal(true) }).default({ newsletter: true }),
   answers: z.record(z.unknown()).optional(),
   placement: z.enum(["footer", "about", "join"]).optional(),
+  /** Present only when answers.wants_package === "yes". Validated by the same
+   *  schema the CMS uses; `orgTier` is a request, never a grant. */
+  pkg: packageSubmissionSchema.extend({ orgTier: z.boolean().optional() }).optional(),
 });
 export type JoinBody = z.infer<typeof joinBodySchema>;
 

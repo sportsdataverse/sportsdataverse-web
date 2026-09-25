@@ -39,6 +39,13 @@ function matches(doc: Doc, filter: Doc): boolean {
 }
 
 function apply(doc: Doc, update: Doc, inserting: boolean) {
+  // Real MongoDB refuses an update that names the same path in two operators.
+  // Mirroring it here is what stops a $set/$setOnInsert collision from passing
+  // every test and then failing every write in production.
+  const setKeys = Object.keys((update.$set as Doc) ?? {});
+  for (const k of Object.keys((update.$setOnInsert as Doc) ?? {})) {
+    if (setKeys.includes(k)) throw new Error(`Updating the path '${k}' would create a conflict at '${k}'`);
+  }
   for (const [k, v] of Object.entries((update.$set as Doc) ?? {})) setPath(doc, k, v);
   if (inserting) for (const [k, v] of Object.entries((update.$setOnInsert as Doc) ?? {})) setPath(doc, k, v);
   for (const [k, v] of Object.entries((update.$inc as Doc) ?? {})) {

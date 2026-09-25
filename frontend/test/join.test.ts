@@ -106,7 +106,7 @@ test('join with a profile, single opt-in (no RESEND_FROM): contact created with 
     calls.push({ url: String(url), body: String(init?.body ?? '') });
     return new Response(JSON.stringify({ object: 'contact', id: 'c-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
   }) as typeof fetch;
-  const r = await handleJoin({ email: 'a@b.co', name: 'Ann', answers: { ...FULL, wants_newsletter: 'yes', wants_discord: 'no' }, placement: 'join' }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl, ...site });
+  const r = await handleJoin({ email: 'a@b.co', name: 'Ann', answers: { ...FULL, wants_newsletter: 'yes', wants_discord: 'no', wants_package: 'no' }, placement: 'join' }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl, ...site });
   assert.equal(r.status, 200);
   assert.equal(calls.length, 1);
   assert.equal(JSON.parse(calls[0].body).properties.languages, 'R');
@@ -119,7 +119,7 @@ test('join with a profile, single opt-in (no RESEND_FROM): contact created with 
 test('join with wants_newsletter=no stores the profile and never calls Resend', async () => {
   const { db, dump } = fakeDb();
   const k = okResend();
-  const r = await handleJoin({ email: 'a@b.co', answers: { ...FULL, wants_newsletter: 'no', wants_discord: 'yes' } }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: k.fetchImpl, ...site });
+  const r = await handleJoin({ email: 'a@b.co', answers: { ...FULL, wants_newsletter: 'no', wants_discord: 'yes', wants_package: 'no' } }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: k.fetchImpl, ...site });
   assert.equal(r.status, 200);
   assert.equal(k.calls(), 0);
   assert.deepEqual(dump('people')[0].wants, { discord: true, newsletter: false, stickers: false, package: false });
@@ -349,12 +349,12 @@ test('turning the newsletter off retires the pending invite and blocks the old l
     dataTypes: ['pbp'], packages_r: ['cfbfastR'],
   };
 
-  await handleJoin({ email: 'a@b.co', answers: { ...ANSWERS, wants_newsletter: 'yes', wants_discord: 'no' } }, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', answers: { ...ANSWERS, wants_newsletter: 'yes', wants_discord: 'no', wants_package: 'no' } }, '1.1.1.1', deps);
   const personId = String((dump('people')[0] as { _id: unknown })._id);
   assert.deepEqual(Object.keys(dump('people')[0].newsletter as object), ['pending']);
   const token = signConfirmToken(personId, 's3cret');
 
-  await handleJoin({ email: 'a@b.co', answers: { ...ANSWERS, wants_newsletter: 'no', wants_discord: 'no' } }, '1.1.1.1', deps);
+  await handleJoin({ email: 'a@b.co', answers: { ...ANSWERS, wants_newsletter: 'no', wants_discord: 'no', wants_package: 'no' } }, '1.1.1.1', deps);
   assert.equal(dump('people')[0].newsletter, undefined, 'the unused invite is gone');
 
   const r = await handleConfirm(token, deps);
@@ -366,7 +366,7 @@ const D_ANSWERS = {
   role: 'developer', languages: ['R'], sports: ['CFB'],
   discoveredVia: 'github', updatesVia: ['github'], newsChannel: 'discord',
   dataTypes: ['pbp'], packages_r: ['cfbfastR'],
-  wants_newsletter: 'no', wants_discord: 'yes',
+  wants_newsletter: 'no', wants_discord: 'yes', wants_package: 'no',
 };
 
 function discordFake() {
@@ -784,4 +784,52 @@ test('a claimed handle never becomes a key to an invite an admin later mints', a
   const again = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: claimant });
   assert.doesNotMatch(again.body.message, /discord\.gg/, 'a claim is not ownership');
   assert.doesNotMatch(again.body.message, /SECRET9/);
+});
+
+const PKG = { title: 'hoopR', repoType: 'R', sports: 'MBB', content: 'PBP and box scores.', sourceHref: 'https://github.com/sportsdataverse/hoopR' };
+
+test('a package submitted through /join is stored hidden and linked to the person', async () => {
+  const { db, dump } = fakeDb();
+  const r = await handleJoin(
+    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: { ...PKG, orgTier: true } } as never,
+    '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null }
+  );
+  assert.equal(r.status, 200);
+  const person = dump('people')[0];
+  const pkg = dump('packages')[0];
+  assert.equal((person.wants as { package: boolean }).package, true);
+  assert.equal(String(pkg.submittedBy), String(person._id));
+  assert.equal(pkg.orgTierRequested, true);
+  assert.equal(pkg.published, false);
+});
+
+test('a re-submission updates wants.package without a Mongo path conflict', async () => {
+  const { db, dump } = fakeDb();
+  const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
+  await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'no' } } as never, '1.1.1.1', deps);
+  const r = await handleJoin(
+    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: PKG } as never, '1.1.1.1', deps
+  );
+  assert.equal(r.status, 200);
+  assert.equal((dump('people')[0].wants as { package: boolean }).package, true, 'the second answer is recorded');
+});
+
+test('the package flag and payload must agree', async () => {
+  const { db, dump } = fakeDb();
+  const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
+  await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'no' }, pkg: PKG } as never, '1.1.1.1', deps);
+  assert.equal(dump('packages').length, 0, 'a payload with the flag off is not a submission');
+  const r = await handleJoin({ email: 'c@b.co', answers: { ...D_ANSWERS, wants_package: 'yes' } } as never, '2.2.2.2', deps);
+  assert.equal(r.status, 400);
+  assert.match(r.body.message, /package/i);
+});
+
+test('no package is stored when the person could not be written', async () => {
+  const { db, dump } = fakeDb();
+  db.failNextWriteTo('people', new Error('mongo down'));
+  await assert.rejects(handleJoin(
+    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: PKG } as never,
+    '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null }
+  ));
+  assert.equal(dump('packages').length, 0, 'never a submission pointing at nobody');
 });

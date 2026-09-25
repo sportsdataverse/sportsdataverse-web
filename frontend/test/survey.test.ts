@@ -49,7 +49,7 @@ test('free-list options (packages) accept any short string, limited count', () =
 test('join sections require the wants answers', () => {
   const r = validateAnswers(QUESTIONS, JOIN_SECTIONS, { ...base });
   assert.equal(r.ok, false);
-  const ok = validateAnswers(QUESTIONS, JOIN_SECTIONS, { ...base, wants_newsletter: 'yes', wants_discord: 'no' });
+  const ok = validateAnswers(QUESTIONS, JOIN_SECTIONS, { ...base, wants_newsletter: 'yes', wants_discord: 'no', wants_package: 'no' });
   assert.equal(ok.ok, true);
 });
 
