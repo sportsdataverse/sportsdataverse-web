@@ -215,6 +215,52 @@ every legacy package that has no `submittedBy` and predates the checkbox, so PR 
 leaves it as is; only a visitor submission (`submittedBy` present) is gated on
 `published`.
 
+## Stickers
+
+The "where should we mail the stickers?" step of the full `/join` form writes a
+`sticker_requests` document with the submitter's `people` id, name, and postal
+address. Requests appear only at `/platform/admin/stickers` (`GET
+/api/platform/admin/stickers`) — **admin-only**, unlike the `/platform/people`
+review queue: a postal address is more sensitive than anything that queue shows,
+so it sits behind the same `admin` role gate as Keys/Errors/Traffic rather than
+being open to any org member. `listOpenStickerRequests` (`lib/stickers.ts`) is the
+one function that returns an address, and that route is its one caller.
+
+**Ship** and **Cancel** (`POST /api/platform/admin/stickers/[id]/[action]`,
+`ship|cancel`, admin-only) are the two actions on a request. Ship records who
+shipped it and when, and **erases the address in the same write** — there is
+never a moment where a request is marked shipped and still holding an address.
+The request row itself is kept as history (name, ship date, who shipped it) so a
+person who asks again after their stickers went out is recognized rather than
+treated as a duplicate. Cancel deletes the request outright, address and all.
+
+A person can hold one open request at a time, and the **first one wins**: the
+email behind a `/join` submission is unverified, so letting a later submission
+silently overwrite an open request would let anyone who types a stranger's email
+address redirect that stranger's parcel. If the real requester needs to change
+their address, they reply to the confirmation email and it's updated by hand; if
+a request needs clearing instead (a duplicate, or one that was never legitimate),
+an admin cancels it from `/platform/admin/stickers` and the person can submit a
+new one. The got-it email (`stickerRequestEmail`, `lib/email.ts`) is sent only
+when `/join` actually creates a **new** request — not when the person already had
+one open — and only when `RESEND_FROM` is set, the same gate as the Discord
+invite email above. The email contains no address. Its line "Didn't ask for
+stickers? Reply and we'll cancel the request." exists because of the first-wins
+rule: anyone who types someone else's email address into the sticker fieldset
+sends this email to that address's real owner, and replying is how that person
+gets the bogus request cancelled.
+
+Reserved test addresses (`example.com`, `.test`, …) record the sticker answers
+like any other submission but never create a `sticker_requests` document, the
+same as package submissions above — the PR-evidence walkthrough submits through
+the sticker fieldset and leaves nothing behind.
+
+Deleting a person (`removePerson`, `lib/review.ts`) deletes their sticker
+requests — open or already shipped — before anything else: before their pending
+packages, before the `people` record itself. That order means a failure partway
+through a delete never leaves a person "gone" while their address is still on
+file somewhere.
+
 ## Population
 
 `/platform/people`'s Population tab (`GET /api/platform/people/population`, any
