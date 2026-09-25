@@ -40,7 +40,7 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
   const [contact, setContact] = useState({ email: "", name: "" });
   const [pkg, setPkg] = useState({
     title: "", repoType: "R" as (typeof REPO_TYPES)[number], sports: "", content: "",
-    sourceHref: "", docsHref: "", orgTier: false,
+    sourceHref: "", docsHref: "", logoHref: "", dataRepoHref: "", orgTier: false,
   });
   const wantsPackage = answers.wants_package === "yes";
   const [step, setStep] = useState(0);
@@ -87,7 +87,16 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
           answers,
           placement,
           // omitted entirely unless they said yes, so the flag and the payload agree
-          ...(wantsPackage ? { pkg: { ...pkg, docsHref: pkg.docsHref.trim() || undefined } } : {}),
+          ...(wantsPackage
+            ? {
+                pkg: {
+                  ...pkg,
+                  docsHref: pkg.docsHref.trim() || undefined,
+                  logoHref: pkg.logoHref.trim() || undefined,
+                  dataRepoHref: pkg.dataRepoHref.trim() || undefined,
+                },
+              }
+            : {}),
         }
       : { answers };
     try {
@@ -190,6 +199,10 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
               onChange={(e) => setPkg((p) => ({ ...p, sourceHref: e.target.value }))} />
             <Input type="url" aria-label="Documentation URL (optional)" placeholder="https://your-package-docs.example (optional)" value={pkg.docsHref}
               onChange={(e) => setPkg((p) => ({ ...p, docsHref: e.target.value }))} />
+            <Input type="url" aria-label="Logo image URL (optional)" placeholder="https://your-site.example/logo.png (optional)" value={pkg.logoHref}
+              onChange={(e) => setPkg((p) => ({ ...p, logoHref: e.target.value }))} />
+            <Input type="url" aria-label="Data repository URL (optional)" placeholder="https://github.com/you/your-data-repo (optional)" value={pkg.dataRepoHref}
+              onChange={(e) => setPkg((p) => ({ ...p, dataRepoHref: e.target.value }))} />
           </div>
           <textarea aria-label="What your package does" className={textareaClass}
             placeholder="What does it do?" required maxLength={2000} value={pkg.content}
