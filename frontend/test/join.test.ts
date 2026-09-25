@@ -204,6 +204,7 @@ test('with double opt-in live, a subscribed address and an unknown one get the s
   const known = await handleJoin({ email: 'known@b.co' }, '2.2.2.2', double);
   const unknown = await handleJoin({ email: 'stranger@b.co' }, '3.3.3.3', double);
   assert.equal(known.body.message, unknown.body.message, 'no subscriber oracle on the newsletter half either');
+  assert.match(known.body.message, /submit again/i, 'the recovery hint is state-independent, so it is on both replies');
   assert.equal(known.status, unknown.status);
 });
 
@@ -240,16 +241,34 @@ test('a confirmed click survives a Resend outage; a later retry completes the sy
   assert.equal(nl2.resendContactId, 'c-1');
 });
 
-test('double opt-in: a failed confirmation-email send tells the truth and leaves the person unsynced', async () => {
+test('double opt-in: a failed confirmation-email send still gets PENDING_MSG, and leaves the person unsynced', async () => {
   const { db, dump } = fakeDb();
   const logs: string[] = [];
   const fetchImpl = (async () => new Response('boom', { status: 500 })) as typeof fetch;
   const deps = { db, resendApiKey: 'k', fetchImpl, ...site, resendFrom: 'SDV <news@sportsdataverse.org>', log: (m: string) => logs.push(m) };
   const r = await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '1.1.1.1', deps);
   assert.equal(r.status, 200);
-  assert.match(r.body.message, /try again/i);
+  assert.match(r.body.message, /check your inbox/i, 'the reply no longer depends on whether the deferred send succeeds');
   assert.equal((dump('people')[0].newsletter as { resendContactId?: string }).resendContactId, undefined, 'never synced');
   assert.match(logs[0], /confirmation email failed/);
+});
+
+test('a resubmission after a failed confirmation send re-sends the link', async () => {
+  const { db } = fakeDb();
+  let attempt = 0;
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    calls.push(String(url));
+    attempt += 1;
+    if (attempt === 1) return new Response('boom', { status: 500 });
+    return new Response(JSON.stringify({ id: 'em-2' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const deps = { db, resendApiKey: 'k', fetchImpl, ...site, resendFrom: 'SDV <news@sportsdataverse.org>' };
+  const r1 = await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '1.1.1.1', deps);
+  assert.match(r1.body.message, /check your inbox/i);
+  const r2 = await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '1.1.1.1', deps);
+  assert.match(r2.body.message, /check your inbox/i);
+  assert.equal(calls.filter((u) => u.endsWith('/emails')).length, 2, 'each submission re-sends the confirmation link');
 });
 
 test('a confirmation that never went out still records the pending marker, so Retry sync refuses it', async () => {
@@ -257,7 +276,7 @@ test('a confirmation that never went out still records the pending marker, so Re
   const fetchImpl = (async () => new Response('rate limited', { status: 429 })) as typeof fetch;
   const deps = { db, resendApiKey: 'k', fetchImpl, ...site, resendFrom: 'SDV <news@sportsdataverse.org>' };
   const r = await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '1.1.1.1', deps);
-  assert.match(r.body.message, /try again/i);
+  assert.match(r.body.message, /check your inbox/i);
   assert.deepEqual(Object.keys(dump('people')[0].newsletter as object), ['pending'], 'the promise we made is on the record');
 
   // the admin sees them in Unsynced and clicks Retry sync: the existing consent
@@ -283,7 +302,7 @@ test('a re-signup never erases proof that this address already opted in', async 
   // double opt-in now live, and Resend is down: the send fails
   const deps = { db, resendApiKey: 'k', fetchImpl: (async () => new Response('boom', { status: 500 })) as typeof fetch, ...site, resendFrom: 'SDV <news@sportsdataverse.org>' };
   const r = await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '1.1.1.1', deps);
-  assert.match(r.body.message, /try again/i);
+  assert.match(r.body.message, /check your inbox/i);
   const nl = dump('people')[0].newsletter as { resendContactId?: string; confirmedAt?: Date; unsubscribed?: true };
   assert.equal(nl.resendContactId, 'c-1', 'the contact id survives');
   assert.equal(nl.confirmedAt?.getTime(), confirmedAt.getTime(), 'and so does the proof of a completed double opt-in');
@@ -1044,4 +1063,189 @@ test('a created sticker request and an already-open one both get the sticker suc
   const note = `Stickers are on the list. If you'd already asked, we'll use the first address you gave — to change it, write to ${CONTACT_EMAIL}.`;
   assert.ok(r1.body.message.includes(note), 'the created-request reply carries the self-explaining success sentence');
   assert.ok(r2.body.message.includes(note), 'the already-open reply carries the identical sentence — the membership-oracle rule');
+});
+
+// --- defer: Resend/Discord calls run after the reply, never before it -----
+
+/** Collects tasks handed to JoinDeps.defer instead of running them, so a test
+ *  can assert nothing reached the network before handleJoin returned. */
+function collectDefer() {
+  const tasks: Array<() => Promise<void>> = [];
+  return { defer: (task: () => Promise<void>) => { tasks.push(task); }, tasks };
+}
+
+test('with defer supplied, a new address under double opt-in makes zero Resend calls before the reply', async () => {
+  const { db } = fakeDb();
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    calls.push(String(url));
+    const isEmail = String(url).endsWith('/emails');
+    return new Response(JSON.stringify(isEmail ? { id: 'em-1' } : { object: 'contact', id: 'c-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const { defer, tasks } = collectDefer();
+  const deps = { db, resendApiKey: 'k', fetchImpl, ...site, resendFrom: 'SDV <news@sportsdataverse.org>', defer };
+  const r = await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '1.1.1.1', deps);
+  assert.equal(r.status, 200);
+  assert.equal(calls.length, 0, 'no Resend call reached the network before the reply');
+  assert.equal(tasks.length, 1);
+  for (const t of tasks) await t();
+  assert.equal(calls.length, 1, 'the deferred confirmation email ran once released');
+  assert.ok(calls[0].endsWith('/emails'));
+});
+
+test('with defer supplied, an already-synced address makes zero Resend calls before the reply', async () => {
+  const { db } = fakeDb();
+  await handleJoin({ email: 'a@b.co' }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl });
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    calls.push(String(url));
+    return new Response(JSON.stringify({ object: 'contact', id: 'c-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const { defer, tasks } = collectDefer();
+  const deps = { db, resendApiKey: 'k', fetchImpl, ...site, resendFrom: 'SDV <news@sportsdataverse.org>', defer };
+  const r = await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '2.2.2.2', deps);
+  assert.equal(r.status, 200);
+  assert.equal(calls.length, 0, 'no Resend call reached the network before the reply');
+  assert.equal(tasks.length, 1);
+  await tasks[0]();
+  assert.equal(calls.length, 1, 'the deferred sync ran once released');
+});
+
+test('with defer supplied, single opt-in (no RESEND_FROM) makes zero Resend calls before the reply', async () => {
+  const { db, dump } = fakeDb();
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    calls.push(String(url));
+    return new Response(JSON.stringify({ object: 'contact', id: 'c-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const { defer, tasks } = collectDefer();
+  const r = await handleJoin({ email: 'a@b.co' }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl, defer });
+  assert.equal(r.status, 200);
+  assert.equal(calls.length, 0, 'no Resend call reached the network before the reply');
+  assert.equal(tasks.length, 1);
+  await tasks[0]();
+  assert.equal(calls.length, 1);
+  assert.equal((dump('people')[0].newsletter as { resendContactId: string }).resendContactId, 'c-1');
+});
+
+test('with defer supplied, a created sticker request makes zero Resend calls before the reply', async () => {
+  const { db } = fakeDb();
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    calls.push(String(url));
+    return new Response(JSON.stringify({ id: 'em-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const { defer, tasks } = collectDefer();
+  const r = await handleJoin(
+    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_stickers: 'yes' }, sticker: STICKER } as never, '1.1.1.1',
+    { db, resendApiKey: 'k', resendFrom: 'SDV <n@sportsdataverse.org>', tokenSecret: 's', fetchImpl, viewer: null, defer }
+  );
+  assert.equal(r.status, 200);
+  assert.equal(calls.length, 0, 'no Resend call reached the network before the reply');
+  assert.equal(tasks.length, 1);
+  await tasks[0]();
+  assert.equal(calls.length, 1, 'the got-it email ran once released');
+});
+
+test('with defer supplied, a vouched Discord admission records the Discord call immediately but defers the invite email', async () => {
+  const { db } = fakeDb();
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    calls.push(String(url));
+    if (String(url).includes('discord.com')) return new Response(JSON.stringify({ code: 'inv123' }), { status: 200, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify({ id: 'em-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const { defer, tasks } = collectDefer();
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    db, resendApiKey: 'k', fetchImpl, ...discordEnv, resendFrom: 'SDV <news@sportsdataverse.org>',
+    viewer: { login: 'octocat', isOrgMember: true, isContributor: false },
+    defer,
+  });
+  assert.equal(r.status, 200);
+  assert.equal(calls.filter((u) => u.includes('discord.com')).length, 1, 'the Discord mint is not deferred — the reply carries its URL');
+  assert.equal(calls.filter((u) => u.endsWith('/emails')).length, 0, 'no Resend call reached the network before the reply');
+  assert.equal(tasks.length, 1);
+  await tasks[0]();
+  assert.equal(calls.filter((u) => u.endsWith('/emails')).length, 1, 'the deferred invite email ran once released');
+});
+
+test('oracle property: a reserved address and a brand-new address both make zero Resend calls before the reply', async () => {
+  const { db } = fakeDb();
+  const callsReserved: string[] = [];
+  const fetchImplReserved = (async (url: string | URL | Request) => {
+    callsReserved.push(String(url));
+    return new Response(JSON.stringify({ object: 'contact', id: 'c-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const { defer: deferA, tasks: tasksA } = collectDefer();
+  const rReserved = await handleJoin({ email: 'walkthrough@example.com' }, '1.1.1.1', { db, resendApiKey: 'k', fetchImpl: fetchImplReserved, defer: deferA });
+
+  const callsNew: string[] = [];
+  const fetchImplNew = (async (url: string | URL | Request) => {
+    callsNew.push(String(url));
+    return new Response(JSON.stringify({ object: 'contact', id: 'c-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const { defer: deferB, tasks: tasksB } = collectDefer();
+  const rNew = await handleJoin({ email: 'stranger@b.co' }, '2.2.2.2', { db, resendApiKey: 'k', fetchImpl: fetchImplNew, defer: deferB });
+
+  assert.equal(rReserved.status, 200);
+  assert.equal(rNew.status, 200);
+  assert.equal(callsReserved.length, 0);
+  assert.equal(callsNew.length, callsReserved.length, 'a reserved address and a brand-new one make the same zero Resend calls before the reply — no timing oracle');
+  assert.equal(tasksA.length, 0, 'reserved: no side effect is even scheduled');
+  assert.equal(tasksB.length, 1, 'new address: one sync is scheduled, but not run yet');
+});
+
+test('a deferred send that fails logs no email or address, and the task itself resolves rather than rejecting', async () => {
+  const { db } = fakeDb();
+  const logs: string[] = [];
+  const { defer, tasks } = collectDefer();
+  const fetchImpl = (async () => new Response('boom', { status: 500 })) as typeof fetch;
+  const deps = { db, resendApiKey: 'k', fetchImpl, ...site, resendFrom: 'SDV <news@sportsdataverse.org>', log: (m: string) => logs.push(m), defer };
+  await handleJoin({ email: 'a@b.co', wants: { newsletter: true } }, '1.1.1.1', deps);
+  assert.equal(tasks.length, 1);
+  await assert.doesNotReject(tasks[0]());
+  assert.match(logs[0], /confirmation email failed/);
+  assert.ok(!logs.some((m) => m.includes('a@b.co')), 'the log never carries the email or address');
+});
+
+test('a failing Discord invite email still returns the invite URL and keeps the person admitted', async () => {
+  const { db, dump } = fakeDb();
+  const logs: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    if (String(url).includes('discord.com')) {
+      return new Response(JSON.stringify({ code: 'inv123' }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    throw new Error('resend down');
+  }) as typeof fetch;
+  const { defer, tasks } = collectDefer();
+  const viewer = { login: 'octocat', isOrgMember: true, isContributor: false };
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    db, resendApiKey: 'k', fetchImpl, ...discordEnv, resendFrom: 'SDV <news@sportsdataverse.org>',
+    viewer, log: (m: string) => logs.push(m), defer,
+  });
+  assert.equal(r.status, 200);
+  assert.match(r.body.message, /discord\.gg\/inv123/, 'the reply still carries the invite URL — the mint succeeded and is not rolled back by an email failure');
+  assert.equal(dump('people')[0].status, 'auto', 'the person stays admitted even though the deferred email fails');
+  assert.equal(tasks.length, 1);
+  await assert.doesNotReject(tasks[0](), 'the deferred invite-email task resolves, it does not reject, even when the send fails');
+  assert.match(logs.join(' '), /discord invite email failed/);
+});
+
+test('a defer that throws synchronously is logged, and the minted invite still reaches the reply', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const logs: string[] = [];
+  const viewer = { login: 'octocat', isOrgMember: true, isContributor: false };
+  const throwingDefer = () => { throw new Error('after() is unavailable'); };
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, resendFrom: 'SDV <news@sportsdataverse.org>',
+    viewer, defer: throwingDefer, log: (m) => logs.push(m),
+  });
+  assert.equal(r.status, 200);
+  const code = (dump('people')[0].discord as { code: string } | undefined)?.code;
+  assert.ok(code, 'the invite stays on the record');
+  assert.match((r.body as { message: string }).message, new RegExp(code!), 'the visitor still gets the invite URL');
+  assert.equal(dump('people')[0].status, 'auto', 'the mint already committed; a broken defer must not roll it back to pending');
+  assert.match(logs.join(' '), /could not schedule/);
+  assert.equal(d.calls.filter((u) => u.includes('api.resend.com')).length, 0, 'the email is not sent inline as a fallback');
 });

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { connectToDatabase } from "@lib/mongodb";
 import { auth } from "@lib/auth";
 import { handleJoin } from "@lib/join";
@@ -40,6 +40,10 @@ export async function POST(req: Request) {
     viewer,
     discordBotToken: process.env.DISCORD_BOT_TOKEN,
     discordChannelId: process.env.DISCORD_INVITE_CHANNEL_ID,
+    // Resend calls run after the response is sent (see JoinDeps.defer's doc
+    // comment in lib/join.ts): whether they fire depends on stored state, and
+    // awaiting them here would leak that state through response timing.
+    defer: (task) => after(task),
   });
   return NextResponse.json(result.body, { status: result.status });
 }

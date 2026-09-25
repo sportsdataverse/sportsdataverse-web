@@ -84,6 +84,15 @@ uv lock --upgrade && uv sync       # bump deps
   person landing back in the review queue rather than a thrown error. Check the person's stored
   state (`newsletter`, `discord`, `status`), not just "did the handler return 200," when
   debugging a report that a signup or invite "didn't happen."
+  **`/join`'s Resend calls (the single opt-in contact create/refresh, the double opt-in
+  confirmation email, the Discord invite email, and the sticker got-it email) now run after the
+  response via Next's `after()`** (`JoinDeps.defer`, wired in `app/api/join/route.ts`), so the
+  route doesn't even await them — the person is already saved and the reply already sent before
+  any of them fire. That includes `syncContact`'s single opt-in path: `newsletter.resendContactId`
+  now lands strictly AFTER the reply, so a person can briefly show as unsynced in the People tab
+  right after signing up — that is expected, not a bug, and resolves itself once the deferred
+  task runs. A failure shows up only in the log, never in the reply or its timing; don't try to
+  reproduce a "didn't send" report by watching the request, watch the logs instead.
 - **`RESEND_FROM` gates two independent things**, not one: double opt-in for the newsletter
   (`lib/join.ts` `beginOptIn`) and whether a minted Discord invite is emailed at all
   (`lib/join.ts` `admitOrQueue`, `lib/review.ts` `mintAndSend`). It is currently **unset** in
