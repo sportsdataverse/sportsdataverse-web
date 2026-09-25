@@ -27,7 +27,13 @@ export default async function ManagePackagesPage() {
     const { db } = await connectToDatabase();
     packages = JSON.parse(
       JSON.stringify(
-        await db.collection("packages").find({}).sort({ published: -1 }).toArray()
+        (await db.collection("packages").find({}).toArray()).sort((a: any, b: any) => {
+          const pa = a.submittedBy && a.published !== true ? 0 : 1;
+          const pb = b.submittedBy && b.published !== true ? 0 : 1;
+          if (pa !== pb) return pa - pb;
+          if (pa === 0) return +new Date(b.createdAt ?? 0) - +new Date(a.createdAt ?? 0);
+          return String(a.title).localeCompare(String(b.title));
+        })
       )
     );
   } catch {

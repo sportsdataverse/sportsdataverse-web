@@ -47,6 +47,10 @@ export type PackageDoc = PackageInput & {
   updatedBy?: string;
   createdAt?: string;
   updatedAt?: string;
+  // Present only on a visitor submission (see lib/packageSubmission.ts /
+  // lib/packageVisibility.ts) — absent on a member-created row.
+  submittedBy?: string | null;
+  orgTierRequested?: boolean;
 };
 
 /**
