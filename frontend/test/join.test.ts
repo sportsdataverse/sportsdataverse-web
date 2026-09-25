@@ -801,6 +801,7 @@ test('a package submitted through /join is stored hidden and linked to the perso
   assert.equal(String(pkg.submittedBy), String(person._id));
   assert.equal(pkg.orgTierRequested, true);
   assert.equal(pkg.published, false);
+  assert.match(r.body.message, /queue/i, 'the response mentions the queued package');
 });
 
 test('a re-submission updates wants.package without a Mongo path conflict', async () => {
@@ -812,12 +813,14 @@ test('a re-submission updates wants.package without a Mongo path conflict', asyn
   );
   assert.equal(r.status, 200);
   assert.equal((dump('people')[0].wants as { package: boolean }).package, true, 'the second answer is recorded');
+  assert.equal(dump('packages')[0].orgTierRequested, false, 'orgTier defaults false when absent from the payload');
 });
 
 test('the package flag and payload must agree', async () => {
   const { db, dump } = fakeDb();
   const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
-  await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'no' }, pkg: PKG } as never, '1.1.1.1', deps);
+  const r0 = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'no' }, pkg: PKG } as never, '1.1.1.1', deps);
+  assert.equal(r0.status, 200, 'a payload the flag disowns is dropped, not rejected');
   assert.equal(dump('packages').length, 0, 'a payload with the flag off is not a submission');
   const r = await handleJoin({ email: 'c@b.co', answers: { ...D_ANSWERS, wants_package: 'yes' } } as never, '2.2.2.2', deps);
   assert.equal(r.status, 400);
@@ -843,4 +846,30 @@ test('a reserved-domain submission stores the person and wants.package but inser
   assert.equal(r.status, 200);
   assert.equal((dump('people')[0].wants as { package: boolean }).package, true);
   assert.equal(dump('packages').length, 0);
+});
+
+test('a failed package write still returns 200, keeps the person, and logs a category with no email or response body', async () => {
+  const { db, dump } = fakeDb();
+  const logs: string[] = [];
+  db.failNextWriteTo('packages', new Error('mongo down'));
+  const r = await handleJoin(
+    { email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'yes' }, pkg: PKG } as never,
+    '5.5.5.5', { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null, log: (m: string) => logs.push(m) }
+  );
+  assert.equal(r.status, 200);
+  assert.equal(dump('people').length, 1, 'the person is stored');
+  assert.match(r.body.message, /could not/i, 'the message says the package was not recorded');
+  assert.ok(logs.some((m) => /package submission failed/.test(m)), 'the failure is logged');
+  assert.ok(!logs.some((m) => m.includes('a@b.co')), 'the log never carries the email');
+});
+
+test('a malformed package request never spends the join rate limit', async () => {
+  const { db } = fakeDb();
+  const deps = { db, resendApiKey: 'k', fetchImpl: okResend().fetchImpl, viewer: null };
+  for (let i = 0; i < 5; i++) {
+    const r = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'yes' } } as never, '6.6.6.6', deps);
+    assert.equal(r.status, 400);
+  }
+  const r = await handleJoin({ email: 'a@b.co', answers: { ...D_ANSWERS, wants_package: 'no' } } as never, '6.6.6.6', deps);
+  assert.equal(r.status, 200, 'the sixth, valid request from the same IP still has a slot');
 });

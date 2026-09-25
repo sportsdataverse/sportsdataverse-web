@@ -102,3 +102,47 @@ test('a script URL never reaches the database, even from a caller that skips par
   assert.equal(r.ok, false);
   assert.equal(dump('packages').length, 0);
 });
+
+test('the same person resubmitting the same title updates one row, not a duplicate', async () => {
+  const { db, dump } = fakeDb();
+  const person = new ObjectId();
+  const T1 = new Date('2026-09-25T13:00:00Z');
+  const first = await submitPackage(db, GOOD, person, false, T0);
+  const second = await submitPackage(db, { ...GOOD, content: 'An updated description.' }, person, true, T1);
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  const rows = dump('packages');
+  assert.equal(rows.length, 1, 'one row, not two');
+  assert.equal(rows[0].content, 'An updated description.', 'holds the second submission');
+  assert.equal(rows[0].orgTierRequested, true);
+  assert.deepEqual(rows[0].createdAt, T0, 'createdAt is untouched by the update');
+  assert.deepEqual(rows[0].updatedAt, T1);
+  assert.equal(second.packageId, undefined, 'no new id — nothing was created');
+});
+
+test('the same person submitting two different titles leaves two rows', async () => {
+  const { db, dump } = fakeDb();
+  const person = new ObjectId();
+  await submitPackage(db, GOOD, person, false, T0);
+  await submitPackage(
+    db,
+    { ...GOOD, title: 'wehoop', sourceHref: 'https://github.com/sportsdataverse/wehoop' },
+    person,
+    false,
+    T0
+  );
+  assert.equal(dump('packages').length, 2);
+});
+
+test('resubmitting a title that was already published starts a new pending row, not an edit to the live one', async () => {
+  const { db, dump } = fakeDb();
+  const person = new ObjectId();
+  await submitPackage(db, GOOD, person, false, T0);
+  dump('packages')[0].published = true; // a member approved it, directly in the store
+  const second = await submitPackage(db, { ...GOOD, content: 'A fresh pitch for the same package.' }, person, false, T0);
+  assert.equal(second.ok, true);
+  const rows = dump('packages');
+  assert.equal(rows.length, 2, 'the live row is untouched, a new pending row is added');
+  assert.equal(rows.find((r) => r.published === true)?.content, GOOD.content, 'the live listing keeps its original content');
+  assert.equal(rows.find((r) => r.published === false)?.content, 'A fresh pitch for the same package.');
+});

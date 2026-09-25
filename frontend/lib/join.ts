@@ -285,7 +285,9 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
   // whole flow, including the fieldset, without dropping a fake package in front of a reviewer.
   if (wants.package && parsed.data.pkg && !isReservedEmail(email)) {
     const { orgTier, ...pkg } = parsed.data.pkg;
-    pkgNote = (await submitPackage(deps.db, pkg, personId, Boolean(orgTier), now)).message;
+    const pkgRes = await submitPackage(deps.db, pkg, personId, Boolean(orgTier), now);
+    if (!pkgRes.ok) deps.log?.(`package submission failed for person ${String(personId)}`);
+    pkgNote = pkgRes.message;
   }
 
   if (!wants.newsletter && newsletter && "pending" in newsletter) {
