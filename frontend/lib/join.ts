@@ -82,10 +82,17 @@ const nowOf = (deps: JoinDeps) => (deps.now ?? (() => new Date()))();
  * `after()`, so the task runs once the reply is already on the wire and its
  * outcome can never reach the reply), otherwise inline — the pre-existing
  * behaviour every caller without `defer` (tests included) still gets.
+ * A scheduler that throws is logged and the task dropped, never run inline:
+ * the reply may already carry something committed (a minted invite URL), and
+ * running the send inline would bring back the timing it exists to remove.
  */
 async function later(deps: JoinDeps, task: () => Promise<void>): Promise<void> {
-  if (deps.defer) deps.defer(task);
-  else await task();
+  if (!deps.defer) return task();
+  try {
+    deps.defer(task);
+  } catch (e) {
+    deps.log?.(`could not schedule a deferred task: ${(e as Error).message}`);
+  }
 }
 
 /** GitHub handles are case-insensitive: `OctoCat` and `octocat` are one person. */

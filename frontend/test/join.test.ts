@@ -1231,18 +1231,21 @@ test('a failing Discord invite email still returns the invite URL and keeps the 
   assert.match(logs.join(' '), /discord invite email failed/);
 });
 
-test('a defer that throws synchronously propagates rather than rolling a minted invite back to pending', async () => {
+test('a defer that throws synchronously is logged, and the minted invite still reaches the reply', async () => {
   const { db, dump } = fakeDb();
   const d = discordFake();
+  const logs: string[] = [];
   const viewer = { login: 'octocat', isOrgMember: true, isContributor: false };
   const throwingDefer = () => { throw new Error('after() is unavailable'); };
-  await assert.rejects(
-    handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
-      db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, resendFrom: 'SDV <news@sportsdataverse.org>',
-      viewer, defer: throwingDefer,
-    }),
-    /after\(\) is unavailable/
-  );
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, resendFrom: 'SDV <news@sportsdataverse.org>',
+    viewer, defer: throwingDefer, log: (m) => logs.push(m),
+  });
+  assert.equal(r.status, 200);
+  const code = (dump('people')[0].discord as { code: string } | undefined)?.code;
+  assert.ok(code, 'the invite stays on the record');
+  assert.match((r.body as { message: string }).message, new RegExp(code!), 'the visitor still gets the invite URL');
   assert.equal(dump('people')[0].status, 'auto', 'the mint already committed; a broken defer must not roll it back to pending');
-  assert.ok((dump('people')[0].discord as { code: string } | undefined)?.code, 'the invite stays on the record');
+  assert.match(logs.join(' '), /could not schedule/);
+  assert.equal(d.calls.filter((u) => u.includes('api.resend.com')).length, 0, 'the email is not sent inline as a fallback');
 });
