@@ -66,3 +66,8 @@ test('a follow-up is accepted only when its trigger was itself accepted in this 
   assert.equal(r.ok, true);
   assert.equal((r as { answers: Record<string, unknown> }).answers.packages_r, undefined);
 });
+
+test('the stickers question is required, like the other wants questions', () => {
+  const q = QUESTIONS.find((x) => x.id === 'wants_stickers');
+  assert.equal(q?.required, true);
+});

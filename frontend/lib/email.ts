@@ -1,3 +1,5 @@
+import { FOLLOW_LINKS, KOFI_URL, PAYPAL_URL, DO_REFERRAL_URL } from "../content/links.ts";
+
 /**
  * Resend transactional send (`POST /emails`) and the one template PR 2a needs.
  * `from` must be on a domain verified in Resend — that is what RESEND_FROM gates.
@@ -49,12 +51,31 @@ export function discordInviteEmail(url: string): { subject: string; html: string
 
 /** Confirms a sticker request. Deliberately does NOT repeat the address: the
  *  typed email is not verified, so echoing it would send one person's postal
- *  address to whatever inbox was typed. */
+ *  address to whatever inbox was typed. The follow/support links are trusted,
+ *  hardcoded constants (never request data), so they are inserted raw rather
+ *  than passed through esc() — DO_REFERRAL_URL's "&" would otherwise come out
+ *  HTML-entity-encoded and no longer match the literal URL. */
 export function stickerRequestEmail(): { subject: string; html: string; text: string } {
   const body = "Got it — your sticker request is in. We mail them in batches, so it may be a few weeks. If your address changes before they ship, reply to this email and we'll update it.";
+  // First-request-wins (lib/stickers.ts) means a stranger who typos someone
+  // else's email onto a sticker request is the one who gets this email, not
+  // the address owner — this is the only warning they get.
+  const warning = "Didn't ask for stickers? Reply and we'll cancel the request.";
+  const followHtml = FOLLOW_LINKS.map((l) => `<a href="${l.href}">${l.label}</a>`).join(", ");
+  const followText = FOLLOW_LINKS.map((l) => `${l.label}: ${l.href}`).join("\n");
+  const supportHtml = [
+    `<a href="${KOFI_URL}">Ko-fi</a>`,
+    `<a href="${DO_REFERRAL_URL}">DigitalOcean credit</a>`,
+    `<a href="${PAYPAL_URL}">PayPal</a>`,
+  ].join(", ");
+  const supportText = [`Ko-fi: ${KOFI_URL}`, `DigitalOcean credit: ${DO_REFERRAL_URL}`, `PayPal: ${PAYPAL_URL}`].join("\n");
   return {
     subject: "Your SportsDataverse sticker request",
-    html: `<p>${body}</p>\n<p>— SportsDataverse</p>`,
-    text: `${body}\n\n— SportsDataverse`,
+    html: `<p>${body}</p>
+<p>${warning}</p>
+<p>Follow along: ${followHtml}</p>
+<p>Support the project: ${supportHtml}</p>
+<p>— SportsDataverse</p>`,
+    text: `${body}\n\n${warning}\n\nFollow along:\n${followText}\n\nSupport the project:\n${supportText}\n\n— SportsDataverse`,
   };
 }

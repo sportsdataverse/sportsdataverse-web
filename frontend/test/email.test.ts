@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sendEmail, confirmEmail } from '../lib/email.ts';
+import { sendEmail, confirmEmail, stickerRequestEmail } from '../lib/email.ts';
+import { FOLLOW_LINKS, KOFI_URL, PAYPAL_URL, DO_REFERRAL_URL } from '../content/links.ts';
 
 test('sendEmail posts to Resend /emails with the bearer key and returns the id', async () => {
   const calls: { url: string; init: RequestInit }[] = [];
@@ -27,4 +28,18 @@ test('confirmEmail carries the link in both bodies', () => {
   assert.match(e.subject, /confirm/i);
   assert.ok(e.html.includes('https://www.sportsdataverse.org/api/join/confirm?t=abc.def'));
   assert.ok(e.text.includes('https://www.sportsdataverse.org/api/join/confirm?t=abc.def'));
+});
+
+test('stickerRequestEmail warns a stranger who never asked, and links follow + support from one source', () => {
+  const e = stickerRequestEmail();
+  assert.match(e.html, /Reply and we'll cancel the request/, 'html carries the unrequested-stranger warning');
+  assert.match(e.text, /Reply and we'll cancel the request/, 'text carries the unrequested-stranger warning');
+  for (const l of FOLLOW_LINKS) {
+    assert.ok(e.html.includes(l.href), `html missing follow link ${l.href}`);
+    assert.ok(e.text.includes(l.href), `text missing follow link ${l.href}`);
+  }
+  for (const url of [KOFI_URL, DO_REFERRAL_URL, PAYPAL_URL]) {
+    assert.ok(e.html.includes(url), `html missing support link ${url}`);
+    assert.ok(e.text.includes(url), `text missing support link ${url}`);
+  }
 });
