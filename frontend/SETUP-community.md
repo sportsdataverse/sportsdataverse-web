@@ -119,6 +119,12 @@ or "researcher" to the role question makes at least one affiliation required
 `identity` at all — `joinBodySchema` requires `identity` only when `answers` is present,
 so that shape is untouched.
 
+The contact notice both forms show next to the email field is fixed text
+(`components/site/IdentityFields.tsx`'s `ContactFields`): "We'll use this to reply to
+you, and may contact you about SportsDataverse collaborations, research, or your
+answers. Ask us to stop any time: `sportsdataverse@gmail.com`." — that's the only
+consent language a visitor sees before submitting.
+
 Every questionnaire submission — a full `/join`, or a `/survey` — appends a document to
 the `responses` collection (`lib/responses.ts`): one per submission, `source: "join" |
 "survey"`, never overwritten. The `people` row (`lib/people.ts`) keeps only the LATEST
