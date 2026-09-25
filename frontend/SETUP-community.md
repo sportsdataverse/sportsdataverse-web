@@ -41,17 +41,30 @@ created immediately).
 1. `npm run resend:properties`
 2. deploy with `RESEND_FROM` unset
 3. verify the domain
-4. done: every `/join` Resend call — the newsletter confirmation email, the
-   Discord invite email, and the sticker got-it email — now fires after the
-   response is sent, via Next's `after()` (`JoinDeps.defer` in
-   `frontend/lib/join.ts`, wired in `frontend/app/api/join/route.ts`). Before
-   this, a `/join` that created a new sticker request (or newsletter signup,
-   or self-admitted Discord invite) made a Resend call and one that found an
-   already-open request (or an already-known address, or an already-admitted
-   person) made none — a timing difference in the response that revealed
-   whether someone already asked. That was harmless only because nothing
-   sent while `RESEND_FROM` was unset; it no longer matters when it's set,
-   because the request's own timing carries no such signal any more.
+4. done: every `/join` Resend call now fires after the response is sent, via
+   Next's `after()` (`JoinDeps.defer` in `frontend/lib/join.ts`, wired in
+   `frontend/app/api/join/route.ts`) — including the **single opt-in** Resend
+   contact create/refresh (`syncContact`), not only the double opt-in
+   confirmation email, the Discord invite email, and the sticker got-it
+   email. `RESEND_API_KEY` is set in production independently of
+   `RESEND_FROM` (step 3 above already requires it), so before this fix
+   `syncContact` ran synchronously in single opt-in mode: a brand-new address
+   cost one Resend round trip (`POST /contacts`) before the reply, and an
+   address that already had a contact cost two or three (`POST` → 409 →
+   `GET` → optionally `PATCH` with the profile; see `lib/newsletter.ts`'s
+   `subscribeToResend`). That was a **live** newsletter-membership timing
+   oracle, with `RESEND_FROM` unset — unlike the double opt-in, Discord, and
+   sticker calls, it never waited on step 5.
+
+   Nothing Resend- or Discord-call-sized remains before the reply now. What's
+   left is single-Mongo-write differences, both millisecond-scale and
+   covered by the same 5/hr-per-IP rate limit as the rest of `/join`,
+   documented here and deliberately not engineered around:
+   - under double opt-in, `markNewsletterPending` writes a marker for a new
+     or still-pending address, but not for one that already has a synced
+     contact;
+   - `recordClaimedLogin` (Discord half) writes only for an undecided
+     record, never for a decided one.
 5. set `RESEND_FROM`
 
 - Confirmation links are `/api/join/confirm?t=<token>`: an HMAC over the person id +
