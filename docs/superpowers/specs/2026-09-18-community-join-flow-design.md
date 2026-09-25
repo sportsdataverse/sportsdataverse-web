@@ -185,9 +185,12 @@ Content routing (the operating model, also in SETUP-community.md):
 | `POST /api/survey` | none; same limiter | zod `surveySchema` |
 | `GET /platform/people` | `isOrgMember` | tabs: Queue · Population · Stickers |
 | `GET /api/platform/people?view=queue\|unsynced\|all` | org member | list, no addresses |
-| `POST /api/platform/people/[id]/approve` | `requireWriter()` | mint invite, email, stamp reviewer |
-| `POST /api/platform/people/[id]/decline` | `requireWriter()` | reason, optional notify |
-| `POST /api/platform/people/[id]/resend` | `requireWriter()` | re-email stored or fresh invite |
+| `POST /api/platform/people/[id]/approve` | org member | mint invite FIRST, then stamp reviewer; refuses `wants.discord: false` |
+| `POST /api/platform/people/[id]/decline` | org member | reason, optional notify |
+| `POST /api/platform/people/[id]/requeue` | org member | undo a decline |
+| `POST /api/platform/people/[id]/retry-sync` | org member | refuses anyone who never opted in or never confirmed |
+| `POST /api/platform/people/[id]/delete` | **org admin** | the one irreversible action |
+| `POST /api/platform/people/[id]/resend` | org member | re-issue a stored or fresh invite; approved/auto only |
 | `GET /api/platform/people/population` | `requireWriter()` | `$group` counts by role / language / sport / status; channel funnel (`discoveredVia` × `updatesVia` × `newsChannel`) and `follow_click`/`support_click` totals by placement; plus passive numbers (Discord member count via bot `GET /guilds/{id}?with_counts=true`, Resend contact count, CRAN/PyPI downloads from the existing `/api/stats`) |
 | `GET /api/platform/admin/stickers` · `POST …/[id]/ship` | `requireWriter()` | only place addresses are readable |
 | `/platform/api-key` (existing) | `isOrgMember` | adds per-key quota + current usage readout (needs the sdv-db fields below) |

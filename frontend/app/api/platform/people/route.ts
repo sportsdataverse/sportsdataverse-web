@@ -19,7 +19,10 @@ function row(p: PersonDoc) {
     wantsDiscord: Boolean(p.wants?.discord),
     wantsNewsletter: Boolean(p.wants?.newsletter),
     newsletterState,
-    discordCode: p.discord?.code ?? null,
+    // NOT the code. It is a live 3-use bearer credential and this list is read by
+    // every org member; the UI only ever asks whether one exists. The reviewer who
+    // needs the actual link gets it in the approve/resend response, for their own action.
+    hasInvite: Boolean(p.discord?.code),
     createdAt: p.createdAt,
     reviewedBy: p.reviewedBy ?? null,
     declineReason: p.declineReason ?? null,

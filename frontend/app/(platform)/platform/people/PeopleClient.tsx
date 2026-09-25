@@ -26,7 +26,7 @@ type PersonRow = {
   wantsDiscord: boolean;
   wantsNewsletter: boolean;
   newsletterState: "synced" | "pending" | "skipped" | "none";
-  discordCode: string | null;
+  hasInvite: boolean;
   createdAt: string;
   reviewedBy: string | null;
   declineReason: string | null;
@@ -48,7 +48,7 @@ const STATUS_VARIANT: Record<PersonRow["status"], "default" | "outline" | "destr
   survey: "secondary",
 };
 
-export default function PeopleClient() {
+export default function PeopleClient({ isAdmin = false }: { isAdmin?: boolean }) {
   const [view, setView] = useState<View>("queue");
   const [people, setPeople] = useState<PersonRow[] | null>(null);
   const [total, setTotal] = useState<number | null>(null);
@@ -189,7 +189,7 @@ export default function PeopleClient() {
               {people.map((p) => {
                 // resendInvite mints against the CURRENT answer, so it refuses a row whose
                 // latest /join said no Discord — don't offer a button that can only error
-                const canResend = p.wantsDiscord && (Boolean(p.discordCode) || p.status === "approved" || p.status === "auto");
+                const canResend = p.wantsDiscord && (p.hasInvite || p.status === "approved" || p.status === "auto");
                 const canRetrySync = p.wantsNewsletter && p.newsletterState !== "synced";
                 return (
                   <TableRow key={p.id}>
@@ -276,17 +276,21 @@ export default function PeopleClient() {
                             Retry sync
                           </Button>
                         ) : null}
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          disabled={busy === `${p.id}:delete`}
-                          onClick={() => {
-                            if (confirm(`Delete ${p.email ?? p.name ?? p.id}? This cannot be undone.`)) act(p.id, "delete");
-                          }}
-                        >
-                          Delete
-                        </Button>
+                        {/* the server gate is the real one; this just stops offering a
+                            member the single action their role cannot complete */}
+                        {isAdmin ? (
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            disabled={busy === `${p.id}:delete`}
+                            onClick={() => {
+                              if (confirm(`Delete ${p.email ?? p.name ?? p.id}? This cannot be undone.`)) act(p.id, "delete");
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        ) : null}
                       </div>
                       {declineFor === p.id ? (
                         <div className="mt-2 flex flex-wrap items-center gap-2">
