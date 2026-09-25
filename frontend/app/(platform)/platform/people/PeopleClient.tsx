@@ -12,8 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from "@components/ui/table";
+import PopulationPanel from "./PopulationPanel";
 
-type View = "queue" | "unsynced" | "all";
+type View = "queue" | "unsynced" | "all" | "population";
 type Action = "approve" | "decline" | "requeue" | "resend" | "retry-sync" | "delete";
 
 type PersonRow = {
@@ -38,6 +39,7 @@ const VIEWS: { value: View; label: string }[] = [
   { value: "queue", label: "Queue" },
   { value: "unsynced", label: "Unsynced newsletter" },
   { value: "all", label: "All" },
+  { value: "population", label: "Population" },
 ];
 
 const STATUS_VARIANT: Record<PersonRow["status"], "default" | "outline" | "destructive" | "secondary"> = {
@@ -66,6 +68,9 @@ export default function PeopleClient({ isAdmin = false }: { isAdmin?: boolean })
   }
 
   const load = useCallback(async (v: View) => {
+    // Population renders its own panel and fetches its own endpoint — never
+    // fetch the people list for it.
+    if (v === "population") return;
     setLoadError(false);
     try {
       const res = await fetch(`/api/platform/people?view=${v}`);
@@ -160,7 +165,9 @@ export default function PeopleClient({ isAdmin = false }: { isAdmin?: boolean })
         ) : null}
       </div>
 
-      {loadError ? (
+      {view === "population" ? (
+        <PopulationPanel />
+      ) : loadError ? (
         <p className="text-sm text-muted-foreground">Couldn&apos;t load people.</p>
       ) : !people ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
