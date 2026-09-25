@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
+import { fetchIsContributor } from "./contributor.ts";
 
 /** The GitHub organization whose members may manage package entries. */
 export const SDV_ORG = "sportsdataverse";
@@ -33,6 +34,7 @@ async function fetchOrgMembership(
           Accept: "application/vnd.github+json",
           "X-GitHub-Api-Version": "2022-11-28",
         },
+        signal: AbortSignal.timeout(8000),
       }
     );
     if (!res.ok) return { isMember: false, role: null };
@@ -43,6 +45,31 @@ async function fetchOrgMembership(
     return { isMember, role: isMember ? role : null };
   } catch {
     return { isMember: false, role: null };
+  }
+}
+
+/**
+ * GitHub login (handle) for the current access token. The provider only sends
+ * `profile` on the initial sign-in leg, so a session that predates this field
+ * — or otherwise never captured it — has no way to backfill it from `profile`
+ * on a later request. Refetched on the same TTL as org membership so it
+ * self-heals within `MEMBERSHIP_TTL_MS` instead of requiring a fresh sign-in.
+ */
+async function fetchLogin(accessToken: string): Promise<string | undefined> {
+  try {
+    const res = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as { login?: unknown };
+    return typeof data.login === "string" ? data.login : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -79,6 +106,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const { isMember, role } = await fetchOrgMembership(token.accessToken);
         token.isOrgMember = isMember;
         token.role = role;
+        token.isContributor = isMember || (await fetchIsContributor(token.accessToken));
+        // backfill only: a token that already has a login (the normal case,
+        // captured once at sign-in and carried forward on every request) never
+        // pays for this extra call
+        if (!token.login) token.login = await fetchLogin(token.accessToken);
         token.membershipCheckedAt = Date.now();
       }
       return token;
@@ -86,6 +118,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       session.login = token.login;
       session.isOrgMember = token.isOrgMember ?? false;
+      session.isContributor = token.isContributor ?? false;
       session.role = token.role ?? null;
       // Deliberately NOT exposing token.accessToken to the client session.
       return session;

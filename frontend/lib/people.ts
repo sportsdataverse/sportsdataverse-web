@@ -25,6 +25,11 @@ export type PersonDoc = {
     | { resendContactId: string; syncedAt: Date; unsubscribed?: true; confirmedAt?: Date }
     | { pending: { sentAt: Date }; confirmedAt?: Date }
     | { skipped: string };
+  /** the invite this person was given; a code is reused until it expires */
+  discord?: { code: string; expiresAt: Date; invitedAt: Date };
+  reviewedBy?: string;
+  reviewedAt?: Date;
+  declineReason?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -185,4 +190,100 @@ export async function findPersonById(db: Db, id: string): Promise<PersonDoc | nu
     if (hit) return hit;
   }
   return people(db).findOne({ _id: id as unknown as PersonId });
+}
+
+export async function findPersonByEmail(db: Db, email: string): Promise<PersonDoc | null> {
+  return people(db).findOne({ email });
+}
+
+const REVIEW_LIST_CAP = 200;
+
+export async function listPeople(
+  db: Db,
+  filter: { status?: PersonDoc["status"]; wantsDiscord?: boolean; limit?: number } = {}
+): Promise<PersonDoc[]> {
+  const q: Record<string, unknown> = {};
+  if (filter.status) q.status = filter.status;
+  if (filter.wantsDiscord !== undefined) q["wants.discord"] = filter.wantsDiscord;
+  return people(db)
+    .find(q)
+    .sort({ createdAt: -1 })
+    .limit(Math.min(filter.limit ?? 50, REVIEW_LIST_CAP))
+    .toArray();
+}
+
+export async function setReviewStatus(
+  db: Db,
+  personId: PersonId,
+  status: PersonDoc["status"],
+  by: string | null,
+  now: Date = new Date(),
+  declineReason?: string
+): Promise<void> {
+  await people(db).updateOne(
+    { _id: personId },
+    {
+      $set: {
+        status,
+        reviewedAt: now,
+        updatedAt: now,
+        ...(by ? { reviewedBy: by } : {}),
+        ...(declineReason ? { declineReason } : {}),
+      },
+    }
+  );
+}
+
+export async function recordDiscordInvite(
+  db: Db,
+  personId: PersonId,
+  invite: { code: string; expiresAt: Date },
+  now: Date = new Date()
+): Promise<void> {
+  await people(db).updateOne(
+    { _id: personId },
+    { $set: { discord: { code: invite.code, expiresAt: invite.expiresAt, invitedAt: now }, updatedAt: now } }
+  );
+}
+
+/**
+ * Attach a GitHub login to a person. `githubLogin` is unique+sparse, so the
+ * same login on a second person is a conflict, not an error a visitor should
+ * ever see: this reports it instead of throwing.
+ */
+export async function linkGithubLogin(db: Db, personId: PersonId, login: string): Promise<boolean> {
+  // folded on write: GitHub handles are case-insensitive, and the unique index
+  // can only enforce that if every record spells the same handle the same way
+  const key = login.toLowerCase();
+  const person = await people(db).findOne({ _id: personId });
+  // This record is already bound to a different handle. Re-pointing it is how an
+  // ownership key stops being one: /join resolves the record from the request
+  // body's email, so overwriting here would let a caller claim someone else's
+  // record — and lock the rightful person out of ever linking their own.
+  if (person?.githubLogin && person.githubLogin !== key) return false;
+  const owner = await people(db).findOne({ githubLogin: key });
+  if (owner && String(owner._id) !== String(personId)) return false;
+  if (owner) return true;
+  try {
+    await people(db).updateOne({ _id: personId }, { $set: { githubLogin: key } });
+    return true;
+  } catch (e) {
+    // unique index on githubLogin: another request linked it between our read and write
+    if ((e as { code?: number }).code === 11000) return false;
+    throw e;
+  }
+}
+
+/** People who want the newsletter but have no Resend contact yet (failed sync, or never tried). */
+export async function listUnsyncedNewsletter(db: Db, limit = 50): Promise<PersonDoc[]> {
+  return people(db)
+    .find({ "wants.newsletter": true, "newsletter.resendContactId": { $exists: false } })
+    .sort({ createdAt: -1 })
+    .limit(Math.min(limit, REVIEW_LIST_CAP))
+    .toArray();
+}
+
+export async function deletePerson(db: Db, personId: PersonId): Promise<boolean> {
+  const res = await people(db).deleteOne({ _id: personId });
+  return res.deletedCount === 1;
 }

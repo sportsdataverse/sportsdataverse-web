@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import JoinSignIn from "@components/site/JoinSignIn";
 import PageHeader from "@components/site/PageHeader";
 import QuestionFlow from "@components/site/QuestionFlow";
 import { packageOptions } from "@lib/packageOptions";
@@ -17,6 +18,9 @@ export default async function JoinPage() {
       <PageHeader eyebrow="Community" title="Join the SportsDataverse">
         A few questions about what you do and use, then choose the newsletter, a Discord invite, or both.
       </PageHeader>
+      <div className="mt-8">
+        <JoinSignIn />
+      </div>
       <div className="mt-10">
         <QuestionFlow mode="join" dynamicOptions={dynamicOptions} />
       </div>

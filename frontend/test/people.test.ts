@@ -39,7 +39,7 @@ test('sync bookkeeping', async () => {
   assert.deepEqual(dump('people')[0].newsletter, { skipped: 'reserved-domain' });
 });
 
-import { recordSurvey, upsertJoin, markNewsletterPending, markNewsletterConfirmed, findPersonById } from '../lib/people.ts';
+import { recordSurvey, upsertJoin, markNewsletterPending, markNewsletterConfirmed, findPersonById, listPeople, setReviewStatus, recordDiscordInvite, linkGithubLogin, listUnsyncedNewsletter, deletePerson } from '../lib/people.ts';
 import type { Profile } from '../lib/survey.ts';
 
 const PROFILE = { role: 'developer', languages: ['R'], sports: ['CFB'], discoveredVia: 'twitter', updatesVia: ['github'], newsChannel: 'email' } as const;
@@ -79,4 +79,79 @@ test('opt-in bookkeeping: pending, then confirmed', async () => {
   assert.deepEqual(dump('people')[0].newsletter, { resendContactId: 'c-1', syncedAt: T1, confirmedAt: T1 });
   const found = await findPersonById(db, String(personId));
   assert.equal(found?.email, 'a@b.co');
+});
+
+const PROFILE2 = { role: 'student', languages: ['Python'], sports: ['NBA'], discoveredVia: 'github', updatesVia: ['github'], newsChannel: 'discord' } as const;
+
+test('the queue lists pending people who asked for Discord, newest first', async () => {
+  const { db } = fakeDb();
+  await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: false, discord: true } }, T0);
+  await upsertJoin(db, { email: 'c@d.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: true, discord: false } }, T1);
+  const queue = await listPeople(db, { status: 'pending', wantsDiscord: true });
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0].email, 'a@b.co');
+});
+
+test('a review stamps who decided, when, and why', async () => {
+  const { db, dump } = fakeDb();
+  const { personId } = await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: false, discord: true } }, T0);
+  await setReviewStatus(db, personId, 'declined', 'saiemgilani', T1, 'no vouch');
+  const [p] = dump('people');
+  assert.equal(p.status, 'declined');
+  assert.equal(p.reviewedBy, 'saiemgilani');
+  assert.equal((p.reviewedAt as Date).getTime(), T1.getTime());
+  assert.equal(p.declineReason, 'no vouch');
+});
+
+test('an invite is stored with its expiry', async () => {
+  const { db, dump } = fakeDb();
+  const { personId } = await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: false, discord: true } }, T0);
+  const expiresAt = new Date(T1.getTime() + 604800_000);
+  await recordDiscordInvite(db, personId, { code: 'abc123', expiresAt }, T1);
+  const d = dump('people')[0].discord as { code: string; expiresAt: Date; invitedAt: Date };
+  assert.equal(d.code, 'abc123');
+  assert.equal(d.expiresAt.getTime(), expiresAt.getTime());
+  assert.equal(d.invitedAt.getTime(), T1.getTime());
+});
+
+test('a github login is linked once and never stolen from another person', async () => {
+  const { db } = fakeDb();
+  const a = await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: false, discord: true } }, T0);
+  const b = await upsertJoin(db, { email: 'c@d.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: false, discord: true } }, T0);
+  assert.equal(await linkGithubLogin(db, a.personId, 'octocat'), true);
+  assert.equal(await linkGithubLogin(db, a.personId, 'octocat'), true, 'idempotent for the same person');
+  assert.equal(await linkGithubLogin(db, b.personId, 'octocat'), false, 'already someone else');
+});
+
+test('a record already bound to a handle is never re-pointed to another', async () => {
+  const { db, dump } = fakeDb();
+  const a = await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: false, discord: true } }, T0);
+  assert.equal(await linkGithubLogin(db, a.personId, 'victimlogin'), true);
+  // the record's email came out of a request body, so a second caller must not
+  // be able to overwrite the handle it is already bound to
+  assert.equal(await linkGithubLogin(db, a.personId, 'attacker'), false);
+  assert.equal(dump('people')[0].githubLogin, 'victimlogin');
+  assert.equal(await linkGithubLogin(db, a.personId, 'VictimLogin'), true, 'the same handle in another case is the same person');
+});
+
+test('unsynced newsletter people are listed, excluding those with resendContactId or not newsletter subscribers', async () => {
+  const { db, dump } = fakeDb();
+  const a = await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: true, discord: false } }, T0);
+  const b = await upsertJoin(db, { email: 'b@b.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: true, discord: false } }, T0);
+  const c = await upsertJoin(db, { email: 'c@d.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: false, discord: false } }, T0);
+  // Mark b as synced with resendContactId
+  await markNewsletterSynced(db, b.personId, 'c-synced', T0);
+  const unsynced = await listUnsyncedNewsletter(db);
+  assert.deepEqual(unsynced.map((p) => p.email), ['a@b.co'], 'excludes synced and non-newsletter people');
+  assert.equal(await deletePerson(db, a.personId), true);
+  assert.equal(dump('people').length, 2);
+});
+
+test('a github login race (concurrent link attempts) resolves to false for the second requester', async () => {
+  const { db, failNextUpdateWith } = fakeDb();
+  const a = await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROFILE2 as never, wants: { newsletter: false, discord: true } }, T0);
+  // Simulate race: updateOne fails with E11000 and linkGithubLogin handles it gracefully
+  failNextUpdateWith({ code: 11000 });
+  const result = await linkGithubLogin(db, a.personId, 'racing-login');
+  assert.equal(result, false, 'reports false on E11000 instead of throwing');
 });

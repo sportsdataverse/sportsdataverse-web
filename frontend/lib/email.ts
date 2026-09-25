@@ -34,3 +34,15 @@ export function confirmEmail(confirmUrl: string): { subject: string; html: strin
     text: `Thanks for signing up. Confirm your email to start receiving the newsletter:\n\n${confirmUrl}\n\nIf you didn't sign up, ignore this email and nothing happens. The link expires in 7 days.\n\n— SportsDataverse`,
   };
 }
+
+export function discordInviteEmail(url: string): { subject: string; html: string; text: string } {
+  const safe = esc(url);
+  return {
+    subject: "Your SportsDataverse Discord invite",
+    html: `<p>You're in. This link adds you to the SportsDataverse Discord:</p>
+<p><a href="${safe}">${safe}</a></p>
+<p>It works for 7 days and a few uses, so don't share it around — ask us for another if someone else needs one.</p>
+<p>— SportsDataverse</p>`,
+    text: `You're in. This link adds you to the SportsDataverse Discord:\n\n${url}\n\nIt works for 7 days and a few uses, so don't share it around — ask us for another if someone else needs one.\n\n— SportsDataverse`,
+  };
+}

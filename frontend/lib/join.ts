@@ -5,10 +5,12 @@ import { subscribeToResend } from "./newsletter.ts";
 import { allowRequest } from "./rateLimit.ts";
 import { contactProperties, projectProfile, validateAnswers, type Profile } from "./survey.ts";
 import { signConfirmToken, verifyConfirmToken } from "./confirmToken.ts";
-import { confirmEmail, sendEmail } from "./email.ts";
+import { confirmEmail, discordInviteEmail, sendEmail } from "./email.ts";
+import { createInvite, inviteUrl } from "./discord.ts";
 import {
-  findPersonById, markConfirmedAt, markNewsletterConfirmed, markNewsletterPending, markNewsletterSkipped, markNewsletterSynced,
-  clearNewsletterPending, recordSurvey, upsertJoin, upsertNewsletterSignup, type PersonDoc, type PersonId,
+  findPersonById, findPersonByEmail, linkGithubLogin, markConfirmedAt, markNewsletterConfirmed, markNewsletterPending,
+  markNewsletterSkipped, markNewsletterSynced, clearNewsletterPending, recordDiscordInvite, recordSurvey, setReviewStatus,
+  upsertJoin, upsertNewsletterSignup, type PersonDoc, type PersonId,
 } from "./people.ts";
 
 /**
@@ -28,6 +30,10 @@ export type JoinDeps = {
   fetchImpl?: typeof fetch;
   now?: () => Date;
   log?: (msg: string) => void;
+  /** the signed-in visitor, when there is one: the only source of auto-admit */
+  viewer?: { login: string; isOrgMember: boolean; isContributor: boolean } | null;
+  discordBotToken?: string;
+  discordChannelId?: string;
 };
 
 export type JoinResult = { status: 200 | 400 | 429; body: { success: boolean; message: string } };
@@ -36,10 +42,30 @@ const JOIN_LIMIT = { limit: 5, windowSec: 3600 };
 const SURVEY_LIMIT = { limit: 10, windowSec: 3600 };
 const DEFAULT_SITE = "https://www.sportsdataverse.org";
 const CONFIRMED_MSG = "You're on the list.";
-const PENDING_MSG = "Almost there — check your inbox and confirm your email.";
+/**
+ * One sentence for "we just sent you a link" and for "this address is already
+ * confirmed": with double opt-in live, two different sentences would tell an
+ * anonymous caller which addresses are on the list — the same oracle the
+ * Discord half closes, on the newsletter half.
+ */
+const PENDING_MSG = "Thanks — if this address still needs confirming, check your inbox for the link.";
 const SEND_FAILED_MSG = "We couldn't send the confirmation email just now. Please try again in a few minutes.";
+const QUEUED_MSG = "Thanks — a member will review your Discord request and email you.";
+const CONFIRMED_DISCORD_MSG = "You're already on the list for Discord — check your email for the invite.";
+/**
+ * The one answer every caller this request cannot identify gets, whatever the
+ * stored record says. An email address in a POST body is not proof of anything,
+ * so "we already admitted this address" and "we have never seen it" must read
+ * identically — otherwise the endpoint is a free membership oracle for anyone
+ * with a list of addresses, and (worse) a way to ask for someone else's invite.
+ */
+const ON_FILE_MSG = "Thanks — your Discord request is on file. If we can add you, you'll get an email.";
 
 const nowOf = (deps: JoinDeps) => (deps.now ?? (() => new Date()))();
+
+/** GitHub handles are case-insensitive: `OctoCat` and `octocat` are one person. */
+const sameLogin = (a: string | undefined, b: string | undefined) =>
+  Boolean(a && b && a.toLowerCase() === b.toLowerCase());
 
 async function limited(deps: JoinDeps, key: string, lim: { limit: number; windowSec: number }): Promise<JoinResult | null> {
   const rl = await allowRequest(deps.db, key, { ...lim, now: deps.now });
@@ -80,7 +106,8 @@ async function beginOptIn(
     // already synced (e.g. re-signup after confirming once before): refresh properties, don't re-send a
     // link, and keep the confirmation timestamp — it is this person's proof of consent
     await syncContact(deps, personId, email, profile, false, existing.confirmedAt);
-    return CONFIRMED_MSG;
+    // under double opt-in, answer exactly as an unknown address is answered
+    return deps.resendFrom && deps.tokenSecret ? PENDING_MSG : CONFIRMED_MSG;
   }
   if (isReservedEmail(email)) {
     await markNewsletterSkipped(deps.db, personId, "reserved-domain");
@@ -94,13 +121,115 @@ async function beginOptIn(
   const token = signConfirmToken(String(personId), deps.tokenSecret, now);
   const url = `${deps.siteUrl ?? DEFAULT_SITE}/api/join/confirm?t=${token}`;
   try {
+    // The marker is written BEFORE the send: it records "we asked this person to
+    // confirm", which is true the moment we try. Writing it only on success left
+    // a failed send indistinguishable from an ordinary unsynced row, and the
+    // admin Retry-sync consent gate (lib/review.ts) keys on exactly this marker —
+    // without it, one click subscribes an address whose owner never confirmed.
+    // Never over a stronger record, though: `newsletter` is one state, not a bag
+    // (people.ts), and both of its readers key on `"pending" in newsletter`, so a
+    // record that kept `resendContactId` alongside a marker would be $unset
+    // wholesale by clearNewsletterPending. The only record that reaches here
+    // holding a contact is an unsubscribed one, and retrySync already refuses
+    // that on its own gate — so its proof of consent is kept, not overwritten.
+    if (!existing || ("pending" in existing && !existing.confirmedAt))
+      await markNewsletterPending(deps.db, personId, now);
     await sendEmail({ from: deps.resendFrom, to: email, ...confirmEmail(url) }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
-    await markNewsletterPending(deps.db, personId, now);
   } catch (e) {
     deps.log?.(`confirmation email failed for person ${String(personId)}: ${(e as Error).message}`);
     return SEND_FAILED_MSG;
   }
   return PENDING_MSG;
+}
+
+/**
+ * Discord half of a join. Someone GitHub already vouches for (an org member, or
+ * anyone with a merged PR in the org) is admitted immediately; everyone else is
+ * queued for a member to review. A Discord outage never costs us the person:
+ * the decision is stored first, and a failed or unrecorded invite falls back
+ * to the same review queue an unvouched visitor goes through — there is no
+ * separate retry path, so "queued" has to be the recovery for both.
+ */
+async function admitOrQueue(
+  deps: JoinDeps,
+  personId: PersonId,
+  email: string,
+  existing: PersonDoc | null
+): Promise<string> {
+  const now = nowOf(deps);
+  const viewer = deps.viewer ?? null;
+  const existingStatus = existing?.status;
+
+  // The echo is for a SELF-admission and nothing else: `auto` plus a reviewer
+  // stamp equal to the caller means this record's login was bound inside the
+  // same OAuth-vouched request that minted this invite, so the record's own
+  // history proves the binding. Matching `githubLogin` alone would not — it is
+  // written from a request whose email came out of the body (see
+  // linkGithubLogin), so it is a claim, not a proof. Someone an admin approved
+  // is relayed the link by hand, which is already the documented flow.
+  const selfAdmitted = Boolean(
+    viewer && existingStatus === "auto" && sameLogin(existing?.reviewedBy, viewer.login)
+  );
+
+  // a decision already taken stands: re-submitting is not an appeal
+  if (existingStatus === "declined") return ON_FILE_MSG;
+  if (existingStatus === "approved" || existingStatus === "auto") {
+    if (!selfAdmitted) return ON_FILE_MSG;
+    // this is their own admission; if we never emailed them (no verified sender
+    // configured) the only honest thing to do is hand back the invite we're
+    // holding, not repeat a promise we can't keep
+    // only an invite minted for THIS admission and still alive: a failed rollback
+    // can leave a previous occupant's code on the row, and a 7-day invite dies
+    const d = existing?.discord;
+    const ours = Boolean(
+      d &&
+        d.expiresAt.getTime() > now.getTime() &&
+        existing?.reviewedAt &&
+        d.invitedAt.getTime() >= existing.reviewedAt.getTime()
+    );
+    if (!deps.resendFrom && ours && d) return `You're already on the list for Discord — here's your invite: ${inviteUrl(d.code)}`;
+    return CONFIRMED_DISCORD_MSG;
+  }
+
+  const vouched = Boolean(viewer && (viewer.isOrgMember || viewer.isContributor));
+  if (!vouched) return ON_FILE_MSG; // upsertJoin already left them "pending"; nothing more to stamp
+
+  // Bind the handle only here, behind the vouch. `githubLogin` is the record's
+  // ownership key, so only a session GitHub vouches for may write it: a
+  // signed-in stranger could otherwise stamp their handle on a queued person's
+  // row, locking the rightful person out of linking their own and showing the
+  // reviewing admin a handle that reads as identity and is not.
+  const linked = await linkGithubLogin(deps.db, personId, viewer!.login);
+  // this GitHub identity already has a person record under another email —
+  // queue instead of minting a second invite for the same human
+  if (!linked) return ON_FILE_MSG;
+
+  await setReviewStatus(deps.db, personId, "auto", viewer!.login, now);
+  try {
+    const invite = await createInvite({
+      botToken: deps.discordBotToken,
+      channelId: deps.discordChannelId,
+      fetchImpl: deps.fetchImpl,
+      now: () => now,
+    });
+    await recordDiscordInvite(deps.db, personId, invite, now);
+    const url = inviteUrl(invite.code);
+    if (deps.resendFrom) {
+      try {
+        await sendEmail({ from: deps.resendFrom, to: email, ...discordInviteEmail(url) }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
+      } catch (e) {
+        deps.log?.(`discord invite email failed for person ${String(personId)}: ${(e as Error).message}`);
+      }
+    }
+    return `You're in — here's your Discord invite: ${url}`;
+  } catch (e) {
+    // the invite either never minted or never got recorded — either way, this
+    // person must not sit in "auto" with no usable invite and no queue that
+    // lists them: put them back in front of a human instead
+    deps.log?.(`discord invite failed for person ${String(personId)}: ${(e as Error).message}`);
+    await setReviewStatus(deps.db, personId, "pending", null, now);
+    return QUEUED_MSG;
+  }
 }
 
 export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): Promise<JoinResult> {
@@ -125,6 +254,7 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
   const lim = await limited(deps, `join:${ip}`, JOIN_LIMIT);
   if (lim) return lim;
 
+  const existing = answers && profile ? await findPersonByEmail(deps.db, email) : null;
   const now = nowOf(deps);
   const { personId, newsletter } = answers && profile
     ? await upsertJoin(deps.db, { email, name, answers, profile, wants, placement }, now)
@@ -135,7 +265,9 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
     await clearNewsletterPending(deps.db, personId);
   }
   const message = wants.newsletter ? await beginOptIn(deps, personId, email, profile, newsletter) : "Thanks — we've got your answers.";
-  return { status: 200, body: { success: true, message } };
+  const parts = [message];
+  if (wants.discord) parts.push(await admitOrQueue(deps, personId, email, existing));
+  return { status: 200, body: { success: true, message: parts.filter(Boolean).join(" ") } };
 }
 
 export async function handleSurvey(rawBody: unknown, ip: string, deps: JoinDeps): Promise<JoinResult> {
@@ -161,7 +293,12 @@ export async function handleConfirm(
   if (person.newsletter && "skipped" in person.newsletter) return { redirect: "/join/confirmed" }; // reserved-domain: never reaches Resend
   // the person turned the newsletter off after the link was sent: an old link must not subscribe them
   if (person.wants?.newsletter === false) return { redirect: "/join/confirmed?state=invalid" };
-  if (person.newsletter && "resendContactId" in person.newsletter && person.newsletter.confirmedAt) return { redirect: "/join/confirmed" }; // idempotent
+  // idempotent — but an unsubscribed contact re-signing up and clicking the new
+  // link is asking to come back, and their earlier confirmation must not be read
+  // as "nothing to do" (it survives the re-signup now that the record is kept)
+  if (person.newsletter && "resendContactId" in person.newsletter && person.newsletter.confirmedAt && !person.newsletter.unsubscribed) {
+    return { redirect: "/join/confirmed" };
+  }
   await markConfirmedAt(deps.db, person._id, nowOf(deps));
   await syncContact(deps, person._id, person.email, person.profile, true);
   return { redirect: "/join/confirmed" };

@@ -1,7 +1,8 @@
 # Community features — setup
 
 What an operator does once so the site's people-facing features work. Code
-side: `lib/join.ts`, `lib/joinSchema.ts`, `lib/people.ts`, `lib/newsletter.ts`, `lib/rateLimit.ts`.
+side: `lib/join.ts`, `lib/joinSchema.ts`, `lib/people.ts`, `lib/newsletter.ts`, `lib/rateLimit.ts`,
+`lib/discord.ts`, `lib/review.ts`.
 
 ## Newsletter (Resend)
 
@@ -45,7 +46,14 @@ created immediately).
 - Confirmation links are `/api/join/confirm?t=<token>`: an HMAC over the person id +
   expiry (7 days), signed with `JOIN_TOKEN_SECRET` (falls back to `NEXTAUTH_SECRET`).
 - A person who signed up but has not confirmed has `newsletter.pending.sentAt`; the
-  Resend contact is created on confirm with `newsletter.confirmedAt`.
+  Resend contact is created on confirm with `newsletter.confirmedAt`. The marker is written
+  before the send, so an address whose confirmation mail failed still reads as unconfirmed —
+  but never over an existing contact record, whose `confirmedAt` / `unsubscribed` is that
+  person's own proof of consent.
+- `/api/join` answers a re-signup of an already-confirmed address exactly as it answers an
+  unknown one ("check your inbox for the link"). Two different sentences would let anyone with
+  a list of addresses test which are subscribed — the same reason the Discord half returns one
+  sentence to every caller it cannot identify.
 
 ## Contact properties (segmentation)
 
@@ -69,6 +77,72 @@ Then build Segments in Resend (e.g. `languages contains R`) to target Broadcasts
 `status: "survey"`. `/join` asks the same questions plus the wants and an email. Both
 validate against `content/survey.ts`; a question hidden by `showIf` is never accepted.
 Rate limits: 10/IP/hour for the survey, 5/IP/hour for join.
+
+## Discord admission
+
+1. discord.com/developers → New Application → Bot → copy the token into `DISCORD_BOT_TOKEN`.
+2. Invite the bot to the server with the `bot` scope; it needs only **Create Instant Invite**,
+   and only on the one channel newcomers should land in.
+3. Pick that channel and copy its id (Developer Mode → right-click the channel → Copy Channel
+   ID) into `DISCORD_INVITE_CHANNEL_ID`.
+
+Every invite is minted per person — 3 uses, 7 days, `unique: true` (`lib/discord.ts`) — so no
+invite link is ever shared or reused across people. Someone who is a `sportsdataverse` org
+member, or who has a merged PR anywhere in the org, is admitted the moment they ask
+(`status: "auto"`) — **provided they are signed in**: `/join` carries its own GitHub sign-in
+button for exactly this, and a visitor with no session is always queued, org member or not.
+Everyone else lands in the Queue view below for an admin to approve or decline. Two things route what would otherwise be an on-the-spot admit into the queue instead:
+minting the invite failing (Discord down, bad token, wrong channel — the person is put back to
+`status: "pending"`, never left `"auto"` with no invite to show for it), and the visitor's
+GitHub login already belonging to a different `people` record (queued rather than risking a
+second invite for the same human). Without `DISCORD_BOT_TOKEN` or `DISCORD_INVITE_CHANNEL_ID`
+set, minting fails the same way — the request is still recorded, just always queued.
+
+**The invite link and `RESEND_FROM`.** Minting an invite — the on-the-spot auto-admit at
+`/join`, or an admin's Approve/Resend in the People tab — always returns the invite URL in
+that response; whether it is *also emailed* depends on `RESEND_FROM` (see Double opt-in
+above):
+- **`RESEND_FROM` set:** the invite is emailed too, best-effort — a failed send is logged and
+  does not change the response.
+- **`RESEND_FROM` unset — the configuration currently live in production, since the sending
+  domain isn't verified yet:** nothing is emailed. An auto-admitted visitor still gets their
+  invite, because the URL is right there in the `/join` response their browser just got.
+  Someone an admin approves from the queue does not — the People tab shows the admin the link
+  ("Invite ready — send it yourself") and the admin relays it by hand. Re-submitting `/join`
+  only re-shows an invite to the person whose own signed-in, vouched request minted it
+  (`status: "auto"` stamped with their handle); every other caller — signed out, signed in as
+  someone else, or admin-approved — gets one neutral sentence, because the email in a request
+  body proves nothing about who is sending it.
+
+## Reviewing people
+
+`/platform/admin/people` (org members with the `admin` role) has three views:
+
+- **Queue** — pending Discord requests (`status: "pending"`, `wants.discord: true`). Approve
+  mints (or reuses a still-live) invite per the email rule above **and only then** records the
+  approval: if minting fails (Discord down, or the bot not created yet) nothing is stamped and
+  the person stays in this queue, with the Discord error shown to you — an approval never
+  exists without an invite behind it. Approve, Decline, Resend invite and Back to queue all
+  refuse a person who never asked for Discord (`wants.discord: false`), and are only offered on
+  rows that did, so a newsletter subscriber cannot be decided about by mistake — and nobody is
+  requeued into a `pending` state the Queue view (`wants.discord: true`) would not show. Decline stores a reason and
+  only emails it when you tick "notify" (and only if `RESEND_FROM` is set). A decline stands —
+  re-submitting `/join` does not reopen it — but it is not permanent: **Back to queue** on a
+  declined row returns them to `pending` for a fresh look.
+- **Unsynced** — people who want the newsletter but have no Resend contact yet
+  (`wants.newsletter: true`, no `newsletter.resendContactId`): a failed sync, a signup from
+  before the key was set, or someone still waiting on their double opt-in confirmation link,
+  since that link also leaves no `resendContactId` until it's clicked. "Retry sync" creates the
+  Resend contact with their profile properties, but only for someone the record shows asked for
+  it. It refuses: an unclicked double opt-in (`newsletter.pending` with no `confirmedAt`) —
+  including one whose confirmation email failed to send, which is recorded the same way — a
+  reserved domain (`newsletter.skipped`, the `@example.com` addresses CI walkthroughs submit),
+  anyone who didn't ask for the newsletter, and anyone who already unsubscribed. Under single
+  opt-in (`RESEND_FROM` unset) no `pending` marker is ever written, so those rows sync
+  normally — the form tick is the consent.
+- **All** — everyone, for finding a specific person. "Delete" erases the Mongo record for a
+  removal request; the Resend contact, if any, must be deleted separately in the Resend
+  dashboard — deleting the record does not touch it.
 
 ## Click tracking (Plausible)
 
