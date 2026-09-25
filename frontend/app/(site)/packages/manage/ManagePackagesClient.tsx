@@ -186,19 +186,17 @@ export default function ManagePackagesClient({
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
                       {pkg.sports} · {pkg.repoType}
                     </span>
-                    {pkg.submittedBy && pkg.published !== true ? (
+                    {/* In this collection the only rows the public cannot see are visitor
+                        submissions awaiting review, so one rule and one badge: a separate
+                        "Hidden" badge would always appear beside this one. */}
+                    {!isPubliclyVisible(pkg) ? (
                       <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                        Submitted
+                        Submitted · not public yet
                       </span>
                     ) : null}
                     {pkg.orgTierRequested ? (
                       <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
                         Org tier
-                      </span>
-                    ) : null}
-                    {!isPubliclyVisible(pkg) ? (
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Hidden
                       </span>
                     ) : null}
                   </div>
