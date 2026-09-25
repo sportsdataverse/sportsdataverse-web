@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import { Input } from "@components/ui/input";
 import { Button } from "@components/ui/button";
 import { COUNTRY_CODES, SUBDIVISIONS } from "@content/geo";
@@ -11,8 +11,10 @@ import {
 } from "@lib/identity";
 
 // Native <select>: accessible and type-to-jump out of the box; styled with Input's own classes.
+// text-base md:text-sm (not a flat text-sm) matches Input's own sizing — iOS Safari zooms the
+// page on focusing any control smaller than 16px, and Country is the first field on both forms.
 const selectClass =
-  "h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none dark:bg-input/30 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
+  "h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none dark:bg-input/30 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm";
 const REQ = { pattern: ".*\\S.*", title: "Can't be only spaces" };
 
 type Props = { value: IdentityForm; onChange: (next: IdentityForm) => void };
@@ -20,7 +22,10 @@ type Props = { value: IdentityForm; onChange: (next: IdentityForm) => void };
 export function LocationFields({ value, onChange }: Props) {
   const countries = useMemo(() => {
     const names = new Intl.DisplayNames(["en"], { type: "region" });
-    return COUNTRY_CODES.map((c) => ({ code: c, name: names.of(c) ?? c })).sort((a, b) => a.name.localeCompare(b.name));
+    // "en" pinned, not the runtime locale: the server always renders in en-US, and a
+    // browser with a different default locale would otherwise sort <option>s in a
+    // different order than the server did, tripping a React hydration mismatch.
+    return COUNTRY_CODES.map((c) => ({ code: c, name: names.of(c) ?? c })).sort((a, b) => a.name.localeCompare(b.name, "en"));
   }, []);
   const regions = SUBDIVISIONS[value.country];
   return (
@@ -97,6 +102,10 @@ const SOCIALS: { key: SocialKey; label: string; placeholder: string }[] = [
 ];
 
 export function ContactFields({ value, onChange, email, onEmail }: Props & { email: string; onEmail: (v: string) => void }) {
+  // Consent to be contacted is implied by this notice, so it must reach assistive
+  // tech too — aria-describedby on the email input ties them together for a
+  // screen reader, not just visual proximity.
+  const contactNoticeId = useId();
   return (
     <fieldset className="space-y-3">
       <legend className="font-medium">Where can we reach you?</legend>
@@ -104,9 +113,10 @@ export function ContactFields({ value, onChange, email, onEmail }: Props & { ema
         <Input aria-label="Your name" placeholder="Your name" autoComplete="name" required maxLength={80} {...REQ}
           value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} />
         <Input type="email" aria-label="Email address" placeholder="you@example.com" autoComplete="email" required
+          aria-describedby={contactNoticeId}
           value={email} onChange={(e) => onEmail(e.target.value)} />
       </div>
-      <p className="text-sm text-muted-foreground">
+      <p id={contactNoticeId} className="text-sm text-muted-foreground">
         We&apos;ll use this to reply to you, and may contact you about SportsDataverse collaborations, research, or your
         answers. Ask us to stop any time: <a className="text-primary underline-offset-4 hover:underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
       </p>
