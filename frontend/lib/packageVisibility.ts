@@ -23,3 +23,12 @@ export const PUBLIC_PACKAGE_FILTER = {
 export function isPubliclyVisible(pkg: { submittedBy?: unknown; published?: boolean }): boolean {
   return !("submittedBy" in pkg) || pkg.published === true;
 }
+
+/**
+ * Output projection for every public reader that returns whole documents. An
+ * approved submission still carries `submittedBy` (an internal `people` id — a
+ * join key into who submitted it) and `orgTierRequested` (a request that
+ * approving the listing does not grant); neither belongs in a public payload.
+ * Projection only: PUBLIC_PACKAGE_FILTER still reads `submittedBy`.
+ */
+export const PUBLIC_PACKAGE_PROJECTION = { submittedBy: 0, orgTierRequested: 0 } as const;

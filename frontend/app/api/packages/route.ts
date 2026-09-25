@@ -5,7 +5,7 @@ import { connectToDatabase } from "@lib/mongodb";
 import { ObjectId } from "mongodb";
 import { auth } from "@lib/auth";
 import { packageSchema, packageUpdateSchema } from "@lib/packageSchema";
-import { PUBLIC_PACKAGE_FILTER } from "@lib/packageVisibility";
+import { PUBLIC_PACKAGE_FILTER, PUBLIC_PACKAGE_PROJECTION } from "@lib/packageVisibility";
 
 /**
  * Coerce a request body to a plain object. Next parses JSON bodies into objects
@@ -76,7 +76,7 @@ async function getPkgs() {
     const { db } = await connectToDatabase();
     const pkgs = await db
       .collection("packages")
-      .find(PUBLIC_PACKAGE_FILTER)
+      .find(PUBLIC_PACKAGE_FILTER, { projection: PUBLIC_PACKAGE_PROJECTION })
       .sort({ published: -1 })
       .toArray();
     return NextResponse.json({

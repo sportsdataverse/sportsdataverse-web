@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { connectToDatabase } from "@lib/mongodb";
-import { PUBLIC_PACKAGE_FILTER } from "@lib/packageVisibility";
+import { PUBLIC_PACKAGE_FILTER, PUBLIC_PACKAGE_PROJECTION } from "@lib/packageVisibility";
 import pageMeta from "@content/meta";
 import PackagesClient from "./PackagesClient";
 
@@ -25,7 +25,11 @@ export default async function PackagesPage() {
     // visitor submission until a member approves it; see lib/packageVisibility.
     pkgs = JSON.parse(
       JSON.stringify(
-        await db.collection("packages").find(PUBLIC_PACKAGE_FILTER).sort({ title: 1 }).toArray()
+        await db
+          .collection("packages")
+          .find(PUBLIC_PACKAGE_FILTER, { projection: PUBLIC_PACKAGE_PROJECTION })
+          .sort({ title: 1 })
+          .toArray()
       )
     );
   } catch {
