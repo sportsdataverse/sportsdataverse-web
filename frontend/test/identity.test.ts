@@ -65,6 +65,15 @@ test('empty socials disappear rather than store empty strings', () => {
   assert.equal(r.data.socials, undefined);
 });
 
+test('reserved site paths are rejected, not stored as a handle', () => {
+  assert.match(firstMessage({ ...BASE, socials: { x: 'x.com/home' } })!, /^X: /);
+  assert.match(firstMessage({ ...BASE, socials: { x: 'https://twitter.com/explore' } })!, /^X: /);
+  assert.match(firstMessage({ ...BASE, socials: { github: 'github.com/settings/profile' } })!, /^GitHub: /);
+  const r = parse({ ...BASE, socials: { x: 'x.com/Home_Team', github: 'github.com/settings-bot' } });
+  assert.ok(r.success, JSON.stringify(!r.success && r.error.issues));
+  assert.deepEqual(r.data.socials, { x: 'Home_Team', github: 'settings-bot' });
+});
+
 test('affiliations: typed, at most three, org required', () => {
   const ok = parse({ ...BASE, affiliations: [{ type: 'media', org: 'The Athletic', title: 'Writer' }] });
   assert.ok(ok.success);

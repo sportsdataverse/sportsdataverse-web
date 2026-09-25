@@ -33,11 +33,25 @@ export const locationSchema = z
 export type SocialKey = "github" | "bluesky" | "x" | "linkedin" | "website";
 
 // A pasted profile URL or @handle is normalized to the bare handle, not rejected.
+// `reserved`: first-path segments that are site chrome, not a profile — a pasted
+// x.com/home or github.com/settings normalizes to a "handle" that isn't one.
 const HANDLES = {
-  github: { label: "GitHub", host: /^(?:https?:\/\/)?(?:www\.)?github\.com\//i, re: /^[A-Za-z0-9-]{1,39}$/, hint: "a handle like octocat", lower: false },
-  bluesky: { label: "Bluesky", host: /^(?:https?:\/\/)?(?:www\.)?bsky\.app\/profile\//i, re: /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,62}$/, hint: "a handle like you.bsky.social", lower: true },
-  x: { label: "X", host: /^(?:https?:\/\/)?(?:www\.|mobile\.)?(?:x|twitter)\.com\//i, re: /^\w{1,15}$/, hint: "a handle like SportsDataverse", lower: false },
-  linkedin: { label: "LinkedIn", host: /^(?:https?:\/\/)?(?:[a-z]{2,3}\.)?linkedin\.com\/in\//i, re: /^[A-Za-z0-9_%-]{3,100}$/, hint: "your linkedin.com/in/ address", lower: false },
+  github: {
+    label: "GitHub", host: /^(?:https?:\/\/)?(?:www\.)?github\.com\//i, re: /^[A-Za-z0-9-]{1,39}$/, hint: "a handle like octocat", lower: false,
+    reserved: ["settings", "orgs", "features", "marketplace", "explore", "notifications", "topics", "sponsors", "login", "pricing", "about", "enterprise"],
+  },
+  bluesky: {
+    label: "Bluesky", host: /^(?:https?:\/\/)?(?:www\.)?bsky\.app\/profile\//i, re: /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,62}$/, hint: "a handle like you.bsky.social", lower: true,
+    reserved: [],
+  },
+  x: {
+    label: "X", host: /^(?:https?:\/\/)?(?:www\.|mobile\.)?(?:x|twitter)\.com\//i, re: /^\w{1,15}$/, hint: "a handle like SportsDataverse", lower: false,
+    reserved: ["home", "explore", "notifications", "messages", "settings", "search", "i", "compose", "login", "signup", "tos", "privacy"],
+  },
+  linkedin: {
+    label: "LinkedIn", host: /^(?:https?:\/\/)?(?:[a-z]{2,3}\.)?linkedin\.com\/in\//i, re: /^[A-Za-z0-9_%-]{3,100}$/, hint: "your linkedin.com/in/ address", lower: false,
+    reserved: [],
+  },
 } as const;
 
 export function normalizeHandle(raw: string, host: RegExp, lower: boolean): string {
@@ -61,9 +75,13 @@ const blankToUndefined = (v: unknown) => (typeof v === "string" && v.trim() === 
 
 const handleField = (key: Exclude<SocialKey, "website">) => {
   const h = HANDLES[key];
+  const reserved = new Set(h.reserved.map((r) => r.toLowerCase()));
   return z.preprocess(
     (v) => (typeof v === "string" && v.trim() !== "" ? normalizeHandle(v, h.host, h.lower) : blankToUndefined(v)),
-    z.string().regex(h.re, `${h.label}: enter ${h.hint}`).optional()
+    z.string()
+      .regex(h.re, `${h.label}: enter ${h.hint}`)
+      .refine((v) => !reserved.has(v.toLowerCase()), `${h.label}: enter ${h.hint}`)
+      .optional()
   );
 };
 
