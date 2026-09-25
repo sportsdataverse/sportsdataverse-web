@@ -56,8 +56,11 @@ created immediately).
    oracle, with `RESEND_FROM` unset — unlike the double opt-in, Discord, and
    sticker calls, it never waited on step 5.
 
-   Nothing Resend- or Discord-call-sized remains before the reply now. What's
-   left is single-Mongo-write differences, both millisecond-scale and
+   No Resend call remains before the reply now. One Discord call does, by
+   design: minting the invite for a GitHub-vouched visitor, whose reply has to
+   carry the invite URL (and whose reply text already says whether their
+   request was undecided). Beyond that, what's left is
+   single-Mongo-write differences, both millisecond-scale and
    covered by the same 5/hr-per-IP rate limit as the rest of `/join`,
    documented here and deliberately not engineered around:
    - under double opt-in, `markNewsletterPending` writes a marker for a new
