@@ -951,6 +951,8 @@ test('a reserved-domain address records wants.stickers but creates no sticker re
   assert.equal(r.status, 200);
   assert.equal((dump('people')[0].wants as { stickers: boolean }).stickers, true);
   assert.equal(dump('sticker_requests').length, 0);
+  // the reply is the one every sticker request gets, so the evidence walkthrough shows it
+  assert.match((r.body as { message: string }).message, /Stickers are on the list\./);
 });
 
 test('a second submission keeps the first address, replies identically, and mails once', async () => {

@@ -296,19 +296,22 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
     pkgNote = pkgRes.message;
   }
 
-  // Reserved test addresses record the answers but never a sticker request, as
-  // they never create a package — so the PR-evidence walkthrough leaves nothing.
   // The note is the same whether this request was created or one was already
   // open: a differing sentence would say whether this email has a request.
+  // Reserved test addresses get the same note but never a sticker request, as
+  // they never create a package — so the PR-evidence walkthrough shows the
+  // sentence a visitor sees and leaves nothing behind.
   let stickerNote = "";
   let stickerCreated = false;
-  if (wants.stickers && parsed.data.sticker && !isReservedEmail(email)) {
-    try {
-      stickerCreated = (await upsertStickerRequest(deps.db, personId, parsed.data.sticker, now)).created;
-      stickerNote = `Stickers are on the list. If you'd already asked, we'll use the first address you gave — to change it, write to ${CONTACT_EMAIL}.`;
-    } catch {
-      deps.log?.(`sticker request write failed for person ${String(personId)}`);
-      stickerNote = "We couldn't record the sticker request — try again in a bit.";
+  if (wants.stickers && parsed.data.sticker) {
+    stickerNote = `Stickers are on the list. If you'd already asked, we'll use the first address you gave — to change it, write to ${CONTACT_EMAIL}.`;
+    if (!isReservedEmail(email)) {
+      try {
+        stickerCreated = (await upsertStickerRequest(deps.db, personId, parsed.data.sticker, now)).created;
+      } catch {
+        deps.log?.(`sticker request write failed for person ${String(personId)}`);
+        stickerNote = "We couldn't record the sticker request — try again in a bit.";
+      }
     }
   }
 
