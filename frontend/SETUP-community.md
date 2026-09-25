@@ -249,9 +249,11 @@ tab shows only rows whose `platform` and `placement` are values the site emits
 (the lists under Click tracking above, kept in `lib/plausible.ts`). A new tracked
 link with a new value must be added there, or its clicks never appear.
 
-**Do not add cross-tabs or free-text breakdowns to this tab.** A reviewer
-established this as a durable privacy rule: single-variable counts (role, sport,
-language, status, …) are safe because a member can already see any individual
-person's record in the Queue/Unsynced/All views. A cross-tab (e.g. role × sport)
-narrows small categories down to a handful of people and can identify someone the
-counts-only design is meant to protect.
+**Do not add cross-tabs or free-text breakdowns to this tab.** This is a durable
+privacy rule. The tab shows single-variable counts (role, sport, language,
+status, …) of closed-list, low-sensitivity answers, and even those are not
+anonymous: the Queue/Unsynced/All views show no survey answers, but a member who
+compares the totals before and after one new person joins can read off that
+person's answers. That risk was accepted for these counts. A cross-tab (e.g.
+role × sport) or a free-text breakdown would make it far worse — it narrows small
+categories down to a handful of people, or shows someone's own words.
