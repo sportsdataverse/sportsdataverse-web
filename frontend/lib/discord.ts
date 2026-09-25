@@ -43,3 +43,21 @@ export async function createInvite(deps: DiscordDeps): Promise<{ code: string; e
     typeof body.expires_at === "string" ? new Date(body.expires_at) : new Date(now.getTime() + INVITE_MAX_AGE_SEC * 1000);
   return { code: body.code, expiresAt };
 }
+
+/** Approximate member count for the Population tab. Best-effort and quiet:
+ *  null when unconfigured, on any error, or after 5 seconds — a slow Discord
+ *  must never hold up the page. */
+export async function fetchMemberCount(deps: { botToken?: string; guildId?: string; fetchImpl?: typeof fetch }): Promise<number | null> {
+  if (!deps.botToken || !deps.guildId) return null;
+  try {
+    const res = await (deps.fetchImpl ?? fetch)(`${API}/guilds/${deps.guildId}?with_counts=true`, {
+      headers: { Authorization: `Bot ${deps.botToken}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { approximate_member_count?: unknown };
+    return typeof body.approximate_member_count === "number" ? body.approximate_member_count : null;
+  } catch {
+    return null;
+  }
+}
