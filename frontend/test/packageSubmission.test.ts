@@ -79,3 +79,26 @@ test('an input that fails the schema is refused before any write', async () => {
   assert.equal(r.ok, false);
   assert.equal(dump('packages').length, 0, 'a rejected submission writes nothing');
 });
+
+test('a submission may only link to http(s): script and data URLs are refused on every link field', () => {
+  const hostile = [
+    'javascript:alert(document.cookie)', 'JavaScript:alert(1)', ' javascript:alert(1)',
+    'data:text/html,<script>alert(1)</script>', 'vbscript:msgbox(1)', 'ftp://example.com/x',
+  ];
+  for (const url of hostile) {
+    for (const field of ['sourceHref', 'docsHref', 'logoHref', 'dataRepoHref']) {
+      assert.equal(packageSubmissionSchema.safeParse({ ...GOOD, [field]: url }).success, false, `${field} = ${url}`);
+    }
+  }
+  for (const url of ['https://github.com/sportsdataverse/hoopR', 'http://example.org/x', 'HTTPS://EXAMPLE.COM/y']) {
+    assert.equal(packageSubmissionSchema.safeParse({ ...GOOD, sourceHref: url }).success, true, url);
+  }
+  assert.equal(packageSubmissionSchema.safeParse({ ...GOOD, docsHref: '' }).success, true, 'an empty optional link is just absent');
+});
+
+test('a script URL never reaches the database, even from a caller that skips parsing', async () => {
+  const { db, dump } = fakeDb();
+  const r = await submitPackage(db, { ...GOOD, sourceHref: 'javascript:alert(1)' } as never, new ObjectId(), false, T0);
+  assert.equal(r.ok, false);
+  assert.equal(dump('packages').length, 0);
+});
