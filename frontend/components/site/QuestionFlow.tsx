@@ -4,10 +4,17 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select";
 import FollowUs from "@components/site/FollowUs";
 import SupportCallout from "@components/site/SupportCallout";
 import { JOIN_SECTIONS, QUESTIONS, SURVEY_SECTIONS, type Answers, type Question, type Section } from "@content/survey";
+import { REPO_TYPES } from "@lib/packageSchema";
 import { visibleQuestions } from "@lib/survey";
+
+// No shadcn Textarea in this repo's components/ui/ — matched to Input's own
+// classes (components/ui/input.tsx) rather than inventing a different look.
+const textareaClass =
+  "min-h-20 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40";
 
 type Props = {
   mode: "survey" | "join";
@@ -31,6 +38,11 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
   const placement = mode === "join" ? "join" : undefined;
   const [answers, setAnswers] = useState<Answers>({});
   const [contact, setContact] = useState({ email: "", name: "" });
+  const [pkg, setPkg] = useState({
+    title: "", repoType: "R" as (typeof REPO_TYPES)[number], sports: "", content: "",
+    sourceHref: "", docsHref: "", orgTier: false,
+  });
+  const wantsPackage = answers.wants_package === "yes";
   const [step, setStep] = useState(0);
   const [phase, setPhase] = useState<"form" | "sending" | "done" | "error">("form");
   const [message, setMessage] = useState("");
@@ -68,7 +80,16 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
   async function submit() {
     setPhase("sending");
     setMessage("");
-    const body = isJoin ? { email: contact.email, name: contact.name.trim() || undefined, answers, placement } : { answers };
+    const body = isJoin
+      ? {
+          email: contact.email,
+          name: contact.name.trim() || undefined,
+          answers,
+          placement,
+          // omitted entirely unless they said yes, so the flag and the payload agree
+          ...(wantsPackage ? { pkg: { ...pkg, docsHref: pkg.docsHref.trim() || undefined } } : {}),
+        }
+      : { answers };
     try {
       const res = await fetch(submitTo, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const data = (await res.json().catch(() => ({}))) as { message?: string };
@@ -146,6 +167,39 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
           )}
         </fieldset>
       ))}
+
+      {isJoin && last && wantsPackage ? (
+        <fieldset className="space-y-3">
+          <legend className="font-medium">Your package</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input placeholder="Package name" required maxLength={120} value={pkg.title}
+              onChange={(e) => setPkg((p) => ({ ...p, title: e.target.value }))} />
+            <Select value={pkg.repoType} onValueChange={(v) => setPkg((p) => ({ ...p, repoType: v as (typeof REPO_TYPES)[number] }))}>
+              <SelectTrigger className="w-full" aria-label="Language">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {REPO_TYPES.map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input placeholder="Sport or category (e.g. MBB)" required maxLength={120} value={pkg.sports}
+              onChange={(e) => setPkg((p) => ({ ...p, sports: e.target.value }))} />
+            <Input type="url" placeholder="https://github.com/you/your-package" required value={pkg.sourceHref}
+              onChange={(e) => setPkg((p) => ({ ...p, sourceHref: e.target.value }))} />
+            <Input type="url" placeholder="https://your-package-docs.example (optional)" value={pkg.docsHref}
+              onChange={(e) => setPkg((p) => ({ ...p, docsHref: e.target.value }))} />
+          </div>
+          <textarea className={textareaClass}
+            placeholder="What does it do?" required maxLength={2000} value={pkg.content}
+            onChange={(e) => setPkg((p) => ({ ...p, content: e.target.value }))} />
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={pkg.orgTier} onChange={(e) => setPkg((p) => ({ ...p, orgTier: e.target.checked }))} />
+            Consider this for the sportsdataverse GitHub org
+          </label>
+        </fieldset>
+      ) : null}
 
       {isJoin && last ? (
         <fieldset className="space-y-3">
