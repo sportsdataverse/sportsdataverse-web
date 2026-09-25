@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { fakeDb } from './fakeDb.ts';
 import { upsertJoin, recordDiscordInvite, findPersonById } from '../lib/people.ts';
 import { approve, decline, requeue, resendInvite, retrySync, removePerson } from '../lib/review.ts';
+import { submitPackage } from '../lib/packageSubmission.ts';
 
 const T0 = new Date('2026-09-24T12:00:00Z');
 const PROFILE = { role: 'developer', languages: ['R'], sports: ['CFB'], discoveredVia: 'github', updatesVia: ['github'], newsChannel: 'email' } as const;
@@ -23,6 +24,11 @@ function fakeNet(discordStatus = 200, emailStatus = 200, contactUnsubscribed = f
   }) as typeof fetch;
   return { fetchImpl, calls, bodies };
 }
+const PKG = {
+  title: 'hoopR', repoType: 'R' as const, sports: 'MBB',
+  content: 'Play-by-play and box scores for college and pro basketball.',
+  sourceHref: 'https://github.com/sportsdataverse/hoopR',
+};
 const env = { discordBotToken: 'tok', discordChannelId: '42', resendApiKey: 'k', reviewer: 'saiemgilani', now: () => T0 };
 
 test('approve mints an invite, stores it, emails it, and stamps the reviewer', async () => {
@@ -258,6 +264,35 @@ test('retrySync creates the missing Resend contact; removePerson erases the reco
   assert.equal((await removePerson({ db, ...env, fetchImpl: net.fetchImpl }, id)).ok, true);
   assert.equal(dump('people').length, 0);
   assert.equal(await findPersonById(db, String(id)), null);
+});
+
+test('removePerson deletes the person\'s pending package submissions with them, and keeps a published one', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db);
+  const other = await upsertJoin(db, { email: 'c@d.co', answers: {}, profile: PROFILE as never, wants: { newsletter: false, discord: true } }, T0);
+  await submitPackage(db, PKG, id, false, T0);
+  await submitPackage(db, { ...PKG, title: 'wehoop' }, id, false, T0);
+  dump('packages').find((p) => p.title === 'wehoop')!.published = true; // a member approved this one
+  await submitPackage(db, PKG, other.personId, false, T0);
+  const r = await removePerson({ db, ...env }, id);
+  assert.equal(r.ok, true);
+  assert.equal(dump('people').length, 1);
+  assert.deepEqual(
+    dump('packages').map((p) => [p.title, String(p.submittedBy)]).sort(),
+    [['hoopR', String(other.personId)], ['wehoop', String(id)]],
+    'the pending submission goes; the live listing and someone else\'s submission stay'
+  );
+});
+
+test('removePerson keeps the person when their pending submissions cannot be deleted', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db);
+  await submitPackage(db, PKG, id, false, T0);
+  db.failNextWriteTo('packages', new Error('mongo down'));
+  const r = await removePerson({ db, ...env }, id);
+  assert.equal(r.ok, false);
+  assert.equal(dump('people').length, 1, 'never a person gone with their submission left behind');
+  assert.equal(dump('packages').length, 1);
 });
 
 test('retrySync sends the profile through as Resend contact properties', async () => {

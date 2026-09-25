@@ -142,7 +142,10 @@ above):
   normally — the form tick is the consent.
 - **All** — everyone, for finding a specific person. "Delete" is the one **admin-only**
   action — every other one is reversible by a reviewer, erasing the record is not. It erases
-  the Mongo record for a removal request; the Resend contact, if any, must be deleted separately in the Resend
+  the Mongo record for a removal request, and first any package the person submitted that is
+  not yet published (if that fails, the record is kept, so Delete can simply be retried); a
+  published package stays, since it is a public org listing — delete it in `/packages/manage`
+  if the request covers it. The Resend contact, if any, must be deleted separately in the Resend
   dashboard — deleting the record does not touch it.
 
 ## Click tracking (Plausible)
@@ -167,3 +170,89 @@ DevTools and clicking a tracked link.
 `POST /api/join` allows 5 sign-ups per IP per hour, and `POST /api/survey` allows 10
 submissions per IP per hour, both counted in the Mongo `rate_limits` collection (TTL
 index on `expiresAt`, created on first request). Nothing to configure.
+
+## Package submissions
+
+The "want to list your package" step of the full `/join` form writes a `packages`
+document with `submittedBy` set to the submitter's `people` id. That field, not
+`published`, is what keeps it off the site: `published: false` alone does **not**
+hide a package in this collection — every legacy package carries it and has always
+been public. The one rule is `PUBLIC_PACKAGE_FILTER` / `isPubliclyVisible` in
+`lib/packageVisibility.ts` (no `submittedBy` → visible as it always was; a
+submission → visible only once a member sets `published: true`), and **every
+public reader of `packages` must use it** — `/packages`, `/api/packages`, `/about`,
+`/stats`, the homepage ticker, and the package dropdown in the join form all do.
+`test/packageVisibilityReaders.test.ts` fails if a new reader reads `packages`
+without it; the one allowed exception is the member CMS at `/packages/manage`,
+which has to see unapproved submissions to review them. It is part of
+`npm run test:lib`, which the `lib` job in `.github/workflows/unit-tests.yml`
+runs on every pull request (`npm run build` does not run it).
+
+Submission links are restricted to `http://`/`https://` (zod's `.url()` alone would
+also accept `javascript:` or `data:`). One row per person per package title, and
+the first submission wins: resubmitting the same title — pending or already
+published — changes nothing and gets the same reply, so a retry cannot stack a
+duplicate, and someone who knows a submitter's email and package title (the
+email is not verified) cannot rewrite the links on a pending submission or touch
+a live listing. A correction goes through a member editing the row in the CMS. A
+different title is a separate submission. A reserved test address (`example.com`, `.test`, …) — what the
+PR-evidence walkthrough submits through the full join form — records the answers
+as always but never creates a `packages` document, so the walkthrough cannot leave
+a fake package in the CMS queue.
+
+In `/packages/manage`, rows awaiting review sort first (newest first) and carry one
+badge, "Submitted · not public yet"; a package the submitter also checked as
+wanting the org tier shows an informational checklist (OSI license, a named
+maintainer, tests, CI) that is not saved anywhere — it is a prompt for the
+reviewer, not a field on the document. Approving a submission is the existing
+edit flow: ticking "published" and saving sets `published: true`, the same action
+a member has always used to edit any package.
+
+**A gap this PR knowingly leaves alone:** the CMS's published checkbox has never
+hidden a *member-created* package from the public `/packages` page — that page
+shows every row with no `submittedBy`, published or not. Changing that would hide
+every legacy package that has no `submittedBy` and predates the checkbox, so PR 3
+leaves it as is; only a visitor submission (`submittedBy` present) is gated on
+`published`.
+
+## Population
+
+`/platform/people`'s Population tab (`GET /api/platform/people/population`, any
+signed-in org member) is counts only — it never returns a name, email, handle, or
+any other per-person value. The endpoint projects only `status`, `wants`,
+`profile`, and `newsletter` out of Mongo `people` before aggregating. "Discord
+requests by status" counts only people who asked for Discord (`wants.discord`);
+pooling in newsletter-only signups would make the count read like a review backlog
+that isn't there.
+
+The Discord member count needs `DISCORD_GUILD_ID` (the bot token is already
+required for admission above); without it the tab shows "—" for that stat. The
+follow/support click counts come from the Plausible Stats API and need both a key
+and matching Plausible configuration — until all of it is in place the tab says
+the section "Not configured":
+
+1. Plausible → Account settings → API keys → create a **Stats API** key.
+2. Set `PLAUSIBLE_API_KEY` on Vercel (Production + Preview) and redeploy — reading
+   it only happens server-side in the population route.
+3. In the site's Plausible settings, add `follow_click` and `support_click` as
+   custom event goals, and `platform` / `placement` as custom properties (the
+   Click tracking section above already covers firing them).
+4. `PLAUSIBLE_SITE_ID` is optional; it defaults to `sportsdataverse.org`.
+
+Once the key is set but the goals or properties above are still missing, the tab
+no longer says "not configured" — it can show zero rows instead, with a hint to
+check that the goals and properties are set up correctly.
+
+Anyone can send Plausible an event for our domain with any property text, so the
+tab shows only rows whose `platform` and `placement` are values the site emits
+(the lists under Click tracking above, kept in `lib/plausible.ts`). A new tracked
+link with a new value must be added there, or its clicks never appear.
+
+**Do not add cross-tabs or free-text breakdowns to this tab.** This is a durable
+privacy rule. The tab shows single-variable counts (role, sport, language,
+status, …) of closed-list, low-sensitivity answers, and even those are not
+anonymous: the Queue/Unsynced/All views show no survey answers, but a member who
+compares the totals before and after one new person joins can read off that
+person's answers. That risk was accepted for these counts. A cross-tab (e.g.
+role × sport) or a free-text breakdown would make it far worse — it narrows small
+categories down to a handful of people, or shows someone's own words.

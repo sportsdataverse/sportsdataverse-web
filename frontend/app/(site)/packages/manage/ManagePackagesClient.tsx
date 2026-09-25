@@ -7,6 +7,7 @@ import { Github, Pencil, Trash2, Plus } from "lucide-react";
 import { Button } from "@components/ui/button";
 import PackageForm from "@components/PackageForm";
 import type { PackageInput, PackageDoc } from "@lib/packageSchema";
+import { isPubliclyVisible } from "@lib/packageVisibility";
 
 type ManageProps = {
   authorized: boolean;
@@ -185,15 +186,34 @@ export default function ManagePackagesClient({
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
                       {pkg.sports} · {pkg.repoType}
                     </span>
-                    {pkg.published === false ? (
+                    {/* In this collection the only rows the public cannot see are visitor
+                        submissions awaiting review, so one rule and one badge: a separate
+                        "Hidden" badge would always appear beside this one. */}
+                    {!isPubliclyVisible(pkg) ? (
                       <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                        Hidden
+                        Submitted · not public yet
+                      </span>
+                    ) : null}
+                    {pkg.orgTierRequested ? (
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                        Org tier
                       </span>
                     ) : null}
                   </div>
                   <p className="truncate font-inter text-sm text-muted-foreground">
                     {pkg.content}
                   </p>
+                  {pkg.orgTierRequested ? (
+                    <ul className="mt-2 space-y-1 text-xs text-muted-foreground" aria-label="Org tier checklist">
+                      {["An OSI license file", "A named maintainer who will stay", "Tests that run", "CI on the default branch"].map((item) => (
+                        <li key={item}>
+                          <label className="flex items-center gap-2">
+                            <input type="checkbox" /> {item}
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-1">
                   <Button

@@ -80,6 +80,8 @@ export const QUESTIONS: Question[] = [
   { id: "wants_discord", section: "wants", type: "single", label: "Would you like an invite to the Discord?", required: true,
     help: "Invites are reviewed by a member; we'll email you.",
     options: [{ value: "yes", label: "Yes" }, { value: "no", label: "No" }] },
+  { id: "wants_package", section: "wants", type: "single", label: "Have you built a package you'd like listed on sportsdataverse.org?", required: true,
+    options: [{ value: "yes", label: "Yes — I'll add the details" }, { value: "no", label: "Not right now" }] },
 ];
 
 export const SURVEY_SECTIONS: Section[] = ["profile", "discovery", "followup"];

@@ -3,6 +3,7 @@ import Link from "next/link";
 import Contact from "@components/Contact";
 import SupportCallout from "@components/site/SupportCallout";
 import { connectToDatabase } from "@lib/mongodb";
+import { PUBLIC_PACKAGE_FILTER } from "@lib/packageVisibility";
 
 export const metadata: Metadata = {
   title: "About",
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 async function packageCount(): Promise<number | null> {
   try {
     const { db } = await connectToDatabase();
-    return await db.collection("packages").countDocuments({});
+    return await db.collection("packages").countDocuments(PUBLIC_PACKAGE_FILTER);
   } catch {
     return null;
   }

@@ -7,6 +7,7 @@ import { contactProperties, projectProfile, validateAnswers, type Profile } from
 import { signConfirmToken, verifyConfirmToken } from "./confirmToken.ts";
 import { confirmEmail, discordInviteEmail, sendEmail } from "./email.ts";
 import { createInvite, inviteUrl } from "./discord.ts";
+import { submitPackage } from "./packageSubmission.ts";
 import {
   findPersonById, findPersonByEmail, linkGithubLogin, markConfirmedAt, markNewsletterConfirmed, markNewsletterPending,
   markNewsletterSkipped, markNewsletterSynced, clearNewsletterPending, recordDiscordInvite, recordSurvey, setReviewStatus,
@@ -246,14 +247,25 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
 
   // full /join: answers present → validate against the question list
   let profile: Profile | undefined;
-  let wants = { newsletter: true, discord: false };
+  let wants = { newsletter: true, discord: false, package: false };
   let answers: Record<string, string | string[]> | undefined;
   if (rawAnswers) {
     const v = validateAnswers(QUESTIONS, JOIN_SECTIONS, rawAnswers);
     if (!v.ok) return { status: 400, body: { success: false, message: v.message } };
     answers = v.answers;
     profile = projectProfile(answers);
-    wants = { newsletter: answers.wants_newsletter === "yes", discord: answers.wants_discord === "yes" };
+    wants = {
+      newsletter: answers.wants_newsletter === "yes",
+      discord: answers.wants_discord === "yes",
+      package: answers.wants_package === "yes",
+    };
+  }
+
+  // The flag and the payload must agree. A flag with no details is a form bug we
+  // refuse cleanly rather than store half of; details with the flag off are not
+  // a submission and are dropped.
+  if (wants.package && !parsed.data.pkg) {
+    return { status: 400, body: { success: false, message: "Add your package's details, or answer no to the package question." } };
   }
 
   const lim = await limited(deps, `join:${ip}`, JOIN_LIMIT);
@@ -265,6 +277,19 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
     ? await upsertJoin(deps.db, { email, name, answers, profile, wants, placement }, now)
     : await upsertNewsletterSignup(deps.db, { email, placement }, now);
 
+  let pkgNote = "";
+  // Reserved-domain addresses (walkthrough@example.com and friends) are stored like any
+  // signup but never reach an outbound side effect — see isReservedEmail's other callers
+  // in beginOptIn/handleConfirm. A package submission is exactly that kind of side effect
+  // (it lands in the member CMS queue), so the PR-evidence walkthrough can exercise this
+  // whole flow, including the fieldset, without dropping a fake package in front of a reviewer.
+  if (wants.package && parsed.data.pkg && !isReservedEmail(email)) {
+    const { orgTier, ...pkg } = parsed.data.pkg;
+    const pkgRes = await submitPackage(deps.db, pkg, personId, Boolean(orgTier), now);
+    if (!pkgRes.ok) deps.log?.(`package submission failed for person ${String(personId)}`);
+    pkgNote = pkgRes.message;
+  }
+
   if (!wants.newsletter && newsletter && "pending" in newsletter) {
     // they turned the newsletter off before confirming: retire the unused invite
     await clearNewsletterPending(deps.db, personId);
@@ -272,6 +297,7 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
   const message = wants.newsletter ? await beginOptIn(deps, personId, email, profile, newsletter) : "Thanks — we've got your answers.";
   const parts = [message];
   if (wants.discord) parts.push(await admitOrQueue(deps, personId, email, existing));
+  if (pkgNote) parts.push(pkgNote);
   return { status: 200, body: { success: true, message: parts.filter(Boolean).join(" ") } };
 }
 

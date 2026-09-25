@@ -280,7 +280,19 @@ export async function retrySync(deps: ReviewDeps, personId: PersonId): Promise<{
   return { ok: true, message: unsubscribed ? "Synced — the contact is unsubscribed in Resend." : "Synced." };
 }
 
+/**
+ * Erase a person, and first their package submissions still awaiting review —
+ * left behind, one would stay publishable in the CMS pointing at nobody. If
+ * that delete fails, the person is kept, so a retry can finish both. A
+ * published package stays: it is a public org listing, not the person's record.
+ */
 export async function removePerson(deps: ReviewDeps, personId: PersonId): Promise<{ ok: boolean; message: string }> {
+  try {
+    await deps.db.collection("packages").deleteMany({ submittedBy: personId, published: { $ne: true } });
+  } catch {
+    deps.log?.(`package delete failed for person ${String(personId)}`);
+    return { ok: false, message: "Couldn't delete that person's pending package submissions, so the record was kept — try again." };
+  }
   let gone: boolean;
   try {
     gone = await deletePerson(deps.db, personId);

@@ -47,4 +47,41 @@ export type PackageDoc = PackageInput & {
   updatedBy?: string;
   createdAt?: string;
   updatedAt?: string;
+  // Present only on a visitor submission (see lib/packageSubmission.ts /
+  // lib/packageVisibility.ts) — absent on a member-created row.
+  submittedBy?: string | null;
+  orgTierRequested?: boolean;
 };
+
+/**
+ * Links a stranger may submit: http(s) only. zod's `.url()` just checks that
+ * `new URL()` parses, so on its own it accepts `javascript:`, `data:` and
+ * `vbscript:`. React 19 blocks `javascript:` hrefs in our own markup, but not
+ * `data:`, and not for anything else that renders the public /api/packages JSON.
+ *
+ * The member CMS keeps `packageSchema`'s looser rule for now: its existing rows
+ * could not be inspected, and tightening it would re-validate them on every edit.
+ */
+const httpUrl = (message: string) =>
+  z
+    .string()
+    .trim()
+    .url(message)
+    .refine((u) => /^https?:\/\//i.test(u), "Links must start with http:// or https://");
+const optionalHttpUrl = z.preprocess(
+  (v) => (v === "" || v == null ? undefined : v),
+  httpUrl("Must be a valid URL").optional()
+);
+
+/**
+ * What a visitor may send through /join: `packageSchema` without `published`,
+ * with every link restricted to http(s). A submission is always created hidden
+ * and the API stamps its provenance — the same rule the CMS applies to `createdBy`.
+ */
+export const packageSubmissionSchema = packageSchema.omit({ published: true }).extend({
+  sourceHref: httpUrl("Source URL must be a valid URL"),
+  docsHref: optionalHttpUrl,
+  logoHref: optionalHttpUrl,
+  dataRepoHref: optionalHttpUrl,
+});
+export type PackageSubmissionInput = z.infer<typeof packageSubmissionSchema>;

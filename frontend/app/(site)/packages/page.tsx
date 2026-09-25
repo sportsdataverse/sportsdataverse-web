@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { connectToDatabase } from "@lib/mongodb";
+import { PUBLIC_PACKAGE_FILTER, PUBLIC_PACKAGE_PROJECTION } from "@lib/packageVisibility";
 import pageMeta from "@content/meta";
 import PackagesClient from "./PackagesClient";
 
@@ -19,12 +20,16 @@ export default async function PackagesPage() {
   let pkgs: any[] = [];
   try {
     const { db } = await connectToDatabase();
-    // No published filter: the legacy docs all carry published: false (the
-    // field predates the manage form's published-true default), so it is not
-    // a usable visibility flag for this collection.
+    // `published` alone is not a visibility flag here — every legacy doc carries
+    // published: false and has always been shown. What must stay hidden is a
+    // visitor submission until a member approves it; see lib/packageVisibility.
     pkgs = JSON.parse(
       JSON.stringify(
-        await db.collection("packages").find({}).sort({ title: 1 }).toArray()
+        await db
+          .collection("packages")
+          .find(PUBLIC_PACKAGE_FILTER, { projection: PUBLIC_PACKAGE_PROJECTION })
+          .sort({ title: 1 })
+          .toArray()
       )
     );
   } catch {

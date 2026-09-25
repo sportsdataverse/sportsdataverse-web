@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { auth } from "@lib/auth";
 import { connectToDatabase } from "@lib/mongodb";
 import ManagePackagesClient from "./ManagePackagesClient";
+import { isPubliclyVisible } from "@lib/packageVisibility";
 
 export const metadata: Metadata = { title: "Manage Packages" };
 export const dynamic = "force-dynamic";
@@ -27,7 +28,14 @@ export default async function ManagePackagesPage() {
     const { db } = await connectToDatabase();
     packages = JSON.parse(
       JSON.stringify(
-        await db.collection("packages").find({}).sort({ published: -1 }).toArray()
+        (await db.collection("packages").find({}).toArray()).sort((a: any, b: any) => {
+          // awaiting review == not publicly visible: the same rule the public site uses
+          const pa = isPubliclyVisible(a) ? 1 : 0;
+          const pb = isPubliclyVisible(b) ? 1 : 0;
+          if (pa !== pb) return pa - pb;
+          if (pa === 0) return +new Date(b.createdAt ?? 0) - +new Date(a.createdAt ?? 0);
+          return String(a.title).localeCompare(String(b.title));
+        })
       )
     );
   } catch {
