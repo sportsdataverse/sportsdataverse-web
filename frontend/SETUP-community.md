@@ -185,9 +185,8 @@ public reader of `packages` must use it** — `/packages`, `/api/packages`, `/ab
 `test/packageVisibilityReaders.test.ts` fails if a new reader reads `packages`
 without it; the one allowed exception is the member CMS at `/packages/manage`,
 which has to see unapproved submissions to review them. It is part of
-`npm run test:lib`, which the `lib` job in `.github/workflows/pr-evidence.yml`
-runs on every pull request that touches `frontend/` (`npm run build` does not
-run it).
+`npm run test:lib`, which the `lib` job in `.github/workflows/unit-tests.yml`
+runs on every pull request (`npm run build` does not run it).
 
 Submission links are restricted to `http://`/`https://` (zod's `.url()` alone would
 also accept `javascript:` or `data:`). One row per person per package title, and

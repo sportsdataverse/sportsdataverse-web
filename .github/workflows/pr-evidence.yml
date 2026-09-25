@@ -44,22 +44,6 @@ jobs:
       - run: node --test scripts/lighthouse-verdicts.test.mjs
         working-directory: frontend
 
-  lib:
-    # the unit tests, including the reader scan that keeps unapproved package
-    # submissions off every public page; they need no database or secrets
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm ci --no-audit --no-fund
-        working-directory: frontend
-      - run: npm run test:lib
-        working-directory: frontend
-
   evidence:
     # A fork PR gets a read-only token (it could not post) and no Vercel preview without
     # authorization. Drafts wait until ready for review.
