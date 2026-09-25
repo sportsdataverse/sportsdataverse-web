@@ -39,7 +39,7 @@ test('sync bookkeeping', async () => {
   assert.deepEqual(dump('people')[0].newsletter, { skipped: 'reserved-domain' });
 });
 
-import { upsertJoin, upsertSurvey, markNewsletterPending, markNewsletterConfirmed, findPersonById, listPeople, setReviewStatus, recordDiscordInvite, linkGithubLogin, listUnsyncedNewsletter, deletePerson } from '../lib/people.ts';
+import { upsertJoin, upsertSurvey, markNewsletterPending, markNewsletterConfirmed, findPersonById, listPeople, setReviewStatus, recordDiscordInvite, linkGithubLogin, listUnsyncedNewsletter, deletePerson, promoteSurveyRespondent } from '../lib/people.ts';
 import type { Profile } from '../lib/survey.ts';
 
 const PROFILE = { role: 'developer', languages: ['R'], sports: ['CFB'], discoveredVia: 'twitter', updatesVia: ['github'], newsChannel: 'email' } as const;
@@ -212,4 +212,18 @@ test('upsertSurvey never matches a legacy anonymous row (no email)', async () =>
   await upsertSurvey(db, { email: 's@b.co', identity: ID1, answers: { role: 'student' }, profile: PROF }, T1);
   assert.equal(dump('people').length, 2);
   assert.equal((dump('people')[0].answers as Record<string, unknown>).role, 'hobbyist');
+});
+
+test('promoteSurveyRespondent flips a "survey" row to "pending", and is a no-op for every other status', async () => {
+  const { db, dump } = fakeDb();
+  const { personId } = await upsertSurvey(db, { email: 's@b.co', identity: ID1, answers: { role: 'student' }, profile: PROF }, T0);
+  assert.equal(dump('people')[0].status, 'survey');
+  await promoteSurveyRespondent(db, personId, T1);
+  assert.equal(dump('people')[0].status, 'pending');
+  assert.equal((dump('people')[0].updatedAt as Date).getTime(), T1.getTime());
+
+  // running it again on a row that has since moved on must not undo a real decision
+  await setReviewStatus(db, personId, 'approved', 'saiemgilani', T1);
+  await promoteSurveyRespondent(db, personId, new Date('2026-09-20T00:00:00Z'));
+  assert.equal(dump('people')[0].status, 'approved');
 });

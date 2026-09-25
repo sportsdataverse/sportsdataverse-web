@@ -30,7 +30,9 @@ export type PersonDoc = {
   profile?: Profile; // typed projection of the core answers — aggregations key on this
   answers?: Answers; // every answered question by id, incl. conditional follow-ups
   wants: { discord: boolean; newsletter: boolean; stickers: boolean; package: boolean };
-  // pending = not yet reviewed (the Discord queue filters on wants.discord too); survey = anonymous respondent
+  // pending = not yet reviewed (the Discord queue filters on wants.discord too);
+  // survey = a /survey respondent who has not since /joined (legacy rows with no
+  // email are the only ones that stay anonymous — see upsertSurvey)
   status: "pending" | "approved" | "declined" | "auto" | "survey";
   signup?: { placement: string };
   // unsubscribed: the Resend contact exists but opted out; we never flip it from this form.
@@ -212,6 +214,20 @@ export async function upsertSurvey(
   );
   if (!res.value) throw new Error("people upsert returned no document");
   return { personId: res.value._id, created: Boolean(res.lastErrorObject?.upserted) };
+}
+
+/**
+ * A /survey respondent who later fills out /join must enter the review queue
+ * like anyone else — upsertJoin only ever sets `status` in $setOnInsert, so a
+ * row that already exists (as "survey") would otherwise keep that status
+ * forever, and the queue (status "pending" + wants.discord) would never list
+ * them. Called unconditionally on every questionnaire /join, whatever the
+ * stored status: the filter (`status: "survey"`) makes it a no-op for anyone
+ * not in that state, and issuing the same update every time keeps the DB
+ * round trips identical regardless of what is stored — no new timing signal.
+ */
+export async function promoteSurveyRespondent(db: Db, personId: PersonId, now: Date = new Date()): Promise<void> {
+  await people(db).updateOne({ _id: personId, status: "survey" }, { $set: { status: "pending", updatedAt: now } });
 }
 
 export async function markNewsletterPending(db: Db, personId: PersonId, now: Date = new Date()): Promise<void> {

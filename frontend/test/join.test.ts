@@ -4,7 +4,7 @@ import { fakeDb } from './fakeDb.ts';
 import { CONTACT_EMAIL } from '../content/links.ts';
 import { handleJoin, handleSurvey, handleConfirm } from '../lib/join.ts';
 import { signConfirmToken } from '../lib/confirmToken.ts';
-import { setReviewStatus, recordDiscordInvite } from '../lib/people.ts';
+import { setReviewStatus, recordDiscordInvite, listPeople } from '../lib/people.ts';
 import { approve, retrySync } from '../lib/review.ts';
 
 function resend(status: number, body: unknown) {
@@ -1339,4 +1339,55 @@ test('/survey for a /join person keeps their Discord request', async () => {
   assert.equal((p.wants as { discord: boolean }).discord, true);
   assert.equal(p.status, 'pending');
   assert.equal(dump('responses').length, 2);
+});
+
+// --- I1: /survey then an unvouched /join asking for Discord must reach the queue ---
+
+test('a /survey respondent who later asks for Discord on /join is queued, not stuck as "survey"', async () => {
+  const { db, dump } = fakeDb();
+  await handleSurvey({ email: 'a@b.co', identity: IDENTITY, answers: S_ANSWERS }, '1.1.1.1', { db });
+  assert.equal(dump('people')[0].status, 'survey');
+
+  const d = discordFake();
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.2', {
+    db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer: null,
+  });
+  assert.equal(r.status, 200);
+  assert.match(r.body.message, /on file/i);
+  assert.equal(dump('people')[0].status, 'pending', 'no longer stuck at "survey" — the queue can see them');
+  const queue = await listPeople(db, { status: 'pending', wantsDiscord: true });
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0].email, 'a@b.co');
+});
+
+test('a /survey respondent who is then a VOUCHED /join is admitted on the spot, not left at "survey"', async () => {
+  const { db, dump } = fakeDb();
+  await handleSurvey({ email: 'a@b.co', identity: IDENTITY, answers: S_ANSWERS }, '1.1.1.1', { db });
+  assert.equal(dump('people')[0].status, 'survey');
+
+  const d = discordFake();
+  const r = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.2', {
+    db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv,
+    viewer: { login: 'octocat', isOrgMember: true, isContributor: false },
+  });
+  assert.equal(r.status, 200);
+  assert.match(r.body.message, /discord\.gg\/inv123/);
+  const [p] = dump('people');
+  assert.equal(p.status, 'auto', 'the vouch still wins — never left at "survey"');
+  assert.equal((p.discord as { code: string }).code, 'inv123');
+});
+
+test('the queued reply for a promoted survey respondent is identical to a brand-new unvouched /join (oracle rule)', async () => {
+  const { db: db1 } = fakeDb();
+  await handleSurvey({ email: 'a@b.co', identity: IDENTITY, answers: S_ANSWERS }, '1.1.1.1', { db: db1 });
+  const promoted = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS }, '1.1.1.2', {
+    db: db1, resendApiKey: 'k', fetchImpl: discordFake().fetchImpl, ...discordEnv, viewer: null,
+  });
+
+  const { db: db2 } = fakeDb();
+  const fresh = await handleJoin({ email: 'z@b.co', identity: IDENTITY, answers: D_ANSWERS }, '2.2.2.2', {
+    db: db2, resendApiKey: 'k', fetchImpl: discordFake().fetchImpl, ...discordEnv, viewer: null,
+  });
+  assert.equal(promoted.body.message, fresh.body.message);
+  assert.equal(promoted.status, fresh.status);
 });

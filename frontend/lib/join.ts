@@ -14,7 +14,7 @@ import { submitPackage } from "./packageSubmission.ts";
 import { upsertStickerRequest } from "./stickers.ts";
 import {
   findPersonById, findPersonByEmail, linkGithubLogin, markConfirmedAt, markNewsletterConfirmed, markNewsletterPending,
-  markNewsletterSkipped, markNewsletterSynced, clearNewsletterPending, recordDiscordInvite, setReviewStatus,
+  markNewsletterSkipped, markNewsletterSynced, clearNewsletterPending, promoteSurveyRespondent, recordDiscordInvite, setReviewStatus,
   upsertJoin, upsertSurvey, upsertNewsletterSignup, type PersonDoc, type PersonId,
   recordClaimedLogin,
 } from "./people.ts";
@@ -248,7 +248,7 @@ async function admitOrQueue(
   if (viewer) await recordClaimedLogin(deps.db, personId, viewer.login);
 
   const vouched = Boolean(viewer && (viewer.isOrgMember || viewer.isContributor));
-  if (!vouched) return ON_FILE_MSG; // upsertJoin already left them "pending"; nothing more to stamp
+  if (!vouched) return ON_FILE_MSG; // already "pending" — upsertJoin's $setOnInsert for a new person, promoteSurveyRespondent for an earlier /survey — nothing more to stamp
 
   // Bind the handle only here, behind the vouch. `githubLogin` is the record's
   // ownership key, so only a session GitHub vouches for may write it: a
@@ -348,6 +348,12 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
     : await upsertNewsletterSignup(deps.db, { email, placement }, now);
 
   if (answers && profile && identity) {
+    // Unconditional: a row still carrying "survey" from an earlier /survey must
+    // reach the review queue like anyone else, and always issuing this same
+    // update (a no-op for every other status) keeps the round trips identical
+    // whatever is stored — no timing tell for an outside caller. Must land
+    // before admitOrQueue, so a vouched visitor's "auto" stamp below still wins.
+    await promoteSurveyRespondent(deps.db, personId, now);
     await recordResponse(deps, { personId, source: "join", createdAt: now, identity, answers, profile });
   }
 
