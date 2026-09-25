@@ -32,9 +32,10 @@ function Bars({ title, counts }: { title: string; counts: Count[] }) {
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
+    // a <div> may wrap one term/description group inside a <dl>; <p> children may not
     <div className="rounded-lg border border-border bg-card p-4">
-      <p className="font-inter text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 font-display text-2xl font-bold tracking-tight tabular-nums">{value}</p>
+      <dt className="font-inter text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="mt-1 font-display text-2xl font-bold tracking-tight tabular-nums">{value}</dd>
     </div>
   );
 }

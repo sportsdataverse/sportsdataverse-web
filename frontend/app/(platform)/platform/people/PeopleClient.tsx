@@ -130,6 +130,8 @@ export default function PeopleClient({ isAdmin = false }: { isAdmin?: boolean })
             type="button"
             variant={view === v.value ? "default" : "outline"}
             size="sm"
+            // the variant's colour is not enough on its own to say which view is showing
+            aria-pressed={view === v.value}
             onClick={() => setView(v.value)}
           >
             {v.label}
