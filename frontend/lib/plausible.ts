@@ -31,15 +31,18 @@ export async function fetchClickCounts(deps: { apiKey?: string; siteId?: string;
     return { status: "error", rows: [] };
   }
   if (!res.ok) return { status: "error", httpStatus: res.status, rows: [] };
-  let body: { results?: unknown };
+  let body: unknown;
   try {
-    body = (await res.json()) as { results?: unknown };
+    body = await res.json();
   } catch {
     return { status: "error", httpStatus: res.status, rows: [] };
   }
-  if (!Array.isArray(body.results)) return { status: "error", httpStatus: res.status, rows: [] };
+  // `null`, `42` and `"x"` are all valid JSON: res.json() resolves on them, so the
+  // shape is checked here rather than trusted after the parse
+  const results = body && typeof body === "object" ? (body as { results?: unknown }).results : undefined;
+  if (!Array.isArray(results)) return { status: "error", httpStatus: res.status, rows: [] };
   const rows: ClickRow[] = [];
-  for (const r of body.results as { dimensions?: unknown; metrics?: unknown }[]) {
+  for (const r of results as { dimensions?: unknown; metrics?: unknown }[]) {
     const d = r?.dimensions;
     const m = r?.metrics;
     if (!Array.isArray(d) || d.length !== 3 || !d.every((x) => typeof x === "string")) continue;

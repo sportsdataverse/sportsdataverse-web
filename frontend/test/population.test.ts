@@ -46,7 +46,14 @@ test('no identifying field ever appears in the output', () => {
 });
 
 test('the Discord member count is null when unconfigured or failing, never an error', async () => {
-  assert.equal(await fetchMemberCount({ botToken: undefined, guildId: undefined }), null);
+  // unconfigured means NO request: a recording fetch proves it, and keeps a unit
+  // test from ever reaching Discord if the guard regresses
+  const calls: string[] = [];
+  const recording = (async (url: string | URL | Request) => { calls.push(String(url)); return new Response('{}', { status: 200 }); }) as typeof fetch;
+  assert.equal(await fetchMemberCount({ botToken: undefined, guildId: undefined, fetchImpl: recording }), null);
+  assert.equal(await fetchMemberCount({ botToken: 't', guildId: undefined, fetchImpl: recording }), null);
+  assert.equal(await fetchMemberCount({ botToken: undefined, guildId: 'g', fetchImpl: recording }), null);
+  assert.equal(calls.length, 0, 'no request is made without both a token and a guild id');
   const boom = (async () => { throw new Error('down'); }) as unknown as typeof fetch;
   assert.equal(await fetchMemberCount({ botToken: 't', guildId: 'g', fetchImpl: boom }), null);
   const ok = (async () => new Response(JSON.stringify({ approximate_member_count: 412 }), { status: 200 })) as typeof fetch;

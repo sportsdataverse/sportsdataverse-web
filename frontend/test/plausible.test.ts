@@ -70,3 +70,12 @@ test('rows with an unexpected shape are skipped rather than trusted', async () =
   const r = await fetchClickCounts({ apiKey: 'k', fetchImpl });
   assert.equal(r.rows.length, 1);
 });
+
+test('a 200 whose body is valid JSON but not an object is an error, never a throw', async () => {
+  for (const body of [null, 42, 'a string', [1, 2]]) {
+    const { fetchImpl } = fakePlausible(200, body);
+    const r = await fetchClickCounts({ apiKey: 'k', fetchImpl });
+    assert.equal(r.status, 'error', JSON.stringify(body));
+    assert.deepEqual(r.rows, []);
+  }
+});
