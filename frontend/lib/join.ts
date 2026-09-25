@@ -38,6 +38,16 @@ export type JoinDeps = {
   viewer?: { login: string; isOrgMember: boolean; isContributor: boolean } | null;
   discordBotToken?: string;
   discordChannelId?: string;
+  /**
+   * Runs an outbound side-effect task after the reply is sent, instead of
+   * before it — Next's `after()`, wired in by the route. Whether any of the
+   * Resend calls below run (and how many) depends on stored state, so
+   * awaiting them before the reply turns the reply's TIMING into the same
+   * oracle the reply TEXT is designed not to be. Undefined in tests and any
+   * other caller that doesn't set it — `later` below then just awaits the
+   * task inline, so every existing test and caller behaves as today.
+   */
+  defer?: (task: () => Promise<void>) => void;
 };
 
 export type JoinResult = { status: 200 | 400 | 429; body: { success: boolean; message: string } };
@@ -53,7 +63,6 @@ const CONFIRMED_MSG = "You're on the list.";
  * Discord half closes, on the newsletter half.
  */
 const PENDING_MSG = "Thanks — if this address still needs confirming, check your inbox for the link.";
-const SEND_FAILED_MSG = "We couldn't send the confirmation email just now. Please try again in a few minutes.";
 const QUEUED_MSG = "Thanks — a member will review your Discord request and email you.";
 const CONFIRMED_DISCORD_MSG = "You're already on the list for Discord — check your email for the invite.";
 /**
@@ -66,6 +75,17 @@ const CONFIRMED_DISCORD_MSG = "You're already on the list for Discord — check 
 const ON_FILE_MSG = "Thanks — your Discord request is on file. If we can add you, you'll get an email.";
 
 const nowOf = (deps: JoinDeps) => (deps.now ?? (() => new Date()))();
+
+/**
+ * Runs `task` through `deps.defer` when the route supplied one (Next's
+ * `after()`, so the task runs once the reply is already on the wire and its
+ * outcome can never reach the reply), otherwise inline — the pre-existing
+ * behaviour every caller without `defer` (tests included) still gets.
+ */
+async function later(deps: JoinDeps, task: () => Promise<void>): Promise<void> {
+  if (deps.defer) deps.defer(task);
+  else await task();
+}
 
 /** GitHub handles are case-insensitive: `OctoCat` and `octocat` are one person. */
 const sameLogin = (a: string | undefined, b: string | undefined) =>
@@ -109,7 +129,8 @@ async function beginOptIn(
   if (existing && "resendContactId" in existing && !existing.unsubscribed) {
     // already synced (e.g. re-signup after confirming once before): refresh properties, don't re-send a
     // link, and keep the confirmation timestamp — it is this person's proof of consent
-    await syncContact(deps, personId, email, profile, false, existing.confirmedAt);
+    const confirmedAt = existing.confirmedAt;
+    await later(deps, () => syncContact(deps, personId, email, profile, false, confirmedAt));
     // under double opt-in, answer exactly as an unknown address is answered
     return deps.resendFrom && deps.tokenSecret ? PENDING_MSG : CONFIRMED_MSG;
   }
@@ -118,31 +139,38 @@ async function beginOptIn(
     return CONFIRMED_MSG;
   }
   if (!deps.resendFrom || !deps.tokenSecret) {
-    await syncContact(deps, personId, email, profile, false);
+    await later(deps, () => syncContact(deps, personId, email, profile, false));
     return CONFIRMED_MSG;
   }
   const now = nowOf(deps);
   const token = signConfirmToken(String(personId), deps.tokenSecret, now);
   const url = `${deps.siteUrl ?? DEFAULT_SITE}/api/join/confirm?t=${token}`;
-  try {
-    // The marker is written BEFORE the send: it records "we asked this person to
-    // confirm", which is true the moment we try. Writing it only on success left
-    // a failed send indistinguishable from an ordinary unsynced row, and the
-    // admin Retry-sync consent gate (lib/review.ts) keys on exactly this marker —
-    // without it, one click subscribes an address whose owner never confirmed.
-    // Never over a stronger record, though: `newsletter` is one state, not a bag
-    // (people.ts), and both of its readers key on `"pending" in newsletter`, so a
-    // record that kept `resendContactId` alongside a marker would be $unset
-    // wholesale by clearNewsletterPending. The only record that reaches here
-    // holding a contact is an unsubscribed one, and retrySync already refuses
-    // that on its own gate — so its proof of consent is kept, not overwritten.
-    if (!existing || ("pending" in existing && !existing.confirmedAt))
-      await markNewsletterPending(deps.db, personId, now);
-    await sendEmail({ from: deps.resendFrom, to: email, ...confirmEmail(url) }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
-  } catch (e) {
-    deps.log?.(`confirmation email failed for person ${String(personId)}: ${(e as Error).message}`);
-    return SEND_FAILED_MSG;
-  }
+  // The marker is written BEFORE the deferred send: it records "we asked this
+  // person to confirm", which is true the moment we try. Writing it only on
+  // success left a failed send indistinguishable from an ordinary unsynced
+  // row, and the admin Retry-sync consent gate (lib/review.ts) keys on
+  // exactly this marker — without it, one click subscribes an address whose
+  // owner never confirmed. Never over a stronger record, though: `newsletter`
+  // is one state, not a bag (people.ts), and both of its readers key on
+  // `"pending" in newsletter`, so a record that kept `resendContactId`
+  // alongside a marker would be $unset wholesale by clearNewsletterPending.
+  // The only record that reaches here holding a contact is an unsubscribed
+  // one, and retrySync already refuses that on its own gate — so its proof
+  // of consent is kept, not overwritten.
+  if (!existing || ("pending" in existing && !existing.confirmedAt))
+    await markNewsletterPending(deps.db, personId, now);
+  // The reply can no longer depend on whether this send succeeds — it runs
+  // after the response, so PENDING_MSG below is unconditional. A failed send
+  // is only ever visible in the log; resubmitting /join re-sends a link
+  // because the pending-marker path above re-sends on every attempt.
+  const from = deps.resendFrom;
+  await later(deps, async () => {
+    try {
+      await sendEmail({ from, to: email, ...confirmEmail(url) }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
+    } catch (e) {
+      deps.log?.(`confirmation email failed for person ${String(personId)}: ${(e as Error).message}`);
+    }
+  });
   return PENDING_MSG;
 }
 
@@ -220,14 +248,21 @@ async function admitOrQueue(
       fetchImpl: deps.fetchImpl,
       now: () => now,
     });
+    // The invite MINT (above) stays synchronous: the reply below carries the
+    // invite URL itself, and only a GitHub-vouched session ever reaches this
+    // branch — there is no stored-state timing question to close here, only
+    // the EMAIL is deferred, since whether it fires never differs by state.
     await recordDiscordInvite(deps.db, personId, invite, now);
     const url = inviteUrl(invite.code);
     if (deps.resendFrom) {
-      try {
-        await sendEmail({ from: deps.resendFrom, to: email, ...discordInviteEmail(url) }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
-      } catch (e) {
-        deps.log?.(`discord invite email failed for person ${String(personId)}: ${(e as Error).message}`);
-      }
+      const from = deps.resendFrom;
+      await later(deps, async () => {
+        try {
+          await sendEmail({ from, to: email, ...discordInviteEmail(url) }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
+        } catch (e) {
+          deps.log?.(`discord invite email failed for person ${String(personId)}: ${(e as Error).message}`);
+        }
+      });
     }
     return `You're in — here's your Discord invite: ${url}`;
   } catch (e) {
@@ -323,11 +358,14 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
   const parts = [message];
   if (wants.discord) parts.push(await admitOrQueue(deps, personId, email, existing));
   if (stickerCreated && deps.resendFrom) {
-    try {
-      await sendEmail({ from: deps.resendFrom, to: email, ...stickerRequestEmail() }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
-    } catch {
-      deps.log?.(`sticker confirmation email failed for person ${String(personId)}`);
-    }
+    const from = deps.resendFrom;
+    await later(deps, async () => {
+      try {
+        await sendEmail({ from, to: email, ...stickerRequestEmail() }, { apiKey: deps.resendApiKey, fetchImpl: deps.fetchImpl });
+      } catch {
+        deps.log?.(`sticker confirmation email failed for person ${String(personId)}`);
+      }
+    });
   }
   if (stickerNote) parts.push(stickerNote);
   if (pkgNote) parts.push(pkgNote);
