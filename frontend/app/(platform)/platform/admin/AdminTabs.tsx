@@ -10,6 +10,7 @@ const TABS = [
   { href: "/platform/admin/keys", label: "Keys" },
   { href: "/platform/admin/errors", label: "Errors" },
   { href: "/platform/admin/site", label: "Site" },
+  { href: "/platform/admin/stickers", label: "Stickers" },
 ];
 
 export default function AdminTabs() {
