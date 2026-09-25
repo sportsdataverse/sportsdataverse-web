@@ -1,33 +1,8 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@lib/mongodb";
 import { requireMemberApp } from "@lib/platform/auth";
-import { listPeople, listUnsyncedNewsletter, type PersonDoc } from "@lib/people";
-
-/** The review queue. Any org member may read it: vouching is a community job,
- *  and the page under /platform/people is gated the same way. */
-function row(p: PersonDoc) {
-  const n = p.newsletter;
-  const newsletterState = !n ? "none" : "resendContactId" in n ? "synced" : "pending" in n ? "pending" : "skipped";
-  return {
-    id: String(p._id),
-    email: p.email ?? null,
-    name: p.name ?? null,
-    githubLogin: p.githubLogin ?? null,
-    // a claim, never proof — the UI must render it as unverified
-    claimedGithubLogin: p.claimedGithubLogin ?? null,
-    status: p.status,
-    wantsDiscord: Boolean(p.wants?.discord),
-    wantsNewsletter: Boolean(p.wants?.newsletter),
-    newsletterState,
-    // NOT the code. It is a live 3-use bearer credential and this list is read by
-    // every org member; the UI only ever asks whether one exists. The reviewer who
-    // needs the actual link gets it in the approve/resend response, for their own action.
-    hasInvite: Boolean(p.discord?.code),
-    createdAt: p.createdAt,
-    reviewedBy: p.reviewedBy ?? null,
-    declineReason: p.declineReason ?? null,
-  };
-}
+import { listPeople, listUnsyncedNewsletter } from "@lib/people";
+import { personRow } from "@lib/peopleRow";
 
 // Same cap every view uses to fetch, and the same filter each view's query
 // applies — kept alongside listPeople/listUnsyncedNewsletter (lib/people.ts)
@@ -53,5 +28,5 @@ export async function GET(req: Request) {
         : listPeople(db, { status: "pending", wantsDiscord: true, limit: FETCH_CAP }),
     db.collection("people").countDocuments(filterFor(view)),
   ]);
-  return NextResponse.json({ people: people.map(row), total });
+  return NextResponse.json({ people: people.map(personRow), total });
 }
