@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import pageMeta from "@content/meta";
 import PageHeader from "@components/site/PageHeader";
 import { connectToDatabase } from "@lib/mongodb";
+import { PUBLIC_PACKAGE_FILTER } from "@lib/packageVisibility";
 import StatsClient from "./StatsClient";
 
 export const metadata: Metadata = {
@@ -17,7 +18,7 @@ async function packageCount(): Promise<number | null> {
     const { db } = await connectToDatabase();
     return await db
       .collection("packages")
-      .countDocuments({ published: { $ne: false } });
+      .countDocuments({ ...PUBLIC_PACKAGE_FILTER, published: { $ne: false } });
   } catch {
     return null;
   }
