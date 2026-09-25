@@ -201,6 +201,17 @@ test('name and address lines reject control and bidi-override characters', () =>
   }
 });
 
+test('a trailing tab, newline or line separator is trimmed away, never stored', () => {
+  // trim runs before the forbidden-character check, so these never reach the
+  // stored value; a pasted line with a trailing newline should not be rejected
+  for (const tail of [9, 10, 0x2028, 0x2029].map((n) => String.fromCodePoint(n))) {
+    const r = stickerRequestSchema.safeParse({ name: 'Pat' + tail, address: { line1: '1 Main St', line2: 'Apt 2' + tail, city: 'Durham', country: 'US' } });
+    assert.ok(r.success);
+    assert.equal(r.data.name, 'Pat');
+    assert.equal(r.data.address.line2, 'Apt 2');
+  }
+});
+
 test('a zero-width joiner in a name is accepted', () => {
   const zwj = String.fromCodePoint(0x200d);
   assert.equal(stickerRequestSchema.safeParse({ name: `Pat${zwj}Doe`, address: US.address }).success, true);
