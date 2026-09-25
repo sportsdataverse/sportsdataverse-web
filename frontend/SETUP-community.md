@@ -116,7 +116,7 @@ above):
 
 ## Reviewing people
 
-`/platform/admin/people` (org members with the `admin` role) has three views:
+`/platform/people` (any signed-in org member) has three views:
 
 - **Queue** — pending Discord requests (`status: "pending"`, `wants.discord: true`). Approve
   mints (or reuses a still-live) invite per the email rule above **and only then** records the

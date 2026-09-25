@@ -12,6 +12,12 @@ export type PersonDoc = {
   _id: ObjectId;
   email?: string;
   githubLogin?: string;
+  /** What a signed-in visitor SAID they are, recorded before any vouch and never
+   *  used for authorization. `githubLogin` is the ownership key and only a vouched
+   *  session may write it (see linkGithubLogin); this field exists so a member
+   *  working the queue can see who is asking without that claim ever becoming
+   *  proof. Display it as unverified, and never compare against it. */
+  claimedGithubLogin?: string;
   name?: string;
   profile?: Profile; // typed projection of the core answers — aggregations key on this
   answers?: Answers; // every answered question by id, incl. conditional follow-ups
@@ -251,6 +257,15 @@ export async function recordDiscordInvite(
  * same login on a second person is a conflict, not an error a visitor should
  * ever see: this reports it instead of throwing.
  */
+/**
+ * Record the handle a signed-in visitor presented, as a claim only. Never an
+ * ownership key: it is not unique, it is not compared, and it is overwritten by
+ * whoever submits last. `linkGithubLogin` is the authorization write.
+ */
+export async function recordClaimedLogin(db: Db, personId: PersonId, login: string): Promise<void> {
+  await people(db).updateOne({ _id: personId }, { $set: { claimedGithubLogin: login.toLowerCase() } });
+}
+
 export async function linkGithubLogin(db: Db, personId: PersonId, login: string): Promise<boolean> {
   // folded on write: GitHub handles are case-insensitive, and the unique index
   // can only enforce that if every record spells the same handle the same way

@@ -11,6 +11,7 @@ import {
   findPersonById, findPersonByEmail, linkGithubLogin, markConfirmedAt, markNewsletterConfirmed, markNewsletterPending,
   markNewsletterSkipped, markNewsletterSynced, clearNewsletterPending, recordDiscordInvite, recordSurvey, setReviewStatus,
   upsertJoin, upsertNewsletterSignup, type PersonDoc, type PersonId,
+  recordClaimedLogin,
 } from "./people.ts";
 
 /**
@@ -190,6 +191,10 @@ async function admitOrQueue(
     if (!deps.resendFrom && ours && d) return `You're already on the list for Discord — here's your invite: ${inviteUrl(d.code)}`;
     return CONFIRMED_DISCORD_MSG;
   }
+
+  // What they said they are, for the member who will work this row. A claim, not
+  // a key: recorded before the vouch, never compared, never an ownership test.
+  if (viewer) await recordClaimedLogin(deps.db, personId, viewer.login);
 
   const vouched = Boolean(viewer && (viewer.isOrgMember || viewer.isContributor));
   if (!vouched) return ON_FILE_MSG; // upsertJoin already left them "pending"; nothing more to stamp

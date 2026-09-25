@@ -21,6 +21,7 @@ type PersonRow = {
   email: string | null;
   name: string | null;
   githubLogin: string | null;
+  claimedGithubLogin: string | null;
   status: "pending" | "approved" | "declined" | "auto" | "survey";
   wantsDiscord: boolean;
   wantsNewsletter: boolean;
@@ -67,7 +68,7 @@ export default function PeopleClient() {
   const load = useCallback(async (v: View) => {
     setLoadError(false);
     try {
-      const res = await fetch(`/api/platform/admin/people?view=${v}`);
+      const res = await fetch(`/api/platform/people?view=${v}`);
       if (!res.ok) throw new Error(String(res.status));
       const data = (await res.json()) as { people: PersonRow[]; total: number };
       setPeople(data.people);
@@ -87,7 +88,7 @@ export default function PeopleClient() {
   async function act(id: string, action: Action, body?: { reason?: string; notify?: boolean }) {
     setBusy(`${id}:${action}`);
     try {
-      const res = await fetch(`/api/platform/admin/people/${id}/${action}`, {
+      const res = await fetch(`/api/platform/people/${id}/${action}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body ?? {}),
@@ -195,7 +196,18 @@ export default function PeopleClient() {
                     <TableCell>
                       <div className="font-medium">{p.name ?? p.email ?? p.id}</div>
                       {p.email ? <div className="text-xs text-muted-foreground">{p.email}</div> : null}
-                      {p.githubLogin ? <div className="text-xs text-muted-foreground">@{p.githubLogin}</div> : null}
+                      {p.githubLogin ? (
+                        <div className="text-xs text-muted-foreground">@{p.githubLogin}</div>
+                      ) : p.claimedGithubLogin ? (
+                        // They signed in and said this is them, but nothing vouched for it.
+                        // Labelled so nobody reads a claim as an identity.
+                        <div className="text-xs text-muted-foreground">
+                          @{p.claimedGithubLogin}{" "}
+                          <span className="rounded border border-border px-1 py-px text-[10px] uppercase tracking-wide">
+                            unverified
+                          </span>
+                        </div>
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">

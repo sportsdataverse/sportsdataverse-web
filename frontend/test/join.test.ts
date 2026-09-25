@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { fakeDb } from './fakeDb.ts';
 import { handleJoin, handleSurvey, handleConfirm } from '../lib/join.ts';
 import { signConfirmToken } from '../lib/confirmToken.ts';
-import { setReviewStatus } from '../lib/people.ts';
+import { setReviewStatus, recordDiscordInvite } from '../lib/people.ts';
 import { approve, retrySync } from '../lib/review.ts';
 
 function resend(status: number, body: unknown) {
@@ -754,4 +754,34 @@ test('a re-signup never erases proof that this address completed double opt-in',
   await handleJoin(body, '1.1.1.1', deps);
   const nl = dump('people')[0].newsletter as { confirmedAt?: Date };
   assert.equal(nl.confirmedAt?.getTime(), confirmedAt.getTime(), 'the confirmation they already gave survives');
+});
+
+test('a signed-in visitor we cannot vouch for has their handle recorded as a claim, not as the ownership key', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const stranger = { login: 'Drifter', isOrgMember: false, isContributor: false };
+  const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS }, '1.1.1.1', {
+    db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv, viewer: stranger,
+  });
+  const row = dump('people')[0];
+  assert.equal(row.status, 'pending', 'no vouch, so no admission');
+  assert.equal(row.githubLogin, undefined, 'the ownership key stays unwritten');
+  assert.equal(row.claimedGithubLogin, 'drifter', 'but the member working the queue can see who asked');
+  assert.equal(d.calls.filter((u) => u.includes('discord.com')).length, 0, 'and no invite is minted');
+  assert.doesNotMatch(r.body.message, /discord\.gg/);
+});
+
+test('a claimed handle never becomes a key to an invite an admin later mints', async () => {
+  const { db, dump } = fakeDb();
+  const d = discordFake();
+  const claimant = { login: 'Drifter', isOrgMember: false, isContributor: false };
+  const base = { db, resendApiKey: 'k', fetchImpl: d.fetchImpl, ...discordEnv };
+  await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: claimant });
+  const personId = (dump('people')[0] as { _id: unknown })._id;
+  // an admin approves the row and an invite is recorded against it
+  await setReviewStatus(db, personId as never, 'approved', 'saiemgilani', new Date());
+  await recordDiscordInvite(db, personId as never, { code: 'SECRET9', expiresAt: new Date(Date.now() + 86_400_000) }, new Date());
+  const again = await handleJoin({ email: 'victim@b.co', answers: D_ANSWERS }, '1.1.1.1', { ...base, viewer: claimant });
+  assert.doesNotMatch(again.body.message, /discord\.gg/, 'a claim is not ownership');
+  assert.doesNotMatch(again.body.message, /SECRET9/);
 });
