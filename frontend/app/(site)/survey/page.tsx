@@ -15,7 +15,7 @@ export default async function SurveyPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 pb-20">
       <PageHeader eyebrow="Survey" title="Tell us who you are">
-        Three minutes, no account, no email. Your answers decide what we build and where we post.
+        Three minutes, no account. Your answers decide what we build and where we post.
       </PageHeader>
       <div className="mt-10">
         <QuestionFlow mode="survey" dynamicOptions={dynamicOptions} />
