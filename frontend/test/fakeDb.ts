@@ -133,6 +133,9 @@ export function fakeDb() {
     collection(name: string) {
       return {
         async createIndex() { return `${name}_idx`; },
+        async countDocuments(filter: Doc = {}) {
+          return rows(name).filter((d) => matches(d, filter)).length;
+        },
         async findOne(filter: Doc) {
           consumeFailure(nextReadShouldFail, () => { nextReadShouldFail = null; });
           const d = rows(name).find((doc) => matches(doc, filter));
