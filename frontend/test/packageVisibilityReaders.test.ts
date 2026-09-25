@@ -40,7 +40,7 @@ const SOURCE = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
 const ALLOWLIST = new Set(['app/(site)/packages/manage/page.tsx']);
 
 // the optional `<…>` is a type argument: `collection<PackageDoc>("packages")`
-const COLLECTION = /collection(?:<[^>]*>)?\(\s*["']packages["']\s*\)/g;
+const COLLECTION = /collection\s*(?:<[^()]*>)?\s*\(\s*["']packages["']\s*\)/g;
 const READ = /\.(find|findOne|findOneAndUpdate|findOneAndDelete|findOneAndReplace|countDocuments|estimatedDocumentCount|aggregate|distinct|watch)\s*\(/;
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -78,6 +78,13 @@ test('every read of the packages collection uses PUBLIC_PACKAGE_FILTER, except t
     offenders.push(...unfilteredReads(rel, fs.readFileSync(file, 'utf8')));
   }
   assert.deepEqual(offenders, [], `reads packages without PUBLIC_PACKAGE_FILTER: ${offenders.join(', ')}`);
+});
+
+test('a nested type argument does not hide a read', () => {
+  assert.deepEqual(
+    unfilteredReads('n.ts', 'const r = await db.collection<Pick<PackageDoc, "title">>("packages").find({}).toArray();'),
+    ['n.ts:1']
+  );
 });
 
 test('the scanner judges each statement, not each file', () => {
