@@ -7,7 +7,9 @@ import { Input } from "@components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select";
 import FollowUs from "@components/site/FollowUs";
 import SupportCallout from "@components/site/SupportCallout";
+import { AffiliationFields, ContactFields, LocationFields } from "@components/site/IdentityFields";
 import { JOIN_SECTIONS, QUESTIONS, SURVEY_SECTIONS, type Answers, type Question, type Section } from "@content/survey";
+import { affiliationRequired, EMPTY_IDENTITY_FORM, toIdentityPayload, type IdentityForm } from "@lib/identity";
 import { REPO_TYPES } from "@lib/packageSchema";
 import { visibleQuestions } from "@lib/survey";
 
@@ -37,7 +39,8 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
   const submitTo = mode === "join" ? "/api/join" : "/api/survey";
   const placement = mode === "join" ? "join" : undefined;
   const [answers, setAnswers] = useState<Answers>({});
-  const [contact, setContact] = useState({ email: "", name: "" });
+  const [email, setEmail] = useState("");
+  const [identity, setIdentity] = useState<IdentityForm>(EMPTY_IDENTITY_FORM);
   const [pkg, setPkg] = useState({
     title: "", repoType: "R" as (typeof REPO_TYPES)[number], sports: "", content: "",
     sourceHref: "", docsHref: "", logoHref: "", dataRepoHref: "", orgTier: false,
@@ -86,8 +89,8 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
     setMessage("");
     const body = isJoin
       ? {
-          email: contact.email,
-          name: contact.name.trim() || undefined,
+          email,
+          identity: toIdentityPayload(identity),
           answers,
           placement,
           // omitted entirely unless they said yes, so the flag and the payload agree
@@ -117,7 +120,7 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
               }
             : {}),
         }
-      : { answers };
+      : { email, identity: toIdentityPayload(identity), answers };
     try {
       const res = await fetch(submitTo, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const data = (await res.json().catch(() => ({}))) as { message?: string };
@@ -196,6 +199,13 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
         </fieldset>
       ))}
 
+      {section === "profile" ? (
+        <>
+          <LocationFields value={identity} onChange={setIdentity} />
+          <AffiliationFields value={identity} onChange={setIdentity} required={affiliationRequired(answers.role)} />
+        </>
+      ) : null}
+
       {isJoin && last && wantsPackage ? (
         <fieldset className="space-y-3">
           <legend className="font-medium">Your package</legend>
@@ -262,15 +272,7 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
         </fieldset>
       ) : null}
 
-      {isJoin && last ? (
-        <fieldset className="space-y-3">
-          <legend className="font-medium">Where can we reach you?</legend>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input type="text" aria-label="Name (optional)" placeholder="Name (optional)" autoComplete="name" value={contact.name} onChange={(e) => setContact((c) => ({ ...c, name: e.target.value }))} maxLength={80} />
-            <Input type="email" aria-label="Email address" placeholder="you@example.com" autoComplete="email" required value={contact.email} onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))} />
-          </div>
-        </fieldset>
-      ) : null}
+      {last ? <ContactFields value={identity} onChange={setIdentity} email={email} onEmail={setEmail} /> : null}
 
       <div className="flex items-center gap-3">
         {step > 0 ? (
