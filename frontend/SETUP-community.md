@@ -230,9 +230,11 @@ one function that returns an address, and that route is its one caller.
 `ship|cancel`, admin-only) are the two actions on a request. Ship records who
 shipped it and when, and **erases the address in the same write** — there is
 never a moment where a request is marked shipped and still holding an address.
-The request row itself is kept as history (name, ship date, who shipped it) so a
-person who asks again after their stickers went out is recognized rather than
-treated as a duplicate. Cancel deletes the request outright, address and all.
+The request row itself is kept as a record (name, ship date, who shipped it) and
+feeds the "N shipped so far" count. It does not block a new request: the
+one-open-request rule and its unique index cover only requests still waiting
+to ship, so someone whose stickers went out can simply ask again. Cancel deletes
+the request outright, address and all.
 
 A person can hold one open request at a time, and the **first one wins**: the
 email behind a `/join` submission is unverified, so letting a later submission
