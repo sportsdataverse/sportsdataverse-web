@@ -5,6 +5,7 @@ import { connectToDatabase } from "@lib/mongodb";
 import { ObjectId } from "mongodb";
 import { auth } from "@lib/auth";
 import { packageSchema, packageUpdateSchema } from "@lib/packageSchema";
+import { PUBLIC_PACKAGE_FILTER } from "@lib/packageVisibility";
 
 /**
  * Coerce a request body to a plain object. Next parses JSON bodies into objects
@@ -69,12 +70,13 @@ export async function DELETE(req: Request) {
 }
 
 // Getting all pkgs (public, read-only).
+// Submissions stay hidden until a member publishes them — see lib/packageVisibility.
 async function getPkgs() {
   try {
     const { db } = await connectToDatabase();
     const pkgs = await db
       .collection("packages")
-      .find({})
+      .find(PUBLIC_PACKAGE_FILTER)
       .sort({ published: -1 })
       .toArray();
     return NextResponse.json({

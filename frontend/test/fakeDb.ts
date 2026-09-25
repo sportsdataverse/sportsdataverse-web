@@ -22,8 +22,12 @@ function getPath(doc: Doc, path: string): unknown {
   return cur;
 }
 
-function matches(doc: Doc, filter: Doc) {
+function matches(doc: Doc, filter: Doc): boolean {
   return Object.entries(filter).every(([k, v]) => {
+    // Support $or: an array of sub-filters, matches when any one does.
+    if (k === '$or' && Array.isArray(v)) {
+      return (v as Doc[]).some((sub) => matches(doc, sub));
+    }
     const path = k.includes('.') ? getPath(doc, k) : doc[k];
     // Support $exists operator
     if (typeof v === 'object' && v !== null && '$exists' in v) {
