@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { connectToDatabase } from "@lib/mongodb";
-import { requireAdminApp } from "@lib/platform/auth";
+import { requireAdminApp, requireMemberApp } from "@lib/platform/auth";
 import { approve, decline, removePerson, requeue, resendInvite, retrySync, type ReviewDeps } from "@lib/review";
 
 const ACTIONS = new Set(["approve", "decline", "requeue", "resend", "retry-sync", "delete"]);
@@ -17,7 +17,7 @@ const actionBodySchema = z.object({
 });
 
 export async function POST(req: Request, ctx: Ctx) {
-  const { session, deny } = await requireAdminApp();
+  const { session, deny } = await requireMemberApp();
   if (deny) return deny;
   // an audit trail that refuses is better than one that lies: never fabricate a reviewer identity
   if (!session?.login) {
@@ -25,6 +25,13 @@ export async function POST(req: Request, ctx: Ctx) {
   }
   const { id, action } = await ctx.params;
   if (!ACTIONS.has(action)) return NextResponse.json({ success: false, message: "unknown action" }, { status: 404 });
+  // Every other action an admin can undo — a decline is requeued, an invite is
+  // re-minted. Erasing the record is the one that cannot be walked back, so it
+  // stays with the org admins even though any member may work the queue.
+  if (action === "delete") {
+    const { deny: notAdmin } = await requireAdminApp();
+    if (notAdmin) return notAdmin;
+  }
   if (!ObjectId.isValid(id)) return NextResponse.json({ success: false, message: "bad id" }, { status: 400 });
 
   const parsedBody = actionBodySchema.safeParse(await req.json().catch(() => ({})));

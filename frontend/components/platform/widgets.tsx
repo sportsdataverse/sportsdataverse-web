@@ -17,7 +17,7 @@ import {
   KeyRound,
   Package,
   FileCode2,
-  Gauge,
+  Gauge, Users,
 } from "lucide-react";
 
 export type PlatformNavItem = {
@@ -52,6 +52,10 @@ export const PLATFORM_NAV: { title: string | null; items: PlatformNavItem[] }[] 
       // entries shown on /packages) lives on the public site where members
       // rarely stumble onto it — surface it here where they already work.
       { href: "/packages/manage", label: "Packages CMS", icon: Package },
+      // The Discord review queue. Any org member may work it — vouching is what
+      // the invite-only server is FOR — so it sits here, not under Admin, whose
+      // layout gates Keys and Errors on the admin role.
+      { href: "/platform/people", label: "People", icon: Users },
     ],
   },
   {

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@lib/mongodb";
-import { requireAdminApp } from "@lib/platform/auth";
+import { requireMemberApp } from "@lib/platform/auth";
 import { listPeople, listUnsyncedNewsletter, type PersonDoc } from "@lib/people";
 
-/** The review queue. Admin-only: the admin layout gates the page the same way. */
+/** The review queue. Any org member may read it: vouching is a community job,
+ *  and the page under /platform/people is gated the same way. */
 function row(p: PersonDoc) {
   const n = p.newsletter;
   const newsletterState = !n ? "none" : "resendContactId" in n ? "synced" : "pending" in n ? "pending" : "skipped";
@@ -12,11 +13,16 @@ function row(p: PersonDoc) {
     email: p.email ?? null,
     name: p.name ?? null,
     githubLogin: p.githubLogin ?? null,
+    // a claim, never proof — the UI must render it as unverified
+    claimedGithubLogin: p.claimedGithubLogin ?? null,
     status: p.status,
     wantsDiscord: Boolean(p.wants?.discord),
     wantsNewsletter: Boolean(p.wants?.newsletter),
     newsletterState,
-    discordCode: p.discord?.code ?? null,
+    // NOT the code. It is a live 3-use bearer credential and this list is read by
+    // every org member; the UI only ever asks whether one exists. The reviewer who
+    // needs the actual link gets it in the approve/resend response, for their own action.
+    hasInvite: Boolean(p.discord?.code),
     createdAt: p.createdAt,
     reviewedBy: p.reviewedBy ?? null,
     declineReason: p.declineReason ?? null,
@@ -35,7 +41,7 @@ function filterFor(view: string): Record<string, unknown> {
 }
 
 export async function GET(req: Request) {
-  const { deny } = await requireAdminApp();
+  const { deny } = await requireMemberApp();
   if (deny) return deny;
   const view = new URL(req.url).searchParams.get("view") ?? "queue";
   const { db } = await connectToDatabase();

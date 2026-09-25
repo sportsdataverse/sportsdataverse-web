@@ -21,11 +21,12 @@ type PersonRow = {
   email: string | null;
   name: string | null;
   githubLogin: string | null;
+  claimedGithubLogin: string | null;
   status: "pending" | "approved" | "declined" | "auto" | "survey";
   wantsDiscord: boolean;
   wantsNewsletter: boolean;
   newsletterState: "synced" | "pending" | "skipped" | "none";
-  discordCode: string | null;
+  hasInvite: boolean;
   createdAt: string;
   reviewedBy: string | null;
   declineReason: string | null;
@@ -47,7 +48,7 @@ const STATUS_VARIANT: Record<PersonRow["status"], "default" | "outline" | "destr
   survey: "secondary",
 };
 
-export default function PeopleClient() {
+export default function PeopleClient({ isAdmin = false }: { isAdmin?: boolean }) {
   const [view, setView] = useState<View>("queue");
   const [people, setPeople] = useState<PersonRow[] | null>(null);
   const [total, setTotal] = useState<number | null>(null);
@@ -67,7 +68,7 @@ export default function PeopleClient() {
   const load = useCallback(async (v: View) => {
     setLoadError(false);
     try {
-      const res = await fetch(`/api/platform/admin/people?view=${v}`);
+      const res = await fetch(`/api/platform/people?view=${v}`);
       if (!res.ok) throw new Error(String(res.status));
       const data = (await res.json()) as { people: PersonRow[]; total: number };
       setPeople(data.people);
@@ -87,7 +88,7 @@ export default function PeopleClient() {
   async function act(id: string, action: Action, body?: { reason?: string; notify?: boolean }) {
     setBusy(`${id}:${action}`);
     try {
-      const res = await fetch(`/api/platform/admin/people/${id}/${action}`, {
+      const res = await fetch(`/api/platform/people/${id}/${action}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body ?? {}),
@@ -188,14 +189,29 @@ export default function PeopleClient() {
               {people.map((p) => {
                 // resendInvite mints against the CURRENT answer, so it refuses a row whose
                 // latest /join said no Discord — don't offer a button that can only error
-                const canResend = p.wantsDiscord && (Boolean(p.discordCode) || p.status === "approved" || p.status === "auto");
+                const canResend = p.wantsDiscord && (p.hasInvite || p.status === "approved" || p.status === "auto");
                 const canRetrySync = p.wantsNewsletter && p.newsletterState !== "synced";
                 return (
                   <TableRow key={p.id}>
                     <TableCell>
                       <div className="font-medium">{p.name ?? p.email ?? p.id}</div>
                       {p.email ? <div className="text-xs text-muted-foreground">{p.email}</div> : null}
-                      {p.githubLogin ? <div className="text-xs text-muted-foreground">@{p.githubLogin}</div> : null}
+                      {p.githubLogin ? (
+                        <div className="text-xs text-muted-foreground">@{p.githubLogin}</div>
+                      ) : null}
+                      {/* A claim is shown whenever it is not the verified handle — including
+                          ALONGSIDE one. A row can hold both: an admit whose invite failed keeps
+                          the handle it bound and returns to the queue, and a later signed-in
+                          submission on that address records a different claim. Hiding the
+                          second is hiding exactly what the reviewer needs to notice. */}
+                      {p.claimedGithubLogin && p.claimedGithubLogin !== p.githubLogin ? (
+                        <div className="text-xs text-muted-foreground">
+                          @{p.claimedGithubLogin}{" "}
+                          <span className="rounded border border-border px-1 py-px text-[10px] uppercase tracking-wide">
+                            {p.githubLogin ? "unverified claim" : "unverified"}
+                          </span>
+                        </div>
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
@@ -260,17 +276,21 @@ export default function PeopleClient() {
                             Retry sync
                           </Button>
                         ) : null}
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          disabled={busy === `${p.id}:delete`}
-                          onClick={() => {
-                            if (confirm(`Delete ${p.email ?? p.name ?? p.id}? This cannot be undone.`)) act(p.id, "delete");
-                          }}
-                        >
-                          Delete
-                        </Button>
+                        {/* the server gate is the real one; this just stops offering a
+                            member the single action their role cannot complete */}
+                        {isAdmin ? (
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            disabled={busy === `${p.id}:delete`}
+                            onClick={() => {
+                              if (confirm(`Delete ${p.email ?? p.name ?? p.id}? This cannot be undone.`)) act(p.id, "delete");
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        ) : null}
                       </div>
                       {declineFor === p.id ? (
                         <div className="mt-2 flex flex-wrap items-center gap-2">

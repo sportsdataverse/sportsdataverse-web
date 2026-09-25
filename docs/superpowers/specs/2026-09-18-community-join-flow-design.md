@@ -135,7 +135,7 @@ Org-wide: `FUNDING.yml` (Sponsors, Ko-fi, Patreon) in `sportsdataverse/.github` 
 ```
 /join (wants.discord)
   ├─ signed in + (isOrgMember || isContributor) → status "auto" → mint invite → show on screen + email
-  └─ otherwise → status "pending" → appears in /platform/admin/people
+  └─ otherwise → status "pending" → appears in /platform/people
         ├─ approve → mint invite → email → status "approved"
         └─ decline (reason) → status "declined"; no email unless reviewer ticks "notify"
 ```
@@ -183,12 +183,15 @@ Content routing (the operating model, also in SETUP-community.md):
 | `GET /survey` | none | profile block only |
 | `POST /api/join` | none; IP rate limit 5/hour (Upstash-free: in-memory per instance is not enough on Vercel — use a `rate_limits` Mongo doc with TTL index) | zod `joinSchema`; fan-out: people upsert, Kit, package insert, sticker insert, auto-admit |
 | `POST /api/survey` | none; same limiter | zod `surveySchema` |
-| `GET /platform/admin/people` | `isOrgMember` | tabs: Queue · Population · Stickers |
-| `GET /api/platform/admin/people?status=` | `requireWriter()` | list, no addresses |
-| `POST /api/platform/admin/people/[id]/approve` | `requireWriter()` | mint invite, email, stamp reviewer |
-| `POST /api/platform/admin/people/[id]/decline` | `requireWriter()` | reason, optional notify |
-| `POST /api/platform/admin/people/[id]/resend` | `requireWriter()` | re-email stored or fresh invite |
-| `GET /api/platform/admin/people/population` | `requireWriter()` | `$group` counts by role / language / sport / status; channel funnel (`discoveredVia` × `updatesVia` × `newsChannel`) and `follow_click`/`support_click` totals by placement; plus passive numbers (Discord member count via bot `GET /guilds/{id}?with_counts=true`, Resend contact count, CRAN/PyPI downloads from the existing `/api/stats`) |
+| `GET /platform/people` | `isOrgMember` | tabs: Queue · Population · Stickers |
+| `GET /api/platform/people?view=queue\|unsynced\|all` | org member | list, no addresses |
+| `POST /api/platform/people/[id]/approve` | org member | mint invite FIRST, then stamp reviewer; refuses `wants.discord: false` |
+| `POST /api/platform/people/[id]/decline` | org member | reason, optional notify |
+| `POST /api/platform/people/[id]/requeue` | org member | undo a decline |
+| `POST /api/platform/people/[id]/retry-sync` | org member | refuses anyone who never opted in or never confirmed |
+| `POST /api/platform/people/[id]/delete` | **org admin** | the one irreversible action |
+| `POST /api/platform/people/[id]/resend` | org member | re-issue a stored or fresh invite; approved/auto only |
+| `GET /api/platform/people/population` | `requireWriter()` | `$group` counts by role / language / sport / status; channel funnel (`discoveredVia` × `updatesVia` × `newsChannel`) and `follow_click`/`support_click` totals by placement; plus passive numbers (Discord member count via bot `GET /guilds/{id}?with_counts=true`, Resend contact count, CRAN/PyPI downloads from the existing `/api/stats`) |
 | `GET /api/platform/admin/stickers` · `POST …/[id]/ship` | `requireWriter()` | only place addresses are readable |
 | `/platform/api-key` (existing) | `isOrgMember` | adds per-key quota + current usage readout (needs the sdv-db fields below) |
 
