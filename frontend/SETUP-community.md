@@ -41,14 +41,17 @@ created immediately).
 1. `npm run resend:properties`
 2. deploy with `RESEND_FROM` unset
 3. verify the domain
-4. make `/join`'s Resend calls — the sticker got-it email and the newsletter
-   confirmation email — fire after the response is sent (Next's `after()`),
-   not before it. Until this lands, a `/join` that creates a new sticker
-   request (or newsletter signup) makes a Resend call and one that finds an
-   already-open request (or an already-known address) makes none — a timing
-   difference in the response that reveals whether someone already asked, on
-   both the sticker half and the newsletter half. Harmless today because
-   nothing sends while `RESEND_FROM` is unset; it must land before step 5.
+4. done: every `/join` Resend call — the newsletter confirmation email, the
+   Discord invite email, and the sticker got-it email — now fires after the
+   response is sent, via Next's `after()` (`JoinDeps.defer` in
+   `frontend/lib/join.ts`, wired in `frontend/app/api/join/route.ts`). Before
+   this, a `/join` that created a new sticker request (or newsletter signup,
+   or self-admitted Discord invite) made a Resend call and one that found an
+   already-open request (or an already-known address, or an already-admitted
+   person) made none — a timing difference in the response that revealed
+   whether someone already asked. That was harmless only because nothing
+   sent while `RESEND_FROM` was unset; it no longer matters when it's set,
+   because the request's own timing carries no such signal any more.
 5. set `RESEND_FROM`
 
 - Confirmation links are `/api/join/confirm?t=<token>`: an HMAC over the person id +
@@ -263,9 +266,10 @@ already had one open. The email contains no address. Its line "Didn't ask for
 stickers? Write to sportsdataverse@gmail.com and we'll cancel the request."
 exists because of the first-wins rule: anyone who types someone else's email
 address into the sticker fieldset sends this email to that address's real owner,
-and writing in is how that person gets the bogus request cancelled. Before
-setting `RESEND_FROM`, see the added step in "Deploy order" below — the got-it
-email itself becomes a timing oracle once it starts sending.
+and writing in is how that person gets the bogus request cancelled. The got-it
+email fires after the `/join` response is sent (see step 4 of "Deploy order"
+above), so it never becomes a timing oracle once `RESEND_FROM` is set and it
+starts sending.
 
 Reserved test addresses (`example.com`, `.test`, …) record the sticker answers
 like any other submission but never create a `sticker_requests` document, the
