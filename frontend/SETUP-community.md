@@ -210,7 +210,10 @@ above):
   anyone who didn't ask for the newsletter, and anyone who already unsubscribed. Under single
   opt-in (`RESEND_FROM` unset) no `pending` marker is ever written, so those rows sync
   normally — the form tick is the consent.
-- **All** — everyone, for finding a specific person. "Delete" is the one **admin-only**
+- **All** — for a member, everyone who asked for Discord (`wants.discord: true`, any status —
+  pending, approved, declined or auto); a survey-only or newsletter-only respondent's name and
+  email are admin-only and never appear here for a member. An admin's "All" is unfiltered — every
+  person, whatever they asked for (`peopleViewFilter`, `lib/peopleRow.ts`). "Delete" is the one **admin-only**
   action — every other one is reversible by a reviewer, erasing the record is not. It erases
   the Mongo record for a removal request, and first any package the person submitted that is
   not yet published (if that fails, the record is kept, so Delete can simply be retried); a
