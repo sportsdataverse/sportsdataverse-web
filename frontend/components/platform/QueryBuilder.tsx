@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
 import {
@@ -162,8 +162,10 @@ export default function QueryBuilder({ schemas }: { schemas: string[] }) {
     [columnTypes]
   );
 
-  useEffect(() => {
-    // reset table-dependent state when the schema/table changes
+  // Reset table-dependent state when the schema or table changes. Called from both
+  // triggers directly (schema's onValueChange, table's onClick) rather than a
+  // useEffect keyed on [schema, table] — same reset, no extra render cycle.
+  function resetQueryState() {
     setFilters([]);
     setSelect([]);
     setOrder("");
@@ -171,7 +173,7 @@ export default function QueryBuilder({ schemas }: { schemas: string[] }) {
     setSqlResult(null);
     setSqlOpen(false);
     setColSearch("");
-  }, [schema, table]);
+  }
 
   const params = buildParams(schema, table, filters, select, order, limit);
   const apiUrl = `https://data.sportsdataverse.org/v1/${schema}/${table}?${(() => {
@@ -284,7 +286,13 @@ export default function QueryBuilder({ schemas }: { schemas: string[] }) {
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="font-mono text-xs text-muted-foreground">league</label>
-              <Select value={schema} onValueChange={setSchema}>
+              <Select
+                value={schema}
+                onValueChange={(v) => {
+                  setSchema(v);
+                  resetQueryState();
+                }}
+              >
                 <SelectTrigger className="w-36 font-mono">
                   <SelectValue />
                 </SelectTrigger>
@@ -354,7 +362,11 @@ export default function QueryBuilder({ schemas }: { schemas: string[] }) {
                   key={t}
                   type="button"
                   title={tableTip(t)}
-                  onClick={() => setTable(t)}
+                  onClick={() => {
+                    if (t === table) return;
+                    setTable(t);
+                    resetQueryState();
+                  }}
                   className={cn(
                     "rounded-md border px-2 py-0.5 font-mono text-[11px] transition-colors",
                     t === table

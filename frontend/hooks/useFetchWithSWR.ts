@@ -12,8 +12,8 @@ export default function useFetchWithSWR(url: string) {
     isLoading: !error && !data,
     isError: error,
   } as {
-    data: any;
+    data: unknown;
     isLoading: boolean;
-    isError: any;
+    isError: unknown;
   };
 }

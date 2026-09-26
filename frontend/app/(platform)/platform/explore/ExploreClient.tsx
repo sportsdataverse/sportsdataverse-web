@@ -109,11 +109,28 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
   useEffect(() => {
     if (!pendingBookmark || pendingBookmark.tag !== tag || !assets) return;
     const names = new Set(queryable.map((a) => a.name));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- waits for the new tag's async asset list before restoring the bookmark
     setPicked(new Set(pendingBookmark.assets.filter((a) => names.has(a))));
     setSqlMode(true);
     setSql(pendingBookmark.sql);
     setPendingBookmark(null);
   }, [pendingBookmark, tag, assets, queryable]);
+
+  // Same-origin proxy URLs (api/platform/datasets/file): GitHub's release
+  // asset hosts send no CORS headers, so the browser can only range-read
+  // them through our own origin. Absolute URLs because DuckDB's worker
+  // resolves them outside the page's base URL. `asset` must remain the LAST
+  // query param — sourceFor() sniffs the file extension off the URL tail.
+  const pickedUrls = useMemo(
+    () =>
+      queryable
+        .filter((a) => picked.has(a.name))
+        .map(
+          (a) =>
+            `${window.location.origin}/api/platform/datasets/file?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(tag)}&asset=${encodeURIComponent(a.name)}`
+        ),
+    [queryable, picked, tag]
+  );
 
   async function saveBookmark() {
     const name = window.prompt("Name this query:");
@@ -158,22 +175,6 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
     return Array.from(bySport.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [datasets]);
 
-  // Same-origin proxy URLs (api/platform/datasets/file): GitHub's release
-  // asset hosts send no CORS headers, so the browser can only range-read
-  // them through our own origin. Absolute URLs because DuckDB's worker
-  // resolves them outside the page's base URL. `asset` must remain the LAST
-  // query param — sourceFor() sniffs the file extension off the URL tail.
-  const pickedUrls = useMemo(
-    () =>
-      queryable
-        .filter((a) => picked.has(a.name))
-        .map(
-          (a) =>
-            `${window.location.origin}/api/platform/datasets/file?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(tag)}&asset=${encodeURIComponent(a.name)}`
-        ),
-    [queryable, picked, tag]
-  );
-
   // --- table (stem) + partition (season) selection over the release assets --
   const [stem, setStem] = useState("");
   const [partition, setPartition] = useState("");
@@ -187,46 +188,47 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
     () => Array.from(new Set(parsed.map((p) => p.stem))).sort(),
     [parsed]
   );
+  // Default the dropdowns as data arrives: first stem, newest partition. Derived
+  // during render instead of mirrored into state via an effect — `stem`/`partition`
+  // still hold the user's raw selection (or "" right after selectTag), and these
+  // computed values fall back to the first valid option whenever the raw value
+  // isn't (yet) one of the current choices.
+  const effectiveStem = useMemo(
+    () => (stem && stems.includes(stem) ? stem : (stems[0] ?? "")),
+    [stem, stems]
+  );
   const partitions = useMemo(
     () =>
       Array.from(
         new Set(
           parsed
-            .filter((p) => p.stem === stem && p.partition)
+            .filter((p) => p.stem === effectiveStem && p.partition)
             .map((p) => p.partition as string)
         )
       )
         .sort()
         .reverse(),
-    [parsed, stem]
+    [parsed, effectiveStem]
+  );
+  const effectivePartition = useMemo(
+    () => (partitions.length ? (partitions.includes(partition) ? partition : partitions[0]) : ""),
+    [partition, partitions]
   );
 
   /** Best asset for the current stem+partition (parquet preferred). */
   const selectedAsset = useMemo(() => {
     const candidates = parsed.filter(
-      (p) => p.stem === stem && (p.partition ?? "") === partition
+      (p) => p.stem === effectiveStem && (p.partition ?? "") === effectivePartition
     );
     const pq = candidates.find((p) => p.asset.name.endsWith(".parquet"));
     return (pq ?? candidates[0])?.asset.name ?? null;
-  }, [parsed, stem, partition]);
-
-  // Default the dropdowns as data arrives: first stem, newest partition.
-  useEffect(() => {
-    if (stems.length && !stems.includes(stem)) setStem(stems[0]);
-  }, [stems, stem]);
-  useEffect(() => {
-    if (!stem) return;
-    if (partitions.length) {
-      if (!partitions.includes(partition)) setPartition(partitions[0]);
-    } else if (partition !== "") {
-      setPartition(""); // unpartitioned release: single whole-file "season"
-    }
-  }, [stem, partitions, partition]);
+  }, [parsed, effectiveStem, effectivePartition]);
 
   // Selection drives everything: pick the asset, then auto-load its schema and
   // an initial preview so the user lands straight in a filterable grid.
   useEffect(() => {
     if (!selectedAsset || pendingBookmark) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets query UI on season change; entangled with the bookmark-restore effect above
     setPicked(new Set([selectedAsset]));
     setColumns([]);
     setResult(null);
@@ -401,8 +403,11 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
                 <label className="flex flex-col gap-1 font-inter text-xs text-muted-foreground">
                   Table
                   <select
-                    value={stem}
-                    onChange={(e) => setStem(e.target.value)}
+                    value={effectiveStem}
+                    onChange={(e) => {
+                      setStem(e.target.value);
+                      setPartition(effectivePartition);
+                    }}
                     className="rounded-md border border-input bg-card px-2 py-1.5 font-mono text-sm text-foreground"
                   >
                     {stems.map((s) => (
@@ -416,7 +421,7 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
               <label className="flex flex-col gap-1 font-inter text-xs text-muted-foreground">
                 Season
                 <select
-                  value={partition}
+                  value={effectivePartition}
                   onChange={(e) => setPartition(e.target.value)}
                   disabled={partitions.length === 0}
                   className="rounded-md border border-input bg-card px-2 py-1.5 font-mono text-sm text-foreground"

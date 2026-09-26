@@ -23,9 +23,9 @@ export default function Contact() {
           variants={popUpFromBottomForText}
           className="px-4 py-2 font-medium text-muted-foreground"
         >
-          Is there something you would like to work on in the SportsDataverse? Whether it's
+          Is there something you would like to work on in the SportsDataverse? Whether it&apos;s
           related to work or just a casual conversation, we are here and ready to
-          listen. Please don't hesitate to reach out to us.
+          listen. Please don&apos;t hesitate to reach out to us.
         </AnimatedText>
       </section>
 
