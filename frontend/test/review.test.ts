@@ -5,6 +5,7 @@ import { upsertJoin, recordDiscordInvite, findPersonById } from '../lib/people.t
 import { approve, decline, requeue, resendInvite, retrySync, removePerson } from '../lib/review.ts';
 import { submitPackage } from '../lib/packageSubmission.ts';
 import { upsertStickerRequest } from '../lib/stickers.ts';
+import { insertResponse } from '../lib/responses.ts';
 
 const T0 = new Date('2026-09-24T12:00:00Z');
 const PROFILE = { role: 'developer', languages: ['R'], sports: ['CFB'], discoveredVia: 'github', updatesVia: ['github'], newsChannel: 'email' } as const;
@@ -478,4 +479,24 @@ test('if the pending package cannot be removed, the person is not removed either
   const r = await removePerson({ db, ...env }, id);
   assert.equal(r.ok, false);
   assert.equal(dump('people').length, 1, 'never a person gone with their submission left behind');
+});
+
+test('deleting a person deletes their responses too', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db, { newsletter: false, discord: true });
+  await insertResponse(db, { personId: id, source: 'join', createdAt: T0, identity: { name: 'Pat', location: { country: 'US', region: 'TX' } }, answers: {}, profile: PROFILE as never });
+  const r = await removePerson({ db, ...env }, id);
+  assert.equal(r.ok, true);
+  assert.equal(dump('responses').length, 0);
+  assert.equal(dump('people').length, 0);
+});
+
+test('if the responses cannot be removed, the person is kept', async () => {
+  const { db, dump } = fakeDb();
+  const id = await queued(db, { newsletter: false, discord: true });
+  await insertResponse(db, { personId: id, source: 'join', createdAt: T0, identity: { name: 'Pat', location: { country: 'US', region: 'TX' } }, answers: {}, profile: PROFILE as never });
+  db.failNextWriteTo('responses', new Error('mongo down'));
+  const r = await removePerson({ db, ...env }, id);
+  assert.equal(r.ok, false);
+  assert.equal(dump('people').length, 1);
 });

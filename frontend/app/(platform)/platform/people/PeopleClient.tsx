@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@components/ui/table";
 import PopulationPanel from "./PopulationPanel";
+import { AFFILIATION_LABELS, socialLinks } from "@lib/identity";
 
 type View = "queue" | "unsynced" | "all" | "population";
 type Action = "approve" | "decline" | "requeue" | "resend" | "retry-sync" | "delete";
@@ -31,6 +32,8 @@ type PersonRow = {
   createdAt: string;
   reviewedBy: string | null;
   declineReason: string | null;
+  affiliations: { type: string; org: string; title?: string }[] | null;
+  socials: Record<string, string> | null;
 };
 
 type ActionResult = { success: boolean; message: string; inviteUrl?: string };
@@ -134,7 +137,9 @@ export default function PeopleClient({ isAdmin = false }: { isAdmin?: boolean })
             aria-pressed={view === v.value}
             onClick={() => setView(v.value)}
           >
-            {v.label}
+            {/* C1: a member's "all" is narrowed server-side to Discord requesters —
+                the tab must say so rather than promise everyone. */}
+            {v.value === "all" && !isAdmin ? "All Discord requests" : v.label}
           </Button>
         ))}
       </div>
@@ -219,6 +224,24 @@ export default function PeopleClient({ isAdmin = false }: { isAdmin?: boolean })
                           <span className="rounded border border-border px-1 py-px text-[10px] uppercase tracking-wide">
                             {p.githubLogin ? "unverified claim" : "unverified"}
                           </span>
+                        </div>
+                      ) : null}
+                      {p.affiliations?.length || p.socials ? (
+                        <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                          {p.affiliations?.map((a, i) => (
+                            <div key={i}>
+                              {AFFILIATION_LABELS[a.type as keyof typeof AFFILIATION_LABELS] ?? a.type} · {a.org}
+                              {a.title ? ` — ${a.title}` : ""}
+                            </div>
+                          ))}
+                          {socialLinks(p.socials ?? undefined).length ? (
+                            <div className="flex flex-wrap gap-2">
+                              {socialLinks(p.socials ?? undefined).map((s) => (
+                                <a key={s.key} href={s.href} target="_blank" rel="noopener noreferrer nofollow" className="text-primary underline-offset-4 hover:underline">{s.label}</a>
+                              ))}
+                            </div>
+                          ) : null}
+                          <span className="rounded border border-border px-1 py-px text-[10px] uppercase tracking-wide">self-reported</span>
                         </div>
                       ) : null}
                     </TableCell>

@@ -1,9 +1,11 @@
 import type { Db } from "mongodb";
 import { CONTACT_EMAIL } from "../content/links.ts";
 import { QUESTIONS, JOIN_SECTIONS, SURVEY_SECTIONS } from "../content/survey.ts";
+import { affiliationError } from "./identity.ts";
 import { isReservedEmail, joinBodySchema, surveyBodySchema } from "./joinSchema.ts";
 import { subscribeToResend } from "./newsletter.ts";
 import { allowRequest } from "./rateLimit.ts";
+import { insertResponse } from "./responses.ts";
 import { contactProperties, projectProfile, validateAnswers, type Profile } from "./survey.ts";
 import { signConfirmToken, verifyConfirmToken } from "./confirmToken.ts";
 import { confirmEmail, discordInviteEmail, sendEmail, stickerRequestEmail } from "./email.ts";
@@ -12,8 +14,8 @@ import { submitPackage } from "./packageSubmission.ts";
 import { upsertStickerRequest } from "./stickers.ts";
 import {
   findPersonById, findPersonByEmail, linkGithubLogin, markConfirmedAt, markNewsletterConfirmed, markNewsletterPending,
-  markNewsletterSkipped, markNewsletterSynced, clearNewsletterPending, recordDiscordInvite, recordSurvey, setReviewStatus,
-  upsertJoin, upsertNewsletterSignup, type PersonDoc, type PersonId,
+  markNewsletterSkipped, markNewsletterSynced, clearNewsletterPending, promoteSurveyRespondent, recordDiscordInvite, setReviewStatus,
+  upsertJoin, upsertSurvey, upsertNewsletterSignup, type PersonDoc, type PersonId,
   recordClaimedLogin,
 } from "./people.ts";
 
@@ -27,7 +29,7 @@ import {
  */
 export type JoinDeps = {
   db: Db;
-  resendApiKey: string | undefined;
+  resendApiKey?: string;
   resendFrom?: string; // e.g. "SportsDataverse <news@sportsdataverse.org>"; undefined = single opt-in
   tokenSecret?: string; // JOIN_TOKEN_SECRET ?? NEXTAUTH_SECRET
   siteUrl?: string; // absolute origin used in the confirm link; defaults to the production site
@@ -92,6 +94,16 @@ async function later(deps: JoinDeps, task: () => Promise<void>): Promise<void> {
     deps.defer(task);
   } catch (e) {
     deps.log?.(`could not schedule a deferred task: ${(e as Error).message}`);
+  }
+}
+
+/** The history write. The person write already stood; a failure here is logged
+ *  (person id only) and never changes the reply. */
+async function recordResponse(deps: JoinDeps, doc: Parameters<typeof insertResponse>[1]): Promise<void> {
+  try {
+    await insertResponse(deps.db, doc);
+  } catch {
+    deps.log?.(`response insert failed for person ${String(doc.personId)}`);
   }
 }
 
@@ -236,7 +248,7 @@ async function admitOrQueue(
   if (viewer) await recordClaimedLogin(deps.db, personId, viewer.login);
 
   const vouched = Boolean(viewer && (viewer.isOrgMember || viewer.isContributor));
-  if (!vouched) return ON_FILE_MSG; // upsertJoin already left them "pending"; nothing more to stamp
+  if (!vouched) return ON_FILE_MSG; // already "pending" — upsertJoin's $setOnInsert for a new person, promoteSurveyRespondent for an earlier /survey — nothing more to stamp
 
   // Bind the handle only here, behind the vouch. `githubLogin` is the record's
   // ownership key, so only a session GitHub vouches for may write it: a
@@ -294,7 +306,7 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
   if (!parsed.success) {
     return { status: 400, body: { success: false, message: parsed.error.issues[0]?.message ?? "Invalid request" } };
   }
-  const { email, name, answers: rawAnswers, placement } = parsed.data;
+  const { email, identity, answers: rawAnswers, placement } = parsed.data;
 
   // full /join: answers present → validate against the question list
   let profile: Profile | undefined;
@@ -304,6 +316,9 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
     const v = validateAnswers(QUESTIONS, JOIN_SECTIONS, rawAnswers);
     if (!v.ok) return { status: 400, body: { success: false, message: v.message } };
     answers = v.answers;
+    if (!identity) return { status: 400, body: { success: false, message: "Add your name and where you're based." } };
+    const affErr = affiliationError(identity, answers);
+    if (affErr) return { status: 400, body: { success: false, message: affErr } };
     profile = projectProfile(answers);
     wants = {
       newsletter: answers.wants_newsletter === "yes",
@@ -329,8 +344,18 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
   const existing = answers && profile ? await findPersonByEmail(deps.db, email) : null;
   const now = nowOf(deps);
   const { personId, newsletter } = answers && profile
-    ? await upsertJoin(deps.db, { email, name, answers, profile, wants, placement }, now)
+    ? await upsertJoin(deps.db, { email, identity, answers, profile, wants, placement }, now)
     : await upsertNewsletterSignup(deps.db, { email, placement }, now);
+
+  if (answers && profile && identity) {
+    // Unconditional: a row still carrying "survey" from an earlier /survey must
+    // reach the review queue like anyone else, and always issuing this same
+    // update (a no-op for every other status) keeps the round trips identical
+    // whatever is stored — no timing tell for an outside caller. Must land
+    // before admitOrQueue, so a vouched visitor's "auto" stamp below still wins.
+    await promoteSurveyRespondent(deps.db, personId, now);
+    await recordResponse(deps, { personId, source: "join", createdAt: now, identity, answers, profile });
+  }
 
   let pkgNote = "";
   // Reserved-domain addresses (walkthrough@example.com and friends) are stored like any
@@ -388,12 +413,21 @@ export async function handleJoin(rawBody: unknown, ip: string, deps: JoinDeps): 
 
 export async function handleSurvey(rawBody: unknown, ip: string, deps: JoinDeps): Promise<JoinResult> {
   const parsed = surveyBodySchema.safeParse(rawBody);
-  if (!parsed.success) return { status: 400, body: { success: false, message: "Invalid request" } };
+  if (!parsed.success) {
+    return { status: 400, body: { success: false, message: parsed.error.issues[0]?.message ?? "Invalid request" } };
+  }
   const v = validateAnswers(QUESTIONS, SURVEY_SECTIONS, parsed.data.answers);
   if (!v.ok) return { status: 400, body: { success: false, message: v.message } };
+  const affErr = affiliationError(parsed.data.identity, v.answers);
+  if (affErr) return { status: 400, body: { success: false, message: affErr } };
   const lim = await limited(deps, `survey:${ip}`, SURVEY_LIMIT);
   if (lim) return lim;
-  await recordSurvey(deps.db, { answers: v.answers, profile: projectProfile(v.answers) }, nowOf(deps));
+  const now = nowOf(deps);
+  const profile = projectProfile(v.answers);
+  const { email, identity } = parsed.data;
+  const { personId } = await upsertSurvey(deps.db, { email, identity, answers: v.answers, profile }, now);
+  await recordResponse(deps, { personId, source: "survey", createdAt: now, identity, answers: v.answers, profile });
+  // one fixed reply, whether the email was new or known (membership-oracle rule)
   return { status: 200, body: { success: true, message: "Thanks — that helps us decide what to build next." } };
 }
 

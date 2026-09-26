@@ -2,6 +2,7 @@ import type { Db } from "mongodb";
 import { createInvite, inviteUrl } from "./discord.ts";
 import { discordInviteEmail, sendEmail } from "./email.ts";
 import { subscribeToResend } from "./newsletter.ts";
+import { deleteResponsesForPerson } from "./responses.ts";
 import { deleteStickerRequestsForPerson } from "./stickers.ts";
 import { contactProperties } from "./survey.ts";
 import {
@@ -298,6 +299,12 @@ export async function removePerson(deps: ReviewDeps, personId: PersonId): Promis
     return { ok: false, message: "Couldn't remove their sticker request — nothing was deleted. Try again." };
   }
   try {
+    await deleteResponsesForPerson(deps.db, personId);
+  } catch {
+    deps.log?.(`response delete failed for person ${String(personId)}`);
+    return { ok: false, message: "Couldn't remove their survey responses, so the record was kept — try again." };
+  }
+  try {
     await deps.db.collection("packages").deleteMany({ submittedBy: personId, published: { $ne: true } });
   } catch {
     deps.log?.(`package delete failed for person ${String(personId)}`);
@@ -311,6 +318,6 @@ export async function removePerson(deps: ReviewDeps, personId: PersonId): Promis
     return { ok: false, message: "Couldn't delete that record — try again." };
   }
   return gone
-    ? { ok: true, message: "Deleted, with any sticker request and pending package. Remove the Resend contact by hand if they had one." }
+    ? { ok: true, message: "Deleted, with their responses, any sticker request and pending package. Remove the Resend contact by hand if they had one." }
     : { ok: false, message: "No such person." };
 }

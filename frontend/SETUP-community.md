@@ -100,10 +100,53 @@ Then build Segments in Resend (e.g. `languages contains R`) to target Broadcasts
 
 ## Survey
 
-`/survey` is anonymous (no email, no name): each submission is a `people` row with
-`status: "survey"`. `/join` asks the same questions plus the wants and an email. Both
-validate against `content/survey.ts`; a question hidden by `showIf` is never accepted.
-Rate limits: 10/IP/hour for the survey, 5/IP/hour for join.
+`/survey` is identified since 2026-09-25 — it requires an email and an identity, the
+same as a full `/join` — and each submission upserts a `people` row by email:
+`status: "survey"` until (if ever) that person also completes `/join`, which promotes
+them to `"pending"` (see Identity and responses, below). `/join` asks the same questions
+plus the wants section. Both validate against `content/survey.ts`; a question hidden by
+`showIf` is never accepted. Rate limits: 10/IP/hour for the survey, 5/IP/hour for join.
+
+## Identity and responses
+
+Both a full `/join` and `/survey` collect identity through one schema
+(`lib/identity.ts`): name (required), location (required — country, plus state/province
+for the US, Canada or Australia, since those are the only entries `content/geo.ts` gives
+a subdivision list for; city is always optional), and, optionally, up to 3 affiliations
+(type + org required, title optional) and social handles/a website. Answering "industry"
+or "researcher" to the role question makes at least one affiliation required
+(`affiliationError`). The footer newsletter-only signup sends no `answers` and no
+`identity` at all — `joinBodySchema` requires `identity` only when `answers` is present,
+so that shape is untouched.
+
+The contact notice both forms show next to the email field is fixed text
+(`components/site/IdentityFields.tsx`'s `ContactFields`): "We'll use this to reply to
+you, and may contact you about SportsDataverse collaborations, research, or your
+answers. Ask us to stop any time: `sportsdataverse@gmail.com`." — that's the only
+consent language a visitor sees before submitting.
+
+Every questionnaire submission — a full `/join`, or a `/survey` — appends a document to
+the `responses` collection (`lib/responses.ts`): one per submission, `source: "join" |
+"survey"`, never overwritten. The `people` row (`lib/people.ts`) keeps only the LATEST
+identity and answers; `responses` is the full history. The email in a submission is
+never verified, so a resubmission under someone else's address overwrites their stored
+identity on `people` — the newest submission wins there, but the earlier one is still in
+`responses`. A `responses` write failure is logged and never fails the request
+(`recordResponse` in `lib/join.ts`); the person write already stood by then.
+
+A `/survey` respondent who later completes `/join` is promoted from `status: "survey"`
+to `"pending"` (`promoteSurveyRespondent`), so a Discord request made through that later
+`/join` reaches the review queue like anyone else's.
+
+The `/platform/people` review queue shows a requester's affiliations and social handles,
+labeled self-reported (`lib/peopleRow.ts`) — but only on a row currently `status:
+"pending"` with `wants.discord: true`, i.e. only while a member is actually being asked
+to vouch for them. Approved, declined, auto-admitted, or never-asked-for-Discord rows
+show neither, in every view (Queue/Unsynced/All alike). No view ever shows a person's
+location or their other answers.
+
+PR 2 adds an admin browser for full identity and `responses`; until then that data
+exists only in Mongo.
 
 ## Discord admission
 
@@ -167,7 +210,10 @@ above):
   anyone who didn't ask for the newsletter, and anyone who already unsubscribed. Under single
   opt-in (`RESEND_FROM` unset) no `pending` marker is ever written, so those rows sync
   normally — the form tick is the consent.
-- **All** — everyone, for finding a specific person. "Delete" is the one **admin-only**
+- **All** — for a member, everyone who asked for Discord (`wants.discord: true`, any status —
+  pending, approved, declined or auto); a survey-only or newsletter-only respondent's name and
+  email are admin-only and never appear here for a member. An admin's "All" is unfiltered — every
+  person, whatever they asked for (`peopleViewFilter`, `lib/peopleRow.ts`). "Delete" is the one **admin-only**
   action — every other one is reversible by a reviewer, erasing the record is not. It erases
   the Mongo record for a removal request, and first any package the person submitted that is
   not yet published (if that fails, the record is kept, so Delete can simply be retried); a

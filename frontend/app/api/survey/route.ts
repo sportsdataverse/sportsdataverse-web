@@ -3,13 +3,14 @@ import { connectToDatabase } from "@lib/mongodb";
 import { handleSurvey } from "@lib/join";
 import { ensurePeopleIndexes } from "@lib/people";
 import { ensureRateLimitIndex } from "@lib/rateLimit";
+import { ensureResponseIndexes } from "@lib/responses";
 
 let indexesReady: Promise<void> | null = null;
 
-/** Anonymous questionnaire: no auth, no email, rate-limited per IP inside handleSurvey. */
+/** Identified questionnaire (name + email since 2026-09-25): no auth, rate-limited per IP inside handleSurvey. */
 export async function POST(req: Request) {
   const { db } = await connectToDatabase();
-  indexesReady ??= Promise.all([ensurePeopleIndexes(db), ensureRateLimitIndex(db)])
+  indexesReady ??= Promise.all([ensurePeopleIndexes(db), ensureRateLimitIndex(db), ensureResponseIndexes(db)])
     .then(() => undefined)
     .catch((e) => { indexesReady = null; throw e; });
   await indexesReady;

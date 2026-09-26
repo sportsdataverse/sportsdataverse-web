@@ -1,5 +1,6 @@
 import { ObjectId, type Db } from "mongodb";
-import type { Answers } from "../content/survey.ts";
+import { QUESTIONS, SURVEY_SECTIONS, type Answers } from "../content/survey.ts";
+import type { Affiliation, Identity, Location, Socials } from "./identity.ts";
 import type { Profile } from "./survey.ts";
 
 /**
@@ -19,10 +20,19 @@ export type PersonDoc = {
    *  proof. Display it as unverified, and never compare against it. */
   claimedGithubLogin?: string;
   name?: string;
+  /** latest submission's location; never a mailing address (see lib/stickers.ts) */
+  location?: Location;
+  /** latest submission's socials, normalized handles (lib/identity.ts) */
+  socials?: Socials;
+  /** latest submission's affiliations, at most 3 */
+  affiliations?: Affiliation[];
+  lastSubmittedAt?: Date;
   profile?: Profile; // typed projection of the core answers — aggregations key on this
   answers?: Answers; // every answered question by id, incl. conditional follow-ups
   wants: { discord: boolean; newsletter: boolean; stickers: boolean; package: boolean };
-  // pending = not yet reviewed (the Discord queue filters on wants.discord too); survey = anonymous respondent
+  // pending = not yet reviewed (the Discord queue filters on wants.discord too);
+  // survey = a /survey respondent who has not since /joined (legacy rows with no
+  // email are the only ones that stay anonymous — see upsertSurvey)
   status: "pending" | "approved" | "declined" | "auto" | "survey";
   signup?: { placement: string };
   // unsubscribed: the Resend contact exists but opted out; we never flip it from this form.
@@ -114,28 +124,23 @@ export async function markNewsletterSkipped(db: Db, personId: PersonId, reason: 
   await people(db).updateOne({ _id: personId }, { $set: { newsletter: { skipped: reason } } });
 }
 
-export async function recordSurvey(
-  db: Db,
-  input: { answers: Answers; profile: Profile },
-  now: Date = new Date()
-): Promise<{ personId: PersonId }> {
-  const doc = {
-    answers: input.answers,
-    profile: input.profile,
-    wants: { discord: false, newsletter: false, stickers: false, package: false },
-    status: "survey" as const,
-    createdAt: now,
-    updatedAt: now,
-  };
-  const res = await people(db).insertOne(doc as unknown as PersonDoc);
-  return { personId: res.insertedId };
+/** The latest submission wins outright: optional parts it left out are removed,
+ *  not kept from an older one. History lives in `responses`. */
+function identityUpdate(identity: Identity, now: Date): { $set: Record<string, unknown>; $unset: Record<string, ""> } {
+  const $set: Record<string, unknown> = { name: identity.name, location: identity.location, lastSubmittedAt: now };
+  const $unset: Record<string, ""> = {};
+  if (identity.socials) $set.socials = identity.socials;
+  else $unset.socials = "";
+  if (identity.affiliations) $set.affiliations = identity.affiliations;
+  else $unset.affiliations = "";
+  return { $set, $unset };
 }
 
 export async function upsertJoin(
   db: Db,
   input: {
     email: string;
-    name?: string;
+    identity?: Identity;
     answers: Answers;
     profile: Profile;
     wants: { newsletter: boolean; discord: boolean; package?: boolean; stickers?: boolean };
@@ -143,6 +148,7 @@ export async function upsertJoin(
   },
   now: Date = new Date()
 ): Promise<{ personId: PersonId; created: boolean; newsletter: PersonDoc["newsletter"] | undefined }> {
+  const id = input.identity ? identityUpdate(input.identity, now) : { $set: {}, $unset: {} };
   const res = await people(db).findOneAndUpdate(
     { email: input.email },
     {
@@ -154,8 +160,9 @@ export async function upsertJoin(
         "wants.package": input.wants.package ?? false,
         "wants.stickers": input.wants.stickers ?? false,
         updatedAt: now,
-        ...(input.name ? { name: input.name } : {}),
+        ...id.$set,
       },
+      ...(Object.keys(id.$unset).length ? { $unset: id.$unset } : {}),
       $setOnInsert: {
         email: input.email,
         status: "pending",
@@ -167,6 +174,60 @@ export async function upsertJoin(
   );
   if (!res.value) throw new Error("people upsert returned no document");
   return { personId: res.value._id, created: Boolean(res.lastErrorObject?.upserted), newsletter: res.value.newsletter };
+}
+
+/**
+ * /survey, identified since 2026-09-25: find-or-create by email. Writes ONLY
+ * identity and the survey's own questions — never `wants`, `status`,
+ * `newsletter`, `discord`, stickers or packages, so a survey can never undo a
+ * /join request. Each survey question is set when answered and unset when not
+ * (a follow-up hidden this time must not keep last time's answer); /join-only
+ * answers (the wants section) are left alone. Legacy anonymous rows have no
+ * email, so the email filter can never match one.
+ */
+export async function upsertSurvey(
+  db: Db,
+  input: { email: string; identity: Identity; answers: Answers; profile: Profile },
+  now: Date = new Date()
+): Promise<{ personId: PersonId; created: boolean }> {
+  const { $set, $unset } = identityUpdate(input.identity, now);
+  for (const q of QUESTIONS) {
+    if (!SURVEY_SECTIONS.includes(q.section)) continue;
+    if (q.id in input.answers) $set[`answers.${q.id}`] = input.answers[q.id];
+    else $unset[`answers.${q.id}`] = "";
+  }
+  $set.profile = input.profile;
+  $set.updatedAt = now;
+  const res = await people(db).findOneAndUpdate(
+    { email: input.email },
+    {
+      $set,
+      ...(Object.keys($unset).length ? { $unset } : {}),
+      $setOnInsert: {
+        email: input.email,
+        status: "survey",
+        createdAt: now,
+        wants: { discord: false, newsletter: false, stickers: false, package: false },
+      },
+    },
+    { upsert: true, returnDocument: "after", includeResultMetadata: true }
+  );
+  if (!res.value) throw new Error("people upsert returned no document");
+  return { personId: res.value._id, created: Boolean(res.lastErrorObject?.upserted) };
+}
+
+/**
+ * A /survey respondent who later fills out /join must enter the review queue
+ * like anyone else — upsertJoin only ever sets `status` in $setOnInsert, so a
+ * row that already exists (as "survey") would otherwise keep that status
+ * forever, and the queue (status "pending" + wants.discord) would never list
+ * them. Called unconditionally on every questionnaire /join, whatever the
+ * stored status: the filter (`status: "survey"`) makes it a no-op for anyone
+ * not in that state, and issuing the same update every time keeps the DB
+ * round trips identical regardless of what is stored — no new timing signal.
+ */
+export async function promoteSurveyRespondent(db: Db, personId: PersonId, now: Date = new Date()): Promise<void> {
+  await people(db).updateOne({ _id: personId, status: "survey" }, { $set: { status: "pending", updatedAt: now } });
 }
 
 export async function markNewsletterPending(db: Db, personId: PersonId, now: Date = new Date()): Promise<void> {

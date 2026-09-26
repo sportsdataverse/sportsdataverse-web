@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { joinSchema, isReservedEmail } from '../lib/joinSchema.ts';
 
-test('a full /join body with answers and a name parses, trimming the name', () => {
-  const r = joinSchema.safeParse({ email: 'a@b.co', answers: { role: 'x' }, name: ' Ann ' });
+test('a full /join body with answers and an identity parses', () => {
+  const r = joinSchema.safeParse({ email: 'a@b.co', answers: { role: 'x' }, identity: { name: 'Ann', location: { country: 'US', region: 'TX' } } });
   assert.equal(r.success, true);
-  assert.equal(r.success && r.data.name, 'Ann');
+  assert.equal(r.success && r.data.identity?.name, 'Ann');
 });
 
 test('normalizes the email and defaults wants.newsletter to true', () => {
