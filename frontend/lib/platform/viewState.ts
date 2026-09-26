@@ -49,12 +49,14 @@ function splitKey(key: string): { column: string; op: Suffix } | null {
   return COLUMN.test(column) && SUFFIXES.includes(op) ? { column, op } : null;
 }
 
+const MAX_LEN = 200; // uniform cap for every parsed token/value; sql keeps its own 10k cap
+
 function readFilters(sp: URLSearchParams, keep: (key: string) => string | null): ApiFilter[] {
   const out: ApiFilter[] = [];
   sp.forEach((value, key) => {
     const bare = keep(key);
     const parsed = bare === null ? null : splitKey(bare);
-    if (parsed) out.push({ ...parsed, value });
+    if (parsed) out.push({ ...parsed, value: value.slice(0, MAX_LEN) });
   });
   return out;
 }
@@ -73,7 +75,10 @@ export type ExploreView = { tag: string; table: string; season: string; filters:
 const EXPLORE_LIMIT = 100;
 
 export function parseExploreView(sp: URLSearchParams): ExploreView {
-  const tok = (k: string) => (TOKEN.test(sp.get(k) ?? "") ? (sp.get(k) as string) : "");
+  const tok = (k: string) => {
+    const v = (sp.get(k) ?? "").slice(0, MAX_LEN);
+    return TOKEN.test(v) ? v : "";
+  };
   return {
     tag: tok("tag"),
     table: tok("table"),
@@ -101,13 +106,16 @@ export type QueryView = { schema: string; table: string; filters: ApiFilter[]; s
 const QUERY_RESERVED = new Set(["schema", "table", "select", "order", "limit"]);
 
 export function parseQueryView(sp: URLSearchParams, schemas: string[]): QueryView {
-  const table = sp.get("table") ?? "";
-  const order = sp.get("order") ?? "";
+  const table = (sp.get("table") ?? "").slice(0, MAX_LEN);
+  const order = (sp.get("order") ?? "").slice(0, MAX_LEN);
   return {
-    schema: pick(sp.get("schema"), schemas, schemas[0] ?? ""),
+    schema: pick((sp.get("schema") ?? "").slice(0, MAX_LEN), schemas, schemas[0] ?? ""),
     table: TABLE.test(table) ? table : "",
     filters: readFilters(sp, (k) => (QUERY_RESERVED.has(k) || k.startsWith("grid.") ? null : k)),
-    select: (sp.get("select") ?? "").split(",").filter((c) => COLUMN.test(c)),
+    select: (sp.get("select") ?? "")
+      .split(",")
+      .map((c) => c.slice(0, MAX_LEN))
+      .filter((c) => COLUMN.test(c)),
     order: COLUMN.test(order.replace(/^-/, "")) ? order : "",
     limit: clamp(Number(sp.get("limit") ?? 100), 1, 10_000, 100),
   };

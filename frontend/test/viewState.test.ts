@@ -30,6 +30,11 @@ test('Explore drops defaults and sanitizes a hostile URL', () => {
   assert.deepEqual(v.filters, [{ column: 'season', op: '', value: '2024' }]); // unknown operator dropped
 });
 
+test('a quote in a filter key never becomes a column: COLUMN forbids it', () => {
+  const v = parseExploreView(sp('w.bad"col=1'));
+  assert.deepEqual(v.filters, []);
+});
+
 test('Explore SQL ops and URL suffixes are inverse maps', () => {
   for (const [suffix, op] of Object.entries(SQL_OP_BY_SUFFIX)) assert.equal(SUFFIX_BY_SQL_OP[op], suffix);
   assert.equal(SQL_OP_BY_SUFFIX.__like, 'contains');
@@ -60,6 +65,26 @@ test('Win probability round-trips sport, season year and game id', () => {
   assert.deepEqual(parseWpView(sp('sport=nfl&season=2024&game=2024_01_BAL_KC')), v);
   assert.deepEqual(parseWpView(sp('sport=xfl&season=24&game=1;drop')), { sport: 'cfb', season: '', game: '' });
   assert.equal(wpViewParams({ sport: 'cfb', season: '', game: '' }).toString(), '');
+});
+
+test('every parsed token/value is capped at 200 chars; sql keeps its own 10k cap', () => {
+  const long = 'a'.repeat(50_000);
+  const e = parseExploreView(sp(`tag=${long}&table=${long}&season=${long}&w.week=${long}&sql=${long}`));
+  assert.equal(e.tag.length, 200);
+  assert.equal(e.table.length, 200);
+  assert.equal(e.season.length, 200);
+  assert.equal(e.filters.length, 1);
+  assert.equal(e.filters[0]?.value.length, 200);
+  assert.equal(e.sql.length, 10_000);
+
+  const q = parseQueryView(
+    sp(`schema=cfb&table=${long}&order=${long}&select=${long},${long}&week=${long}`),
+    ['cfb']
+  );
+  assert.equal(q.table.length, 200);
+  assert.equal(q.order.length, 200);
+  assert.deepEqual(q.select.map((c) => c.length), [200, 200]);
+  assert.equal(q.filters[0]?.value.length, 200);
 });
 
 test('Trends and Lookups round-trip and fall back to the first sport', () => {
