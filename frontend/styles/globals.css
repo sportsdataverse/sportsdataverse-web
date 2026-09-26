@@ -128,6 +128,14 @@
   --border: #d8e0eb;
   --input: #cdd7e4;
   --ring: #0b84c4;
+  /* chart categorical slots (DESIGN.md "Chart colour"); validated in this order */
+  --chart-cat-1: #2a78d6;
+  --chart-cat-2: #eb6834;
+  --chart-cat-3: #1baf7a;
+  --chart-cat-4: #4a3aa7;
+  --chart-cat-5: #e87ba4;
+  --chart-cat-6: #008300;
+  --chart-div-mid: #e3e8ef;
 }
 .dark {
   --background: #0b1220;
@@ -149,6 +157,13 @@
   --border: #223350;
   --input: #2a3c5e;
   --ring: #4fb6e8;
+  --chart-cat-1: #3987e5;
+  --chart-cat-2: #d95926;
+  --chart-cat-3: #199e70;
+  --chart-cat-4: #9085e9;
+  --chart-cat-5: #d55181;
+  --chart-cat-6: #008300;
+  --chart-div-mid: #2b3548;
   /* amber reads fine as text on ink — flip the eyebrow to the graphic amber */
   --color-score-ink: #ffb43c;
 }
@@ -183,6 +198,30 @@
   --color-darkSecondary: var(--card);
   --color-darkWhite: var(--background);
   --color-dark-3: var(--muted-foreground);
+}
+
+/* Chart slots (DESIGN.md "Chart colour"). `static`: always emitted, because
+   charts build these names at runtime (chartVar) where Tailwind's source scan
+   cannot see them. `inline`: utilities resolve the var() at the use site. */
+@theme static inline {
+  --color-chart-cat-1: var(--chart-cat-1);
+  --color-chart-cat-2: var(--chart-cat-2);
+  --color-chart-cat-3: var(--chart-cat-3);
+  --color-chart-cat-4: var(--chart-cat-4);
+  --color-chart-cat-5: var(--chart-cat-5);
+  --color-chart-cat-6: var(--chart-cat-6);
+  --color-chart-div-neg-3: var(--destructive);
+  --color-chart-div-neg-2: color-mix(in oklab, var(--destructive) 66%, var(--chart-div-mid));
+  --color-chart-div-neg-1: color-mix(in oklab, var(--destructive) 33%, var(--chart-div-mid));
+  --color-chart-div-mid: var(--chart-div-mid);
+  --color-chart-div-pos-1: color-mix(in oklab, var(--primary) 33%, var(--chart-div-mid));
+  --color-chart-div-pos-2: color-mix(in oklab, var(--primary) 66%, var(--chart-div-mid));
+  --color-chart-div-pos-3: var(--primary);
+  --color-chart-seq-1: color-mix(in oklab, var(--primary) 20%, var(--card));
+  --color-chart-seq-2: color-mix(in oklab, var(--primary) 40%, var(--card));
+  --color-chart-seq-3: color-mix(in oklab, var(--primary) 60%, var(--card));
+  --color-chart-seq-4: color-mix(in oklab, var(--primary) 80%, var(--card));
+  --color-chart-seq-5: var(--primary);
 }
 
 @layer base {
