@@ -51,6 +51,15 @@ const countryName = (code: string): string => {
 const sourceDim = dimension("source");
 const sourceLabel = (s: string): string => (sourceDim ? labelOf(sourceDim, s) : s);
 
+const regionDim = dimension("region");
+/** Same composite-key lookup every other region display in this feature uses
+ *  (@lib/community's "region" dimension keys its labels on "<country>:<region>") —
+ *  never show the raw stored code ("TX") on its own. */
+function regionName(country: string, region: string | undefined): string | null {
+  if (!region) return null;
+  return regionDim ? labelOf(regionDim, `${country}:${region}`) : region;
+}
+
 const WANTS_LABELS: [keyof Wants, string][] = [
   ["discord", "Discord"],
   ["newsletter", "Newsletter"],
@@ -71,7 +80,9 @@ function IdentityFields({ identity }: { identity: Record<string, unknown> }) {
   const socials = identity.socials as Record<string, string> | undefined;
   const affiliations = identity.affiliations as Affiliation[] | undefined;
   const locationText = location
-    ? [location.country ? countryName(location.country) : null, location.region, location.city].filter(Boolean).join(", ")
+    ? [location.country ? countryName(location.country) : null, regionName(location.country, location.region), location.city]
+        .filter(Boolean)
+        .join(", ")
     : null;
   const rows: [string, string][] = [
     ...(name ? [["Name", name] as [string, string]] : []),
@@ -198,7 +209,11 @@ export default function PersonClient({ id }: { id: string }) {
                 <dt className="text-xs uppercase tracking-wide text-muted-foreground">Location</dt>
                 <dd className="mt-0.5">
                   {data.person.location
-                    ? [countryName(data.person.location.country), data.person.location.region, data.person.location.city]
+                    ? [
+                        countryName(data.person.location.country),
+                        regionName(data.person.location.country, data.person.location.region),
+                        data.person.location.city,
+                      ]
                         .filter(Boolean)
                         .join(", ")
                     : "—"}

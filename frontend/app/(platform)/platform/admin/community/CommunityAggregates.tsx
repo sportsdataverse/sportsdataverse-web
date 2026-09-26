@@ -26,9 +26,11 @@ function CrossTabTable({ crossTab, xDim, yDim }: { crossTab: CrossTab; xDim: Dim
       <table className="w-full text-left font-inter text-sm">
         <thead className="bg-muted text-xs uppercase text-muted-foreground">
           <tr>
-            <th className="px-4 py-2">{xDim.label}</th>
+            <th scope="col" className="px-4 py-2">
+              {xDim.label}
+            </th>
             {crossTab.y.map((yv) => (
-              <th key={yv} className="px-4 py-2">
+              <th key={yv} scope="col" className="px-4 py-2">
                 {cellLabel(yDim, yv)}
               </th>
             ))}
@@ -37,7 +39,9 @@ function CrossTabTable({ crossTab, xDim, yDim }: { crossTab: CrossTab; xDim: Dim
         <tbody>
           {crossTab.x.map((xv) => (
             <tr key={xv} className="border-t border-border">
-              <td className="px-4 py-2 font-medium">{cellLabel(xDim, xv)}</td>
+              <th scope="row" className="px-4 py-2 text-left font-medium">
+                {cellLabel(xDim, xv)}
+              </th>
               {crossTab.y.map((yv) => {
                 const n = crossTab.cells[xv]?.[yv] ?? 0;
                 return (
