@@ -31,10 +31,13 @@ export const joinBodySchema = z.object({
 });
 export type JoinBody = z.infer<typeof joinBodySchema>;
 
-/** /survey is identified since 2026-09-25: email and identity are required. */
+/** /survey is identified since 2026-09-25: email and identity are required.
+ *  identity is optional here so handleSurvey can say what is missing, the
+ *  same as joinBodySchema does — a bare `identity: identitySchema` only ever
+ *  produces zod's generic "Required". */
 export const surveyBodySchema = z.object({
   email: emailSchema,
-  identity: identitySchema,
+  identity: identitySchema.optional(),
   answers: z.record(z.unknown()),
 });
 

@@ -1311,6 +1311,15 @@ test('/survey now requires an email and identity', async () => {
   assert.equal(dump('people').length, 0);
 });
 
+test('/survey without an identity says what is missing (an email alone is not enough)', async () => {
+  const { db, dump } = fakeDb();
+  const r = await handleSurvey({ email: 's@b.co', answers: S_ANSWERS }, '1.1.1.1', { db });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.message, "Add your name and where you're based.");
+  assert.equal(dump('people').length, 0);
+  assert.equal(dump('responses').length, 0);
+});
+
 test('/survey stores an identified person and a survey response', async () => {
   const { db, dump } = fakeDb();
   const r = await handleSurvey({ email: 'S@B.co', identity: IDENTITY, answers: S_ANSWERS }, '1.1.1.1', { db });

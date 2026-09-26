@@ -145,8 +145,59 @@ to vouch for them. Approved, declined, auto-admitted, or never-asked-for-Discord
 show neither, in every view (Queue/Unsynced/All alike). No view ever shows a person's
 location or their other answers.
 
-PR 2 adds an admin browser for full identity and `responses`; until then that data
-exists only in Mongo.
+PR 2 adds an admin browser for full identity and `responses` — see the next section.
+
+## Community browser (admins)
+
+`/platform/admin/community` — **admin-only**, behind the same `admin` role gate as
+Keys/Errors/Traffic (`app/(platform)/platform/admin/layout.tsx`), not the `/platform/people`
+review queue any org member can open. It is the one place full identity (name, email,
+location, socials, affiliations) and a person's whole `responses` history are shown outside
+Mongo itself, so it needs the stronger gate the review queue doesn't: that queue only ever
+shows self-reported affiliations and socials, and only on a row awaiting a Discord decision
+(see above). Every route under `app/api/platform/admin/community/**` calls `requireAdminApp`,
+and a source-scan test (`test/personDataReaders.test.ts`) fails the build if a person-data
+reader (`lib/communityData.ts`) is ever imported from anywhere else, or if a community admin
+route is missing that call.
+
+**Browsing.** The table filters by any question answer, affiliation type, country/state,
+latest submission source, what someone asked for, Discord status, whether they gave an email
+at all, whether the address is a reserved test domain, and do-not-contact — plus a text
+search (name, email, city, affiliation org, social handles) and a submission-date range.
+Every control writes the URL, so a filtered view is a shareable link. Below the table,
+**aggregates** show a count per option for every one of those same dimensions, and picking
+two dimensions turns that into a **cross-tab** (counts for each pair, e.g. role × sport).
+Both the aggregates and the cross-tab are admin-only and exist only here — never add either
+to `/platform/people`'s Population tab, which stays single-variable counts for exactly the
+privacy reason described in the Population section below.
+
+**The person page** (`/platform/admin/community/[id]`) shows one person's current identity
+and answers, a do-not-contact toggle, and every submission in their `responses` history,
+newest first, each showing the identity and answers as submitted that time (so a name or
+location change over time is visible, not just the latest). Someone who joined before PR 1
+kept no `responses` history at all — for them the page shows a single "before history was
+kept" entry built from what's on their `people` record, dated when they joined, so the page
+never renders empty for a legacy person.
+
+**Do-not-contact.** To honor a "please stop contacting me" email: find the person on the
+Community browser by their email (the search box), open their person page, and click "Mark
+do-not-contact". That excludes them from every future CSV export from that point on; it does
+not delete their record or their history, and it can be reversed from the same button. The
+flag only affects exports — if they're also on the newsletter, separately unsubscribe their
+Resend contact (or delete the record if they asked for that), or Resend keeps sending to them.
+Turning it on or off is both recorded in the `admin_audit` collection, so there is always a
+record of when and by whom.
+
+**Export.** The "Export to CSV" button on the browser exports whatever the current filters
+match. Left out of every export, always: anyone marked do-not-contact, anyone with no email
+on file (answered before names were collected, or an incomplete row), anyone who hasn't made
+an identified `/join` or `/survey` submission since the contact notice next to the email field
+was added on 2026-09-25 (a footer-only newsletter signup never saw it, and neither did a
+`/join` from before that date), anyone who has unsubscribed from the newsletter, and reserved
+test addresses (`example.com`, `.test`, …) — the same addresses every other Community feature
+treats as not-real. Every export is recorded in the `admin_audit` collection (who, when, the
+filters used — the search text itself redacted, since it can hold a name or email — and how
+many rows) — there is always a record of when an export happened and who ran it.
 
 ## Discord admission
 

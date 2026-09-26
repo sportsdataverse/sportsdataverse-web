@@ -418,6 +418,7 @@ export async function handleSurvey(rawBody: unknown, ip: string, deps: JoinDeps)
   }
   const v = validateAnswers(QUESTIONS, SURVEY_SECTIONS, parsed.data.answers);
   if (!v.ok) return { status: 400, body: { success: false, message: v.message } };
+  if (!parsed.data.identity) return { status: 400, body: { success: false, message: "Add your name and where you're based." } };
   const affErr = affiliationError(parsed.data.identity, v.answers);
   if (affErr) return { status: 400, body: { success: false, message: affErr } };
   const lim = await limited(deps, `survey:${ip}`, SURVEY_LIMIT);

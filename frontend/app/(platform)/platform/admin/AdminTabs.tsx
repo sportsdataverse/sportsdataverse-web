@@ -11,6 +11,7 @@ const TABS = [
   { href: "/platform/admin/errors", label: "Errors" },
   { href: "/platform/admin/site", label: "Site" },
   { href: "/platform/admin/stickers", label: "Stickers" },
+  { href: "/platform/admin/community", label: "Community" },
 ];
 
 export default function AdminTabs() {
