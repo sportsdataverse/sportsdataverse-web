@@ -37,6 +37,15 @@ test('loadCommunity: latest source and identity change from responses; legacy fa
   assert.equal(l.identityChanged, false);
 });
 
+test('personHistory returns no invite code and no newsletter record (the page uses neither)', async () => {
+  const { db, pat } = await seed();
+  await db.collection('people').updateOne({ _id: pat }, { $set: { newsletter: { resendContactId: 'contact_123', syncedAt: T('2026-09-21') } } });
+  const h = (await personHistory(db, pat))! as unknown as { person: Record<string, unknown> };
+  assert.equal('discord' in h.person, false);
+  assert.equal('newsletter' in h.person, false);
+  assert.ok(!JSON.stringify(h).includes('contact_123'));
+});
+
 test('personHistory: newest first, identity changes marked; a legacy person gets one implicit entry', async () => {
   const { db, pat, legacy } = await seed();
   const h = (await personHistory(db, pat))!;

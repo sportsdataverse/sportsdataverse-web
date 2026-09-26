@@ -116,8 +116,11 @@ export async function personHistory(db: Db, id: ObjectId): Promise<{ person: Com
         implicit: true,
         identityChanged: false,
       }];
+  // `newsletter` is loaded only so the list can decide exportability; its Resend
+  // contact id has no business in the person page's response
+  const { newsletter: _newsletter, ...shown } = p;
   const person: CommunityPerson = {
-    ...p,
+    ...shown,
     latestSource: rs[0]?.source ?? legacySource(p),
     identityChanged: history[0]?.identityChanged ?? false,
   };
