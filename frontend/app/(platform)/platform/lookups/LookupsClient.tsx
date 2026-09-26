@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import useSWR from "swr";
 import { Search } from "lucide-react";
 import { Button } from "@components/ui/button";
-import { LOOKUP_SPORTS } from "@content/lookups";
+import { LOOKUP_SPORTS, newestSeasonAsset, lookupStatus } from "@content/lookups";
 import type { LookupSport } from "@content/lookups";
 import type { QueryResult } from "@lib/platform/duckdb";
+import type { ReleaseAssetSummary } from "@lib/platform/github";
 
 /**
  * CFBD-style lookups: player search and team directory per sport, backed by
@@ -15,9 +17,16 @@ import type { QueryResult } from "@lib/platform/duckdb";
 
 const DATA_REPO = "sportsdataverse/sportsdataverse-data";
 
-function proxyUrl(sport: LookupSport): string {
-  return `${window.location.origin}/api/platform/datasets/file?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}&asset=${encodeURIComponent(sport.asset)}`;
+function proxyUrl(sport: LookupSport, asset: string): string {
+  return `${window.location.origin}/api/platform/datasets/file?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}&asset=${encodeURIComponent(asset)}`;
 }
+
+const assetsFetcher = async (url: string) => {
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.message || "Request failed");
+  return data.message as ReleaseAssetSummary[];
+};
 
 export default function LookupsClient() {
   const [sportKey, setSportKey] = useState(LOOKUP_SPORTS[0].key);
@@ -32,12 +41,31 @@ export default function LookupsClient() {
     [sportKey]
   );
 
+  // The newest season file in the release — rosters roll forward on their own.
+  const {
+    data: assets,
+    error: assetsError,
+    isLoading: assetsLoading,
+  } = useSWR(
+    `/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}`,
+    assetsFetcher
+  );
+  const asset = useMemo(
+    () => newestSeasonAsset((assets ?? []).map((a) => a.name), sport.assetPrefix),
+    [assets, sport]
+  );
+  const assetStatus = useMemo(
+    () => lookupStatus(sport.label, { loading: assetsLoading, error: !!assetsError, asset }),
+    [sport, assetsLoading, assetsError, asset]
+  );
+
   async function search() {
+    if (!asset) return;
     const { runQuery } = await import("@lib/platform/duckdb");
     setBusy(true);
     setError(null);
     try {
-      const source = `read_parquet('${proxyUrl(sport)}')`;
+      const source = `read_parquet('${proxyUrl(sport, asset)}')`;
       let sql: string;
       if (mode === "players") {
         const cols = [
@@ -114,7 +142,7 @@ export default function LookupsClient() {
       </div>
 
       <form
-        className="mb-6 flex max-w-xl gap-2"
+        className="mb-6 flex max-w-xl flex-wrap gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           void search();
@@ -128,10 +156,17 @@ export default function LookupsClient() {
             className="flex-1 rounded-md border border-input bg-card px-3 py-2 font-inter text-sm"
           />
         ) : null}
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" disabled={busy || !asset}>
           <Search className="mr-1 h-4 w-4" />
           {busy ? "Searching…" : mode === "players" ? "Search" : "List teams"}
         </Button>
+        {asset ? (
+          <span className="self-center font-mono text-xs text-muted-foreground">{asset}</span>
+        ) : assetStatus ? (
+          <span role="status" className="self-center font-inter text-xs text-muted-foreground">
+            {assetStatus}
+          </span>
+        ) : null}
       </form>
 
       {error ? (

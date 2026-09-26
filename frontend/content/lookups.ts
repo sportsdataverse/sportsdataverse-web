@@ -1,15 +1,17 @@
 /**
  * Player/team lookup config for /platform/lookups — which release asset backs
  * each sport's search and which columns to show. Column names verified against
- * the live parquet schemas (2026-07-12). The `asset` pins the current-season
- * file; roll it forward when a new season's rosters release lands.
+ * the live parquet schemas (2026-09-26). Each sport names its season-file
+ * prefix; the client reads the newest `<prefix><YYYY>.parquet` in the release,
+ * so a new season's rosters appear without a code change.
  */
 
 export type LookupSport = {
   key: string;
   label: string;
   tag: string;
-  asset: string;
+  /** Season asset prefix: `<prefix><YYYY>.parquet`. */
+  assetPrefix: string;
   /** Column searched with ILIKE. */
   nameCol: string;
   /** Columns shown in the results grid, in order. */
@@ -30,11 +32,11 @@ const HOOPS_COLUMNS = [
   { col: "athlete_id", label: "ESPN id" },
 ];
 
-const hoops = (key: string, label: string, tag: string, asset: string): LookupSport => ({
+const hoops = (key: string, label: string, tag: string): LookupSport => ({
   key,
   label,
   tag,
-  asset,
+  assetPrefix: "rosters_",
   nameCol: "full_name",
   columns: HOOPS_COLUMNS,
   headshotCol: "headshot_href",
@@ -42,15 +44,15 @@ const hoops = (key: string, label: string, tag: string, asset: string): LookupSp
 });
 
 export const LOOKUP_SPORTS: LookupSport[] = [
-  hoops("nba", "NBA", "espn_nba_rosters", "rosters_2026.parquet"),
-  hoops("wnba", "WNBA", "espn_wnba_rosters", "rosters_2026.parquet"),
-  hoops("mbb", "MBB", "espn_mens_college_basketball_rosters", "rosters_2026.parquet"),
-  hoops("wbb", "WBB", "espn_womens_college_basketball_rosters", "rosters_2026.parquet"),
+  hoops("nba", "NBA", "espn_nba_rosters"),
+  hoops("wnba", "WNBA", "espn_wnba_rosters"),
+  hoops("mbb", "MBB", "espn_mens_college_basketball_rosters"),
+  hoops("wbb", "WBB", "espn_womens_college_basketball_rosters"),
   {
     key: "cfb",
     label: "CFB",
     tag: "espn_cfb_rosters",
-    asset: "rosters_2024.parquet",
+    assetPrefix: "cfb_rosters_",
     nameCol: "display_name",
     columns: [
       { col: "display_name", label: "Player" },
@@ -68,7 +70,7 @@ export const LOOKUP_SPORTS: LookupSport[] = [
     key: "nfl",
     label: "NFL",
     tag: "nfl_rosters",
-    asset: "roster_2024.parquet",
+    assetPrefix: "roster_",
     nameCol: "full_name",
     columns: [
       { col: "full_name", label: "Player" },
@@ -84,3 +86,30 @@ export const LOOKUP_SPORTS: LookupSport[] = [
     teamCol: "team",
   },
 ];
+
+/** Newest `<prefix><YYYY>.parquet` among a release's asset names, or null. */
+export function newestSeasonAsset(names: string[], prefix: string): string | null {
+  const re = new RegExp(`^${prefix}(\\d{4})\\.parquet$`);
+  let best: { name: string; year: number } | null = null;
+  for (const name of names) {
+    const m = re.exec(name);
+    if (m && (!best || Number(m[1]) > best.year)) best = { name, year: Number(m[1]) };
+  }
+  return best?.name ?? null;
+}
+
+/**
+ * Status line for the asset lookup, so "still loading", "release has no
+ * matching file", and "the fetch failed" never collapse into the same
+ * silent blank. Returns null once `asset` resolves (nothing to show).
+ */
+export function lookupStatus(
+  label: string,
+  state: { loading: boolean; error: boolean; asset: string | null }
+): string | null {
+  // Error first: SWR re-sets isLoading on each retry while the error persists.
+  if (state.error) return `Couldn't list ${label} roster files.`;
+  if (state.loading) return `Loading ${label} rosters…`;
+  if (!state.asset) return `No roster file found for ${label}.`;
+  return null;
+}

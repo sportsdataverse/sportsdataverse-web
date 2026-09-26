@@ -281,18 +281,23 @@ export async function listReleaseAssets(repo: string, tag: string): Promise<Rele
 
 /**
  * A repo's releases — ALL of them (paginated up to `maxPages`×100; the org's
- * biggest repo, sportsdataverse-data, has ~150), sorted by newest-asset
+ * biggest repo, sportsdataverse-data, had 350 on 2026-09-26 — a 3-page cap
+ * silently dropped its 50 oldest, espn_cfb_pbp among them), sorted by newest-asset
  * activity rather than the API's created-at order: the org's data releases
  * are long-lived tags whose assets get re-uploaded, so creation order buries
  * the freshest data. Assets are truncated to the newest 20 per release;
  * `asset_count`/`total_size` always reflect the full set.
  */
-export async function listRepoReleases(repo: string, maxPages = 3): Promise<ReleaseSummary[]> {
+export async function listRepoReleases(repo: string, maxPages = 10): Promise<ReleaseSummary[]> {
   const releases: GhRelease[] = [];
+  // ponytail: 10-page cap; raise or paginate lazily when a repo nears 1,000 releases
   for (let page = 1; page <= maxPages; page++) {
     const batch = await ghGet<GhRelease[]>(`/repos/${repo}/releases?per_page=100&page=${page}`);
     releases.push(...batch);
     if (batch.length < 100) break;
+    if (page === maxPages) {
+      console.warn(`listRepoReleases: ${repo} filled all ${maxPages} pages; older releases were dropped`);
+    }
   }
   const newestAssetAt = (rel: GhRelease): string =>
     rel.assets.reduce(
