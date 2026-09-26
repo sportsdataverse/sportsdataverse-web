@@ -170,7 +170,7 @@ export function fakeDb() {
   const consumeFailure = (flag: { code?: number } | null, reset: () => void): void => {
     if (!flag) return;
     reset();
-    const err = new Error('Simulated error') as any;
+    const err = new Error('Simulated error') as Error & { code?: number };
     Object.assign(err, flag);
     throw err;
   };

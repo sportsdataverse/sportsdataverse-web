@@ -1,5 +1,5 @@
 import dns from 'dns';
-import { MongoClient, ServerApiVersion } from 'mongodb';
+import { MongoClient, ServerApiVersion, type Db } from 'mongodb';
 
 const MONGODB_URI = process.env.MONGODB_URI || ''
 const MONGODB_DB = process.env.DB_NAME || ''
@@ -26,8 +26,8 @@ if (!MONGODB_DB) {
   throw new Error('Define the MONGODB_DB environmental variable')
 }
 
-let cachedClient: any = null
-let cachedDb: any = null
+let cachedClient: MongoClient | null = null
+let cachedDb: Db | null = null
 
 export async function connectToDatabase() {
   // check the cached.
@@ -49,9 +49,9 @@ export async function connectToDatabase() {
   }
 
   // Connect to cluster
-  let client = new MongoClient(MONGODB_URI, opts)
+  const client = new MongoClient(MONGODB_URI, opts)
   await client.connect()
-  let db = client.db(MONGODB_DB)
+  const db = client.db(MONGODB_DB)
 
   // set cache
   cachedClient = client

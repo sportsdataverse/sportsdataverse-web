@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { auth } from "@lib/auth";
 import { connectToDatabase } from "@lib/mongodb";
 import ManageProjectsClient from "./ManageProjectsClient";
+import type { ProjectDoc } from "@lib/projectSchema";
 
 export const metadata: Metadata = { title: "Manage Projects" };
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export default async function ManageProjectsPage() {
     );
   }
 
-  let projects: any[] = [];
+  let projects: ProjectDoc[] = [];
   try {
     const { db } = await connectToDatabase();
     projects = JSON.parse(

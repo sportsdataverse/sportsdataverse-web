@@ -10,6 +10,7 @@ export default function useWindowLocation() {
   const pathname = usePathname();
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- window is unavailable during SSR; read after mount
     setCurrentURL(window.location.href);
   }, [pathname]);
 

@@ -75,7 +75,7 @@ export default function ResultsGrid({
   const [sort, setSort] = useState<Sort>(null);
   const [focus, setFocus] = useState<{ r: number; c: number }>({ r: 0, c: 0 });
   const [selectedRow, setSelectedRow] = useState<number | null>(null); // original index
-  const [order, setOrder] = useState<number[]>([]);
+  const [order, setOrder] = useState<number[]>(() => columns.map((_, i) => i));
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [heat, setHeat] = useState(true);
   const [density, setDensity] = useState(1);
@@ -83,12 +83,18 @@ export default function ResultsGrid({
   const scrollerRef = useRef<HTMLDivElement>(null);
   const filterInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  // Reset the grid's local UI state whenever `columns` changes (a new query result).
+  // Adjusted during render (React's documented pattern for "reset state when a prop
+  // changes") rather than in a useEffect, so there's no stale frame before the reset
+  // applies.
+  const [prevColumns, setPrevColumns] = useState(columns);
+  if (columns !== prevColumns) {
+    setPrevColumns(columns);
     setOrder(columns.map((_, i) => i));
     setFilters({});
     setSort(null);
     setSelectedRow(null);
-  }, [columns]);
+  }
 
   const colOrder = order.length === columns.length ? order : columns.map((_, i) => i);
 

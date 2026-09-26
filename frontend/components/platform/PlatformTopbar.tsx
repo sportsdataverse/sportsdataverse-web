@@ -43,6 +43,7 @@ export default function PlatformTopbar({
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- mount flag avoids a hydration mismatch on the theme icon
   useEffect(() => setMounted(true), []);
 
   return (
