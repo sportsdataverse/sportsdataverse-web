@@ -30,7 +30,9 @@ export function LocationFields({ value, onChange }: Props) {
   const regions = SUBDIVISIONS[value.country];
   return (
     <fieldset className="space-y-3">
-      <legend className="font-medium">Where are you based?</legend>
+      <legend className="font-medium">
+        Where are you based?<span aria-hidden className="text-muted-foreground"> *</span>
+      </legend>
       <div className="grid gap-3 sm:grid-cols-3">
         <select aria-label="Country" required className={selectClass} value={value.country}
           onChange={(e) => onChange(withCountry(value, e.target.value))}>
@@ -108,7 +110,9 @@ export function ContactFields({ value, onChange, email, onEmail }: Props & { ema
   const contactNoticeId = useId();
   return (
     <fieldset className="space-y-3">
-      <legend className="font-medium">Where can we reach you?</legend>
+      <legend className="font-medium">
+        Where can we reach you?<span aria-hidden className="text-muted-foreground"> *</span>
+      </legend>
       <div className="grid gap-3 sm:grid-cols-2">
         <Input aria-label="Your name" placeholder="Your name" autoComplete="name" required maxLength={80} {...REQ}
           value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} />

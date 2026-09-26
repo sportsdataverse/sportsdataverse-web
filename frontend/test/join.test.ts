@@ -81,6 +81,8 @@ test('429 after five signups from one address in an hour', async () => {
   assert.equal((await handleJoin({ email: 'u7@b.co' }, '8.8.8.8', deps)).status, 200);
 });
 
+const IDENTITY = { name: 'Pat Doe', location: { country: 'US', region: 'TX' } };
+
 const FULL = {
   role: 'developer', languages: ['R'], sports: ['CFB'],
   discoveredVia: 'twitter', updatesVia: ['github'], newsChannel: 'email',
@@ -388,8 +390,6 @@ const D_ANSWERS = {
   dataTypes: ['pbp'], packages_r: ['cfbfastR'],
   wants_newsletter: 'no', wants_discord: 'yes', wants_package: 'no', wants_stickers: 'no',
 };
-
-const IDENTITY = { name: 'Pat Doe', location: { country: 'US', region: 'TX' } };
 
 function discordFake() {
   const calls: string[] = [];
@@ -1287,6 +1287,24 @@ test('an industry or researcher role without an affiliation is refused', async (
   assert.equal(r.status, 400);
   assert.match((r.body as { message: string }).message, /^Affiliation: /);
   assert.equal(dump('people').length, 0);
+});
+
+test('identity and affiliation refusals never spend the per-IP rate limit: 5 refused, then a valid one still succeeds', async () => {
+  const { db, dump } = fakeDb();
+  const ip = '4.4.4.4';
+  const noIdentity = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS } as never, ip, { db, viewer: null });
+  assert.equal(noIdentity.status, 400);
+  const noAffiliation = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: { ...D_ANSWERS, role: 'industry' } } as never, ip, { db, viewer: null });
+  assert.equal(noAffiliation.status, 400);
+  for (let i = 0; i < 3; i++) {
+    const r = await handleJoin({ email: 'a@b.co', answers: D_ANSWERS } as never, ip, { db, viewer: null });
+    assert.equal(r.status, 400);
+  }
+  // JOIN_LIMIT is 5/hour — a 6th request from the same IP would 429 if any of
+  // the five refusals above had counted against it
+  const ok = await handleJoin({ email: 'a@b.co', identity: IDENTITY, answers: D_ANSWERS } as never, ip, { db, viewer: null });
+  assert.equal(ok.status, 200);
+  assert.equal(dump('people').length, 1, 'only the one valid submission created a person');
 });
 
 test('a failed response insert keeps the person and the reply unchanged', async () => {
