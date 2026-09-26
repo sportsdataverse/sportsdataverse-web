@@ -36,17 +36,17 @@ Newsletter signup becomes double opt-in once `RESEND_FROM` is set (e.g.
 Set `RESEND_FROM` only after the domain is verified in Resend → Domains, or confirmation
 mail cannot be sent and nobody can confirm. **`RESEND_FROM` was set in production on
 2026-09-25 10:44 UTC** — double opt-in is live: a signup gets a confirmation link, and the
-Resend contact is created only once it's clicked. Whether the sending domain is actually
-verified isn't something this file can confirm; if confirmation mail isn't arriving, check
-Resend → Domains.
+Resend contact is created only once it's clicked. The sending domain `sportsdataverse.org`
+was confirmed **verified** in Resend on 2026-09-25 (its DKIM record is at
+`resend._domainkey.sportsdataverse.org`, SPF and MX on `send.sportsdataverse.org`); if
+confirmation mail stops arriving, check Resend → Domains first.
 
 **Deploy order:**
-1. `npm run resend:properties` — needs a Resend key with **full access** (contacts need
-   write); not something this file can confirm has run, so re-run it if a Broadcast segment
-   or contact property looks missing.
+1. done 2026-09-25: `npm run resend:properties` created all six contact properties. It needs a
+   Resend key with **full access** — the site's own key is send-only and gets a 401 — and
+   re-running is safe (existing properties are reported, not recreated).
 2. deploy with `RESEND_FROM` unset — the state every deploy shipped in before step 5.
-3. verify the domain — check Resend → Domains; not something this file can see, so verify it
-   if it hasn't been done yet.
+3. done 2026-09-25: the domain shows **verified** in Resend.
 4. done: every `/join` Resend call now fires after the response is sent, via
    Next's `after()` (`JoinDeps.defer` in `frontend/lib/join.ts`, wired in
    `frontend/app/api/join/route.ts`) — including the **single opt-in** Resend
