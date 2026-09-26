@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { mutate as swrMutate } from "swr";
 import { Bookmark, Download, Play, Plus, X } from "lucide-react";
 import { timeAgo } from "@components/platform/widgets";
@@ -8,6 +8,14 @@ import { Button } from "@components/ui/button";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
 import type { QueryResult } from "@lib/platform/duckdb";
 import type { BookmarkDoc } from "@lib/platform/schemas";
+import { buildSql, type Filter } from "@lib/platform/exploreSql";
+import {
+  exploreViewParams,
+  SQL_OP_BY_SUFFIX,
+  SUFFIX_BY_SQL_OP,
+  type ExploreView,
+} from "@lib/platform/viewState";
+import useUrlMirror from "@hooks/useUrlMirror";
 
 /**
  * CFBD-exporter-style data exploration: pick a dataset (release tag) → pick
@@ -35,35 +43,11 @@ export type DatasetOption = { tag: string; sport: string; updated: string | null
 type ExploreProps = {
   datasets: DatasetOption[];
   error: string | null;
+  /** View state parsed from the URL (a shared link). */
+  initial: ExploreView;
 };
 
-type Filter = { column: string; op: string; value: string };
-
 const OPS = ["=", "!=", ">", ">=", "<", "<=", "contains"] as const;
-
-function sqlLiteral(value: string): string {
-  if (/^-?\d+(\.\d+)?$/.test(value.trim())) return value.trim();
-  return `'${value.replace(/'/g, "''")}'`;
-}
-
-function buildSql(source: string, filters: Filter[], limit: number): string {
-  const where = filters
-    .filter((f) => f.column && f.value !== "")
-    .map((f) =>
-      f.op === "contains"
-        ? `CAST("${f.column}" AS VARCHAR) ILIKE '%${f.value.replace(/'/g, "''")}%'`
-        : `"${f.column}" ${f.op} ${sqlLiteral(f.value)}`
-    )
-    .join("\n  AND ");
-  return [
-    `SELECT *`,
-    `FROM ${source}`,
-    where ? `WHERE ${where}` : null,
-    `LIMIT ${Math.max(1, limit)}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -72,14 +56,23 @@ const fetcher = async (url: string) => {
   return data.message as ReleaseAssetSummary[];
 };
 
-export default function ExploreClient({ datasets, error }: ExploreProps) {
-  const [tag, setTag] = useState<string>("");
+export default function ExploreClient({ datasets, error, initial }: ExploreProps) {
+  const initialFilters: Filter[] = initial.filters.map((f) => ({
+    column: f.column,
+    op: SQL_OP_BY_SUFFIX[f.op],
+    value: f.value,
+  }));
+  const [tag, setTag] = useState<string>(initial.tag);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [columns, setColumns] = useState<{ name: string; type: string }[]>([]);
-  const [filters, setFilters] = useState<Filter[]>([]);
-  const [limit, setLimit] = useState(100);
-  const [sql, setSql] = useState("");
-  const [sqlMode, setSqlMode] = useState(false);
+  const [filters, setFilters] = useState<Filter[]>(initialFilters);
+  const [limit, setLimit] = useState(initial.limit);
+  const [sql, setSql] = useState(initial.sql);
+  const [sqlMode, setSqlMode] = useState(Boolean(initial.sql));
+  // A shared link's filters / SQL, applied once its season file is selected.
+  const pending = useRef<{ filters: Filter[]; sql: string } | null>(
+    initial.tag ? { filters: initialFilters, sql: initial.sql } : null
+  );
   const [busy, setBusy] = useState<string | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
   const [result, setResult] = useState<QueryResult | null>(null);
@@ -175,8 +168,8 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
   );
 
   // --- table (stem) + partition (season) selection over the release assets --
-  const [stem, setStem] = useState("");
-  const [partition, setPartition] = useState("");
+  const [stem, setStem] = useState(initial.table);
+  const [partition, setPartition] = useState(initial.season);
 
   const parsed = useMemo(
     () =>
@@ -230,11 +223,34 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
     setPicked(new Set([selectedAsset]));
     setColumns([]);
     setResult(null);
+    if (pending.current?.sql) {
+      // A shared SQL-mode link: restore the statement; Run executes it.
+      setSqlMode(true);
+      setSql(pending.current.sql);
+      pending.current = null;
+      return;
+    }
     setSqlMode(false);
     setSql("");
   }, [selectedAsset, pendingBookmark]);
 
+  useUrlMirror(
+    exploreViewParams({
+      tag,
+      table: stem,
+      season: partition,
+      filters: sqlMode
+        ? []
+        : filters
+            .filter((f) => f.column && f.value !== "")
+            .map((f) => ({ column: f.column, op: SUFFIX_BY_SQL_OP[f.op] ?? "", value: f.value })),
+      limit,
+      sql: sqlMode ? sql : "",
+    })
+  );
+
   function selectTag(next: string) {
+    pending.current = null;
     setTag(next);
     setStem("");
     setPartition("");
@@ -288,8 +304,10 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
         setColumns(
           described.rows.map((r) => ({ name: r[nameIdx] ?? "", type: r[typeIdx] ?? "" }))
         );
-        setFilters([{ column: "", op: "=", value: "" }]);
-        const preview = await runQuery(buildSql(source, [], limit), 500);
+        const seed = pending.current?.filters ?? [];
+        pending.current = null;
+        setFilters(seed.length ? seed : [{ column: "", op: "=", value: "" }]);
+        const preview = await runQuery(buildSql(source, seed, limit), 500);
         if (!cancelled) setResult(preview);
       });
     })();
