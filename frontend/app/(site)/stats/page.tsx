@@ -72,10 +72,14 @@ export default async function StatsPage() {
             The warehouse
           </h2>
           <p className="font-mono text-xs text-muted-foreground">
-            {asOf ? `as of ${asOf} · data.sportsdataverse.org` : "live figures unavailable"}
+            {asOf
+              ? `as of ${asOf} · data.sportsdataverse.org`
+              : tags != null || pkgs != null
+                ? "warehouse heartbeat unavailable"
+                : "live figures unavailable"}
           </p>
         </div>
-        <div className="my-6 grid gap-5 xs:grid-cols-2 xl:grid-cols-3 xl:!grid-cols-5">
+        <div className="my-6 grid gap-5 xs:grid-cols-2 sm:!grid-cols-3 xl:!grid-cols-5">
           {tiles.map((tile) => (
             <StatsCard
               key={tile.title}

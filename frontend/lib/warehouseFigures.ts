@@ -1,9 +1,11 @@
 import { classifyReleaseTag } from "../content/platform.ts";
 
-/** The three heartbeat fields this page reads; never the full DbStatusDoc shape. */
+/** The heartbeat fields this page reads; never the full DbStatusDoc shape. */
 export type WarehouseStatus = {
+  ok?: boolean;
   row_estimate?: number;
   table_count?: number;
+  error?: string;
   collected_at: string;
 } | null;
 
@@ -57,14 +59,20 @@ export function warehouseFigures({ status, releaseTags, packages }: WarehouseInp
 
   const pkgs = packages != null ? formatCount(packages) : DASH;
 
+  // The heartbeat can report ok: false (a reachable source with nothing to say) yet
+  // still ship stale numbers. Only date the section when the heartbeat vouches for
+  // itself, or when it actually gave us the row/table figures those tiles show.
+  const heartbeatLive =
+    status?.ok === true || status?.row_estimate != null || status?.table_count != null;
+
   return {
     tiles: [
-      { title: "Rows of play-by-play & stats", value: rows },
+      { title: "Rows in the warehouse", value: rows },
       { title: "Tables in the warehouse", value: tables },
       { title: "Leagues in the warehouse", value: leagues },
       { title: "Datasets in the catalog", value: datasets },
       { title: "Open-source packages", value: pkgs },
     ],
-    asOf: status?.collected_at ? status.collected_at.slice(0, 10) : null,
+    asOf: heartbeatLive && status?.collected_at ? status.collected_at.slice(0, 10) : null,
   };
 }

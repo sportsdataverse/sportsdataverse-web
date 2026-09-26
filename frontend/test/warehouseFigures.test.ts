@@ -15,7 +15,7 @@ test('warehouseFigures with a live status, tags, and packages', () => {
     packages: 41,
   });
   const byTitle = Object.fromEntries(tiles.map((t) => [t.title, t.value]));
-  assert.equal(byTitle['Rows of play-by-play & stats'], '130M+');
+  assert.equal(byTitle['Rows in the warehouse'], '130M+');
   assert.equal(byTitle['Tables in the warehouse'], '516');
   assert.equal(byTitle['Leagues in the warehouse'], '2', 'other and the archived phf are excluded');
   assert.equal(byTitle['Datasets in the catalog'], '4');
@@ -30,7 +30,19 @@ test('a null status renders — for Rows and Tables, and asOf is null (never a s
     packages: 41,
   });
   const byTitle = Object.fromEntries(tiles.map((t) => [t.title, t.value]));
-  assert.equal(byTitle['Rows of play-by-play & stats'], '—');
+  assert.equal(byTitle['Rows in the warehouse'], '—');
+  assert.equal(byTitle['Tables in the warehouse'], '—');
+  assert.equal(asOf, null);
+});
+
+test('an ok:false heartbeat renders — for Rows and Tables, and asOf is null (never dated off a failed check)', () => {
+  const { tiles, asOf } = warehouseFigures({
+    status: { ok: false, error: 'connection refused', collected_at: '2026-09-26T08:00:00Z' },
+    releaseTags: ['espn_cfb_pbp'],
+    packages: 41,
+  });
+  const byTitle = Object.fromEntries(tiles.map((t) => [t.title, t.value]));
+  assert.equal(byTitle['Rows in the warehouse'], '—');
   assert.equal(byTitle['Tables in the warehouse'], '—');
   assert.equal(asOf, null);
 });
