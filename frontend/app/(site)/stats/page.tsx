@@ -27,7 +27,7 @@ async function packageCount(): Promise<number | null> {
     const { db } = await connectToDatabase();
     return await db
       .collection("packages")
-      .countDocuments({ ...PUBLIC_PACKAGE_FILTER, published: { $ne: false } });
+      .countDocuments(PUBLIC_PACKAGE_FILTER);
   } catch {
     return null;
   }
