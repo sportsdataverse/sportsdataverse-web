@@ -27,6 +27,8 @@ export type PersonDoc = {
   /** latest submission's affiliations, at most 3 */
   affiliations?: Affiliation[];
   lastSubmittedAt?: Date;
+  /** set by an admin when someone asks not to be contacted; excluded from every export (lib/communityData.ts) */
+  doNotContact?: { at: Date; by: string };
   profile?: Profile; // typed projection of the core answers — aggregations key on this
   answers?: Answers; // every answered question by id, incl. conditional follow-ups
   wants: { discord: boolean; newsletter: boolean; stickers: boolean; package: boolean };
