@@ -47,7 +47,7 @@ test('DESIGN.md lists every chart slot (extend the table first)', () => {
  * and returns the hex it declares for each theme, so doc and CSS can't drift.
  */
 function designMdHex(slot: string): { light: string; dark: string } | null {
-  const row = design.split('\n').find((l) => l.includes(`\`chart-${slot}\``));
+  const row = design.split('\n').find((l) => l.startsWith(`| \`chart-${slot}\` |`));
   if (!row) return null;
   const hexes = [...row.matchAll(/#[0-9a-f]{6}/gi)].map((m) => m[0].toLowerCase());
   return hexes.length >= 2 ? { light: hexes[0], dark: hexes[1] } : null;
@@ -56,7 +56,7 @@ function designMdHex(slot: string): { light: string; dark: string } | null {
 test("DESIGN.md's hex-valued chart slots match globals.css exactly (both themes)", () => {
   for (const sel of [':root', '.dark'] as const) {
     const b = block(sel);
-    for (const slot of CATEGORICAL) {
+    for (const slot of [...CATEGORICAL, 'div-mid']) {
       const fromDesign = designMdHex(slot);
       assert.ok(fromDesign, `DESIGN.md has no hex row for chart-${slot}`);
       const fromCss = b.match(new RegExp(`--chart-${slot}: (#[0-9a-f]{6});`))?.[1];
