@@ -92,3 +92,21 @@ test('sequential steps clamp t into five bins', () => {
   assert.deepEqual([-1, 0, 0.19, 0.2, 0.5, 0.99, 1, 7].map(sequentialSlot), ['seq-1', 'seq-1', 'seq-1', 'seq-2', 'seq-3', 'seq-5', 'seq-5', 'seq-5']);
   assert.equal(sequentialSlot(Number.NaN), null);
 });
+
+test('non-finite input gets no slot (Number.isFinite, not just Number.isNaN)', () => {
+  // Pre-fix, sequentialSlot only checked isNaN: t=Infinity floored+clamped to
+  // seq-5, t=-Infinity to seq-1, silently treating "no value" as an extreme.
+  assert.equal(sequentialSlot(Number.POSITIVE_INFINITY), null);
+  assert.equal(sequentialSlot(Number.NEGATIVE_INFINITY), null);
+  const cuts = [0.03, 0.06, 0.09] as const;
+  assert.equal(divergingSlot(Number.POSITIVE_INFINITY, cuts), null);
+  assert.equal(divergingSlot(Number.NEGATIVE_INFINITY, cuts), null);
+});
+
+test('divergingSlot rejects cuts that are not strictly ascending positive numbers', () => {
+  assert.equal(divergingSlot(0.5, [0.09, 0.06, 0.03]), null); // descending
+  assert.equal(divergingSlot(0.5, [0, 0.06, 0.09]), null); // not positive
+  assert.equal(divergingSlot(0.5, [-0.03, 0.06, 0.09]), null); // negative
+  assert.equal(divergingSlot(0.5, [0.03, 0.03, 0.09]), null); // not strictly ascending (tie)
+  assert.equal(divergingSlot(0.5, [0.03, 0.06, 0.09]), 'div-pos-3'); // sanity: valid cuts still work
+});

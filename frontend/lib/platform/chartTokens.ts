@@ -37,8 +37,19 @@ export function categoricalSlot(i: number, cap: number = CATEGORICAL.length): Ca
 
 /**
  * A signed delta from a baseline → diverging step. `cuts` are the |delta|
- * thresholds for steps 1, 2 and 3; below cuts[0] reads as "normal" (mid).
- * polarity −1 flips the side for lower-is-better metrics, never the size.
+ * thresholds for steps 1, 2 and 3, and must be strictly ascending positive
+ * numbers (unsorted cuts mis-bin: step 2's own threshold would read as step
+ * 1) — an invalid `cuts` returns null rather than a wrong step. Below
+ * cuts[0] reads as "normal" (mid); a cut boundary itself is INCLUSIVE (`>=`),
+ * unlike `scales.ts` `tintFor`'s exclusive `>`. polarity −1 flips the side
+ * for a lower-is-better metric, never the size — pass `scales.ts`
+ * `polarity(name)` rather than re-deriving it here.
+ *
+ * `div-*` slots are for chart marks (a line, a bar, a diverging-scale dot);
+ * `chart-div-pos-3`/`chart-div-neg-3` are the same tokens as `primary`/
+ * `destructive`, saturated enough that text drawn on top of them can fail
+ * contrast — `tintFor`'s table-cell tints stay lighter for exactly that
+ * reason and are not interchangeable with these.
  */
 export function divergingSlot(
   delta: number,
@@ -46,6 +57,7 @@ export function divergingSlot(
   polarity: 1 | -1 = 1
 ): DivergingSlot | null {
   if (!Number.isFinite(delta)) return null;
+  if (!(cuts[0] > 0 && cuts[0] < cuts[1] && cuts[1] < cuts[2])) return null;
   const d = delta * polarity;
   const mag = Math.abs(d);
   const step = mag >= cuts[2] ? 3 : mag >= cuts[1] ? 2 : mag >= cuts[0] ? 1 : 0;
@@ -53,9 +65,9 @@ export function divergingSlot(
   return `div-${d > 0 ? "pos" : "neg"}-${step}` as DivergingSlot;
 }
 
-/** t in [0, 1] → one of five sequential steps (clamped). */
+/** t in [0, 1] → one of five sequential steps (clamped); non-finite → null. */
 export function sequentialSlot(t: number): SequentialSlot | null {
-  if (Number.isNaN(t)) return null;
+  if (!Number.isFinite(t)) return null;
   const i = Math.min(SEQUENTIAL.length - 1, Math.max(0, Math.floor(t * SEQUENTIAL.length)));
   return SEQUENTIAL[i];
 }
