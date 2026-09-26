@@ -2,13 +2,15 @@
 
 import { Fragment, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Badge } from "@components/ui/badge";
 import { Button } from "@components/ui/button";
 import { useAdmin } from "../../AdminOverviewClient";
-import { dimension, labelOf } from "@lib/community";
+import { countryName, dimension, labelOf } from "@lib/community";
 import { AFFILIATION_LABELS, socialLinks } from "@lib/identity";
 import type { AffiliationType, Socials } from "@lib/identity";
 import { QUESTIONS } from "@content/survey";
+import { SUBDIVISIONS } from "@content/geo";
 
 type Location = { country: string; region?: string; city?: string };
 type Affiliation = { type: string; org: string; title?: string };
@@ -39,24 +41,21 @@ type HistoryEntry = {
 type PersonResponse = { person: Person; history: HistoryEntry[] };
 type DncResult = { success: boolean; message: string };
 
-const REGION_NAMES = new Intl.DisplayNames(["en"], { type: "region" });
-const countryName = (code: string): string => {
-  try {
-    return REGION_NAMES.of(code) ?? code;
-  } catch {
-    return code;
-  }
-};
-
 const sourceDim = dimension("source");
 const sourceLabel = (s: string): string => (sourceDim ? labelOf(sourceDim, s) : s);
 
 const regionDim = dimension("region");
-/** Same composite-key lookup every other region display in this feature uses
- *  (@lib/community's "region" dimension keys its labels on "<country>:<region>") —
- *  never show the raw stored code ("TX") on its own. */
+/** A country with a fixed subdivision list (US/CA/AU) stores a code ("TX"),
+ *  named the same composite-key way every other region display in this
+ *  feature does (@lib/community's "region" dimension keys its labels on
+ *  "<country>:<region>"). A country without one stores free text the visitor
+ *  typed, already a name — show it as-is: labelOf's "<CC> <region>" fallback
+ *  exists so aggregates/filters can tell same-named regions in different
+ *  countries apart, but here the country is already shown right next to it,
+ *  and repeating its code ("FR Île-de-France") would just look like a typo. */
 function regionName(country: string, region: string | undefined): string | null {
   if (!region) return null;
+  if (!SUBDIVISIONS[country]) return region;
   return regionDim ? labelOf(regionDim, `${country}:${region}`) : region;
 }
 
@@ -133,10 +132,22 @@ function AnswerFields({ answers }: { answers: Record<string, unknown> }) {
   );
 }
 
+// The list's current query, carried on this page's own URL as `from`
+// (CommunityClient's personHref) so "Back to Community" returns to the
+// filtered view the admin came from, not the bare, unfiltered browser. A
+// URLSearchParams round trip never produces "/", ":", "?" or "#", so an
+// allowlist of query-string-safe characters alone rules out an absolute or
+// protocol-relative URL landing in the Link's href — never trust `from` as-is.
+const SAFE_QUERY = /^[A-Za-z0-9%_.\-~!*'()+=&]*$/;
+
 export default function PersonClient({ id }: { id: string }) {
+  const searchParams = useSearchParams();
   const { data, error, mutate } = useAdmin<PersonResponse>(`community/${id}`);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<DncResult | null>(null);
+
+  const rawFrom = searchParams.get("from") ?? "";
+  const backHref = rawFrom && SAFE_QUERY.test(rawFrom) ? `/platform/admin/community?${rawFrom}` : "/platform/admin/community";
 
   async function toggleDnc() {
     if (!data) return;
@@ -159,10 +170,11 @@ export default function PersonClient({ id }: { id: string }) {
       } catch {
         body = null;
       }
-      setResult(!res.ok || !body ? "Couldn't update — try again." : body.message);
+      // a non-OK or non-JSON response is always a failure — never show a stale success
+      setResult(!res.ok || !body ? { success: false, message: "Couldn't update — try again." } : body);
       await mutate();
     } catch {
-      setResult("Couldn't update — try again.");
+      setResult({ success: false, message: "Couldn't update — try again." });
     } finally {
       setBusy(false);
     }
@@ -170,8 +182,7 @@ export default function PersonClient({ id }: { id: string }) {
 
   return (
     <div className="space-y-6">
-      {/* No filters carried over — this is always the unfiltered browser. */}
-      <Link href="/platform/admin/community" className="text-sm text-primary underline-offset-4 hover:underline">
+      <Link href={backHref} className="text-sm text-primary underline-offset-4 hover:underline">
         ← Back to Community
       </Link>
 
@@ -213,8 +224,17 @@ export default function PersonClient({ id }: { id: string }) {
 
             {/* Mounted unconditionally so the live region already exists in the
                 accessibility tree before the first action's text lands. */}
-            <div role="status" className={result ? "rounded-lg border border-border bg-muted/40 p-3 text-sm" : "sr-only"}>
-              {result}
+            <div
+              role="status"
+              className={
+                result
+                  ? `rounded-lg border p-3 text-sm ${
+                      result.success ? "border-border bg-muted/40" : "border-destructive/60 bg-destructive/10 text-destructive"
+                    }`
+                  : "sr-only"
+              }
+            >
+              {result ? result.message : null}
             </div>
 
             <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">

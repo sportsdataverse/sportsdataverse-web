@@ -9,7 +9,7 @@ import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@components/ui/table";
 import { useAdmin } from "../AdminOverviewClient";
-import { dimension, labelOf } from "@lib/community";
+import { countryName, dimension, labelOf } from "@lib/community";
 import type { Count } from "@lib/community";
 import { AFFILIATION_LABELS } from "@lib/identity";
 import type { AffiliationType } from "@lib/identity";
@@ -46,15 +46,6 @@ type ListResponse = {
   crossTab: CrossTab;
 };
 
-const REGION_NAMES = new Intl.DisplayNames(["en"], { type: "region" });
-const countryName = (code: string): string => {
-  try {
-    return REGION_NAMES.of(code) ?? code;
-  } catch {
-    return code;
-  }
-};
-
 // q.role's options carry a proper label; source's do too — reuse the same
 // lookup the filters use rather than re-typing the survey's labels here.
 const roleDim = dimension("q.role");
@@ -79,9 +70,10 @@ function locationLabel(country: string | null, region: string | null): string {
 }
 
 /** The admin-only Community browser: every submission, filterable, exportable.
- *  The URL is the state — every control here writes it with router.replace,
- *  and useAdmin re-fetches from it, so a link to a filtered view is shareable.
- *  (replace, not push: filter changes don't add browser history entries.) */
+ *  The URL is the state — every control here writes it with router.push, and
+ *  useAdmin re-fetches from it, so a link to a filtered view is shareable.
+ *  (push, not replace: a filter, search or paging change adds a browser
+ *  history entry, so Back undoes it one step at a time.) */
 export default function CommunityClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -96,12 +88,13 @@ export default function CommunityClient() {
     setQ(urlQ);
   }
   const { data, error } = useAdmin<ListResponse>("community", `?${searchParams.toString()}`);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   function updateParams(mutate: (params: URLSearchParams) => void, resetPage = true) {
     const params = new URLSearchParams(searchParams.toString());
     mutate(params);
     if (resetPage) params.delete("page");
-    router.replace(`?${params.toString()}`, { scroll: false });
+    router.push(`?${params.toString()}`, { scroll: false });
   }
 
   function toggleFilter(key: string, value: string) {
@@ -148,18 +141,67 @@ export default function CommunityClient() {
     return `/api/platform/admin/community/export?${params.toString()}`;
   }
 
-  function handleExport() {
+  /** A filtered list view's current query, carried onto a person's link so
+   *  "Back to Community" (PersonClient) can return to it instead of the bare,
+   *  unfiltered browser. */
+  function personHref(id: string): string {
+    const list = searchParams.toString();
+    return list ? `/platform/admin/community/${id}?from=${encodeURIComponent(list)}` : `/platform/admin/community/${id}`;
+  }
+
+  // A navigation to the export route would otherwise render its JSON error
+  // body as a raw page on failure (the route returns 500 + { error } — see
+  // app/api/platform/admin/community/export/route.ts) — fetch it instead, so
+  // a failure can be shown as a normal message here (M12).
+  async function handleExport() {
     if (!data || data.exportable === 0) return;
     const ok = confirm(
       `Export ${data.exportable} people to CSV? Left out: anyone marked do-not-contact, anonymous rows, anyone who hasn't made an identified /join or /survey submission since the contact notice was added, anyone unsubscribed from the newsletter, and test addresses.`
     );
-    if (ok) window.location.href = exportHref();
+    if (!ok) return;
+    setExportError(null);
+    try {
+      const res = await fetch(exportHref());
+      if (!res.ok) {
+        let message = "Couldn't build the export.";
+        try {
+          const body = (await res.json()) as { error?: string };
+          if (body.error) message = body.error;
+        } catch {
+          // not JSON — keep the default message
+        }
+        setExportError(message);
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition") ?? "";
+      const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `sdv-community-${new Date().toISOString().slice(0, 10)}.csv`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setExportError("Couldn't build the export.");
+    }
   }
 
   return (
     <div className="space-y-4">
       <div className="mb-2 flex items-center justify-between gap-4">
         <h1 className="font-display text-2xl font-bold tracking-tight">Community</h1>
+      </div>
+
+      {/* Mounted unconditionally so the live region already exists in the
+          accessibility tree before the first export error's text lands. */}
+      <div
+        role="status"
+        className={exportError ? "rounded-lg border border-destructive/60 bg-destructive/10 p-3 text-sm text-destructive" : "sr-only"}
+      >
+        {exportError}
       </div>
 
       <form onSubmit={submitSearch} className="flex flex-wrap items-end gap-3">
@@ -246,7 +288,7 @@ export default function CommunityClient() {
                           <TableRow key={r.id}>
                             <TableCell>
                               <Link
-                                href={`/platform/admin/community/${r.id}`}
+                                href={personHref(r.id)}
                                 className="font-medium text-primary underline-offset-4 hover:underline"
                               >
                                 {r.name ?? r.email ?? "Anonymous"}
