@@ -38,17 +38,39 @@ them; Tailwind classes `fill-chart-*` / `stroke-chart-*` / `bg-chart-*`).
 - **Categorical order is fixed and never cycled.** Validated on `card`
   (`#ffffff` / `#111b2e`) with the dataviz validator: worst adjacent CVD ΔE 9.2
   light / 9.4 dark, normal-vision ΔE ≥ 19.7. Scatter and other all-pairs forms
-  use **slots 1–3 only** (all-pairs CVD ΔE 9.2 / 9.4); past the cap, fold into
-  "Other" or facet. `chart-cat-3` and `chart-cat-5` are under 3:1 on light
-  `card`: charts that use them carry direct labels or a table view.
-- **No yellow or red series.** Amber is the scoreboard accent and red is
-  `destructive`; neither is a series colour.
+  use **slots 1–3 only** (all-pairs CVD ΔE 9.2 / 9.4) — a 4th slot fails a
+  protan viewer outright: `chart-cat-1` vs `chart-cat-4` (dark blue vs violet)
+  is normal-vision ΔE 9.8 but protan ΔE 1.9, which is why `ALL_PAIRS_CAP = 3`
+  rather than 4. Past the cap, fold into "Other" or facet. `chart-cat-3` and
+  `chart-cat-5` are under 3:1 on light `card` (2.82 and 2.69 respectively):
+  charts that use them carry direct labels or a table view.
+- **Diverging poles** (`primary` vs `destructive`): CVD ΔE 10.4 light / 15.7
+  dark, both ≥ 3:1 on `card`. The "lightness band" check above is a
+  categorical-series rule and does not apply to ramp endpoints — a diverging
+  scale is read by position along the ramp, not by two marks pulled out of a
+  legend.
+- **No yellow or red token, but hue alone still collides with status.** No
+  slot reuses `status-*` or `destructive`, yet measured OKLab ΔE finds
+  near-misses that hue avoidance alone doesn't fix: light `chart-cat-3` vs
+  `status-success` = 2.8, dark `chart-cat-5` vs `destructive` = 5.4
+  (`destructive` is also `chart-div-neg-3`), light `chart-cat-5` vs
+  `destructive` = 14.7, light `chart-cat-2` vs `destructive` = 12.3, light
+  `chart-cat-2` vs `status-failed` = 9.4, dark `chart-cat-2` vs
+  `status-failed` = 9.3. A status never carries meaning by hue alone — pair it
+  with an icon and a label, or its fixed placement — and a categorical chart
+  never shares a view with a diverging chart or an unlabeled status chip.
 - **Team colours are data, not tokens.** They may mark a team's own line, fill
   or swatch in a chart that names the team in text. Never text colour, never a
   good/bad encoding, never a table-cell tint. Always pass them through
-  `pickTeamColors` (`lib/platform/teamColor.ts`): ≥ 3:1 against `card`, ≥ 15
-  ΔE (OKLab) between the two teams, else the team's alternate colour, else
-  `chart-cat-1` / `chart-cat-2`.
+  `pickTeamColors` (`lib/platform/teamColor.ts`): every candidate — a team's
+  own colour(s) and the `chart-cat-1`/`chart-cat-2`/`chart-cat-3` fallback
+  walk alike — must clear ≥ 3:1 against `card`, and the away colour must also
+  clear ≥ 15 ΔE (OKLab) from whatever home resolved to, including when home
+  itself landed on a fallback slot. Team fills that land near the `score`
+  amber are a known open question, parked for the owner.
+- `chart-seq-1` sits at 1.42:1 light / 1.39:1 dark on `card` — fine for a
+  heatmap fill with no text drawn on it, but a mark meant to be told apart by
+  eye (an ordinal dot, a tier chip) starts at `chart-seq-2` (2.08 / 2.14).
 - Grid lines stay `border`, axis text `muted-foreground`, the crosshair `score`
   (it counts toward the amber budget).
 
