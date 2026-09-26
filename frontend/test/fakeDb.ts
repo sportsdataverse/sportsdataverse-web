@@ -1,6 +1,45 @@
 // The four driver calls lib/ uses, over plain arrays. Filters are equality on
 // top-level keys; updates support $set, $setOnInsert, $inc with dotted paths.
+import { ObjectId } from 'mongodb';
+
 type Doc = Record<string, unknown>;
+
+/** Equality as a MongoDB query applies it: no coercion across types (an
+ *  ObjectId never equals its hex string, 1 never equals "1"), Dates to the
+ *  millisecond, arrays and embedded documents element by element. */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a instanceof ObjectId || b instanceof ObjectId) return a instanceof ObjectId && b instanceof ObjectId && a.equals(b);
+  if (a instanceof Date || b instanceof Date) return a instanceof Date && b instanceof Date && a.getTime() === b.getTime();
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((x, i) => sameValue(x, b[i]));
+  }
+  if (a !== null && b !== null && typeof a === 'object' && typeof b === 'object') {
+    const ka = Object.keys(a);
+    const kb = Object.keys(b);
+    return ka.length === kb.length && ka.every((k, i) => k === kb[i] && sameValue((a as Doc)[k], (b as Doc)[k]));
+  }
+  return a === b;
+}
+
+/** `field: value` in a filter: an array field also matches when any element
+ *  equals the value, and `null` also matches a missing field. */
+function fieldEquals(field: unknown, value: unknown): boolean {
+  if (value === null) return field === null || field === undefined || (Array.isArray(field) && field.includes(null));
+  return sameValue(field, value) || (Array.isArray(field) && field.some((x) => sameValue(x, value)));
+}
+
+/** A deep copy that keeps what the driver hands back: structuredClone turns an
+ *  ObjectId into a plain object, which a real read never does. An ObjectId is
+ *  copied too, since its bytes are writable through `.id`. */
+function cloneValue<T>(v: T): T {
+  if (v instanceof ObjectId) return new ObjectId(v.toHexString()) as T;
+  if (v instanceof Date) return new Date(v.getTime()) as T;
+  if (Array.isArray(v)) return v.map(cloneValue) as T;
+  if (v !== null && typeof v === 'object') {
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, cloneValue(x)])) as T;
+  }
+  return v;
+}
 
 function setPath(doc: Doc, path: string, value: unknown) {
   const parts = path.split('.');
@@ -37,9 +76,9 @@ function matches(doc: Doc, filter: Doc): boolean {
     // Support $ne operator (e.g. `published: { $ne: true }` — an "open" row:
     // absent or anything other than the excluded value, same as real Mongo).
     if (typeof v === 'object' && v !== null && '$ne' in v) {
-      return String(path) !== String((v as { $ne: unknown }).$ne);
+      return !fieldEquals(path, (v as { $ne: unknown }).$ne);
     }
-    return String(path) === String(v);
+    return fieldEquals(path, v);
   });
 }
 
@@ -125,9 +164,9 @@ export function fakeDb() {
   const countWrite = (name: string) => writeCounts.set(name, (writeCounts.get(name) ?? 0) + 1);
   // A real Mongo read hands back a freshly-deserialized document, not a
   // reference into the driver's cache — mutating what a caller reads must
-  // never be visible to a later read or to `dump()`. structuredClone matches
+  // never be visible to a later read or to `dump()`. cloneValue matches
   // that on every path that hands a document back to a caller.
-  const cloned = <T>(d: T): T => structuredClone(d);
+  const cloned = <T>(d: T): T => cloneValue(d);
   const consumeFailure = (flag: { code?: number } | null, reset: () => void): void => {
     if (!flag) return;
     reset();
