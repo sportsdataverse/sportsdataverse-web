@@ -142,7 +142,7 @@ export default function LookupsClient() {
       </div>
 
       <form
-        className="mb-6 flex max-w-xl gap-2"
+        className="mb-6 flex max-w-xl flex-wrap gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           void search();
