@@ -80,12 +80,21 @@ function locationLabel(country: string | null, region: string | null): string {
 
 /** The admin-only Community browser: every submission, filterable, exportable.
  *  The URL is the state — every control here writes it with router.replace,
- *  and useAdmin re-fetches from it, so a link to a filtered view is shareable
- *  and the back button works. */
+ *  and useAdmin re-fetches from it, so a link to a filtered view is shareable.
+ *  (replace, not push: filter changes don't add browser history entries.) */
 export default function CommunityClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [q, setQ] = useState(() => searchParams.get("q") ?? "");
+  // The box follows the URL: when q changes underneath it (a shared link, another
+  // tab's navigation), adopt the new value during render instead of keeping stale
+  // text that the next submit would write back over the URL.
+  const urlQ = searchParams.get("q") ?? "";
+  const [q, setQ] = useState(urlQ);
+  const [seenUrlQ, setSeenUrlQ] = useState(urlQ);
+  if (urlQ !== seenUrlQ) {
+    setSeenUrlQ(urlQ);
+    setQ(urlQ);
+  }
   const { data, error } = useAdmin<ListResponse>("community", `?${searchParams.toString()}`);
 
   function updateParams(mutate: (params: URLSearchParams) => void, resetPage = true) {
