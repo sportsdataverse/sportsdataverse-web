@@ -290,10 +290,14 @@ export async function listReleaseAssets(repo: string, tag: string): Promise<Rele
  */
 export async function listRepoReleases(repo: string, maxPages = 10): Promise<ReleaseSummary[]> {
   const releases: GhRelease[] = [];
+  // ponytail: 10-page cap; raise or paginate lazily when a repo nears 1,000 releases
   for (let page = 1; page <= maxPages; page++) {
     const batch = await ghGet<GhRelease[]>(`/repos/${repo}/releases?per_page=100&page=${page}`);
     releases.push(...batch);
     if (batch.length < 100) break;
+    if (page === maxPages) {
+      console.warn(`listRepoReleases: ${repo} filled all ${maxPages} pages; older releases were dropped`);
+    }
   }
   const newestAssetAt = (rel: GhRelease): string =>
     rel.assets.reduce(

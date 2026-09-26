@@ -110,10 +110,10 @@ export type ReleaseGroup = {
 };
 
 /**
- * Ordered longest-prefix-first rules mapping sportsdataverse-data release
- * tags to (sport, provider, producer). Grounded in the 154-tag inventory of
- * 2026-07-11; a tag matching no rule lands in the "other" bucket, which is a
- * signal to extend this table.
+ * Rules mapping sportsdataverse-data release tags to (sport, provider,
+ * producer). First match wins, so a prefix must precede any shorter prefix it
+ * extends. Grounded in the 350-tag inventory of 2026-09-26; a tag matching no
+ * rule lands in the "other" bucket, which is a signal to extend this table.
  */
 const RELEASE_RULES: ({ prefix: string } & ReleaseGroup)[] = [
   // The ESPN box scores are still written by cfbfastR-data; every other espn_cfb_ tag by cfbfastR-cfb-data.

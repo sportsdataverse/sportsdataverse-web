@@ -24,3 +24,23 @@ test('every page of releases is read, not just the first three', async () => {
     globalThis.fetch = real;
   }
 });
+
+test('hitting the page cap on a full page warns once, naming repo and cap', async (t) => {
+  const real = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    const body = Array.from({ length: 100 }, (_, i) => ({
+      tag_name: `t${i}`, name: null, html_url: '', published_at: '2026-01-01T00:00:00Z', assets: [],
+    }));
+    return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const warn = t.mock.method(console, 'warn', () => {});
+  try {
+    await listRepoReleases('sportsdataverse/test-capped-releases', 2);
+    assert.equal(warn.mock.callCount(), 1);
+    const msg = String(warn.mock.calls[0].arguments[0]);
+    assert.match(msg, /sportsdataverse\/test-capped-releases/);
+    assert.match(msg, /\b2 pages\b/);
+  } finally {
+    globalThis.fetch = real;
+  }
+});
