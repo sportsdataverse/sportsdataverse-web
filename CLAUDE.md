@@ -100,9 +100,9 @@ uv lock --upgrade && uv sync       # bump deps
   2026-09-25 10:44 UTC, so both are now on: newsletter signup is double opt-in (a confirmation
   link is emailed, and the Resend contact is created only once it's clicked), and a minted
   Discord invite is emailed too — both the on-the-spot auto-admit at `/join` and an admin's
-  Approve/Resend in the People tab, best-effort in each case. Whether that mail actually
-  delivers depends on the Resend sending domain being verified, which isn't something this file
-  can see — check the Resend dashboard, don't assume either way. Don't assume `RESEND_FROM`
+  Approve/Resend in the People tab, best-effort in each case. The sending domain
+  (`sportsdataverse.org`) was confirmed verified in Resend on 2026-09-25, so that mail can
+  deliver; if it stops, check Resend → Domains before debugging the code. Don't assume `RESEND_FROM`
   only turns on the newsletter behavior; it always turns on both at once.
 - **`node --test` (`npm run test:lib`) cannot load anything that imports `next-auth`** — it
   hangs/fails outside the Next.js build pipeline. That's why the GitHub contributor check lives
