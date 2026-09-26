@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LOOKUP_SPORTS, newestSeasonAsset } from '../content/lookups.ts';
+import { LOOKUP_SPORTS, newestSeasonAsset, lookupStatus } from '../content/lookups.ts';
 
 // Asset names as published on sportsdataverse-data, 2026-09-26.
 const CFB = ['cfb_rosters_2024.parquet', 'cfb_rosters_2026.parquet', 'cfb_rosters_2025.parquet', 'roster_2026.parquet', 'cfb_rosters_2026.rds', 'timestamp.json'];
@@ -24,4 +24,28 @@ test('every sport names a prefix, not a pinned file', () => {
     assert.equal('asset' in s, false, `${s.key} still pins a file`);
   }
   assert.equal(LOOKUP_SPORTS.find((s) => s.key === 'cfb')?.assetPrefix, 'cfb_rosters_');
+});
+
+test('lookupStatus distinguishes loading, error, empty and resolved', () => {
+  assert.equal(
+    lookupStatus('CFB', { loading: true, error: false, asset: null }),
+    'Loading CFB rosters…'
+  );
+  assert.equal(
+    lookupStatus('CFB', { loading: false, error: true, asset: null }),
+    "Couldn't list CFB roster files."
+  );
+  assert.equal(
+    lookupStatus('CFB', { loading: false, error: false, asset: null }),
+    'No roster file found for CFB.'
+  );
+  assert.equal(
+    lookupStatus('CFB', { loading: false, error: false, asset: 'cfb_rosters_2026.parquet' }),
+    null
+  );
+  // loading wins over a stale error/asset from a prior sport while SWR refetches.
+  assert.equal(
+    lookupStatus('CFB', { loading: true, error: true, asset: 'cfb_rosters_2026.parquet' }),
+    'Loading CFB rosters…'
+  );
 });

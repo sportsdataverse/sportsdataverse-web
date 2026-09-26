@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { Search } from "lucide-react";
 import { Button } from "@components/ui/button";
-import { LOOKUP_SPORTS, newestSeasonAsset } from "@content/lookups";
+import { LOOKUP_SPORTS, newestSeasonAsset, lookupStatus } from "@content/lookups";
 import type { LookupSport } from "@content/lookups";
 import type { QueryResult } from "@lib/platform/duckdb";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
@@ -42,13 +42,21 @@ export default function LookupsClient() {
   );
 
   // The newest season file in the release — rosters roll forward on their own.
-  const { data: assets } = useSWR(
+  const {
+    data: assets,
+    error: assetsError,
+    isLoading: assetsLoading,
+  } = useSWR(
     `/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}`,
     assetsFetcher
   );
   const asset = useMemo(
     () => newestSeasonAsset((assets ?? []).map((a) => a.name), sport.assetPrefix),
     [assets, sport]
+  );
+  const assetStatus = useMemo(
+    () => lookupStatus(sport.label, { loading: assetsLoading, error: !!assetsError, asset }),
+    [sport, assetsLoading, assetsError, asset]
   );
 
   async function search() {
@@ -154,6 +162,8 @@ export default function LookupsClient() {
         </Button>
         {asset ? (
           <span className="self-center font-mono text-xs text-muted-foreground">{asset}</span>
+        ) : assetStatus ? (
+          <span className="self-center font-inter text-xs text-muted-foreground">{assetStatus}</span>
         ) : null}
       </form>
 

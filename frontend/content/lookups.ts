@@ -97,3 +97,18 @@ export function newestSeasonAsset(names: string[], prefix: string): string | nul
   }
   return best?.name ?? null;
 }
+
+/**
+ * Status line for the asset lookup, so "still loading", "release has no
+ * matching file", and "the fetch failed" never collapse into the same
+ * silent blank. Returns null once `asset` resolves (nothing to show).
+ */
+export function lookupStatus(
+  label: string,
+  state: { loading: boolean; error: boolean; asset: string | null }
+): string | null {
+  if (state.loading) return `Loading ${label} rosters…`;
+  if (state.error) return `Couldn't list ${label} roster files.`;
+  if (!state.asset) return `No roster file found for ${label}.`;
+  return null;
+}
