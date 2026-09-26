@@ -30,5 +30,7 @@ jobs:
           node-version: 22
       - run: npm ci --no-audit --no-fund
         working-directory: frontend
+      - run: npm run lint
+        working-directory: frontend
       - run: npm run test:lib
         working-directory: frontend

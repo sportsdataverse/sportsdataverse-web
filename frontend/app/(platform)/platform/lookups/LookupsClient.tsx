@@ -162,7 +162,6 @@ export default function LookupsClient() {
                   {headshotIdx === 0 ? (
                     <td className="px-3 py-1">
                       {row[0] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={row[0]}
                           alt=""

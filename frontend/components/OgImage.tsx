@@ -6,7 +6,6 @@
 function OgImage({ src, alt }: { src: string; alt: string }) {
   return (
     <div className="relative aspect-[1200/630] w-full shrink-0 self-stretch overflow-hidden rounded-xl sm:aspect-auto sm:w-2/5 sm:min-h-40 before:absolute before:inset-0 dark:before:bg-black/20 before:z-10">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         title={alt}
         alt={alt}
