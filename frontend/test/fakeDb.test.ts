@@ -81,6 +81,9 @@ test('an array field matches any element it holds; null matches a missing field'
   assert.equal(await db.collection('r').countDocuments({ sports: 'NBA' }), 0);
   assert.equal(await db.collection('r').countDocuments({ sports: { $ne: 'NFL' } }), 0);
   assert.equal(await db.collection('r').countDocuments({ gone: null }), 1);
+  await db.collection('n').insertOne({ sports: [null, 'CFB'] });
+  assert.equal(await db.collection('n').countDocuments({ sports: null }), 1);
+  assert.equal(await db.collection('n').countDocuments({ sports: { $ne: null } }), 0);
 });
 
 test('a read is still a copy: mutating it changes nothing stored', async () => {
@@ -91,4 +94,14 @@ test('a read is still a copy: mutating it changes nothing stored', async () => {
   (row!.at as Date).setTime(5);
   assert.deepEqual(dump('r')[0].tags, ['a']);
   assert.equal((dump('r')[0].at as Date).getTime(), 0);
+});
+
+test('an ObjectId read back is a copy too: its bytes are writable through .id', async () => {
+  const { db, dump } = fakeDb();
+  const personId = new ObjectId();
+  const hex = personId.toHexString();
+  await db.collection('r').insertOne({ personId });
+  const row = await db.collection('r').findOne({});
+  (row!.personId as ObjectId).id.fill(0);
+  assert.equal((dump('r')[0].personId as ObjectId).toHexString(), hex);
 });

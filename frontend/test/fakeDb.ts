@@ -24,15 +24,15 @@ function sameValue(a: unknown, b: unknown): boolean {
 /** `field: value` in a filter: an array field also matches when any element
  *  equals the value, and `null` also matches a missing field. */
 function fieldEquals(field: unknown, value: unknown): boolean {
-  if (value === null) return field === null || field === undefined;
+  if (value === null) return field === null || field === undefined || (Array.isArray(field) && field.includes(null));
   return sameValue(field, value) || (Array.isArray(field) && field.some((x) => sameValue(x, value)));
 }
 
 /** A deep copy that keeps what the driver hands back: structuredClone turns an
- *  ObjectId into a plain object, which a real read never does. ObjectIds are
- *  immutable, so they are shared rather than copied. */
+ *  ObjectId into a plain object, which a real read never does. An ObjectId is
+ *  copied too, since its bytes are writable through `.id`. */
 function cloneValue<T>(v: T): T {
-  if (v instanceof ObjectId) return v;
+  if (v instanceof ObjectId) return new ObjectId(v.toHexString()) as T;
   if (v instanceof Date) return new Date(v.getTime()) as T;
   if (Array.isArray(v)) return v.map(cloneValue) as T;
   if (v !== null && typeof v === 'object') {
