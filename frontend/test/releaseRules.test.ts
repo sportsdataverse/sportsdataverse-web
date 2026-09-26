@@ -21,6 +21,13 @@ const CASES: [tag: string, sport: string, producer: string][] = [
   ['espn_mlb_injuries', 'mlb', 'sportsdataverse/cfbfastR-cfb-data'],
   ['espn_mbb_injuries', 'mbb', 'sportsdataverse/cfbfastR-cfb-data'],
   ['espn_nhl_injuries', 'nhl', 'sportsdataverse/cfbfastR-cfb-data'],
+  ['nfl_ngs_passing', 'nfl', 'sportsdataverse/nfl-ngs-data'],
+  ['espn_cfb_usage_players', 'cfb', 'sportsdataverse/cfbfastR-cfb-data'],
+  ['espn_cfb_team_summaries', 'cfb', 'sportsdataverse/cfbfastR-cfb-data'],
+  ['espn_cfb_player_boxscores', 'cfb', 'sportsdataverse/cfbfastR-data'],
+  ['espn_cfb_team_boxscores', 'cfb', 'sportsdataverse/cfbfastR-data'],
+  ['espn_cfb_model_ep', 'cfb', 'sportsdataverse/cfbfastR-cfb-data'],
+  ['espn_cfb_adv_team', 'cfb', 'sportsdataverse/cfbfastR-cfb-data'],
 ];
 
 for (const [tag, sport, producer] of CASES) {
@@ -38,6 +45,13 @@ test('the ESPN daily snapshots are attributed to their one producer, not the lea
     assert.equal(classifyReleaseTag(tag).producer, 'sportsdataverse/cfbfastR-cfb-data', tag);
   }
   assert.equal(classifyReleaseTag('espn_nba_injuries').sport, 'nba');
+});
+
+test('a longer prefix is not shadowed by the shorter one it extends', () => {
+  // nba_/wnba_/nfl_ would claim these tags with the wrong provider if ordered first.
+  assert.equal(classifyReleaseTag('nba_stats_shots').provider, 'stats.nba.com');
+  assert.equal(classifyReleaseTag('wnba_stats_shots').provider, 'stats.wnba.com');
+  assert.equal(classifyReleaseTag('nfl_ngs_passing').provider, 'nfl next gen stats');
 });
 
 test('existing families keep their classification', () => {

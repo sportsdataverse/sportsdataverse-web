@@ -116,9 +116,10 @@ export type ReleaseGroup = {
  * signal to extend this table.
  */
 const RELEASE_RULES: ({ prefix: string } & ReleaseGroup)[] = [
-  { prefix: "espn_cfb_model_", sport: "cfb", provider: "espn", producer: "sportsdataverse/cfbfastR-cfb-data" },
-  { prefix: "espn_cfb_adv_", sport: "cfb", provider: "espn", producer: "sportsdataverse/cfbfastR-cfb-data" },
-  { prefix: "espn_cfb_", sport: "cfb", provider: "espn", producer: "sportsdataverse/cfbfastR-data" },
+  // The ESPN box scores are still written by cfbfastR-data; every other espn_cfb_ tag by cfbfastR-cfb-data.
+  { prefix: "espn_cfb_player_boxscores", sport: "cfb", provider: "espn", producer: "sportsdataverse/cfbfastR-data" },
+  { prefix: "espn_cfb_team_boxscores", sport: "cfb", provider: "espn", producer: "sportsdataverse/cfbfastR-data" },
+  { prefix: "espn_cfb_", sport: "cfb", provider: "espn", producer: "sportsdataverse/cfbfastR-cfb-data" },
   { prefix: "espn_nfl_", sport: "nfl", provider: "espn", producer: "sportsdataverse/nfl-data" },
   { prefix: "cfb_", sport: "cfb", provider: "sportsdataverse", producer: "sportsdataverse/cfbfastR-cfb-data" },
   { prefix: "ncaa_mfb_", sport: "cfb", provider: "ncaa", producer: "sportsdataverse/ncaa-mfb-football-data" },
@@ -138,6 +139,7 @@ const RELEASE_RULES: ({ prefix: string } & ReleaseGroup)[] = [
   { prefix: "wnba_", sport: "wnba", provider: "sportsdataverse", producer: "sportsdataverse/wehoop-wnba-stats-data" },
   { prefix: "mlb_", sport: "mlb", provider: "mlb stats api", producer: "sportsdataverse/baseballr-data" },
   { prefix: "ncaa_baseball_", sport: "baseball", provider: "ncaa", producer: "sportsdataverse/baseballr-data" },
+  { prefix: "nfl_ngs_", sport: "nfl", provider: "nfl next gen stats", producer: "sportsdataverse/nfl-ngs-data" },
   { prefix: "nfl_", sport: "nfl", provider: "nflverse/espn", producer: "sportsdataverse/nfl-data" },
   { prefix: "nhl_", sport: "nhl", provider: "nhl api", producer: "sportsdataverse/fastRhockey-nhl-data" },
   { prefix: "pwhl_", sport: "pwhl", provider: "hockeytech", producer: "sportsdataverse/fastRhockey-pwhl-data" },
