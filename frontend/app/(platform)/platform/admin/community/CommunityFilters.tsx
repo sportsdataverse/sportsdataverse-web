@@ -1,18 +1,6 @@
 "use client";
 
-import { DIMENSIONS, labelOf, type Count, type Dim } from "@lib/community";
-
-// Country codes have no fixed option list (content/geo.ts keeps only the
-// codes); name them the way the rest of the app is told to — Intl.DisplayNames
-// at render time, never a bundled name list.
-const REGION_NAMES = new Intl.DisplayNames(["en"], { type: "region" });
-const countryName = (code: string): string => {
-  try {
-    return REGION_NAMES.of(code) ?? code;
-  } catch {
-    return code;
-  }
-};
+import { DIMENSIONS, countryName, labelOf, type Count, type Dim } from "@lib/community";
 
 type FilterOption = { value: string; label: string; count?: number };
 

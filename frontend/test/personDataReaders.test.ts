@@ -50,17 +50,23 @@ function sourceFiles(): { rel: string; text: string }[] {
 const RESPONSES_COLLECTION_LITERAL = /(["'])responses\1/;
 
 // Every module specifier a file references — static `import ... from "..."`,
-// dynamic `import("...")`, and `require("...")` (single or double quotes,
-// optional whitespace before the parenthesis and before the quote). Exported
-// so a mutation proof can check it directly, not just through the four tests
-// below. A text scan, not a parser: a specifier mentioned only in a comment
-// is indistinguishable from a real one — the same limitation
-// test/packageVisibilityReaders.test.ts notes for its own regex scan.
+// dynamic `import("...")`, and `require("...")` (single, double or plain
+// backtick quotes with no `${` interpolation — a template literal that
+// interpolates isn't a static specifier, so it's left unmatched rather than
+// captured up to its first `${}`), optional whitespace before the parenthesis
+// and before the quote. Exported so a mutation proof can check it directly,
+// not just through the four tests below. A text scan, not a parser: a
+// specifier mentioned only in a comment is indistinguishable from a real one
+// — the same limitation test/packageVisibilityReaders.test.ts notes for its
+// own regex scan.
 export function importSpecifiers(source: string): string[] {
   const out: string[] = [];
-  const re = /(?:\bfrom\s+|\bimport\s*\(\s*|\brequire\s*\(\s*)(["'])([^"']*)\1/g;
+  const re = /(?:\bfrom\s+|\bimport\s*\(\s*|\brequire\s*\(\s*)(["'`])([^"'`]*)\1/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(source)) !== null) out.push(m[2]);
+  while ((m = re.exec(source)) !== null) {
+    if (m[1] === '`' && m[2].includes('${')) continue;
+    out.push(m[2]);
+  }
   return out;
 }
 
@@ -124,6 +130,10 @@ test('importSpecifiers sees static, dynamic and require specifiers, either quote
     importSpecifiers('import a from "@lib/mongodb";\nconst b = await import("@lib/communityData");'),
     ['@lib/mongodb', '@lib/communityData']
   );
+  // a plain backtick specifier, with no `${` interpolation, is recognized like any other quote
+  assert.deepEqual(importSpecifiers('const m = await import(`@lib/communityData`);'), ['@lib/communityData']);
+  // a backtick template literal that interpolates is not a static specifier — never captured
+  assert.deepEqual(importSpecifiers('const m = await import(`@lib/${moduleName}`);'), []);
 });
 
 test('person data is admin-only: no file that mentions requireMemberApp imports lib/communityData or lib/community', () => {

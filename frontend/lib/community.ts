@@ -167,7 +167,22 @@ export function paginate(people: CommunityPerson[], page: number) {
   return { total: sorted.length, page: cur, pages, rows: sorted.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE) };
 }
 
-/** Option label, then a region's name, then the raw value (the client names countries with Intl.DisplayNames). */
+const REGION_NAMES = new Intl.DisplayNames(["en"], { type: "region" });
+
+/** Country code -> display name. The one implementation every Community
+ *  component used to carry its own copy of — Intl.DisplayNames at render/read
+ *  time, never a bundled name list, falling back to the raw code for
+ *  anything Intl can't resolve. */
+export function countryName(code: string): string {
+  try {
+    return REGION_NAMES.of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+/** Option label, then a region's name, then the raw value — country codes are
+ *  named separately, with `countryName` above. */
 export function labelOf(d: Dim, value: string): string {
   const o = d.options?.find((x) => x.value === value);
   if (o) return o.label;

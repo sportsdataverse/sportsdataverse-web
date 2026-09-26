@@ -1,16 +1,7 @@
 "use client";
 
-import { DIMENSIONS, dimension, labelOf, type Dim } from "@lib/community";
+import { DIMENSIONS, countryName, dimension, labelOf, type Dim } from "@lib/community";
 import type { Aggregate, CrossTab } from "./CommunityClient";
-
-const REGION_NAMES = new Intl.DisplayNames(["en"], { type: "region" });
-const countryName = (code: string): string => {
-  try {
-    return REGION_NAMES.of(code) ?? code;
-  } catch {
-    return code;
-  }
-};
 
 const cellLabel = (dim: Dim, value: string): string => (dim.key === "country" ? countryName(value) : labelOf(dim, value));
 

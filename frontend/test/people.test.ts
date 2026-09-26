@@ -169,7 +169,11 @@ test('upsertJoin without identity leaves identity fields alone (the queue helper
   const { db, dump } = fakeDb();
   await upsertJoin(db, { email: 'a@b.co', identity: ID1, answers: {}, profile: PROF, wants: { newsletter: false, discord: true } }, T0);
   await upsertJoin(db, { email: 'a@b.co', answers: {}, profile: PROF, wants: { newsletter: false, discord: true } }, T1);
-  assert.equal(dump('people')[0].name, 'Pat Doe');
+  const p = dump('people')[0];
+  assert.equal(p.name, 'Pat Doe');
+  assert.deepEqual(p.location, ID1.location);
+  assert.deepEqual(p.socials, ID1.socials);
+  assert.deepEqual(p.affiliations, ID1.affiliations);
 });
 
 test('upsertSurvey creates a survey person with every want false', async () => {

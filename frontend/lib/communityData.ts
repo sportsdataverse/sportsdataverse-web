@@ -1,6 +1,7 @@
 import type { Db, ObjectId } from "mongodb";
 import { QUESTIONS } from "../content/survey.ts";
-import type { CommunityPerson } from "./community.ts";
+import { parseCommunityQuery, type CommunityPerson } from "./community.ts";
+import { AFFILIATION_LABELS, type AffiliationType } from "./identity.ts";
 import { isReservedEmail } from "./joinSchema.ts";
 import type { PersonDoc } from "./people.ts";
 import type { ResponseDoc } from "./responses.ts";
@@ -176,7 +177,9 @@ export function toCsv(list: CommunityPerson[]): string {
     return [
       p.name, p.email, p.location?.country, p.location?.region, p.location?.city,
       p.socials?.github, p.socials?.bluesky, p.socials?.x, p.socials?.linkedin, p.socials?.website,
-      (p.affiliations ?? []).map((a) => `${a.type}: ${a.org}${a.title ? ` (${a.title})` : ""}`).join("; "),
+      (p.affiliations ?? [])
+        .map((a) => `${AFFILIATION_LABELS[a.type as AffiliationType] ?? a.type}: ${a.org}${a.title ? ` (${a.title})` : ""}`)
+        .join("; "),
       ...CLOSED.map((qn) => {
         const v = answers[qn.id];
         return Array.isArray(v) ? v.join("; ") : v;
@@ -191,12 +194,22 @@ export function toCsv(list: CommunityPerson[]): string {
   return BOM + [HEADER, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
 }
 
-/** The export audit's `params` must not keep search text that can hold a
- *  name or email, which would otherwise outlive that person's deletion (M6). */
+/** The export audit's `params` is built from the PARSED, allowlisted query
+ *  (`parseCommunityQuery`) rather than copied from the raw URL — an unknown
+ *  key (or `page`/`x`/`y`, neither of which affects who is exportable) must
+ *  never land in `admin_audit`. Only the filters, the date range, and `q` are
+ *  kept, and `q` is redacted since it can hold a name or email, which would
+ *  otherwise outlive that person's deletion (M6). */
 export function auditParams(sp: URLSearchParams): string {
-  const copy = new URLSearchParams(sp);
-  if (copy.has("q")) copy.set("q", "[redacted]");
-  return copy.toString();
+  const query = parseCommunityQuery(sp);
+  const out = new URLSearchParams();
+  for (const [key, values] of Object.entries(query.filters)) {
+    for (const v of values) out.append(`f.${key}`, v);
+  }
+  if (query.from) out.set("from", query.from);
+  if (query.to) out.set("to", query.to);
+  if (query.q) out.set("q", "[redacted]");
+  return out.toString();
 }
 
 export type AuditEntry = {
