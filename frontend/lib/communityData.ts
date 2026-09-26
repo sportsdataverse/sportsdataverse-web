@@ -214,10 +214,14 @@ export async function audit(db: Db, entry: AuditEntry): Promise<void> {
 
 /** Recorded on the person and in admin_audit; export skips them from the next request on. */
 export async function setDoNotContact(db: Db, personId: ObjectId, on: boolean, by: string, now: Date): Promise<boolean> {
+  // Audit FIRST, so an applied change can never lack its row: if the audit
+  // insert fails nothing changes; if the update then fails, the row records an
+  // attempt the admin saw fail and retried. A multi-document transaction would
+  // need a replica set, which this deployment's MongoDB is not guaranteed to be.
+  if (!(await people(db).findOne({ _id: personId }, { projection: { _id: 1 } }))) return false;
+  await audit(db, { kind: on ? "dnc_on" : "dnc_off", by, at: now, personId });
   const res = on
     ? await people(db).updateOne({ _id: personId }, { $set: { doNotContact: { at: now, by }, updatedAt: now } })
     : await people(db).updateOne({ _id: personId }, { $unset: { doNotContact: "" }, $set: { updatedAt: now } });
-  if (res.matchedCount !== 1) return false;
-  await audit(db, { kind: on ? "dnc_on" : "dnc_off", by, at: now, personId });
-  return true;
+  return res.matchedCount === 1;
 }

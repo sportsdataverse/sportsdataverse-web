@@ -16,12 +16,12 @@ async function seed() {
   const pat = (await people.insertOne({ email: 'pat@real.org', name: 'Pat D.', status: 'pending', wants: { discord: true, newsletter: false, stickers: false, package: false },
     answers: { role: 'developer' }, location: { country: 'US', region: 'TX' }, socials: { github: 'octocat' },
     discord: { code: 'SECRET', expiresAt: T('2026-10-01'), invitedAt: T('2026-09-24') },
-    createdAt: T('2026-09-01'), updatedAt: T('2026-09-21'), lastSubmittedAt: T('2026-09-21') })).insertedId as ObjectId;
+    createdAt: T('2026-09-01'), updatedAt: T('2026-09-26'), lastSubmittedAt: T('2026-09-26') })).insertedId as ObjectId;
   const legacy = (await people.insertOne({ status: 'survey', answers: { role: 'hobbyist' }, wants: { discord: false, newsletter: false, stickers: false, package: false }, createdAt: T('2025-01-01') })).insertedId as ObjectId;
   const test = (await people.insertOne({ email: 'walkthrough@example.com', name: 'W', status: 'pending', wants: { discord: false, newsletter: false, stickers: false, package: false }, createdAt: T('2026-09-22') })).insertedId as ObjectId;
   const resp = db.collection('responses');
-  await resp.insertOne({ personId: pat, source: 'survey', createdAt: T('2026-09-10'), identity: ID1, answers: { role: 'student' }, profile: {} });
-  await resp.insertOne({ personId: pat, source: 'join', createdAt: T('2026-09-21'), identity: ID2, answers: { role: 'developer' }, profile: {} });
+  await resp.insertOne({ personId: pat, source: 'survey', createdAt: T('2026-09-25'), identity: ID1, answers: { role: 'student' }, profile: {} });
+  await resp.insertOne({ personId: pat, source: 'join', createdAt: T('2026-09-26'), identity: ID2, answers: { role: 'developer' }, profile: {} });
   return { db, dump, pat, legacy, test };
 }
 
@@ -142,6 +142,15 @@ test('do-not-contact takes effect on the very next export, both directions are a
   assert.deepEqual(dump('admin_audit').map((a) => a.kind), ['dnc_on', 'dnc_off']);
   assert.equal(await setDoNotContact(db, new ObjectId(), true, 'saiem', T('2026-09-25')), false);
   assert.equal(dump('admin_audit').length, 2, 'no audit entry for a person who does not exist');
+});
+
+test('a do-not-contact change is never applied without its audit row', async () => {
+  const { db, dump, pat } = await seed();
+  db.failNextWriteTo('admin_audit', new Error('mongo down'));
+  await assert.rejects(setDoNotContact(db, pat, true, 'saiem', T('2026-09-27')));
+  const p = dump('people').find((x) => String(x._id) === String(pat))!;
+  assert.equal(p.doNotContact, undefined, 'the audit failed, so the flag must not have been set');
+  assert.equal(dump('admin_audit').length, 0);
 });
 
 test('csvCell neutralizes formulas and quotes separators', () => {
