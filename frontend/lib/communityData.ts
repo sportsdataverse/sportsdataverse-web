@@ -47,6 +47,16 @@ function clean<T extends object>(doc: T): T {
   return Object.fromEntries(Object.entries(doc).filter(([, v]) => v !== null)) as T;
 }
 
+/** The one place a person doc crosses into this module: cleaned, and never carrying
+ *  a live Discord invite code past this line — a future projection change can't leak it. */
+function fromDb(raw: PersonDoc): PersonDoc {
+  const p = clean(raw) as PersonDoc;
+  delete (p as { discord?: unknown }).discord; // defense in depth if a projection is ignored
+  return p;
+}
+
+const byNewest = (a: { createdAt: Date }, b: { createdAt: Date }) => b.createdAt.getTime() - a.createdAt.getTime();
+
 export async function loadCommunity(db: Db): Promise<CommunityPerson[]> {
   // ponytail: every person plus every response's identity, once per request — fine to tens of thousands
   const [ps, rs] = await Promise.all([
@@ -58,10 +68,9 @@ export async function loadCommunity(db: Db): Promise<CommunityPerson[]> {
     const k = String(r.personId);
     (byPerson.get(k) ?? byPerson.set(k, []).get(k)!).push(r);
   }
-  for (const list of byPerson.values()) list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  for (const list of byPerson.values()) list.sort(byNewest);
   return ps.map((raw) => {
-    const p = clean(raw) as PersonDoc;
-    delete (p as { discord?: unknown }).discord; // defense in depth if a projection is ignored
+    const p = fromDb(raw);
     const mine = byPerson.get(String(p._id)) ?? [];
     return {
       ...p,
@@ -83,9 +92,8 @@ export type HistoryEntry = {
 export async function personHistory(db: Db, id: ObjectId): Promise<{ person: CommunityPerson; history: HistoryEntry[] } | null> {
   const raw = await people(db).findOne({ _id: id }, { projection: PERSON_FIELDS });
   if (!raw) return null;
-  const p = clean(raw) as PersonDoc;
-  delete (p as { discord?: unknown }).discord;
-  const rs = (await responses(db).find({ personId: id }).toArray()).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const p = fromDb(raw);
+  const rs = (await responses(db).find({ personId: id }).toArray()).sort(byNewest);
   const history: HistoryEntry[] = rs.length
     ? rs.map((r, i) => ({
         at: r.createdAt,
