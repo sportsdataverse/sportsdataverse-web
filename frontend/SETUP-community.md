@@ -182,15 +182,22 @@ never renders empty for a legacy person.
 **Do-not-contact.** To honor a "please stop contacting me" email: find the person on the
 Community browser by their email (the search box), open their person page, and click "Mark
 do-not-contact". That excludes them from every future CSV export from that point on; it does
-not delete their record or their history, and it can be reversed from the same button.
-Turning it on or off is both recorded, so there is always a record of when and by whom.
+not delete their record or their history, and it can be reversed from the same button. The
+flag only affects exports — if they're also on the newsletter, separately unsubscribe their
+Resend contact (or delete the record if they asked for that), or Resend keeps sending to them.
+Turning it on or off is both recorded in the `admin_audit` collection, so there is always a
+record of when and by whom.
 
 **Export.** The "Export to CSV" button on the browser exports whatever the current filters
 match. Left out of every export, always: anyone marked do-not-contact, anyone with no email
-on file (answered before names were collected, or an incomplete row), and reserved test
-addresses (`example.com`, `.test`, …) — the same addresses every other Community feature
-treats as not-real. Every export is recorded (who, when, the filters used, how many rows) —
-there is always a record of when an export happened and who ran it.
+on file (answered before names were collected, or an incomplete row), anyone who hasn't made
+an identified `/join` or `/survey` submission since the contact notice next to the email field
+was added on 2026-09-25 (a footer-only newsletter signup never saw it, and neither did a
+`/join` from before that date), anyone who has unsubscribed from the newsletter, and reserved
+test addresses (`example.com`, `.test`, …) — the same addresses every other Community feature
+treats as not-real. Every export is recorded in the `admin_audit` collection (who, when, the
+filters used — the search text itself redacted, since it can hold a name or email — and how
+many rows) — there is always a record of when an export happened and who ran it.
 
 ## Discord admission
 
