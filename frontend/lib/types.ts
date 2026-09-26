@@ -3,6 +3,7 @@ import { MDXRemoteSerializeResult } from "next-mdx-remote";
 import React from "react";
 import { IconType } from "react-icons/lib";
 import { ReadTimeResults } from "reading-time";
+import type { MongoClient, Db } from "mongodb";
 
 /* Custom Animated Components types */
 export type AnimatedTAGProps = {
@@ -142,6 +143,6 @@ export type subscriptionURL = {
 };
 
 export type mongoClient = {
-  client: any;
-  db: any;
+  client: MongoClient;
+  db: Db;
 };

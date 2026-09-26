@@ -1,4 +1,4 @@
-import { ObjectId } from "mongodb";
+import { ObjectId, type Document, type WithId } from "mongodb";
 import { connectToDatabase } from "@lib/mongodb";
 import type { ModelRunDoc, ModelRunInput, ModelSummary } from "./schemas";
 
@@ -10,8 +10,8 @@ import type { ModelRunDoc, ModelRunInput, ModelSummary } from "./schemas";
 
 const COLLECTION = "model_runs";
 
-function serialize(doc: any): ModelRunDoc {
-  return { ...doc, _id: String(doc._id) };
+function serialize(doc: WithId<Document>): ModelRunDoc {
+  return { ...doc, _id: String(doc._id) } as unknown as ModelRunDoc;
 }
 
 export type RunFilters = {
@@ -83,7 +83,7 @@ export async function listModels(): Promise<ModelSummary[]> {
       { $sort: { latest_run_at: -1 } },
     ])
     .toArray();
-  return rows.map((row: any) => {
+  return rows.map((row: Document) => {
     const gates: { passed?: boolean }[] = Array.isArray(row.latest_gates) ? row.latest_gates : [];
     return {
       model_id: String(row._id),

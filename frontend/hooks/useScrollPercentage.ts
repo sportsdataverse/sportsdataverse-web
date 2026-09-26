@@ -3,8 +3,8 @@ export default function useScrollPercentage() {
   // fifteen
   const [scrollPercentage, setScrollPercentage] = useState(0);
   function getScrollPercent(): number {
-    var h = document.documentElement;
-    var b = document.body;
+    const h = document.documentElement;
+    const b = document.body;
 
     return (
       ((h.scrollTop || b.scrollTop) /

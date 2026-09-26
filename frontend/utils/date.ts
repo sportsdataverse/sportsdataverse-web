@@ -1,6 +1,6 @@
 /* Formats a date as a string in the format 'Month day, year'. */
 export function getFormattedDate(date: Date): string {
-  var months = [
+  const months = [
     "Jan",
     "Feb",
     "Mar",

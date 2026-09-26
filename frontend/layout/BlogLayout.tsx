@@ -38,6 +38,7 @@ export default function BlogLayout({
     useBookmarkBlogs("blogs", []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- isAlreadyBookmarked reads localStorage; deferred to avoid a hydration mismatch
     setAlreadyBookmarked(isAlreadyBookmarked(post.meta.slug));
   }, [isAlreadyBookmarked, post.meta.slug]);
   const authorName = post.meta.author?.name  ? post.meta.author.name : "SportsDataverse Contributor";

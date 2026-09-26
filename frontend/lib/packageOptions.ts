@@ -5,7 +5,7 @@ import { PUBLIC_PACKAGE_FILTER } from "@lib/packageVisibility";
 export async function packageOptions(): Promise<Record<"packages_r" | "packages_python", { value: string; label: string }[]>> {
   try {
     const { db } = await connectToDatabase();
-    const pkgs = (await db.collection("packages").find(PUBLIC_PACKAGE_FILTER, { projection: { title: 1, repoType: 1 } }).sort({ title: 1 }).toArray()) as {
+    const pkgs = (await db.collection("packages").find(PUBLIC_PACKAGE_FILTER, { projection: { title: 1, repoType: 1 } }).sort({ title: 1 }).toArray()) as unknown as {
       title: string; repoType: string;
     }[];
     // unique titles: two rows sharing a title would give QuestionFlow a duplicate React key,

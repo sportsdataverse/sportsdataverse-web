@@ -1,5 +1,7 @@
+type HoverEvent = { target: HTMLElement; clientX: number; clientY: number };
+
 /* Adds a hover animation to an element by setting its background and border image properties. */
-export function showHoverAnimation(e: any, isDarkMode: boolean) {
+export function showHoverAnimation(e: HoverEvent, isDarkMode: boolean) {
   const rect = e.target.getBoundingClientRect();
   const x = e.clientX - rect.left; // x position within the element.
   const y = e.clientY - rect.top; //  y position within the element.
@@ -11,7 +13,7 @@ export function showHoverAnimation(e: any, isDarkMode: boolean) {
 }
 
 /* Removes the hover animation from an element by setting its background and border image properties to null. */
-export function removeHoverAnimation(e: any) {
-  e.target.style.background = null;
-  e.target.style.borderImage = null;
+export function removeHoverAnimation(e: { target: HTMLElement }) {
+  e.target.style.background = "";
+  e.target.style.borderImage = "";
 }

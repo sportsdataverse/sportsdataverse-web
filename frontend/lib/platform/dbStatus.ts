@@ -1,3 +1,4 @@
+import type { Document, WithId } from "mongodb";
 import { connectToDatabase } from "@lib/mongodb";
 import type { DbStatusDoc, DbStatusInput } from "./schemas";
 
@@ -24,5 +25,5 @@ export async function upsertDbStatus(status: DbStatusInput, actor: string): Prom
 export async function listDbStatuses(): Promise<DbStatusDoc[]> {
   const { db } = await connectToDatabase();
   const docs = await db.collection(COLLECTION).find({}).sort({ source: 1 }).toArray();
-  return docs.map((doc: any) => ({ ...doc, _id: String(doc._id) }));
+  return docs.map((doc: WithId<Document>) => ({ ...doc, _id: String(doc._id) }) as unknown as DbStatusDoc);
 }

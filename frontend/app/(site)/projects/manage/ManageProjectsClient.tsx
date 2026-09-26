@@ -92,8 +92,8 @@ export default function ManageProjectsClient({
       setEditing(null);
       setAdding(false);
       await refresh();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setSubmitting(false);
     }
@@ -114,8 +114,8 @@ export default function ManageProjectsClient({
         throw new Error(data.message || "Delete failed");
       }
       await refresh();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setSubmitting(false);
     }

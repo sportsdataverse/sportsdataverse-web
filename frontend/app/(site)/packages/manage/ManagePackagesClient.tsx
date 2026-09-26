@@ -88,8 +88,8 @@ export default function ManagePackagesClient({
       setEditing(null);
       setAdding(false);
       await refresh();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setSubmitting(false);
     }
@@ -110,8 +110,8 @@ export default function ManagePackagesClient({
         throw new Error(data.message || "Delete failed");
       }
       await refresh();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setSubmitting(false);
     }

@@ -3,6 +3,7 @@ import { auth } from "@lib/auth";
 import { connectToDatabase } from "@lib/mongodb";
 import ManagePackagesClient from "./ManagePackagesClient";
 import { isPubliclyVisible } from "@lib/packageVisibility";
+import type { PackageDoc } from "@lib/packageSchema";
 
 export const metadata: Metadata = { title: "Manage Packages" };
 export const dynamic = "force-dynamic";
@@ -23,12 +24,13 @@ export default async function ManagePackagesPage() {
     );
   }
 
-  let packages: any[] = [];
+  let packages: PackageDoc[] = [];
   try {
     const { db } = await connectToDatabase();
+    const docs = (await db.collection("packages").find({}).toArray()) as unknown as PackageDoc[];
     packages = JSON.parse(
       JSON.stringify(
-        (await db.collection("packages").find({}).toArray()).sort((a: any, b: any) => {
+        docs.sort((a: PackageDoc, b: PackageDoc) => {
           // awaiting review == not publicly visible: the same rule the public site uses
           const pa = isPubliclyVisible(a) ? 1 : 0;
           const pb = isPubliclyVisible(b) ? 1 : 0;

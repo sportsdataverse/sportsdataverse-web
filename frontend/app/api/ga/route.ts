@@ -33,8 +33,9 @@ export async function GET() {
   });
 
   let totalVisitors = 0;
-  response.rows?.forEach((row: any) => {
-    totalVisitors += parseInt(row.metricValues[0].value);
+  response.rows?.forEach((row) => {
+    const value = row.metricValues?.[0]?.value;
+    if (value) totalVisitors += parseInt(value, 10);
   });
 
   return NextResponse.json(
