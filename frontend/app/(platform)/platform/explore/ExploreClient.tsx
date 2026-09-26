@@ -116,6 +116,22 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
     setPendingBookmark(null);
   }, [pendingBookmark, tag, assets, queryable]);
 
+  // Same-origin proxy URLs (api/platform/datasets/file): GitHub's release
+  // asset hosts send no CORS headers, so the browser can only range-read
+  // them through our own origin. Absolute URLs because DuckDB's worker
+  // resolves them outside the page's base URL. `asset` must remain the LAST
+  // query param — sourceFor() sniffs the file extension off the URL tail.
+  const pickedUrls = useMemo(
+    () =>
+      queryable
+        .filter((a) => picked.has(a.name))
+        .map(
+          (a) =>
+            `${window.location.origin}/api/platform/datasets/file?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(tag)}&asset=${encodeURIComponent(a.name)}`
+        ),
+    [queryable, picked, tag]
+  );
+
   async function saveBookmark() {
     const name = window.prompt("Name this query:");
     if (!name) return;
@@ -158,23 +174,6 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
     }
     return Array.from(bySport.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [datasets]);
-
-  // Same-origin proxy URLs (api/platform/datasets/file): GitHub's release
-  // asset hosts send no CORS headers, so the browser can only range-read
-  // them through our own origin. Absolute URLs because DuckDB's worker
-  // resolves them outside the page's base URL. `asset` must remain the LAST
-  // query param — sourceFor() sniffs the file extension off the URL tail.
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- window.location.origin is stable for the page's lifetime; not provable pure to the compiler, but this component isn't compiled today (no experimental.reactCompiler in next.config.ts)
-  const pickedUrls = useMemo(
-    () =>
-      queryable
-        .filter((a) => picked.has(a.name))
-        .map(
-          (a) =>
-            `${window.location.origin}/api/platform/datasets/file?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(tag)}&asset=${encodeURIComponent(a.name)}`
-        ),
-    [queryable, picked, tag]
-  );
 
   // --- table (stem) + partition (season) selection over the release assets --
   const [stem, setStem] = useState("");
@@ -405,7 +404,10 @@ export default function ExploreClient({ datasets, error }: ExploreProps) {
                   Table
                   <select
                     value={effectiveStem}
-                    onChange={(e) => setStem(e.target.value)}
+                    onChange={(e) => {
+                      setStem(e.target.value);
+                      setPartition(effectivePartition);
+                    }}
                     className="rounded-md border border-input bg-card px-2 py-1.5 font-mono text-sm text-foreground"
                   >
                     {stems.map((s) => (

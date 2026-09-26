@@ -1,7 +1,8 @@
 name: unit-tests
 
-# The frontend's unit tests (`npm run test:lib`), including the reader scan that
-# keeps unapproved package submissions off every public page.
+# The frontend's lint (`npm run lint`) and unit tests (`npm run test:lib`),
+# including the reader scan that keeps unapproved package submissions off
+# every public page.
 #
 # Its own workflow with NO paths filter, so it reports on every pull request: a
 # required check whose workflow is skipped by a paths filter stays "expected"
@@ -33,4 +34,5 @@ jobs:
       - run: npm run lint
         working-directory: frontend
       - run: npm run test:lib
+        if: ${{ !cancelled() }}
         working-directory: frontend

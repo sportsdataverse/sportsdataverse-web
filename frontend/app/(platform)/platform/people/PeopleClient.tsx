@@ -134,6 +134,7 @@ export default function PeopleClient({ isAdmin = false }: { isAdmin?: boolean })
             // the variant's colour is not enough on its own to say which view is showing
             aria-pressed={view === v.value}
             onClick={() => {
+              if (v.value === view) return;
               setView(v.value);
               setPeople(null);
               setTotal(null);

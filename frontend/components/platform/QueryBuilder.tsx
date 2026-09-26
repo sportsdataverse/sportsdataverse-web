@@ -363,6 +363,7 @@ export default function QueryBuilder({ schemas }: { schemas: string[] }) {
                   type="button"
                   title={tableTip(t)}
                   onClick={() => {
+                    if (t === table) return;
                     setTable(t);
                     resetQueryState();
                   }}
