@@ -96,11 +96,14 @@ uv lock --upgrade && uv sync       # bump deps
   reproduce a "didn't send" report by watching the request, watch the logs instead.
 - **`RESEND_FROM` gates two independent things**, not one: double opt-in for the newsletter
   (`lib/join.ts` `beginOptIn`) and whether a minted Discord invite is emailed at all
-  (`lib/join.ts` `admitOrQueue`, `lib/review.ts` `mintAndSend`). It is currently **unset** in
-  production (the sending domain isn't verified yet), so both are off: newsletter signup is
-  single opt-in, and nobody gets an invite emailed — an auto-admitted visitor sees the invite
-  link in the `/join` response itself, and an admin-approved one has to be relayed by hand from
-  the People tab. Don't assume setting it only turns on the newsletter behavior.
+  (`lib/join.ts` `admitOrQueue`, `lib/review.ts` `mintAndSend`). It was **set** in production on
+  2026-09-25 10:44 UTC, so both are now on: newsletter signup is double opt-in (a confirmation
+  link is emailed, and the Resend contact is created only once it's clicked), and a minted
+  Discord invite is emailed too — both the on-the-spot auto-admit at `/join` and an admin's
+  Approve/Resend in the People tab, best-effort in each case. Whether that mail actually
+  delivers depends on the Resend sending domain being verified, which isn't something this file
+  can see — check the Resend dashboard, don't assume either way. Don't assume `RESEND_FROM`
+  only turns on the newsletter behavior; it always turns on both at once.
 - **`node --test` (`npm run test:lib`) cannot load anything that imports `next-auth`** — it
   hangs/fails outside the Next.js build pipeline. That's why the GitHub contributor check lives
   in its own module, `frontend/lib/contributor.ts` (no `next-auth` import), separate from

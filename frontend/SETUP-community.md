@@ -34,13 +34,19 @@ Newsletter signup becomes double opt-in once `RESEND_FROM` is set (e.g.
 `SportsDataverse <news@sportsdataverse.org>`) (and a token secret exists —
 `JOIN_TOKEN_SECRET`, falling back to `NEXTAUTH_SECRET`, which Auth.js already requires).
 Set `RESEND_FROM` only after the domain is verified in Resend → Domains, or confirmation
-mail cannot be sent and nobody can confirm. Until then signup is single opt-in (contact
-created immediately).
+mail cannot be sent and nobody can confirm. **`RESEND_FROM` was set in production on
+2026-09-25 10:44 UTC** — double opt-in is live: a signup gets a confirmation link, and the
+Resend contact is created only once it's clicked. Whether the sending domain is actually
+verified isn't something this file can confirm; if confirmation mail isn't arriving, check
+Resend → Domains.
 
 **Deploy order:**
-1. `npm run resend:properties`
-2. deploy with `RESEND_FROM` unset
-3. verify the domain
+1. `npm run resend:properties` — needs a Resend key with **full access** (contacts need
+   write); not something this file can confirm has run, so re-run it if a Broadcast segment
+   or contact property looks missing.
+2. deploy with `RESEND_FROM` unset — the state every deploy shipped in before step 5.
+3. verify the domain — check Resend → Domains; not something this file can see, so verify it
+   if it hasn't been done yet.
 4. done: every `/join` Resend call now fires after the response is sent, via
    Next's `after()` (`JoinDeps.defer` in `frontend/lib/join.ts`, wired in
    `frontend/app/api/join/route.ts`) — including the **single opt-in** Resend
@@ -68,7 +74,9 @@ created immediately).
      contact;
    - `recordClaimedLogin` (Discord half) writes only for an undecided
      record, never for a decided one.
-5. set `RESEND_FROM`
+5. set `RESEND_FROM` — **done: set in production 2026-09-25 10:44 UTC.** Double opt-in and
+   Discord invite email are both live now; see the deploy-order status above and "The invite
+   link and `RESEND_FROM`" below.
 
 - Confirmation links are `/api/join/confirm?t=<token>`: an HMAC over the person id +
   expiry (7 days), signed with `JOIN_TOKEN_SECRET` (falls back to `NEXTAUTH_SECRET`).
@@ -223,17 +231,20 @@ set, minting fails the same way — the request is still recorded, just always q
 `/join`, or a reviewer's Approve/Resend in the People tab — always returns the invite URL in
 that response; whether it is *also emailed* depends on `RESEND_FROM` (see Double opt-in
 above):
-- **`RESEND_FROM` set:** the invite is emailed too, best-effort — a failed send is logged and
-  does not change the response.
-- **`RESEND_FROM` unset — the configuration currently live in production, since the sending
-  domain isn't verified yet:** nothing is emailed. An auto-admitted visitor still gets their
-  invite, because the URL is right there in the `/join` response their browser just got.
-  Someone approved from the queue does not — the People tab shows the reviewer the link
-  ("Invite ready — send it yourself") and they relay it by hand. Re-submitting `/join`
-  only re-shows an invite to the person whose own signed-in, vouched request minted it
-  (`status: "auto"` stamped with their handle); every other caller — signed out, signed in as
-  someone else, or approved from the queue — gets one neutral sentence, because the email in a request
-  body proves nothing about who is sending it.
+- **`RESEND_FROM` set — the configuration live in production since 2026-09-25 10:44 UTC:** the
+  invite is emailed too, best-effort — a failed send is logged and does not change the
+  response. Whether it actually arrives depends on the Resend sending domain being verified,
+  which isn't something this file can confirm — check Resend → Domains if a recipient says
+  they never got it.
+- **`RESEND_FROM` unset** (a local `.env.local` without it, or a preview deploy that doesn't
+  set it): nothing is emailed. An auto-admitted visitor still gets their invite, because the
+  URL is right there in the `/join` response their browser just got. Someone approved from the
+  queue does not — the People tab shows the reviewer the link ("Invite ready — send it
+  yourself") and they relay it by hand. Re-submitting `/join` only re-shows an invite to the
+  person whose own signed-in, vouched request minted it (`status: "auto"` stamped with their
+  handle); every other caller — signed out, signed in as someone else, or approved from the
+  queue — gets one neutral sentence, because the email in a request body proves nothing about
+  who is sending it.
 
 ## Reviewing people
 
