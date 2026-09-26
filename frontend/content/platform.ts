@@ -119,6 +119,13 @@ const RELEASE_RULES: ({ prefix: string } & ReleaseGroup)[] = [
   { prefix: "espn_cfb_model_", sport: "cfb", provider: "espn", producer: "sportsdataverse/cfbfastR-cfb-data" },
   { prefix: "espn_cfb_adv_", sport: "cfb", provider: "espn", producer: "sportsdataverse/cfbfastR-cfb-data" },
   { prefix: "espn_cfb_", sport: "cfb", provider: "espn", producer: "sportsdataverse/cfbfastR-data" },
+  { prefix: "espn_nfl_", sport: "nfl", provider: "espn", producer: "sportsdataverse/nfl-data" },
+  { prefix: "cfb_", sport: "cfb", provider: "sportsdataverse", producer: "sportsdataverse/cfbfastR-cfb-data" },
+  { prefix: "ncaa_mfb_", sport: "cfb", provider: "ncaa", producer: "sportsdataverse/ncaa-mfb-football-data" },
+  { prefix: "ncaa_mbb_", sport: "mbb", provider: "ncaa", producer: "sportsdataverse/ncaa-mbb-hoops-data" },
+  { prefix: "ncaa_wbb_", sport: "wbb", provider: "ncaa", producer: "sportsdataverse/ncaa-wbb-hoops-data" },
+  { prefix: "mbb_", sport: "mbb", provider: "sportsdataverse", producer: "sportsdataverse/hoopR-mbb-data" },
+  { prefix: "wbb_", sport: "wbb", provider: "sportsdataverse", producer: "sportsdataverse/wehoop-wbb-data" },
   { prefix: "cfbfastR_cfb_", sport: "cfb", provider: "cfbfastR", producer: "sportsdataverse/cfbfastR-data" },
   { prefix: "espn_mens_college_basketball_", sport: "mbb", provider: "espn", producer: "sportsdataverse/hoopR-mbb-data" },
   { prefix: "espn_womens_college_basketball_", sport: "wbb", provider: "espn", producer: "sportsdataverse/wehoop-wbb-data" },
@@ -126,6 +133,10 @@ const RELEASE_RULES: ({ prefix: string } & ReleaseGroup)[] = [
   { prefix: "espn_wnba_", sport: "wnba", provider: "espn", producer: "sportsdataverse/wehoop-wnba-data" },
   { prefix: "nba_stats_", sport: "nba", provider: "stats.nba.com", producer: "sportsdataverse/hoopR-nba-stats-data" },
   { prefix: "wnba_stats_", sport: "wnba", provider: "stats.wnba.com", producer: "sportsdataverse/wehoop-wnba-stats-data" },
+  // Model outputs (player_impact) — after the *_stats_ rules, which they would shadow.
+  { prefix: "nba_", sport: "nba", provider: "sportsdataverse", producer: "sportsdataverse/hoopR-nba-stats-data" },
+  { prefix: "wnba_", sport: "wnba", provider: "sportsdataverse", producer: "sportsdataverse/wehoop-wnba-stats-data" },
+  { prefix: "mlb_", sport: "mlb", provider: "mlb stats api", producer: "sportsdataverse/baseballr-data" },
   { prefix: "ncaa_baseball_", sport: "baseball", provider: "ncaa", producer: "sportsdataverse/baseballr-data" },
   { prefix: "nfl_", sport: "nfl", provider: "nflverse/espn", producer: "sportsdataverse/nfl-data" },
   { prefix: "nhl_", sport: "nhl", provider: "nhl api", producer: "sportsdataverse/fastRhockey-nhl-data" },
@@ -142,6 +153,12 @@ export function classifyReleaseTag(tag: string): ReleaseGroup {
       provider: "sportsdataverse",
       producer: "sportsdataverse/sportsdataverse-py",
     };
+  }
+  // ESPN daily snapshots (espn_{league}_{injuries,depthcharts}) are all written
+  // by cfbfastR-cfb-data's espn_daily_snapshots.yml, whatever the league.
+  const snapshot = tag.match(/^espn_([a-z]+)_(injuries|depthcharts)$/);
+  if (snapshot) {
+    return { sport: snapshot[1], provider: "espn", producer: "sportsdataverse/cfbfastR-cfb-data" };
   }
   const rule = RELEASE_RULES.find((r) => tag.startsWith(r.prefix));
   return rule ?? { sport: "other", provider: "—", producer: "" };
