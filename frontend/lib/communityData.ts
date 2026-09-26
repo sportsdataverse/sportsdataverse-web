@@ -14,7 +14,7 @@ import type { ResponseDoc } from "./responses.ts";
 // What the browser needs. `discord` is left out: its code is a live bearer credential.
 const PERSON_FIELDS = {
   email: 1, name: 1, location: 1, socials: 1, affiliations: 1, answers: 1, profile: 1, wants: 1,
-  status: 1, doNotContact: 1, githubLogin: 1, createdAt: 1, updatedAt: 1, lastSubmittedAt: 1,
+  status: 1, doNotContact: 1, githubLogin: 1, createdAt: 1, updatedAt: 1, lastSubmittedAt: 1, newsletter: 1,
 } as const;
 
 const people = (db: Db) => db.collection<PersonDoc>("people");
@@ -40,7 +40,11 @@ function canonical(v: unknown): unknown {
 const identityOf = (i: IdentityLike | undefined) =>
   JSON.stringify(canonical({ name: i?.name, location: i?.location, socials: i?.socials, affiliations: i?.affiliations }));
 
-const legacySource = (p: PersonDoc): "join" | "survey" => (p.status === "survey" ? "survey" : "join");
+// A person with no responses (before PR 1, or a footer signup that never
+// submitted a questionnaire): survey status wins, then whether they ever
+// answered anything, otherwise they are a newsletter-only signup (M5).
+const legacySource = (p: PersonDoc): "join" | "survey" | "newsletter" =>
+  p.status === "survey" ? "survey" : p.answers ? "join" : "newsletter";
 
 /** Strip the projection's `null`s so every reader sees absent fields as absent. */
 function clean<T extends object>(doc: T): T {
@@ -82,7 +86,7 @@ export async function loadCommunity(db: Db): Promise<CommunityPerson[]> {
 
 export type HistoryEntry = {
   at: Date | null;
-  source: "join" | "survey";
+  source: "join" | "survey" | "newsletter";
   identity: Record<string, unknown>;
   answers: Record<string, unknown>;
   implicit: boolean;
@@ -140,13 +144,20 @@ export function listRow(p: CommunityPerson) {
   };
 }
 
+// Consent is implied only by an identified /join or /survey submission, made
+// next to the contact-notice disclosure that has existed since 2026-09-25
+// (PR 1) — never by a footer newsletter signup, which shows no such notice,
+// and never by a submission made before the notice existed. `lastSubmittedAt`
+// is written only by identityUpdate() (lib/people.ts), so it is exactly that
+// signal. An unsubscribed newsletter contact has separately opted out. (C1)
 export function exportable(p: CommunityPerson): boolean {
-  return Boolean(p.email) && !p.doNotContact && !isReservedEmail(p.email!);
+  const unsubscribed = Boolean(p.newsletter && "unsubscribed" in p.newsletter && p.newsletter.unsubscribed);
+  return Boolean(p.email) && Boolean(p.lastSubmittedAt) && !p.doNotContact && !isReservedEmail(p.email!) && !unsubscribed;
 }
 
 export function csvCell(v: unknown): string {
   let s = v === null || v === undefined ? "" : String(v);
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  if (/^\s*[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
@@ -171,7 +182,18 @@ export function toCsv(list: CommunityPerson[]): string {
       (p.lastSubmittedAt ?? p.createdAt)?.toISOString(),
     ];
   });
-  return [HEADER, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  // I4: a UTF-8 byte-order mark so Excel (Windows and Mac) opens this as
+  // UTF-8 instead of the system codepage, which garbles non-ASCII names.
+  const BOM = String.fromCharCode(0xfeff);
+  return BOM + [HEADER, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}
+
+/** The export audit's `params` must not keep search text that can hold a
+ *  name or email, which would otherwise outlive that person's deletion (M6). */
+export function auditParams(sp: URLSearchParams): string {
+  const copy = new URLSearchParams(sp);
+  if (copy.has("q")) copy.set("q", "[redacted]");
+  return copy.toString();
 }
 
 export type AuditEntry = {

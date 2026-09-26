@@ -12,7 +12,7 @@ import type { PersonDoc } from "./people.ts";
  * ponytail: in-memory over every person — fine to tens of thousands; move the
  * filter into a Mongo query built from the same DIMENSIONS if `people` outgrows it.
  */
-export type CommunityPerson = PersonDoc & { latestSource: "join" | "survey"; identityChanged: boolean };
+export type CommunityPerson = PersonDoc & { latestSource: "join" | "survey" | "newsletter"; identityChanged: boolean };
 
 export type Option = { value: string; label: string };
 export type Dim = { key: string; label: string; options?: Option[]; values: (p: CommunityPerson) => string[] };
@@ -48,7 +48,7 @@ export const DIMENSIONS: Dim[] = [
   {
     key: "source",
     label: "Latest submission",
-    options: [{ value: "join", label: "/join" }, { value: "survey", label: "/survey" }],
+    options: [{ value: "join", label: "/join" }, { value: "survey", label: "/survey" }, { value: "newsletter", label: "Newsletter sign-up" }],
     values: (p) => [p.latestSource],
   },
   {
@@ -189,6 +189,18 @@ export function aggregate(people: CommunityPerson[]): { key: string; label: stri
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "en"));
     return { key: d.key, label: d.label, counts };
   });
+}
+
+/** Unfiltered choices for the dimensions with no fixed option list (country,
+ *  region, the two free-text package questions): computed over every person,
+ *  never the filtered hits, so ticking one value never hides the others and
+ *  an empty result never hides the active filter (I1). */
+export function freeValueOptions(people: CommunityPerson[]): Record<string, Count[]> {
+  const out: Record<string, Count[]> = {};
+  for (const { key, counts } of aggregate(people)) {
+    if (!BY_KEY.get(key)?.options) out[key] = counts;
+  }
+  return out;
 }
 
 /** Admin-only: pairs are allowed here (never on the member Population tab). */

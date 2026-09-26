@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ObjectId } from 'mongodb';
 import {
-  DIMENSIONS, parseCommunityQuery, matches, paginate, aggregate, crossTab, labelOf, dimension, PAGE_SIZE,
+  DIMENSIONS, parseCommunityQuery, matches, paginate, aggregate, crossTab, labelOf, dimension, freeValueOptions, PAGE_SIZE,
   type CommunityPerson,
 } from '../lib/community.ts';
 
@@ -101,6 +101,21 @@ test('labels: options, then regions by name, then the raw value', () => {
   assert.equal(labelOf(dimension('region')!, 'US:TX'), 'Texas');
   assert.equal(labelOf(dimension('affiliation')!, 'media'), 'Media or journalism');
   assert.equal(labelOf(dimension('country')!, 'GB'), 'GB');
+});
+
+test('source dimension has a newsletter option, so a newsletter-only signup labels correctly (M5)', () => {
+  assert.equal(labelOf(dimension('source')!, 'newsletter'), 'Newsletter sign-up');
+});
+
+test('freeValueOptions: only the option-less dimensions, and unaffected by which people are passed in', () => {
+  const a = person();
+  const b = person({ location: { country: 'GB', region: undefined, city: undefined } as never, answers: {} });
+  const optsBoth = freeValueOptions([a, b]);
+  assert.deepEqual(Object.keys(optsBoth).sort(), ['country', 'q.packages_python', 'q.packages_r', 'region']);
+  assert.deepEqual(optsBoth.country.map((c) => c.value).sort(), ['GB', 'US']);
+  // computed from everyone passed in — the caller decides "everyone" vs "the filtered hits" (I1)
+  const optsOneOnly = freeValueOptions([a]);
+  assert.deepEqual(optsOneOnly.country.map((c) => c.value), ['US']);
 });
 
 test('crossTab counts pairs, and refuses unknown or identical dimensions', () => {

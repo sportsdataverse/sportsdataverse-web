@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@lib/mongodb";
 import { requireAdminApp } from "@lib/platform/auth";
-import { aggregate, crossTab, matches, paginate, parseCommunityQuery } from "@lib/community";
+import { aggregate, crossTab, freeValueOptions, matches, paginate, parseCommunityQuery } from "@lib/community";
 import { exportable, listRow, loadCommunity } from "@lib/communityData";
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -13,7 +13,8 @@ export async function GET(req: Request) {
   try {
     const query = parseCommunityQuery(new URL(req.url).searchParams);
     const { db } = await connectToDatabase();
-    const hits = (await loadCommunity(db)).filter((p) => matches(p, query));
+    const all = await loadCommunity(db);
+    const hits = all.filter((p) => matches(p, query));
     const pg = paginate(hits, query.page);
     return NextResponse.json(
       {
@@ -23,6 +24,9 @@ export async function GET(req: Request) {
         exportable: hits.filter(exportable).length,
         rows: pg.rows.map(listRow),
         aggregates: aggregate(hits),
+        // unfiltered, so a free-value filter (country, region, packages) never
+        // hides its own other options or the active value it's applying (I1)
+        options: freeValueOptions(all),
         crossTab: query.x && query.y ? crossTab(hits, query.x, query.y) : null,
       },
       { headers: NO_STORE }
