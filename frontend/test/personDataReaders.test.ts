@@ -49,10 +49,26 @@ function sourceFiles(): { rel: string; text: string }[] {
 // A quoted string literal only — not a comment or a prose mention.
 const RESPONSES_COLLECTION_LITERAL = /(["'])responses\1/;
 
-// An import specifier ending in the given module name (relative, with or
-// without the ".ts" extension the repo's tests use, or the "@lib/*" alias).
+// Every module specifier a file references — static `import ... from "..."`,
+// dynamic `import("...")`, and `require("...")` (single or double quotes,
+// optional whitespace before the parenthesis and before the quote). Exported
+// so a mutation proof can check it directly, not just through the four tests
+// below. A text scan, not a parser: a specifier mentioned only in a comment
+// is indistinguishable from a real one — the same limitation
+// test/packageVisibilityReaders.test.ts notes for its own regex scan.
+export function importSpecifiers(source: string): string[] {
+  const out: string[] = [];
+  const re = /(?:\bfrom\s+|\bimport\s*\(\s*|\brequire\s*\(\s*)(["'])([^"']*)\1/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(source)) !== null) out.push(m[2]);
+  return out;
+}
+
+// A specifier "names" a module when it resolves to it under either the
+// "@lib/*" alias or a relative path, with or without the ".ts" extension the
+// repo's tests use — i.e. it ends in "/<moduleName>" or "/<moduleName>.ts".
 const importsModule = (text: string, moduleName: string): boolean =>
-  new RegExp(`\\bfrom\\s+["'][^"']*/${moduleName}(?:\\.ts)?["']`).test(text);
+  importSpecifiers(text).some((spec) => new RegExp(`/${moduleName}(?:\\.ts)?$`).test(spec));
 
 const REQUIRE_MEMBER_APP = /\brequireMemberApp\b/;
 const REQUIRE_ADMIN_APP_CALL = /requireAdminApp\s*\(/;
@@ -92,6 +108,22 @@ test('person data is admin-only: every community admin route.ts requires the adm
     assert.match(text, REQUIRE_ADMIN_APP_CALL, `the Community browser is admin-only: ${rel} must call requireAdminApp()`);
     assert.doesNotMatch(text, REQUIRE_MEMBER_APP, `the Community browser is admin-only: ${rel} must not import or call requireMemberApp — that would open person data to any org member`);
   }
+});
+
+test('importSpecifiers sees static, dynamic and require specifiers, either quote, extra whitespace', () => {
+  assert.deepEqual(importSpecifiers('import { x } from "@lib/communityData";'), ['@lib/communityData']);
+  assert.deepEqual(importSpecifiers("import { x } from '../lib/communityData.ts';"), ['../lib/communityData.ts']);
+  assert.deepEqual(importSpecifiers('const m = await import("@lib/communityData");'), ['@lib/communityData']);
+  assert.deepEqual(importSpecifiers("const m = await import ( '../../lib/communityData.ts' );"), ['../../lib/communityData.ts']);
+  assert.deepEqual(importSpecifiers('const m = require("@lib/communityData");'), ['@lib/communityData']);
+  assert.deepEqual(importSpecifiers("const m = require ( '../lib/community' );"), ['../lib/community']);
+  // requireAdminApp(...) is not require(...): no specifier, no false hit
+  assert.deepEqual(importSpecifiers('requireAdminApp();'), []);
+  // multiple specifiers in one file, mixed forms
+  assert.deepEqual(
+    importSpecifiers('import a from "@lib/mongodb";\nconst b = await import("@lib/communityData");'),
+    ['@lib/mongodb', '@lib/communityData']
+  );
 });
 
 test('person data is admin-only: no file that mentions requireMemberApp imports lib/communityData or lib/community', () => {
