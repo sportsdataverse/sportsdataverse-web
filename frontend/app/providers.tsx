@@ -10,7 +10,7 @@ import { TooltipProvider } from "@components/ui/tooltip";
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
-      <PlausibleProvider domain="sportsdataverse.org">
+      <PlausibleProvider src="https://plausible.io/js/pa-br2X7r1bxfJS5Uyxoz8Ol.js">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <TooltipProvider delayDuration={200}>
             <NextTopLoader color="var(--primary)" showSpinner={false} height={3} />
