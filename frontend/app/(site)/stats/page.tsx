@@ -3,6 +3,10 @@ import pageMeta from "@content/meta";
 import PageHeader from "@components/site/PageHeader";
 import { connectToDatabase } from "@lib/mongodb";
 import { PUBLIC_PACKAGE_FILTER } from "@lib/packageVisibility";
+import { listDbStatuses } from "@lib/platform/dbStatus";
+import { warehouseFigures } from "@lib/warehouseFigures";
+import { listRepoReleases } from "@lib/platform/github";
+import StatsCard from "@components/Stats/StatsCard";
 import StatsClient from "./StatsClient";
 
 export const metadata: Metadata = {
@@ -12,6 +16,11 @@ export const metadata: Metadata = {
   keywords: pageMeta.stats.keywords,
   openGraph: { images: [{ url: pageMeta.stats.image }] },
 };
+
+/** Re-read the live sources at most once an hour. */
+export const revalidate = 3600;
+
+const RELEASES_REPO = "sportsdataverse/sportsdataverse-data";
 
 async function packageCount(): Promise<number | null> {
   try {
@@ -24,17 +33,32 @@ async function packageCount(): Promise<number | null> {
   }
 }
 
-/* Warehouse figures are maintained alongside the sdv-db catalog; update when
-   the warehouse materially grows. As of July 2026. */
-const WAREHOUSE = [
-  { title: "Rows of play-by-play & stats", value: "120M+" },
-  { title: "Leagues in the warehouse", value: "8" },
-  { title: "Datasets in the catalog", value: "168" },
-  { title: "Typed API endpoints", value: "160+" },
-];
+async function warehouseStatus() {
+  try {
+    const statuses = await listDbStatuses();
+    return statuses.find((s) => s.source === "sdv-db") ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function releaseTags(): Promise<string[] | null> {
+  try {
+    const releases = await listRepoReleases(RELEASES_REPO);
+    return releases.map((r) => r.tag);
+  } catch {
+    return null;
+  }
+}
 
 export default async function StatsPage() {
-  const pkgs = await packageCount();
+  const [status, tags, pkgs] = await Promise.all([
+    warehouseStatus(),
+    releaseTags(),
+    packageCount(),
+  ]);
+  const { tiles, asOf } = warehouseFigures({ status, releaseTags: tags, packages: pkgs });
+
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16">
       <PageHeader title="By the numbers">
@@ -48,28 +72,22 @@ export default async function StatsPage() {
             The warehouse
           </h2>
           <p className="font-mono text-xs text-muted-foreground">
-            as of July 2026 · data.sportsdataverse.org
+            {asOf
+              ? `as of ${asOf} · data.sportsdataverse.org`
+              : tags != null || pkgs != null
+                ? "warehouse heartbeat unavailable"
+                : "live figures unavailable"}
           </p>
         </div>
-        <div className="my-6 grid gap-5 xs:grid-cols-2 xl:grid-cols-4">
-          {[
-            ...WAREHOUSE,
-            ...(pkgs ? [{ title: "Open-source packages", value: String(pkgs) }] : []),
-          ]
-            .slice(0, 4)
-            .map((s) => (
-              <div
-                key={s.title}
-                className="rounded-md border border-border/60 bg-card px-7 py-4 shadow-sm"
-              >
-                <p className="my-2 font-display text-4xl font-bold tracking-tight text-foreground">
-                  {s.value}
-                </p>
-                <p className="text-base font-medium text-muted-foreground">
-                  {s.title}
-                </p>
-              </div>
-            ))}
+        <div className="my-6 grid gap-5 xs:grid-cols-2 sm:!grid-cols-3 xl:!grid-cols-5">
+          {tiles.map((tile) => (
+            <StatsCard
+              key={tile.title}
+              title={tile.title}
+              value={tile.value}
+              error={tile.value === "—"}
+            />
+          ))}
         </div>
       </section>
 
