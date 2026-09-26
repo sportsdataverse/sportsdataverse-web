@@ -23,13 +23,13 @@ type Person = {
   wants: Wants;
   status: "pending" | "approved" | "declined" | "auto" | "survey";
   doNotContact?: { at: string; by: string };
-  latestSource: "join" | "survey";
+  latestSource: "join" | "survey" | "newsletter";
   identityChanged: boolean;
 };
 
 type HistoryEntry = {
   at: string | null;
-  source: "join" | "survey";
+  source: "join" | "survey" | "newsletter";
   identity: Record<string, unknown>;
   answers: Record<string, unknown>;
   implicit: boolean;
@@ -184,18 +184,31 @@ export default function PersonClient({ id }: { id: string }) {
           <div className="space-y-4 rounded-lg border border-border bg-card p-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h1 className="font-display text-2xl font-bold tracking-tight">{data.person.name ?? "(anonymous)"}</h1>
-                <p className="text-sm text-muted-foreground">{data.person.email ?? "no email on file"}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="font-display text-2xl font-bold tracking-tight">
+                    {data.person.name ?? data.person.email ?? "Anonymous"}
+                  </h1>
+                  {data.person.doNotContact ? <Badge variant="destructive">Do not contact</Badge> : null}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {data.person.email ?? "no email on file"}
+                  {data.person.doNotContact
+                    ? ` · since ${new Date(data.person.doNotContact.at).toLocaleDateString()} by ${data.person.doNotContact.by}`
+                    : ""}
+                </p>
               </div>
-              <Button
-                type="button"
-                size="sm"
-                variant={data.person.doNotContact ? "outline" : "destructive"}
-                disabled={busy}
-                onClick={toggleDnc}
-              >
-                {busy ? "Updating…" : data.person.doNotContact ? "Clear do-not-contact" : "Mark do-not-contact"}
-              </Button>
+              {/* An anonymous legacy row has no email — nothing to contact, so no toggle to show. */}
+              {data.person.email ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={data.person.doNotContact ? "outline" : "destructive"}
+                  disabled={busy}
+                  onClick={toggleDnc}
+                >
+                  {busy ? "Updating…" : data.person.doNotContact ? "Clear do-not-contact" : "Mark do-not-contact"}
+                </Button>
+              ) : null}
             </div>
 
             {/* Mounted unconditionally so the live region already exists in the

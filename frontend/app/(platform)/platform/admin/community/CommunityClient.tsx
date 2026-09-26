@@ -24,7 +24,7 @@ type PersonRow = {
   role: string | null;
   country: string | null;
   region: string | null;
-  source: "join" | "survey";
+  source: "join" | "survey" | "newsletter";
   lastSubmitted: string | null;
   doNotContact: boolean;
   anonymous: boolean;
@@ -42,6 +42,7 @@ type ListResponse = {
   exportable: number;
   rows: PersonRow[];
   aggregates: Aggregate[];
+  options: Record<string, Count[]>;
   crossTab: CrossTab;
 };
 
@@ -141,7 +142,7 @@ export default function CommunityClient() {
   function handleExport() {
     if (!data || data.exportable === 0) return;
     const ok = confirm(
-      `Export ${data.exportable} people to CSV? People marked do-not-contact, anonymous rows and test addresses are left out.`
+      `Export ${data.exportable} people to CSV? Left out: anyone marked do-not-contact, anonymous rows, anyone who hasn't made an identified /join or /survey submission since the contact notice was added, anyone unsubscribed from the newsletter, and test addresses.`
     );
     if (ok) window.location.href = exportHref();
   }
@@ -195,7 +196,7 @@ export default function CommunityClient() {
       </form>
 
       <div className="flex flex-col gap-4 lg:flex-row">
-        <CommunityFilters searchParams={searchParams} aggregates={data?.aggregates ?? []} onToggle={toggleFilter} />
+        <CommunityFilters searchParams={searchParams} options={data?.options ?? {}} onToggle={toggleFilter} />
 
         <div className="min-w-0 flex-1 space-y-4">
           {error ? (
@@ -239,7 +240,7 @@ export default function CommunityClient() {
                                 href={`/platform/admin/community/${r.id}`}
                                 className="font-medium text-primary underline-offset-4 hover:underline"
                               >
-                                {r.name ?? "(anonymous)"}
+                                {r.name ?? r.email ?? "Anonymous"}
                               </Link>
                             </TableCell>
                             <TableCell className="text-muted-foreground">{r.email ?? "—"}</TableCell>

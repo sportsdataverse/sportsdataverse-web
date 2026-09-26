@@ -1,7 +1,6 @@
 "use client";
 
-import { DIMENSIONS, type Dim } from "@lib/community";
-import type { Aggregate } from "./CommunityClient";
+import { DIMENSIONS, labelOf, type Count, type Dim } from "@lib/community";
 
 // Country codes have no fixed option list (content/geo.ts keeps only the
 // codes); name them the way the rest of the app is told to — Intl.DisplayNames
@@ -17,14 +16,24 @@ const countryName = (code: string): string => {
 
 type FilterOption = { value: string; label: string; count?: number };
 
+const labelFor = (dim: Dim, value: string, fallback: string): string => (dim.key === "country" ? countryName(value) : fallback);
+
 /** Option dimensions show every possible option (never just what's in the
  *  current results, or narrowing one filter would hide the box for another).
- *  Option-less dimensions (country, region, packages_*) only know what values
- *  exist from the current aggregates. */
-function optionsFor(dim: Dim, aggByKey: Map<string, Aggregate>): FilterOption[] {
+ *  Option-less dimensions (country, region, packages_*) take their choices
+ *  from `options` — the unfiltered aggregate the list route computes over
+ *  every person, never the current (possibly filtered) results, or ticking
+ *  one value would hide every other one (I1). Any value the URL already has
+ *  active is always included, even at count 0, so it can still be unticked
+ *  once another filter makes the combined result empty. */
+function optionsFor(dim: Dim, freeOptions: Record<string, Count[]>, active: Set<string>): FilterOption[] {
   if (dim.options) return dim.options;
-  const counts = aggByKey.get(dim.key)?.counts ?? [];
-  return counts.map((c) => ({ value: c.value, label: dim.key === "country" ? countryName(c.value) : c.label, count: c.count }));
+  const counts = freeOptions[dim.key] ?? [];
+  const byValue = new Map(counts.map((c) => [c.value, { value: c.value, label: labelFor(dim, c.value, c.label), count: c.count }]));
+  for (const v of active) {
+    if (!byValue.has(v)) byValue.set(v, { value: v, label: labelFor(dim, v, labelOf(dim, v)), count: 0 });
+  }
+  return [...byValue.values()];
 }
 
 function FilterGroup({
@@ -72,18 +81,17 @@ function FilterGroup({
 
 export default function CommunityFilters({
   searchParams,
-  aggregates,
+  options,
   onToggle,
 }: {
   searchParams: URLSearchParams;
-  aggregates: Aggregate[];
+  options: Record<string, Count[]>;
   onToggle: (key: string, value: string) => void;
 }) {
-  const aggByKey = new Map(aggregates.map((a) => [a.key, a]));
   const groups = DIMENSIONS.map((dim) => {
     const active = new Set(searchParams.getAll(`f.${dim.key}`));
     return (
-      <FilterGroup key={dim.key} dim={dim} options={optionsFor(dim, aggByKey)} active={active} onToggle={onToggle} />
+      <FilterGroup key={dim.key} dim={dim} options={optionsFor(dim, options, active)} active={active} onToggle={onToggle} />
     );
   });
 
