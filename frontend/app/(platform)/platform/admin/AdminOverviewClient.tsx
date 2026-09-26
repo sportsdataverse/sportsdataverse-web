@@ -10,10 +10,14 @@ const fetcher = (u: string) =>
   });
 
 /** Shared fetch hook for every /platform/admin page — server-proxied,
- *  admin-gated `/api/platform/admin/{name}` endpoints, refreshed every 30s. */
+ *  admin-gated `/api/platform/admin/{name}` endpoints, refreshed every 30s.
+ *  A params change keeps the previous result on screen until the new one
+ *  arrives, so a filter change doesn't unmount the page (and collapse every
+ *  open panel) behind a "Loading…"; `isLoading` still reports the new key. */
 export function useAdmin<T>(name: string, params = "") {
   return useSWR<T>(`/api/platform/admin/${name}${params}`, fetcher, {
     refreshInterval: 30_000,
+    keepPreviousData: true,
   });
 }
 

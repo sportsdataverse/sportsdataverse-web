@@ -87,7 +87,7 @@ export default function CommunityClient() {
     setSeenUrlQ(urlQ);
     setQ(urlQ);
   }
-  const { data, error } = useAdmin<ListResponse>("community", `?${searchParams.toString()}`);
+  const { data, error, isLoading } = useAdmin<ListResponse>("community", `?${searchParams.toString()}`);
   const [exportError, setExportError] = useState<string | null>(null);
 
   function updateParams(mutate: (params: URLSearchParams) => void, resetPage = true) {
@@ -154,7 +154,7 @@ export default function CommunityClient() {
   // app/api/platform/admin/community/export/route.ts) — fetch it instead, so
   // a failure can be shown as a normal message here (M12).
   async function handleExport() {
-    if (!data || data.exportable === 0) return;
+    if (!data || isLoading || data.exportable === 0) return; // the count must be this filter's
     const ok = confirm(
       `Export ${data.exportable} people to CSV? Left out: anyone marked do-not-contact, anonymous rows, anyone who hasn't made an identified /join or /survey submission since the contact notice was added, anyone unsubscribed from the newsletter, and test addresses.`
     );
@@ -260,7 +260,7 @@ export default function CommunityClient() {
                 <p className="text-sm text-muted-foreground">
                   {data.total.toLocaleString()} people · page {data.page} of {data.pages}
                 </p>
-                <Button type="button" size="sm" variant="outline" disabled={data.exportable === 0} onClick={handleExport}>
+                <Button type="button" size="sm" variant="outline" disabled={isLoading || data.exportable === 0} onClick={handleExport}>
                   Export {data.exportable.toLocaleString()} to CSV
                 </Button>
               </div>
