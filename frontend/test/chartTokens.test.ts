@@ -42,6 +42,30 @@ test('DESIGN.md lists every chart slot (extend the table first)', () => {
   }
 });
 
+/**
+ * Parses DESIGN.md's `| \`chart-cat-N\` | light | dark | role |` table rows
+ * and returns the hex it declares for each theme, so doc and CSS can't drift.
+ */
+function designMdHex(slot: string): { light: string; dark: string } | null {
+  const row = design.split('\n').find((l) => l.includes(`\`chart-${slot}\``));
+  if (!row) return null;
+  const hexes = [...row.matchAll(/#[0-9a-f]{6}/gi)].map((m) => m[0].toLowerCase());
+  return hexes.length >= 2 ? { light: hexes[0], dark: hexes[1] } : null;
+}
+
+test("DESIGN.md's hex-valued chart slots match globals.css exactly (both themes)", () => {
+  for (const sel of [':root', '.dark'] as const) {
+    const b = block(sel);
+    for (const slot of CATEGORICAL) {
+      const fromDesign = designMdHex(slot);
+      assert.ok(fromDesign, `DESIGN.md has no hex row for chart-${slot}`);
+      const fromCss = b.match(new RegExp(`--chart-${slot}: (#[0-9a-f]{6});`))?.[1];
+      const theme = sel === ':root' ? 'light' : 'dark';
+      assert.equal(fromDesign![theme], fromCss, `chart-${slot} ${theme}: DESIGN.md vs globals.css`);
+    }
+  }
+});
+
 test('chartVar names the Tailwind token', () => {
   assert.equal(chartVar('cat-1'), 'var(--color-chart-cat-1)');
 });
