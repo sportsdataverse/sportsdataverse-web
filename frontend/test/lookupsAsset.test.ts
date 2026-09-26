@@ -43,9 +43,10 @@ test('lookupStatus distinguishes loading, error, empty and resolved', () => {
     lookupStatus('CFB', { loading: false, error: false, asset: 'cfb_rosters_2026.parquet' }),
     null
   );
-  // loading wins over a stale error/asset from a prior sport while SWR refetches.
+  // error wins over loading: SWR sets isLoading on every retry while the error
+  // persists, so checking loading first would flicker between the two lines.
   assert.equal(
-    lookupStatus('CFB', { loading: true, error: true, asset: 'cfb_rosters_2026.parquet' }),
-    'Loading CFB rosters…'
+    lookupStatus('CFB', { loading: true, error: true, asset: null }),
+    "Couldn't list CFB roster files."
   );
 });

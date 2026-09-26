@@ -107,8 +107,9 @@ export function lookupStatus(
   label: string,
   state: { loading: boolean; error: boolean; asset: string | null }
 ): string | null {
-  if (state.loading) return `Loading ${label} rosters…`;
+  // Error first: SWR re-sets isLoading on each retry while the error persists.
   if (state.error) return `Couldn't list ${label} roster files.`;
+  if (state.loading) return `Loading ${label} rosters…`;
   if (!state.asset) return `No roster file found for ${label}.`;
   return null;
 }

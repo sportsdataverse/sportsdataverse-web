@@ -163,7 +163,9 @@ export default function LookupsClient() {
         {asset ? (
           <span className="self-center font-mono text-xs text-muted-foreground">{asset}</span>
         ) : assetStatus ? (
-          <span className="self-center font-inter text-xs text-muted-foreground">{assetStatus}</span>
+          <span role="status" className="self-center font-inter text-xs text-muted-foreground">
+            {assetStatus}
+          </span>
         ) : null}
       </form>
 
