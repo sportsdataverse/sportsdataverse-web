@@ -189,3 +189,17 @@ test('toCsv: starts with the BOM character, the header follows it directly', asy
   assert.equal(csv.charCodeAt(0), 0xfeff);
   assert.ok(csv.slice(1).startsWith('name,email,'));
 });
+
+test('toCsv: affiliations use their label, not the raw stored type code', async () => {
+  const { db, pat } = await seed();
+  await db.collection('people').updateOne({ _id: pat }, { $set: { affiliations: [{ type: 'media', org: 'The Ringer' }] } });
+  const csv = toCsv(await loadCommunity(db));
+  const row = csv.slice(BOM.length).trimEnd().split('\r\n')[1];
+  assert.ok(row.includes('Media or journalism: The Ringer'), row);
+  assert.ok(!row.includes('media: The Ringer'), 'the raw code must not appear on its own');
+});
+
+test('auditParams: built from the parsed, allowlisted query — unknown keys, page and the cross-tab dims never reach the audit', () => {
+  const sp = new URLSearchParams('f.country=US&f.bogus=xyz&evil=%3Cscript%3E&page=3&x=q.role&y=country&q=pat@real.org');
+  assert.equal(auditParams(sp), 'f.country=US&q=%5Bredacted%5D');
+});

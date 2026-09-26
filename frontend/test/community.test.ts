@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ObjectId } from 'mongodb';
 import {
-  DIMENSIONS, parseCommunityQuery, matches, paginate, aggregate, crossTab, labelOf, dimension, freeValueOptions, PAGE_SIZE,
+  DIMENSIONS, parseCommunityQuery, matches, paginate, aggregate, crossTab, labelOf, dimension, freeValueOptions, countryName, PAGE_SIZE,
   type CommunityPerson,
 } from '../lib/community.ts';
 
@@ -105,6 +105,11 @@ test('labels: options, then regions by name, then the raw value', () => {
 
 test('source dimension has a newsletter option, so a newsletter-only signup labels correctly (M5)', () => {
   assert.equal(labelOf(dimension('source')!, 'newsletter'), 'Newsletter sign-up');
+});
+
+test('countryName resolves an ISO code to its display name — the one implementation every Community view shares', () => {
+  assert.equal(countryName('US'), 'United States');
+  assert.equal(countryName('GB'), 'United Kingdom');
 });
 
 test('freeValueOptions: only the option-less dimensions, and unaffected by which people are passed in', () => {
