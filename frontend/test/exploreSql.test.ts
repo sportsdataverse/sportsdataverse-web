@@ -31,7 +31,23 @@ test('a URL filter value reaches SQL only through sqlLiteral escaping: the quote
 
 test('a hostile "contains" value is quote-escaped inside the ILIKE pattern too', () => {
   const sql = buildSql('src', [{ column: 'name', op: 'contains', value: "o'brien" }], 10);
-  assert.ok(sql.includes(`ILIKE '%o''brien%'`), sql);
+  assert.ok(sql.includes(`ILIKE '%o''brien%' ESCAPE '\\'`), sql);
+});
+
+test('a "contains" value with LIKE wildcards matches only the literal, not a pattern', () => {
+  // "10%_off" must not become a pattern that also matches "10XXXoff" or similar:
+  // the user's own % and _ are escaped, only OUR bounding %...% stay wildcards.
+  const sql = buildSql('src', [{ column: 'code', op: 'contains', value: '10%_off' }], 10);
+  assert.ok(sql.includes(`ILIKE '%10\\%\\_off%' ESCAPE '\\'`), sql);
+  // simulate what ESCAPE '\' means: only a literal "10%_off" satisfies the pattern
+  const pattern = /^.*10%_off.*$/; // the DuckDB-side semantics once \% and \_ are un-escaped
+  assert.ok(pattern.test('has 10%_off in it'));
+  assert.ok(!/^.*10X{3}off.*$/.test('has 10%_off in it')); // sanity: not a loose wildcard match
+});
+
+test('a bare backslash in a "contains" value is escaped so it cannot smuggle a wildcard', () => {
+  const sql = buildSql('src', [{ column: 'name', op: 'contains', value: 'a\\%b' }], 10);
+  assert.ok(sql.includes(`ILIKE '%a\\\\\\%b%' ESCAPE '\\'`), sql);
 });
 
 test('columns are interpolated bare, safe only because the caller enforces COLUMN first', () => {

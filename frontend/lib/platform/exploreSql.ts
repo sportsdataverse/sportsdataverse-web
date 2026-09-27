@@ -11,11 +11,22 @@
  * splitKey() enforces this for a URL-sourced filter, and the schema-derived
  * filter dropdown only ever offers real DESCRIBE column names. buildSql
  * itself does not re-validate the column: it trusts that contract.
+ *
+ * The "contains" (ILIKE) branch additionally escapes the value's OWN LIKE
+ * wildcards (`\`, `%`, `_`) before wrapping it in the bounding `%...%`, with
+ * `ESCAPE '\'` on the clause (DuckDB's LIKE/ILIKE grammar: a value containing
+ * a literal `%` or `_` would otherwise itself act as a wildcard — "10%_off"
+ * must match only that literal string, not "10XXXoff").
  */
 export type Filter = { column: string; op: string; value: string };
 
 function escapeSqlString(value: string): string {
   return value.replace(/'/g, "''");
+}
+
+/** Escape a LIKE/ILIKE value's own wildcards so it matches only the literal. */
+function escapeLikeWildcards(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
 }
 
 export function sqlLiteral(value: string): string {
@@ -28,7 +39,7 @@ export function buildSql(source: string, filters: Filter[], limit: number): stri
     .filter((f) => f.column && f.value !== "")
     .map((f) =>
       f.op === "contains"
-        ? `CAST("${f.column}" AS VARCHAR) ILIKE '%${escapeSqlString(f.value)}%'`
+        ? `CAST("${f.column}" AS VARCHAR) ILIKE '%${escapeSqlString(escapeLikeWildcards(f.value))}%' ESCAPE '\\'`
         : `"${f.column}" ${f.op} ${sqlLiteral(f.value)}`
     )
     .join("\n  AND ");
