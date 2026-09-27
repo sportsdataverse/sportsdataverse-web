@@ -3,31 +3,42 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { LineChart } from "lucide-react";
-import { Button } from "@components/ui/button";
 import { WP_SPORTS } from "@content/wp";
 import type { WpSport } from "@content/wp";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
 import { wpViewParams, type WpView } from "@lib/platform/viewState";
 import { resolvePendingGame } from "@lib/platform/pendingGame";
+import {
+  emptyWpMessage,
+  gameOptionsFromSchedule,
+  wpPointsFromRows,
+  type GameOption,
+  type WpPoint,
+} from "@lib/platform/wp";
 import useUrlMirror from "@hooks/useUrlMirror";
 
 /**
  * CFBD-style win-probability charts: sport → season → game → home-WP line
- * over the play sequence, with the play log underneath. Same in-browser
- * DuckDB engine + range proxy as Explore/Lookups.
+ * over the play sequence, with the play log underneath. The season list is
+ * the release's assets; the game list and one game's plays are two Data API
+ * reads through the member-gated Query proxy.
  */
 
 const DATA_REPO = "sportsdataverse/sportsdataverse-data";
+/** The Data API's own row cap (sdv-db MAX_LIMIT). The largest schedule is
+ *  ~6.3k games (MBB) and the longest game ~660 plays (4OT MBB), so neither
+ *  read comes near it. */
+const API_MAX_ROWS = "50000";
 
-type GameOption = { id: string; label: string };
-type WpPoint = { x: number; wp: number; period: number; clock: string; text: string; score: string };
-
-function proxyUrl(sport: WpSport, asset: string): string {
-  return `${window.location.origin}/api/platform/datasets/file?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}&asset=${encodeURIComponent(asset)}`;
-}
-
-function q(col: string): string {
-  return `"${col.replace(/"/g, '""')}"`;
+/** One `GET /v1/{schema}/{table}` through /api/platform/query/run, the
+ *  Query page's call shape. */
+async function apiRows(params: Record<string, string>): Promise<Record<string, unknown>[]> {
+  const res = await fetch(`/api/platform/query/run?${new URLSearchParams(params)}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.detail ?? body?.message ?? `HTTP ${res.status}`);
+  }
+  return ((await res.json()) as { data: Record<string, unknown>[] }).data;
 }
 
 const assetsFetcher = async (url: string) => {
@@ -169,6 +180,7 @@ export default function WpClient({ initial }: { initial: WpView }) {
   // A shared link's game, held until its season's game list has loaded.
   const pendingGame = useRef(initial.game);
   const [points, setPoints] = useState<WpPoint[]>([]);
+  const [plays, setPlays] = useState(0);
   const [teams, setTeams] = useState<{ home: string; away: string }>({ home: "", away: "" });
   const [busy, setBusy] = useState<string | null>(null);
   const [hoverI, setHoverI] = useState<number | null>(null);
@@ -236,40 +248,19 @@ export default function WpClient({ initial }: { initial: WpView }) {
     setGames([]);
     setGameId("");
     setPoints([]);
-    const { runQuery } = await import("@lib/platform/duckdb");
     setBusy("Loading games…");
     setError(null);
     try {
-      const c = sport.cols;
-      const src = `read_parquet('${proxyUrl(sport, asset)}')`;
-      // Preflight the schema. Release columns drift — the mbb/wbb pbp releases
-      // dropped their win-probability enrichment entirely — and without this
-      // the user just gets a raw DuckDB binder error. Checking first turns that
-      // into an explanation, and self-heals the moment the column returns.
-      const described = await runQuery(`DESCRIBE SELECT * FROM ${src}`, 2000);
-      const nameIdx0 = described.columns.indexOf("column_name");
-      const have = new Set(described.rows.map((r) => r[nameIdx0] ?? ""));
-      const required = [c.gameId, c.order, c.wp, c.period, c.text, c.homeName, c.awayName];
-      const missing = required.filter((col) => !have.has(col));
-      if (missing.length) {
-        setError(
-          `${sport.label} ${asset.replace(sport.assetPrefix, "").replace(".parquet", "")}: the ` +
-            `${sport.tag} release is missing ${missing.map((m) => `\`${m}\``).join(", ")}. ` +
-            `Win probability isn't published for this sport right now — try CFB or NFL.`
-        );
-        pendingGame.current = resolvePendingGame(pendingGame.current, { failed: true }).nextPending;
-        return;
-      }
-      const weekSel = c.week ? `any_value(${q(c.week)})` : "NULL";
-      const res = await runQuery(
-        `SELECT CAST(${q(c.gameId)} AS VARCHAR) AS id, any_value(${q(c.homeName)}) AS home, any_value(${q(c.awayName)}) AS away, ${weekSel} AS week FROM ${src} GROUP BY 1 ORDER BY week NULLS LAST, home`,
-        3000
-      );
-      const idx = (name: string) => res.columns.indexOf(name);
-      const gamesList = res.rows.map((r) => ({
-        id: r[idx("id")] ?? "",
-        label: `${r[idx("week")] != null ? `W${r[idx("week")]} · ` : ""}${r[idx("away")]} @ ${r[idx("home")]}`,
-      }));
+      const s = sport.schedule;
+      const rows = await apiRows({
+        schema: sport.schema,
+        table: "schedule",
+        season: seasonYear(sport, asset),
+        ...s.filter,
+        select: [s.id, s.week, s.home, s.away].filter(Boolean).join(","),
+        limit: API_MAX_ROWS,
+      });
+      const gamesList = gameOptionsFromSchedule(rows, s);
       setGames(gamesList);
       const { toLoad, nextPending } = resolvePendingGame(pendingGame.current, { games: gamesList });
       pendingGame.current = nextPending;
@@ -285,33 +276,21 @@ export default function WpClient({ initial }: { initial: WpView }) {
   async function loadGame(id: string, list: GameOption[] = games) {
     setGameId(id);
     setPoints([]);
-    const { runQuery } = await import("@lib/platform/duckdb");
+    setPlays(0);
     setBusy("Loading game…");
     setError(null);
     try {
       const c = sport.cols;
-      const src = `read_parquet('${proxyUrl(sport, season)}')`;
-      const clockSel = c.clock ? q(c.clock) : "''";
-      const scoreSel =
-        c.homeScore && c.awayScore ? `${q(c.awayScore)} || '-' || ${q(c.homeScore)}` : "''";
-      const res = await runQuery(
-        `SELECT ${q(c.order)} AS x, ${q(c.wp)} AS wp, ${q(c.period)} AS period, ${clockSel} AS clock, CAST(${q(c.text)} AS VARCHAR) AS text, ${scoreSel} AS score
-         FROM ${src}
-         WHERE CAST(${q(c.gameId)} AS VARCHAR) = '${id.replace(/'/g, "''")}' AND ${q(c.wp)} IS NOT NULL
-         ORDER BY x`,
-        5000
-      );
-      const idx = (name: string) => res.columns.indexOf(name);
-      setPoints(
-        res.rows.map((r) => ({
-          x: Number(r[idx("x")]),
-          wp: Math.max(0, Math.min(1, Number(r[idx("wp")]))),
-          period: Number(r[idx("period")]) || 1,
-          clock: r[idx("clock")] ?? "",
-          text: r[idx("text")] ?? "",
-          score: r[idx("score")] ?? "",
-        }))
-      );
+      const rows = await apiRows({
+        schema: sport.schema,
+        table: "pbp",
+        [c.gameId]: id,
+        select: [c.order, c.wp, c.period, c.clock, c.text, c.homeScore, c.awayScore].filter(Boolean).join(","),
+        order: c.order,
+        limit: API_MAX_ROWS,
+      });
+      setPlays(rows.length);
+      setPoints(wpPointsFromRows(rows, c));
       const game = list.find((g) => g.id === id);
       const [away, home] = game ? game.label.replace(/^W\S+ · /, "").split(" @ ") : ["", ""];
       setTeams({ home: home ?? "", away: away ?? "" });
@@ -444,7 +423,8 @@ export default function WpClient({ initial }: { initial: WpView }) {
         </>
       ) : gameId && !busy ? (
         <p className="font-inter text-sm text-muted-foreground">
-          <LineChart className="mr-1 inline h-4 w-4" /> No win-probability data for this game.
+          <LineChart className="mr-1 inline h-4 w-4" />{" "}
+          {emptyWpMessage(plays, points.length, sport.label, seasonYear(sport, season))}
         </p>
       ) : null}
     </>
