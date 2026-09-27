@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
 import {
@@ -31,6 +31,13 @@ import { Skeleton } from "@components/ui/skeleton";
 import { cn } from "@lib/utils";
 import ResultsGrid from "@components/platform/ResultsGrid";
 import { columnTip, tableTip } from "@lib/platform/glossary";
+import {
+  queryViewParams,
+  type ApiFilter,
+  type QueryView,
+  type Suffix,
+} from "@lib/platform/viewState";
+import useUrlMirror from "@hooks/useUrlMirror";
 
 const OPERATORS = [
   { suffix: "", label: "=" },
@@ -67,11 +74,7 @@ const FILTER_TAGS = [
   "division",
 ] as const;
 
-interface Filter {
-  column: string;
-  op: string;
-  value: string;
-}
+type Filter = ApiFilter;
 
 interface QueryResult {
   schema_name: string;
@@ -80,40 +83,29 @@ interface QueryResult {
   data: Record<string, unknown>[];
 }
 
-function buildParams(
-  schema: string,
-  table: string,
-  filters: Filter[],
-  select: string[],
-  order: string,
-  limit: number
-): URLSearchParams {
-  const p = new URLSearchParams({ schema, table });
-  for (const f of filters) {
-    if (f.column && f.value !== "") p.set(`${f.column}${f.op}`, f.value);
-  }
-  if (select.length) p.set("select", select.join(","));
-  if (order) p.set("order", order);
-  p.set("limit", String(limit));
-  return p;
-}
-
 function toCells(v: unknown): string | null {
   if (v === null || v === undefined) return null;
   if (typeof v === "object") return JSON.stringify(v);
   return String(v);
 }
 
-export default function QueryBuilder({ schemas }: { schemas: string[] }) {
-  const [schema, setSchema] = useState(schemas[0] ?? "");
-  const [table, setTable] = useState("");
+export default function QueryBuilder({
+  schemas,
+  initial,
+}: {
+  schemas: string[];
+  /** View state parsed from the URL (a shared link). */
+  initial: QueryView;
+}) {
+  const [schema, setSchema] = useState(initial.schema);
+  const [table, setTable] = useState(initial.table);
   const [tableSearch, setTableSearch] = useState("");
   const [colSearch, setColSearch] = useState("");
   const [dragChip, setDragChip] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filter[]>([]);
-  const [select, setSelect] = useState<string[]>([]);
-  const [order, setOrder] = useState("");
-  const [limit, setLimit] = useState(100);
+  const [filters, setFilters] = useState<Filter[]>(initial.filters);
+  const [select, setSelect] = useState<string[]>(initial.select);
+  const [order, setOrder] = useState(initial.order);
+  const [limit, setLimit] = useState(initial.limit);
   const [result, setResult] = useState<QueryResult | null>(null);
   const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -165,6 +157,7 @@ export default function QueryBuilder({ schemas }: { schemas: string[] }) {
   // Reset table-dependent state when the schema or table changes. Called from both
   // triggers directly (schema's onValueChange, table's onClick) rather than a
   // useEffect keyed on [schema, table] — same reset, no extra render cycle.
+  // (That effect would also fire on mount and wipe a shared link's restored filters.)
   function resetQueryState() {
     setFilters([]);
     setSelect([]);
@@ -175,7 +168,14 @@ export default function QueryBuilder({ schemas }: { schemas: string[] }) {
     setColSearch("");
   }
 
-  const params = buildParams(schema, table, filters, select, order, limit);
+  const params = queryViewParams({ schema, table, filters, select, order, limit });
+  useUrlMirror(params);
+
+  // A shared link runs its query once.
+  useEffect(() => {
+    if (initial.table) void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, from the URL
+  }, []);
   const apiUrl = `https://data.sportsdataverse.org/v1/${schema}/${table}?${(() => {
     const p = new URLSearchParams(params);
     p.delete("schema");
@@ -447,7 +447,7 @@ export default function QueryBuilder({ schemas }: { schemas: string[] }) {
                       value={f.op}
                       onValueChange={(v) =>
                         setFilters((fs) =>
-                          fs.map((x, j) => (j === i ? { ...x, op: v === "eq" ? "" : v } : x))
+                          fs.map((x, j) => (j === i ? { ...x, op: (v === "eq" ? "" : v) as Suffix } : x))
                         )
                       }
                     >

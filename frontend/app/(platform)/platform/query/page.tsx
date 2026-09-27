@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
 import { dataApi } from "@lib/platform/orch";
+import { parseQueryView, toSearchParams } from "@lib/platform/viewState";
 import QueryBuilder from "@components/platform/QueryBuilder";
 
 export const metadata: Metadata = { title: "Query" };
 
-export default async function QueryPage() {
+export default async function QueryPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const res = await dataApi("/v1/schemas");
   const schemas: string[] = res.ok ? (await res.json()).schemas : [];
+  const sp = toSearchParams(await searchParams);
 
   return (
     <div className="flex flex-col gap-6">
@@ -18,7 +24,7 @@ export default async function QueryPage() {
           API your personal key hits, with the equivalent curl for every query.
         </p>
       </div>
-      <QueryBuilder schemas={schemas} />
+      <QueryBuilder schemas={schemas} initial={parseQueryView(sp, schemas)} />
     </div>
   );
 }

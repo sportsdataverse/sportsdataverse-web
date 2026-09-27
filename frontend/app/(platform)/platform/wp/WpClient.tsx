@@ -7,6 +7,9 @@ import { Button } from "@components/ui/button";
 import { WP_SPORTS } from "@content/wp";
 import type { WpSport } from "@content/wp";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
+import { wpViewParams, type WpView } from "@lib/platform/viewState";
+import { resolvePendingGame } from "@lib/platform/pendingGame";
+import useUrlMirror from "@hooks/useUrlMirror";
 
 /**
  * CFBD-style win-probability charts: sport → season → game → home-WP line
@@ -149,11 +152,22 @@ function WpChart({
   );
 }
 
-export default function WpClient() {
-  const [sportKey, setSportKey] = useState(WP_SPORTS[0].key);
-  const [season, setSeason] = useState("");
+/** `play_by_play_2024.parquet` ↔ `2024` for the sport's asset prefix. */
+function seasonAsset(sport: WpSport, year: string): string {
+  return year ? `${sport.assetPrefix}${year}.parquet` : "";
+}
+function seasonYear(sport: WpSport, asset: string): string {
+  return asset.slice(sport.assetPrefix.length).replace(".parquet", "");
+}
+
+export default function WpClient({ initial }: { initial: WpView }) {
+  const initialSport = WP_SPORTS.find((s) => s.key === initial.sport) ?? WP_SPORTS[0];
+  const [sportKey, setSportKey] = useState(initialSport.key);
+  const [season, setSeason] = useState(seasonAsset(initialSport, initial.season));
   const [games, setGames] = useState<GameOption[]>([]);
   const [gameId, setGameId] = useState("");
+  // A shared link's game, held until its season's game list has loaded.
+  const pendingGame = useRef(initial.game);
   const [points, setPoints] = useState<WpPoint[]>([]);
   const [teams, setTeams] = useState<{ home: string; away: string }>({ home: "", away: "" });
   const [busy, setBusy] = useState<string | null>(null);
@@ -194,7 +208,21 @@ export default function WpClient() {
     [assets, sport]
   );
 
+  useUrlMirror(
+    wpViewParams({ sport: sport.key, season: seasonYear(sport, season), game: gameId || pendingGame.current })
+  );
+
+  // Shared link: load its season once, then its game when the list arrives
+  // (resolved synchronously inside loadGames, see resolvePendingGame). No
+  // season in the link means no game will ever arrive to consume it either.
+  useEffect(() => {
+    if (season) void loadGames(season);
+    else pendingGame.current = "";
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, from the URL
+  }, []);
+
   function resetForSport(key: string) {
+    pendingGame.current = "";
     setSportKey(key);
     setSeason("");
     setGames([]);
@@ -229,6 +257,7 @@ export default function WpClient() {
             `${sport.tag} release is missing ${missing.map((m) => `\`${m}\``).join(", ")}. ` +
             `Win probability isn't published for this sport right now — try CFB or NFL.`
         );
+        pendingGame.current = resolvePendingGame(pendingGame.current, { failed: true }).nextPending;
         return;
       }
       const weekSel = c.week ? `any_value(${q(c.week)})` : "NULL";
@@ -237,20 +266,23 @@ export default function WpClient() {
         3000
       );
       const idx = (name: string) => res.columns.indexOf(name);
-      setGames(
-        res.rows.map((r) => ({
-          id: r[idx("id")] ?? "",
-          label: `${r[idx("week")] != null ? `W${r[idx("week")]} · ` : ""}${r[idx("away")]} @ ${r[idx("home")]}`,
-        }))
-      );
+      const gamesList = res.rows.map((r) => ({
+        id: r[idx("id")] ?? "",
+        label: `${r[idx("week")] != null ? `W${r[idx("week")]} · ` : ""}${r[idx("away")]} @ ${r[idx("home")]}`,
+      }));
+      setGames(gamesList);
+      const { toLoad, nextPending } = resolvePendingGame(pendingGame.current, { games: gamesList });
+      pendingGame.current = nextPending;
+      if (toLoad) void loadGame(toLoad, gamesList);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      pendingGame.current = resolvePendingGame(pendingGame.current, { failed: true }).nextPending;
     } finally {
       setBusy(null);
     }
   }
 
-  async function loadGame(id: string) {
+  async function loadGame(id: string, list: GameOption[] = games) {
     setGameId(id);
     setPoints([]);
     const { runQuery } = await import("@lib/platform/duckdb");
@@ -280,7 +312,7 @@ export default function WpClient() {
           score: r[idx("score")] ?? "",
         }))
       );
-      const game = games.find((g) => g.id === id);
+      const game = list.find((g) => g.id === id);
       const [away, home] = game ? game.label.replace(/^W\S+ · /, "").split(" @ ") : ["", ""];
       setTeams({ home: home ?? "", away: away ?? "" });
     } catch (e) {
@@ -316,7 +348,14 @@ export default function WpClient() {
         ))}
         <select
           value={season}
-          onChange={(e) => (e.target.value ? void loadGames(e.target.value) : setSeason(""))}
+          onChange={(e) => {
+            // A manually picked season abandons any in-flight linked game —
+            // game ids aren't unique across seasons, so a stale pending id
+            // must never be re-applied against a different season's list.
+            pendingGame.current = "";
+            if (e.target.value) void loadGames(e.target.value);
+            else setSeason("");
+          }}
           className="rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
         >
           <option value="">Season…</option>
