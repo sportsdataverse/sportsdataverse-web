@@ -7,6 +7,8 @@ import { Button } from "@components/ui/button";
 import { WP_SPORTS } from "@content/wp";
 import type { WpSport } from "@content/wp";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
+import { wpViewParams, type WpView } from "@lib/platform/viewState";
+import useUrlMirror from "@hooks/useUrlMirror";
 
 /**
  * CFBD-style win-probability charts: sport → season → game → home-WP line
@@ -149,11 +151,22 @@ function WpChart({
   );
 }
 
-export default function WpClient() {
-  const [sportKey, setSportKey] = useState(WP_SPORTS[0].key);
-  const [season, setSeason] = useState("");
+/** `play_by_play_2024.parquet` ↔ `2024` for the sport's asset prefix. */
+function seasonAsset(sport: WpSport, year: string): string {
+  return year ? `${sport.assetPrefix}${year}.parquet` : "";
+}
+function seasonYear(sport: WpSport, asset: string): string {
+  return asset.slice(sport.assetPrefix.length).replace(".parquet", "");
+}
+
+export default function WpClient({ initial }: { initial: WpView }) {
+  const initialSport = WP_SPORTS.find((s) => s.key === initial.sport) ?? WP_SPORTS[0];
+  const [sportKey, setSportKey] = useState(initialSport.key);
+  const [season, setSeason] = useState(seasonAsset(initialSport, initial.season));
   const [games, setGames] = useState<GameOption[]>([]);
   const [gameId, setGameId] = useState("");
+  // A shared link's game, held until its season's game list has loaded.
+  const pendingGame = useRef(initial.game);
   const [points, setPoints] = useState<WpPoint[]>([]);
   const [teams, setTeams] = useState<{ home: string; away: string }>({ home: "", away: "" });
   const [busy, setBusy] = useState<string | null>(null);
@@ -194,7 +207,25 @@ export default function WpClient() {
     [assets, sport]
   );
 
+  useUrlMirror(
+    wpViewParams({ sport: sport.key, season: seasonYear(sport, season), game: gameId || pendingGame.current })
+  );
+
+  // Shared link: load its season once, then its game when the list arrives.
+  useEffect(() => {
+    if (season) void loadGames(season);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, from the URL
+  }, []);
+  useEffect(() => {
+    const id = pendingGame.current;
+    if (!id || !games.length) return;
+    pendingGame.current = "";
+    if (games.some((g) => g.id === id)) void loadGame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires when games arrive
+  }, [games]);
+
   function resetForSport(key: string) {
+    pendingGame.current = "";
     setSportKey(key);
     setSeason("");
     setGames([]);
