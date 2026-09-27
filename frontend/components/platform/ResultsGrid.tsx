@@ -8,6 +8,7 @@ import {
   columnDomain,
   gridShade,
   nextTint,
+  effectiveTint,
   pctSources,
   type Domain,
   type TintMode,
@@ -133,6 +134,7 @@ export default function ResultsGrid({
   /** Column → the producer percentile column that shades it, with its scale. */
   const pcts = useMemo(() => pctSources(cols, rows), [cols, rows]);
   const hasPct = pcts.size > 0;
+  const shownTint = effectiveTint(tint, hasPct);
 
   /** Filtered + sorted view; every row keeps its ORIGINAL index for numbering,
    *  selection identity, and external linking. */
@@ -234,7 +236,7 @@ export default function ResultsGrid({
     }
     if (key === "h") {
       e.preventDefault();
-      setTint((m) => nextTint(m, hasPct));
+      setTint(nextTint(shownTint, hasPct));
       return;
     }
     if (key === "w" || key === "e") {
@@ -317,7 +319,7 @@ export default function ResultsGrid({
               {colOrder.map((ci) => {
                 const name = columns[ci];
                 const encoded =
-                  tint === "delta" ? domains[ci] !== null : tint === "pct" && pcts.has(ci);
+                  shownTint === "delta" ? domains[ci] !== null : shownTint === "pct" && pcts.has(ci);
                 return (
                   <th
                     key={name}
@@ -406,7 +408,7 @@ export default function ResultsGrid({
                   {colOrder.map((ci, c) => {
                     const raw = cells[ci];
                     const numeric = domains[ci] !== null;
-                    const shade = gridShade(tint, cells, ci, domains[ci], pcts.get(ci));
+                    const shade = gridShade(shownTint, cells, ci, domains[ci], pcts.get(ci));
                     return (
                       <td
                         key={ci}
@@ -464,15 +466,15 @@ export default function ResultsGrid({
           <kbd className="text-foreground">w</kbd>/<kbd className="text-foreground">e</kbd> density
         </span>
         <button
-          onClick={() => setTint((m) => nextTint(m, hasPct))}
+          onClick={() => setTint(nextTint(shownTint, hasPct))}
           className={cn(
             "ml-auto inline-flex items-center gap-1 uppercase hover:text-foreground",
-            tint !== "off" && "text-primary"
+            shownTint !== "off" && "text-primary"
           )}
           title="Shade cells: distance from the column baseline → producer percentile (X_pct) → off (h)"
         >
           <Flame className="size-3" />{" "}
-          {tint === "pct" ? "percentile" : tint === "delta" ? "heat" : "no tint"} <kbd>h</kbd>
+          {shownTint === "pct" ? "percentile" : shownTint === "delta" ? "heat" : "no tint"} <kbd>h</kbd>
         </button>
       </div>
     </div>

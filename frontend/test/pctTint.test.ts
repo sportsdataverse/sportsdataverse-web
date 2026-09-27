@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  effectiveTint,
   cellTint,
   gridShade,
   nextTint,
@@ -97,4 +98,11 @@ test('delta shades by the column domain alone; off shades nothing', () => {
   assert.match(gridShade('pct', row, 0, domain, pct) ?? '', /--color-destructive/);
   assert.equal(gridShade('pct', row, 0, domain, undefined), undefined);
   assert.equal(gridShade('off', row, 0, domain, pct), undefined);
+});
+
+test('percentile mode with no percentile columns draws heat, and keeps the intent otherwise', () => {
+  assert.equal(effectiveTint('pct', false), 'delta');
+  assert.equal(effectiveTint('pct', true), 'pct');
+  assert.equal(effectiveTint('off', false), 'off');
+  assert.equal(effectiveTint('delta', true), 'delta');
 });

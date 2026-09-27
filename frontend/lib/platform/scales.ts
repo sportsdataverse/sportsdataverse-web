@@ -95,6 +95,13 @@ export function gridShade(
   return mode === "pct" && pct ? pctTint(cells[pct.col], pct.scale) : undefined;
 }
 
+/** The mode actually drawn: percentile mode on a result with no percentile
+ *  columns shades by heat instead of showing an inert mode. The stored mode
+ *  keeps the intent, so the next result with percentiles gets them. */
+export function effectiveTint(mode: TintMode, hasPct: boolean): TintMode {
+  return mode === "pct" && !hasPct ? "delta" : mode;
+}
+
 /** The `h` key: delta → pct → off, skipping pct when nothing has percentiles. */
 export function nextTint(mode: TintMode, hasPct: boolean): TintMode {
   if (mode === "delta") return hasPct ? "pct" : "off";
