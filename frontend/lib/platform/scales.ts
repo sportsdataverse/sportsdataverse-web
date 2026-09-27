@@ -19,10 +19,63 @@
  * diverging pair already in the tokens.
  */
 
-/** Percentile fields arrive as 0–1 from some producers and 0–100 from others. */
-export function asPercentile(p: number | null): number | null {
+/** Percentile fields arrive as 0–1 from some producers and 0–100 from others.
+ *  The scale belongs to the COLUMN (see pctScale): judged per value, the
+ *  0–100 producer's worst qualifiers (0.66 of 150) would read as 66th. */
+export function asPercentile(p: number | null, scale: 1 | 100 = 100): number | null {
   if (p == null || Number.isNaN(p)) return null;
-  return Math.round(p > 1 ? p : p * 100);
+  return Math.round(scale === 1 ? p * 100 : p);
+}
+
+/** 100 when any value in the column exceeds 1, else 1.
+ *  ponytail: a 0–100 column whose visible rows are all ≤ 1 (only the bottom
+ *  1% on screen) reads as 0–1; the F13 registry's `format` removes the guess. */
+export function pctScale(values: (string | null)[]): 1 | 100 {
+  let seen = false;
+  for (const v of values) {
+    if (v == null || v === "") continue;
+    const n = Number(v);
+    if (n > 1) return 100;
+    if (Number.isFinite(n)) seen = true;
+  }
+  return seen ? 1 : 100;
+}
+
+/**
+ * Producer percentiles: `X_pct` beside `X` (cfbfastR-cfb-data leaderboards —
+ * among qualifiers, already direction-adjusted, null = unknown). A `_pct`
+ * without its `X` is a plain rate (fg_pct), not a percentile. Maps each tinted
+ * column index → the index of the percentile column that colours it.
+ */
+export function pctSiblings(columns: string[]): Map<number, number> {
+  const at = new Map(columns.map((c, i) => [c, i] as const));
+  const out = new Map<number, number>();
+  columns.forEach((c, i) => {
+    if (!c.endsWith("_pct")) return;
+    const base = at.get(c.slice(0, -4));
+    if (base === undefined) return;
+    out.set(base, i);
+    out.set(i, i);
+  });
+  return out;
+}
+
+const PCT_DOMAIN: Domain = { min: 0, max: 100, base: 50, signed: false, polarity: 1 };
+
+/** Tint from a producer percentile. Polarity stays +1: the producer's `_rank`
+ *  already encodes direction, so polarity() here would invert fumbles/ints. */
+export function pctTint(raw: string | null, scale: 1 | 100): string | undefined {
+  if (raw == null || raw === "") return undefined;
+  const p = asPercentile(Number(raw), scale);
+  return p == null ? undefined : tintFor(p, PCT_DOMAIN);
+}
+
+export type TintMode = "delta" | "pct" | "off";
+
+/** The `h` key: delta → pct → off, skipping pct when nothing has percentiles. */
+export function nextTint(mode: TintMode, hasPct: boolean): TintMode {
+  if (mode === "delta") return hasPct ? "pct" : "off";
+  return mode === "pct" ? "off" : "delta";
 }
 
 /** Tint strength per bucket. Capped where cell text starts losing contrast. */
@@ -83,8 +136,8 @@ export function tintFor(value: number, domain: Domain): string | undefined {
 
 /** Text emphasis for an elite percentile — databallr's gold sub-value idea,
  *  re-pointed at the scoreboard token so it stays on-palette. */
-export function percentileClass(pct: number | null): string {
-  const p = asPercentile(pct);
+export function percentileClass(pct: number | null, scale: 1 | 100 = 100): string {
+  const p = asPercentile(pct, scale);
   if (p == null) return "text-muted-foreground";
   if (p >= 90) return "text-score-ink dark:text-score font-semibold";
   if (p >= 75) return "text-foreground";
