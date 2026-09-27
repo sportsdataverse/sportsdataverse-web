@@ -16,7 +16,8 @@ const steps = async (page, base) => {
   await page.goto(base + '/platform/query?schema=cfb&table=passing&season=2025&limit=50&grid.tint=pct', { waitUntil: 'domcontentloaded' });
   const grid = page.getByRole('grid');
   await grid.waitFor({ timeout: 60_000 }); // the shared link ran itself
-  await page.getByRole('button', { name: /percentile/i }).waitFor(); // grid.tint=pct restored
+  // exact: the table rail also has a `percentiles` chip
+  await page.getByRole('button', { name: 'percentile h', exact: true }).waitFor(); // grid.tint=pct restored
   const cell = grid.locator('td[data-cell="0-1"]');
   await cell.click();
   await cell.press('h'); // pct → off
