@@ -13,6 +13,7 @@
 import { WP_SPORTS } from "../../content/wp.ts";
 import { TREND_SPORTS } from "../../content/trends.ts";
 import { LOOKUP_SPORTS } from "../../content/lookups.ts";
+import type { TintMode } from "./scales.ts";
 
 export function toSearchParams(record: Record<string, string | string[] | undefined>): URLSearchParams {
   const p = new URLSearchParams();
@@ -201,4 +202,48 @@ export function lookupsViewParams(v: LookupsView): URLSearchParams {
   if (v.mode !== "players") p.set("mode", v.mode);
   if (v.q) p.set("q", v.q);
   return p;
+}
+
+// --- ResultsGrid (sort / column filters / tint), keyed by column NAME --------
+
+export type SortDir = "asc" | "desc";
+export type GridView = { sort: { col: string; dir: SortDir } | null; filters: Record<string, string>; tint: TintMode };
+/** ResultsGrid's internal shape: the same view keyed by column index. */
+export type GridIndexState = { sort: { col: number; dir: SortDir } | null; filters: Record<number, string>; tint: TintMode };
+export const EMPTY_GRID: GridView = { sort: null, filters: {}, tint: "delta" };
+
+export function parseGridView(sp: URLSearchParams): GridView {
+  const raw = sp.get("grid.sort") ?? "";
+  const col = raw.replace(/^-/, "").slice(0, MAX_LEN);
+  const filters: Record<string, string> = {};
+  sp.forEach((value, key) => {
+    const name = key.startsWith("grid.f.") ? key.slice(7, 7 + MAX_LEN) : "";
+    if (COLUMN.test(name) && value) filters[name] = value.slice(0, MAX_LEN);
+  });
+  return {
+    sort: COLUMN.test(col) ? { col, dir: raw.startsWith("-") ? "desc" : "asc" } : null,
+    filters,
+    tint: pick(sp.get("grid.tint"), ["delta", "pct", "off"] as const, "delta"),
+  };
+}
+
+/** Appends the grid keys to `p` (a page's own params). */
+export function gridViewParams(v: GridView, p: URLSearchParams): void {
+  if (v.sort) p.set("grid.sort", `${v.sort.dir === "desc" ? "-" : ""}${v.sort.col}`);
+  if (v.tint !== "delta") p.set("grid.tint", v.tint);
+  for (const [col, text] of Object.entries(v.filters)) if (text) p.set(`grid.f.${col}`, text);
+}
+
+export function gridByIndex(v: GridView, columns: string[]): GridIndexState {
+  const idx = (name: string) => columns.indexOf(name);
+  const filters: Record<number, string> = {};
+  for (const [name, text] of Object.entries(v.filters)) if (idx(name) >= 0) filters[idx(name)] = text;
+  const sortCol = v.sort ? idx(v.sort.col) : -1;
+  return { sort: v.sort && sortCol >= 0 ? { col: sortCol, dir: v.sort.dir } : null, filters, tint: v.tint };
+}
+
+export function gridByName(s: GridIndexState, columns: string[]): GridView {
+  const filters: Record<string, string> = {};
+  for (const [i, text] of Object.entries(s.filters)) if (text && columns[Number(i)]) filters[columns[Number(i)]] = text;
+  return { sort: s.sort && columns[s.sort.col] ? { col: columns[s.sort.col], dir: s.sort.dir } : null, filters, tint: s.tint };
 }
