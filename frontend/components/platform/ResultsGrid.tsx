@@ -119,6 +119,13 @@ export default function ResultsGrid({
     setSort(next.sort);
     setSelectedRow(null);
   }
+  // A rerun with the same columns keeps sort and filters, but the selected index
+  // would point at a different row. Both row sources are stable per result.
+  const [lastRows, setLastRows] = useState(rows);
+  if (lastRows !== rows) {
+    setLastRows(rows);
+    setSelectedRow(null);
+  }
 
   useEffect(() => {
     onViewChange?.(gridByName({ sort, filters, tint }, cols));
