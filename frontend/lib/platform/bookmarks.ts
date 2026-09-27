@@ -1,4 +1,4 @@
-import { ObjectId } from "mongodb";
+import { ObjectId, type Document, type WithId } from "mongodb";
 import { connectToDatabase } from "@lib/mongodb";
 import type { BookmarkDoc, BookmarkInput } from "./schemas";
 
@@ -16,7 +16,7 @@ export async function listBookmarks(owner: string): Promise<BookmarkDoc[]> {
     .toArray();
   // Whitelist the contract fields — a spread would leak anything else that
   // ever lands on the doc.
-  return docs.map((d: any) => ({
+  return docs.map((d: WithId<Document>) => ({
     _id: String(d._id),
     name: d.name,
     tag: d.tag,

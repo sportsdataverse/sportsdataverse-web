@@ -1,6 +1,6 @@
 import useScrollPercentage from "@hooks/useScrollPercentage";
 import { lockScroll, removeScrollLock } from "@utils/functions";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AnimatedHeading from "./FramerMotion/AnimatedHeading";
 import { FadeContainer, opacityVariant } from "@content/FramerMotionVariants";
 import Link from "next/link";
@@ -22,7 +22,6 @@ export default function TableOfContents({
   isTOCActive: boolean;
 }) {
   const [searchValue, setSearchValue] = useState("");
-  const [toc, setToc] = useState(tableOfContents);
 
   const scrollPercentage = useScrollPercentage();
   const size = useWindowSize();
@@ -34,13 +33,13 @@ export default function TableOfContents({
       setIsTOCActive(false);
     }
   }, [size, setIsTOCActive]);
-  useEffect(() => {
-    setToc(
-      tableOfContents.filter((table: any) =>
+  const toc = useMemo(
+    () =>
+      tableOfContents.filter((table) =>
         table.heading.toLowerCase().includes(searchValue.trim().toLowerCase())
-      )
-    );
-  }, [searchValue, tableOfContents, ]);
+      ),
+    [searchValue, tableOfContents]
+  );
   return (
     <>
       {tableOfContents.length > 0 && (
@@ -77,7 +76,7 @@ export default function TableOfContents({
               variants={FadeContainer}
               className="flex flex-col relative before:absolute before:left-0 before:h-full before:w-[1.5px] before:bg-border mb-20"
             >
-              {toc.map((content: any) => {
+              {toc.map((content) => {
                 return (
                   <Link
                     key={content.heading}

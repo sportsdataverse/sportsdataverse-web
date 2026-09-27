@@ -87,9 +87,7 @@ export default function PeopleClient({ isAdmin = false }: { isAdmin?: boolean })
   }, []);
 
   useEffect(() => {
-    setPeople(null);
-    setTotal(null);
-    setResult(null);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load() resets loadError synchronously before its async fetch; this is a view-change refetch effect
     void load(view);
   }, [view, load]);
 
@@ -135,7 +133,13 @@ export default function PeopleClient({ isAdmin = false }: { isAdmin?: boolean })
             size="sm"
             // the variant's colour is not enough on its own to say which view is showing
             aria-pressed={view === v.value}
-            onClick={() => setView(v.value)}
+            onClick={() => {
+              if (v.value === view) return;
+              setView(v.value);
+              setPeople(null);
+              setTotal(null);
+              setResult(null);
+            }}
           >
             {/* C1: a member's "all" is narrowed server-side to Discord requesters —
                 the tab must say so rather than promise everyone. */}

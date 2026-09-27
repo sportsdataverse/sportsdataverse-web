@@ -154,10 +154,11 @@ export default function QueryBuilder({
     [columnTypes]
   );
 
-  /** Reset table-dependent state. Runs from the pickers, NOT an effect on
-   *  [schema, table]: that effect also fires on mount and would wipe the
-   *  filters a shared link just restored. */
-  function resetTableState() {
+  // Reset table-dependent state when the schema or table changes. Called from both
+  // triggers directly (schema's onValueChange, table's onClick) rather than a
+  // useEffect keyed on [schema, table] — same reset, no extra render cycle.
+  // (That effect would also fire on mount and wipe a shared link's restored filters.)
+  function resetQueryState() {
     setFilters([]);
     setSelect([]);
     setOrder("");
@@ -165,14 +166,6 @@ export default function QueryBuilder({
     setSqlResult(null);
     setSqlOpen(false);
     setColSearch("");
-  }
-  function pickSchema(next: string) {
-    setSchema(next);
-    resetTableState();
-  }
-  function pickTable(next: string) {
-    setTable(next);
-    resetTableState();
   }
 
   const params = queryViewParams({ schema, table, filters, select, order, limit });
@@ -293,7 +286,13 @@ export default function QueryBuilder({
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="font-mono text-xs text-muted-foreground">league</label>
-              <Select value={schema} onValueChange={pickSchema}>
+              <Select
+                value={schema}
+                onValueChange={(v) => {
+                  setSchema(v);
+                  resetQueryState();
+                }}
+              >
                 <SelectTrigger className="w-36 font-mono">
                   <SelectValue />
                 </SelectTrigger>
@@ -363,7 +362,11 @@ export default function QueryBuilder({
                   key={t}
                   type="button"
                   title={tableTip(t)}
-                  onClick={() => pickTable(t)}
+                  onClick={() => {
+                    if (t === table) return;
+                    setTable(t);
+                    resetQueryState();
+                  }}
                   className={cn(
                     "rounded-md border px-2 py-0.5 font-mono text-[11px] transition-colors",
                     t === table

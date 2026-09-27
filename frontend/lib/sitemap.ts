@@ -34,6 +34,5 @@ export default async function generate() {
     </urlset>
     `;
 
-  // eslint-disable-next-line no-sync
   writeFileSync("public/sitemap.xml", sitemap);
 }
