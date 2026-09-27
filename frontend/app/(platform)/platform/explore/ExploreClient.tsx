@@ -10,6 +10,7 @@ import type { QueryResult } from "@lib/platform/duckdb";
 import type { BookmarkDoc } from "@lib/platform/schemas";
 import { buildSql, type Filter } from "@lib/platform/exploreSql";
 import {
+  exploreLinkMoved,
   exploreViewParams,
   SQL_OP_BY_SUFFIX,
   SUFFIX_BY_SQL_OP,
@@ -225,9 +226,10 @@ export default function ExploreClient({ datasets, error, initial }: ExploreProps
     setPicked(new Set([selectedAsset]));
     setColumns([]);
     setResult(null);
-    // A link's filters / SQL belong to its own table + season. If either was
-    // missing here and the pickers fell back to a default, drop them.
-    if (pending.current && (effectiveStem !== initial.table || effectivePartition !== initial.season)) {
+    // A link's filters / SQL belong to the table + season it named. If either
+    // was missing here and the pickers fell back to a default, drop them; a link
+    // that named neither (single-stem or unpartitioned release) keeps them.
+    if (pending.current && exploreLinkMoved(initial, effectiveStem, effectivePartition)) {
       pending.current = null;
     }
     if (pending.current?.sql) {
@@ -239,13 +241,15 @@ export default function ExploreClient({ datasets, error, initial }: ExploreProps
     }
     setSqlMode(false);
     setSql("");
-  }, [selectedAsset, pendingBookmark, effectiveStem, effectivePartition, initial.table, initial.season]);
+  }, [selectedAsset, pendingBookmark, effectiveStem, effectivePartition, initial]);
 
   useUrlMirror(
     exploreViewParams({
       tag,
-      table: stem,
-      season: partition,
+      // what is on screen once the pickers resolve; the link's own values
+      // while the release list is still loading
+      table: effectiveStem || stem,
+      season: effectivePartition || partition,
       filters: sqlMode
         ? []
         : filters

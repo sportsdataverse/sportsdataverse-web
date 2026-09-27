@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   toSearchParams, parseExploreView, exploreViewParams, parseQueryView, queryViewParams,
-  parseWpView, wpViewParams, parseTrendsView, trendsViewParams, parseLookupsView, lookupsViewParams,
+  exploreLinkMoved, parseWpView, wpViewParams, parseTrendsView, trendsViewParams, parseLookupsView, lookupsViewParams,
   SQL_OP_BY_SUFFIX, SUFFIX_BY_SQL_OP,
 } from '../lib/platform/viewState.ts';
 
@@ -85,6 +85,7 @@ test('every parsed token/value is capped at 200 chars; sql keeps its own 10k cap
   assert.equal(q.order.length, 200);
   assert.deepEqual(q.select.map((c) => c.length), [200, 200]);
   assert.equal(q.filters[0]?.value.length, 200);
+  assert.equal(parseWpView(sp(`game=${long}`)).game.length, 200);
 });
 
 test('Trends and Lookups round-trip and fall back to the first sport', () => {
@@ -95,4 +96,13 @@ test('Trends and Lookups round-trip and fall back to the first sport', () => {
   assert.equal(lookupsViewParams(l).toString(), 'sport=cfb&mode=teams');
   assert.deepEqual(parseLookupsView(sp('sport=cfb&mode=teams')), l);
   assert.equal(parseLookupsView(sp('mode=admin')).mode, 'players');
+});
+
+test('an Explore link keeps its filters unless the table or season it named is missing', () => {
+  const link = { table: 'pbp', season: '1999' };
+  assert.equal(exploreLinkMoved(link, 'pbp', '1999'), false);
+  assert.equal(exploreLinkMoved(link, 'pbp', '2026'), true); // season fell back
+  assert.equal(exploreLinkMoved(link, 'drives', '1999'), true); // table fell back
+  // a link that named neither (single-stem / unpartitioned release) keeps them
+  assert.equal(exploreLinkMoved({ table: '', season: '' }, 'pbp', '2026'), false);
 });

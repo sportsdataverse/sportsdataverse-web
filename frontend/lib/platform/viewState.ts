@@ -136,9 +136,20 @@ export function queryViewParams(v: QueryView): URLSearchParams {
 export type WpView = { sport: string; season: string; game: string };
 const WP_KEYS = WP_SPORTS.map((s) => s.key);
 
+/** True when an Explore link named a table or season that the pickers did not
+ *  land on (missing from the release), so its filters must not be applied.
+ *  A link that named neither keeps them. */
+export function exploreLinkMoved(
+  link: { table: string; season: string },
+  table: string,
+  season: string
+): boolean {
+  return (link.table !== "" && table !== link.table) || (link.season !== "" && season !== link.season);
+}
+
 export function parseWpView(sp: URLSearchParams): WpView {
   const season = sp.get("season") ?? "";
-  const game = sp.get("game") ?? "";
+  const game = (sp.get("game") ?? "").slice(0, MAX_LEN);
   return {
     sport: pick(sp.get("sport"), WP_KEYS, WP_KEYS[0]),
     season: /^\d{4}$/.test(season) ? season : "",
