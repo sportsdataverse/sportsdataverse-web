@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { TrendingUp } from "lucide-react";
 import { Button } from "@components/ui/button";
 import { TREND_SPORTS } from "@content/trends";
 import type { TrendSport } from "@content/trends";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
+import { trendsViewParams, type TrendsView } from "@lib/platform/viewState";
+import useUrlMirror from "@hooks/useUrlMirror";
 
 /**
  * SP+-Trends-style team trends: sport → team → stat → the metric charted
@@ -88,12 +90,17 @@ function TrendChart({ points, label }: { points: TrendPoint[]; label: string }) 
   );
 }
 
-export default function TrendsClient() {
-  const [sportKey, setSportKey] = useState(TREND_SPORTS[0].key);
+export default function TrendsClient({ initial }: { initial: TrendsView }) {
+  const [sportKey, setSportKey] = useState(initial.sport);
   const [teams, setTeams] = useState<string[]>([]);
   const [stats, setStats] = useState<{ name: string; label: string }[]>([]);
-  const [team, setTeam] = useState("");
-  const [stat, setStat] = useState("");
+  const [team, setTeam] = useState(initial.team);
+  const [stat, setStat] = useState(initial.stat);
+  // A shared link charts itself once its team + stat lists have loaded.
+  // Disarms on a match, a no-match, a load failure and a manual sport switch
+  // (see the onClick below) — never left armed to misfire against a later,
+  // unrelated sport's lists.
+  const autoRun = useRef(Boolean(initial.team && initial.stat));
   const [points, setPoints] = useState<TrendPoint[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -139,7 +146,10 @@ export default function TrendsClient() {
             .filter((s) => s.name)
         );
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : String(e));
+          autoRun.current = false; // the list load failed: nothing to chart
+        }
       } finally {
         if (!cancelled) setBusy(null);
       }
@@ -149,6 +159,15 @@ export default function TrendsClient() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seasonAssets, sport.tag]);
+
+  useUrlMirror(trendsViewParams({ sport: sportKey, team, stat }));
+
+  useEffect(() => {
+    if (!autoRun.current || !teams.length || !stats.length) return;
+    autoRun.current = false;
+    if (teams.includes(team) && stats.some((s) => s.name === stat)) void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires when the lists arrive
+  }, [teams, stats]);
 
   async function run() {
     if (!team || !stat) return;
@@ -197,6 +216,7 @@ export default function TrendsClient() {
             <button
               key={s.key}
               onClick={() => {
+                autoRun.current = false;
                 setSportKey(s.key);
                 setTeams([]);
                 setStats([]);

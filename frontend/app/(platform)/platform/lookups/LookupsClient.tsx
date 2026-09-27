@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { Search } from "lucide-react";
 import { Button } from "@components/ui/button";
@@ -8,6 +8,8 @@ import { LOOKUP_SPORTS, newestSeasonAsset, lookupStatus } from "@content/lookups
 import type { LookupSport } from "@content/lookups";
 import type { QueryResult } from "@lib/platform/duckdb";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
+import { lookupsViewParams, type LookupsView } from "@lib/platform/viewState";
+import useUrlMirror from "@hooks/useUrlMirror";
 
 /**
  * CFBD-style lookups: player search and team directory per sport, backed by
@@ -28,10 +30,16 @@ const assetsFetcher = async (url: string) => {
   return data.message as ReleaseAssetSummary[];
 };
 
-export default function LookupsClient() {
-  const [sportKey, setSportKey] = useState(LOOKUP_SPORTS[0].key);
-  const [mode, setMode] = useState<"players" | "teams">("players");
-  const [term, setTerm] = useState("");
+export default function LookupsClient({ initial }: { initial: LookupsView }) {
+  const [sportKey, setSportKey] = useState(initial.sport);
+  const [mode, setMode] = useState<"players" | "teams">(initial.mode);
+  const [term, setTerm] = useState(initial.q);
+  // A shared link with a search (or the team directory) runs it once the
+  // season file is known. Disarms on that run, on the asset fetch failing,
+  // and on a manual sport/mode switch (see the onClicks below) — never left
+  // armed to misfire a stale search against a sport or mode the user has
+  // since navigated away from.
+  const autoRun = useRef(Boolean(initial.q) || initial.mode === "teams");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<QueryResult | null>(null);
@@ -58,6 +66,20 @@ export default function LookupsClient() {
     () => lookupStatus(sport.label, { loading: assetsLoading, error: !!assetsError, asset }),
     [sport, assetsLoading, assetsError, asset]
   );
+
+  useUrlMirror(lookupsViewParams({ sport: sportKey, mode, q: term }));
+
+  useEffect(() => {
+    if (!autoRun.current) return;
+    if (assetsError) {
+      autoRun.current = false; // the asset list failed to load: nothing to search
+      return;
+    }
+    if (!asset) return;
+    autoRun.current = false;
+    void search();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires when the season file resolves
+  }, [asset, assetsError]);
 
   async function search() {
     if (!asset) return;
@@ -110,6 +132,7 @@ export default function LookupsClient() {
           <button
             key={s.key}
             onClick={() => {
+              autoRun.current = false;
               setSportKey(s.key);
               setResult(null);
             }}
@@ -127,6 +150,7 @@ export default function LookupsClient() {
           <button
             key={m}
             onClick={() => {
+              autoRun.current = false;
               setMode(m);
               setResult(null);
             }}
