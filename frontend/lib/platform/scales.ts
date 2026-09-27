@@ -70,7 +70,30 @@ export function pctTint(raw: string | null, scale: 1 | 100): string | undefined 
   return p == null ? undefined : tintFor(p, PCT_DOMAIN);
 }
 
+/** Where a column's pct-mode shade comes from: its producer `_pct` column and
+ *  that column's scale, read over EVERY row of the result. */
+export type PctSource = { col: number; scale: 1 | 100 };
+
+export function pctSources(columns: string[], rows: (string | null)[][]): Map<number, PctSource> {
+  return new Map(
+    [...pctSiblings(columns)].map(([ci, pc]) => [ci, { col: pc, scale: pctScale(rows.map((r) => r[pc])) }])
+  );
+}
+
 export type TintMode = "delta" | "pct" | "off";
+
+/** One grid cell's shade: `delta` by its column's own domain, `pct` by the
+ *  producer percentile (X and X_pct share a shade), `off` none. */
+export function gridShade(
+  mode: TintMode,
+  cells: (string | null)[],
+  ci: number,
+  domain: Domain | null,
+  pct: PctSource | undefined
+): string | undefined {
+  if (mode === "delta") return cellTint(cells[ci], domain);
+  return mode === "pct" && pct ? pctTint(cells[pct.col], pct.scale) : undefined;
+}
 
 /** The `h` key: delta → pct → off, skipping pct when nothing has percentiles. */
 export function nextTint(mode: TintMode, hasPct: boolean): TintMode {

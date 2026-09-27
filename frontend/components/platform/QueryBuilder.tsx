@@ -32,8 +32,11 @@ import { cn } from "@lib/utils";
 import ResultsGrid from "@components/platform/ResultsGrid";
 import { columnTip, tableTip } from "@lib/platform/glossary";
 import {
+  EMPTY_GRID,
+  gridViewParams,
   queryViewParams,
   type ApiFilter,
+  type GridView,
   type QueryView,
   type Suffix,
 } from "@lib/platform/viewState";
@@ -92,11 +95,15 @@ function toCells(v: unknown): string | null {
 export default function QueryBuilder({
   schemas,
   initial,
+  initialGrid,
 }: {
   schemas: string[];
   /** View state parsed from the URL (a shared link). */
   initial: QueryView;
+  /** The results grid's sort / filters / tint from the same URL. */
+  initialGrid: GridView;
 }) {
+  const [gridView, setGridView] = useState<GridView>(initialGrid);
   const [schema, setSchema] = useState(initial.schema);
   const [table, setTable] = useState(initial.table);
   const [tableSearch, setTableSearch] = useState("");
@@ -166,10 +173,16 @@ export default function QueryBuilder({
     setSqlResult(null);
     setSqlOpen(false);
     setColSearch("");
+    // A linked-in sort/filter belongs to the table it came with; the tint is the reader's.
+    setGridView((g) => ({ ...EMPTY_GRID, tint: g.tint }));
   }
 
   const params = queryViewParams({ schema, table, filters, select, order, limit });
-  useUrlMirror(params);
+  // The address bar = the API request (`params`, which run/CSV/curl use) plus
+  // the grid's grid.* keys, which never reach the Data API.
+  const pageParams = new URLSearchParams(params);
+  gridViewParams(gridView, pageParams);
+  useUrlMirror(pageParams);
 
   // A shared link runs its query once.
   useEffect(() => {
@@ -657,7 +670,9 @@ export default function QueryBuilder({
             ) : null}
 
             {sqlResult ? (
-              <ResultsGrid columns={sqlResult.columns} rows={sqlResult.rows} />
+              // Its own instance (key): the SQL view is not in the URL, and sharing
+              // the raw-rows grid's slot would re-map, then lose, that grid's view.
+              <ResultsGrid key="sql" columns={sqlResult.columns} rows={sqlResult.rows} />
             ) : result.data.length === 0 ? (
               <p className="py-6 text-center font-mono text-sm text-muted-foreground">
                 no rows matched
@@ -667,6 +682,8 @@ export default function QueryBuilder({
                 columns={previewColumns}
                 rows={previewRows}
                 types={columnTypes}
+                initialView={gridView}
+                onViewChange={setGridView}
               />
             )}
           </CardContent>
