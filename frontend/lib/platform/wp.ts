@@ -19,10 +19,10 @@ const API_MAX_ROWS = "50000";
 export function scheduleParams(sport: WpSport, season: string): Record<string, string> {
   const s = sport.schedule;
   return {
+    ...s.filter, // first, so a filter key can never override the scoped keys
     schema: sport.schema,
     table: "schedule",
     season,
-    ...s.filter,
     select: [s.id, s.week, s.home, s.away].filter(Boolean).join(","),
     limit: API_MAX_ROWS,
   };

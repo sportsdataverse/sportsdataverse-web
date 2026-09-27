@@ -236,8 +236,16 @@ export default function WpClient({ initial }: { initial: WpView }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, from the URL
   }, []);
 
-  function resetForSport(key: string) {
+  // Abandoning an in-flight load also clears its spinner: the stale load's own
+  // `finally` no longer may.
+  function abandonLoads() {
     loads.next();
+    setBusy(null);
+  }
+
+  function resetForSport(key: string) {
+    abandonLoads();
+    setPlays(0);
     pendingGame.current = "";
     setSportKey(key);
     setSeason("");
@@ -329,7 +337,7 @@ export default function WpClient({ initial }: { initial: WpView }) {
             pendingGame.current = "";
             if (e.target.value) void loadGames(e.target.value);
             else {
-              loads.next();
+              abandonLoads();
               setSeason("");
             }
           }}
@@ -348,7 +356,7 @@ export default function WpClient({ initial }: { initial: WpView }) {
             onChange={(e) => {
               if (e.target.value) void loadGame(e.target.value);
               else {
-                loads.next();
+                abandonLoads();
                 setGameId("");
               }
             }}
