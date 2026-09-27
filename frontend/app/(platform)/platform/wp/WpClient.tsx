@@ -8,6 +8,7 @@ import { WP_SPORTS } from "@content/wp";
 import type { WpSport } from "@content/wp";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
 import { wpViewParams, type WpView } from "@lib/platform/viewState";
+import { resolvePendingGame } from "@lib/platform/pendingGame";
 import useUrlMirror from "@hooks/useUrlMirror";
 
 /**
@@ -211,18 +212,14 @@ export default function WpClient({ initial }: { initial: WpView }) {
     wpViewParams({ sport: sport.key, season: seasonYear(sport, season), game: gameId || pendingGame.current })
   );
 
-  // Shared link: load its season once, then its game when the list arrives.
+  // Shared link: load its season once, then its game when the list arrives
+  // (resolved synchronously inside loadGames, see resolvePendingGame). No
+  // season in the link means no game will ever arrive to consume it either.
   useEffect(() => {
     if (season) void loadGames(season);
+    else pendingGame.current = "";
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, from the URL
   }, []);
-  useEffect(() => {
-    const id = pendingGame.current;
-    if (!id || !games.length) return;
-    pendingGame.current = "";
-    if (games.some((g) => g.id === id)) void loadGame(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires when games arrive
-  }, [games]);
 
   function resetForSport(key: string) {
     pendingGame.current = "";
@@ -260,6 +257,7 @@ export default function WpClient({ initial }: { initial: WpView }) {
             `${sport.tag} release is missing ${missing.map((m) => `\`${m}\``).join(", ")}. ` +
             `Win probability isn't published for this sport right now — try CFB or NFL.`
         );
+        pendingGame.current = resolvePendingGame(pendingGame.current, { failed: true }).nextPending;
         return;
       }
       const weekSel = c.week ? `any_value(${q(c.week)})` : "NULL";
@@ -268,20 +266,23 @@ export default function WpClient({ initial }: { initial: WpView }) {
         3000
       );
       const idx = (name: string) => res.columns.indexOf(name);
-      setGames(
-        res.rows.map((r) => ({
-          id: r[idx("id")] ?? "",
-          label: `${r[idx("week")] != null ? `W${r[idx("week")]} · ` : ""}${r[idx("away")]} @ ${r[idx("home")]}`,
-        }))
-      );
+      const gamesList = res.rows.map((r) => ({
+        id: r[idx("id")] ?? "",
+        label: `${r[idx("week")] != null ? `W${r[idx("week")]} · ` : ""}${r[idx("away")]} @ ${r[idx("home")]}`,
+      }));
+      setGames(gamesList);
+      const { toLoad, nextPending } = resolvePendingGame(pendingGame.current, { games: gamesList });
+      pendingGame.current = nextPending;
+      if (toLoad) void loadGame(toLoad, gamesList);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      pendingGame.current = resolvePendingGame(pendingGame.current, { failed: true }).nextPending;
     } finally {
       setBusy(null);
     }
   }
 
-  async function loadGame(id: string) {
+  async function loadGame(id: string, list: GameOption[] = games) {
     setGameId(id);
     setPoints([]);
     const { runQuery } = await import("@lib/platform/duckdb");
@@ -311,7 +312,7 @@ export default function WpClient({ initial }: { initial: WpView }) {
           score: r[idx("score")] ?? "",
         }))
       );
-      const game = games.find((g) => g.id === id);
+      const game = list.find((g) => g.id === id);
       const [away, home] = game ? game.label.replace(/^W\S+ · /, "").split(" @ ") : ["", ""];
       setTeams({ home: home ?? "", away: away ?? "" });
     } catch (e) {
@@ -347,7 +348,14 @@ export default function WpClient({ initial }: { initial: WpView }) {
         ))}
         <select
           value={season}
-          onChange={(e) => (e.target.value ? void loadGames(e.target.value) : setSeason(""))}
+          onChange={(e) => {
+            // A manually picked season abandons any in-flight linked game —
+            // game ids aren't unique across seasons, so a stale pending id
+            // must never be re-applied against a different season's list.
+            pendingGame.current = "";
+            if (e.target.value) void loadGames(e.target.value);
+            else setSeason("");
+          }}
           className="rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
         >
           <option value="">Season…</option>
