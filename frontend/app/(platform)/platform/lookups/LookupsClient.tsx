@@ -175,7 +175,10 @@ export default function LookupsClient({ initial }: { initial: LookupsView }) {
         {mode === "players" ? (
           <input
             value={term}
-            onChange={(e) => setTerm(e.target.value)}
+            onChange={(e) => {
+              autoRun.current = false;
+              setTerm(e.target.value);
+            }}
             placeholder={`Search ${sport.label} players…`}
             className="flex-1 rounded-md border border-input bg-card px-3 py-2 font-inter text-sm"
           />

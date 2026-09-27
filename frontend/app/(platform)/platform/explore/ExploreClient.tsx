@@ -205,12 +205,18 @@ export default function ExploreClient({ datasets, error, initial }: ExploreProps
 
   // Default the dropdowns as data arrives: first stem, newest partition.
   useEffect(() => {
-    if (stems.length && !stems.includes(stem)) setStem(stems[0]);
+    if (stems.length && !stems.includes(stem)) {
+      pending.current = null; // a link's filters belong to its own table, not the fallback
+      setStem(stems[0]);
+    }
   }, [stems, stem]);
   useEffect(() => {
     if (!stem) return;
     if (partitions.length) {
-      if (!partitions.includes(partition)) setPartition(partitions[0]);
+      if (!partitions.includes(partition)) {
+        pending.current = null; // likewise its own season
+        setPartition(partitions[0]);
+      }
     } else if (partition !== "") {
       setPartition(""); // unpartitioned release: single whole-file "season"
     }
@@ -420,7 +426,10 @@ export default function ExploreClient({ datasets, error, initial }: ExploreProps
                   Table
                   <select
                     value={stem}
-                    onChange={(e) => setStem(e.target.value)}
+                    onChange={(e) => {
+                      pending.current = null;
+                      setStem(e.target.value);
+                    }}
                     className="rounded-md border border-input bg-card px-2 py-1.5 font-mono text-sm text-foreground"
                   >
                     {stems.map((s) => (
@@ -435,7 +444,10 @@ export default function ExploreClient({ datasets, error, initial }: ExploreProps
                 Season
                 <select
                   value={partition}
-                  onChange={(e) => setPartition(e.target.value)}
+                  onChange={(e) => {
+                    pending.current = null;
+                    setPartition(e.target.value);
+                  }}
                   disabled={partitions.length === 0}
                   className="rounded-md border border-input bg-card px-2 py-1.5 font-mono text-sm text-foreground"
                 >
