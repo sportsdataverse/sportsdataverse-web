@@ -1,7 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WP_SPORTS } from '../content/wp.ts';
-import { emptyWpMessage, gameOptionsFromSchedule, wpPointsFromRows } from '../lib/platform/wp.ts';
+import {
+  emptyWpMessage,
+  gameOptionsFromSchedule,
+  loadSequencer,
+  pbpParams,
+  scheduleParams,
+  wpPointsFromRows,
+} from '../lib/platform/wp.ts';
 
 const sport = (key: string) => WP_SPORTS.find((s) => s.key === key)!;
 const cfb = sport('cfb');
@@ -63,4 +70,39 @@ test('every WP null for a game explains that WP is not published for the sport-s
 
 test('a game with no plays at all keeps the generic empty state', () => {
   assert.equal(emptyWpMessage(0, 0, 'CFB', '2024'), 'No win-probability data for this game.');
+});
+
+// The API silently ignores an unknown filter column (cfb/schedule?bogus_col=1
+// returns the whole season), so these exact params are the only typo guard.
+test('scheduleParams: each sport reads only games that have plays', () => {
+  const base = (schema: string, select: string) => ({ schema, table: 'schedule', season: '2024', select, limit: '50000' });
+  const teams = 'game_id,week,home_team,away_team';
+  const names = 'game_id,home_display_name,away_display_name';
+  assert.deepEqual(scheduleParams(sport('cfb'), '2024'), { ...base('cfb', teams), home_division: 'fbs', completed: 'true' });
+  assert.deepEqual(scheduleParams(sport('nfl'), '2024'), { ...base('nfl', teams), home_score__gte: '0' });
+  assert.deepEqual(scheduleParams(sport('mbb'), '2024'), { ...base('mbb', names), PBP: 'true' });
+  assert.deepEqual(scheduleParams(sport('wbb'), '2024'), { ...base('wbb', names), PBP: 'true' });
+});
+
+test('pbpParams: one game, pruned to its season, only the columns the chart reads', () => {
+  assert.deepEqual(pbpParams(cfb, '2024', '401628374'), {
+    schema: 'cfb',
+    table: 'pbp',
+    season: '2024',
+    game_id: '401628374',
+    select: 'game_play_number,home_wp_before,period,clock.displayValue,text,homeScore,awayScore',
+    order: 'game_play_number',
+    limit: '50000',
+  });
+  assert.equal(pbpParams(sport('nfl'), '2024', '2024_01_BAL_KC').select, 'play_id,home_wp,qtr,desc');
+});
+
+test('loadSequencer: only the newest load may apply its response', () => {
+  const loads = loadSequencer();
+  const a = loads.next();
+  const b = loads.next();
+  assert.equal(loads.isLatest(a), false, 'an older completion is dropped');
+  assert.equal(loads.isLatest(b), true);
+  loads.next(); // resetForSport abandons whatever is in flight
+  assert.equal(loads.isLatest(b), false);
 });

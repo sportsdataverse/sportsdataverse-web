@@ -10,6 +10,47 @@ type Row = Record<string, unknown>;
 
 const str = (v: unknown): string => (v == null ? "" : String(v));
 
+/** The Data API's own row cap (sdv-db MAX_LIMIT). The largest schedule is
+ *  ~6.3k games (MBB) and the longest game ~660 plays (4OT MBB), so neither
+ *  read comes near it. */
+const API_MAX_ROWS = "50000";
+
+/** Query-proxy params for the season's game list (`{schema}.schedule`). */
+export function scheduleParams(sport: WpSport, season: string): Record<string, string> {
+  const s = sport.schedule;
+  return {
+    schema: sport.schema,
+    table: "schedule",
+    season,
+    ...s.filter,
+    select: [s.id, s.week, s.home, s.away].filter(Boolean).join(","),
+    limit: API_MAX_ROWS,
+  };
+}
+
+/** Query-proxy params for one game's plays (`{schema}.pbp`); `season` lets
+ *  Postgres prune to that season's partition. */
+export function pbpParams(sport: WpSport, season: string, gameId: string): Record<string, string> {
+  const c = sport.cols;
+  return {
+    schema: sport.schema,
+    table: "pbp",
+    season,
+    [c.gameId]: gameId,
+    select: [c.order, c.wp, c.period, c.clock, c.text, c.homeScore, c.awayScore].filter(Boolean).join(","),
+    order: c.order,
+    limit: API_MAX_ROWS,
+  };
+}
+
+/** Last load wins: each load takes a ticket, and only the newest ticket may
+ *  apply its response or clear the spinner. `next()` alone abandons whatever
+ *  is in flight. */
+export function loadSequencer() {
+  let n = 0;
+  return { next: () => ++n, isLatest: (ticket: number) => ticket === n };
+}
+
 /** pbp rows → chart points: a null WP is dropped, WP is clamped to [0, 1],
  *  a missing period defaults to 1. Rows arrive in play order. */
 export function wpPointsFromRows(rows: Row[], cols: WpSport["cols"]): WpPoint[] {

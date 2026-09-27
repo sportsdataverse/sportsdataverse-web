@@ -11,6 +11,9 @@ import { resolvePendingGame } from "@lib/platform/pendingGame";
 import {
   emptyWpMessage,
   gameOptionsFromSchedule,
+  loadSequencer,
+  pbpParams,
+  scheduleParams,
   wpPointsFromRows,
   type GameOption,
   type WpPoint,
@@ -25,10 +28,6 @@ import useUrlMirror from "@hooks/useUrlMirror";
  */
 
 const DATA_REPO = "sportsdataverse/sportsdataverse-data";
-/** The Data API's own row cap (sdv-db MAX_LIMIT). The largest schedule is
- *  ~6.3k games (MBB) and the longest game ~660 plays (4OT MBB), so neither
- *  read comes near it. */
-const API_MAX_ROWS = "50000";
 
 /** One `GET /v1/{schema}/{table}` through /api/platform/query/run, the
  *  Query page's call shape. */
@@ -179,6 +178,10 @@ export default function WpClient({ initial }: { initial: WpView }) {
   const [gameId, setGameId] = useState("");
   // A shared link's game, held until its season's game list has loaded.
   const pendingGame = useRef(initial.game);
+  // Games and plays loads share one sequence: a newer load of either kind (or
+  // a sport change) supersedes whatever is in flight, so a late response
+  // never lands under a newer pick.
+  const [loads] = useState(loadSequencer);
   const [points, setPoints] = useState<WpPoint[]>([]);
   const [plays, setPlays] = useState(0);
   const [teams, setTeams] = useState<{ home: string; away: string }>({ home: "", away: "" });
@@ -234,6 +237,7 @@ export default function WpClient({ initial }: { initial: WpView }) {
   }, []);
 
   function resetForSport(key: string) {
+    loads.next();
     pendingGame.current = "";
     setSportKey(key);
     setSeason("");
@@ -244,60 +248,51 @@ export default function WpClient({ initial }: { initial: WpView }) {
   }
 
   async function loadGames(asset: string) {
+    const ticket = loads.next();
     setSeason(asset);
     setGames([]);
     setGameId("");
     setPoints([]);
     setBusy("Loading games…");
     setError(null);
+    const year = seasonYear(sport, asset);
     try {
-      const s = sport.schedule;
-      const rows = await apiRows({
-        schema: sport.schema,
-        table: "schedule",
-        season: seasonYear(sport, asset),
-        ...s.filter,
-        select: [s.id, s.week, s.home, s.away].filter(Boolean).join(","),
-        limit: API_MAX_ROWS,
-      });
-      const gamesList = gameOptionsFromSchedule(rows, s);
+      const rows = await apiRows(scheduleParams(sport, year));
+      if (!loads.isLatest(ticket)) return;
+      const gamesList = gameOptionsFromSchedule(rows, sport.schedule);
       setGames(gamesList);
       const { toLoad, nextPending } = resolvePendingGame(pendingGame.current, { games: gamesList });
       pendingGame.current = nextPending;
-      if (toLoad) void loadGame(toLoad, gamesList);
+      if (toLoad) void loadGame(toLoad, gamesList, year);
     } catch (e) {
+      if (!loads.isLatest(ticket)) return;
       setError(e instanceof Error ? e.message : String(e));
       pendingGame.current = resolvePendingGame(pendingGame.current, { failed: true }).nextPending;
     } finally {
-      setBusy(null);
+      if (loads.isLatest(ticket)) setBusy(null);
     }
   }
 
-  async function loadGame(id: string, list: GameOption[] = games) {
+  async function loadGame(id: string, list: GameOption[] = games, year = seasonYear(sport, season)) {
+    const ticket = loads.next();
     setGameId(id);
     setPoints([]);
     setPlays(0);
     setBusy("Loading game…");
     setError(null);
     try {
-      const c = sport.cols;
-      const rows = await apiRows({
-        schema: sport.schema,
-        table: "pbp",
-        [c.gameId]: id,
-        select: [c.order, c.wp, c.period, c.clock, c.text, c.homeScore, c.awayScore].filter(Boolean).join(","),
-        order: c.order,
-        limit: API_MAX_ROWS,
-      });
+      const rows = await apiRows(pbpParams(sport, year, id));
+      if (!loads.isLatest(ticket)) return;
       setPlays(rows.length);
-      setPoints(wpPointsFromRows(rows, c));
+      setPoints(wpPointsFromRows(rows, sport.cols));
       const game = list.find((g) => g.id === id);
       const [away, home] = game ? game.label.replace(/^W\S+ · /, "").split(" @ ") : ["", ""];
       setTeams({ home: home ?? "", away: away ?? "" });
     } catch (e) {
+      if (!loads.isLatest(ticket)) return;
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(null);
+      if (loads.isLatest(ticket)) setBusy(null);
     }
   }
 
@@ -333,7 +328,10 @@ export default function WpClient({ initial }: { initial: WpView }) {
             // must never be re-applied against a different season's list.
             pendingGame.current = "";
             if (e.target.value) void loadGames(e.target.value);
-            else setSeason("");
+            else {
+              loads.next();
+              setSeason("");
+            }
           }}
           className="rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
         >
@@ -347,7 +345,13 @@ export default function WpClient({ initial }: { initial: WpView }) {
         {games.length > 0 ? (
           <select
             value={gameId}
-            onChange={(e) => (e.target.value ? void loadGame(e.target.value) : setGameId(""))}
+            onChange={(e) => {
+              if (e.target.value) void loadGame(e.target.value);
+              else {
+                loads.next();
+                setGameId("");
+              }
+            }}
             className="min-w-[20rem] rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
           >
             <option value="">Game… ({games.length})</option>

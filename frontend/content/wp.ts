@@ -21,7 +21,9 @@ export type WpSport = {
     week?: string;
     home: string;
     away: string;
-    /** Extra equality filters, for a schedule wider than the pbp coverage. */
+    /** Extra filters, `col` or `col__op` (`__gte`, …), that keep games without
+     *  plays out of the picker. The API ignores an unknown filter column, so
+     *  test/wp.test.ts pins each sport's exact params. */
     filter?: Record<string, string>;
   };
   /** One game's WP series on `{schema}.pbp`. */
@@ -47,9 +49,21 @@ export const WP_SPORTS: WpSport[] = [
     tag: "espn_cfb_pbp",
     assetPrefix: "play_by_play_",
     schema: "cfb",
-    // The schedule lists every division (3,801 games in 2024); pbp covers FBS
-    // home games plus a few FCS ones (944). Without this, 3 of 4 picks are empty.
-    schedule: { id: "game_id", week: "week", home: "home_team", away: "away_team", filter: { home_division: "fbs" } },
+    // The schedule lists every division (3,801 games in 2024) and games not yet
+    // played; pbp covers completed FBS home games plus some FCS ones (946).
+    // cfb.schedule has no pbp flag, so this is a proxy with a known ceiling:
+    // it drops 24-45 FCS-vs-FCS games a season that do have pbp and lists up to
+    // 18 that don't (exact for 2026), and 2014/2019 pbp games that are missing
+    // from the schedule itself can't be listed at all.
+    // ponytail: proxy filter; upgrade to { PBP: "true" } like mbb/wbb once
+    // sdv-db writes a PBP flag to cfb.schedule at ingest.
+    schedule: {
+      id: "game_id",
+      week: "week",
+      home: "home_team",
+      away: "away_team",
+      filter: { home_division: "fbs", completed: "true" },
+    },
     cols: {
       gameId: "game_id",
       order: "game_play_number",
@@ -67,7 +81,9 @@ export const WP_SPORTS: WpSport[] = [
     tag: "nfl_model_pbp",
     assetPrefix: "model_pbp_",
     schema: "nfl",
-    schedule: { id: "game_id", week: "week", home: "home_team", away: "away_team" },
+    // The schedule carries the whole season up front; a score means it was
+    // played (2024: 285 of 285; 2026 so far: 33 of 272).
+    schedule: { id: "game_id", week: "week", home: "home_team", away: "away_team", filter: { home_score__gte: "0" } },
     cols: {
       gameId: "game_id",
       order: "play_id",
@@ -82,7 +98,8 @@ export const WP_SPORTS: WpSport[] = [
     tag: "espn_mens_college_basketball_pbp",
     assetPrefix: "play_by_play_",
     schema: "mbb",
-    schedule: { id: "game_id", home: "home_display_name", away: "away_display_name" },
+    // The schedule's own pbp flag: exact both ways, 2006-2026.
+    schedule: { id: "game_id", home: "home_display_name", away: "away_display_name", filter: { PBP: "true" } },
     cols: {
       gameId: "game_id",
       order: "game_play_number",
@@ -100,7 +117,8 @@ export const WP_SPORTS: WpSport[] = [
     tag: "espn_womens_college_basketball_pbp",
     assetPrefix: "play_by_play_",
     schema: "wbb",
-    schedule: { id: "game_id", home: "home_display_name", away: "away_display_name" },
+    // The schedule's own pbp flag: exact both ways, 2006-2026.
+    schedule: { id: "game_id", home: "home_display_name", away: "away_display_name", filter: { PBP: "true" } },
     cols: {
       gameId: "game_id",
       order: "game_play_number",
