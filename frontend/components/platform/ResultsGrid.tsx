@@ -4,7 +4,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Flame, GripVertical, ListFilter, X } from "lucide-react";
 import { cn } from "@lib/utils";
 import { columnTip } from "@lib/platform/glossary";
-import { cellTint, columnDomain, type Domain } from "@lib/platform/scales";
+import {
+  columnDomain,
+  gridShade,
+  nextTint,
+  effectiveTint,
+  pctSources,
+  type Domain,
+  type TintMode,
+} from "@lib/platform/scales";
+import { EMPTY_GRID, gridByIndex, gridByName, type GridView } from "@lib/platform/viewState";
 
 /**
  * Keyboard-first results grid for the platform data surfaces.
@@ -12,8 +21,10 @@ import { cellTint, columnDomain, type Domain } from "@lib/platform/scales";
  * Reading model
  * - Numeric cells carry a **bucketed diverging tint** measuring distance from
  *   the column's baseline (zero for signed metrics, the median otherwise), so a
- *   dense table reads as a heatmap before you read a single number. Toggle with
- *   `h` when the shading is in the way.
+ *   dense table reads as a heatmap before you read a single number. `h`
+ *   cycles delta → percentile → off: percentile mode shades `X` by the
+ *   producer's `X_pct` column (among qualifiers, null stays unshaded), and is
+ *   skipped when the result carries no percentiles.
  * - Numerals are set in the condensed display face with `tabular-nums`, which
  *   is what lets columns stay narrow enough to scan many at once.
  *
@@ -23,7 +34,7 @@ import { cellTint, columnDomain, type Domain } from "@lib/platform/scales";
  *   its whole row. A frozen `#` column keeps the original row number visible
  *   through horizontal scroll.
  * - `f` filters the focused column, `s` cycles its sort, `a`/`d` scroll
- *   horizontally by a viewport, `w`/`e` change row density, `h` toggles heat.
+ *   horizontally by a viewport, `w`/`e` change row density, `h` cycles shading.
  *   The sticky status bar carries the legend so none of it is hidden knowledge.
  *
  * Linking
@@ -44,6 +55,12 @@ export type GridProps = {
   onRowHover?: (index: number | null) => void;
   /** Fires when a row is selected via click/keyboard. */
   onRowSelect?: (index: number | null) => void;
+  /** Sort / column filters / tint to start from (e.g. parsed from the URL); read on mount. */
+  initialView?: GridView;
+  /** Fires with the view, keyed by column NAME, on mount and whenever sort /
+   *  filters / tint change. An effect dependency: pass a stable function
+   *  (a state setter), or every render re-fires it. */
+  onViewChange?: (view: GridView) => void;
 };
 
 type Sort = { col: number; dir: "asc" | "desc" } | null;
@@ -69,40 +86,62 @@ export default function ResultsGrid({
   highlightIndex,
   onRowHover,
   onRowSelect,
+  initialView,
+  onViewChange,
 }: GridProps) {
-  const [filters, setFilters] = useState<Record<number, string>>({});
+  const start = gridByIndex(initialView ?? EMPTY_GRID, columns);
+  const [filters, setFilters] = useState<Record<number, string>>(start.filters);
   const [filterOpen, setFilterOpen] = useState<number | null>(null);
-  const [sort, setSort] = useState<Sort>(null);
+  const [sort, setSort] = useState<Sort>(start.sort);
   const [focus, setFocus] = useState<{ r: number; c: number }>({ r: 0, c: 0 });
   const [selectedRow, setSelectedRow] = useState<number | null>(null); // original index
   const [order, setOrder] = useState<number[]>(() => columns.map((_, i) => i));
   const [dragCol, setDragCol] = useState<number | null>(null);
-  const [heat, setHeat] = useState(true);
+  const [tint, setTint] = useState<TintMode>(start.tint);
   const [density, setDensity] = useState(1);
   const bodyRef = useRef<HTMLTableSectionElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const filterInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset the grid's local UI state whenever `columns` changes (a new query result).
-  // Adjusted during render (React's documented pattern for "reset state when a prop
-  // changes") rather than in a useEffect, so there's no stale frame before the reset
-  // applies.
-  const [prevColumns, setPrevColumns] = useState(columns);
-  if (columns !== prevColumns) {
-    setPrevColumns(columns);
+  // Re-point the view whenever the columns change (a new query result), by NAME:
+  // a sort or filter follows its column to its new position, and drops out when
+  // the column is gone. Columns are compared by CONTENT — QueryBuilder rebuilds
+  // its array every render, and an identity check reset sort and filters on each
+  // keystroke — so `cols` (the last content-distinct array) is also a stable
+  // memo/effect dependency. Adjusted during render (React's documented pattern
+  // for "reset state when a prop changes"), so there's no stale frame.
+  const [cols, setCols] = useState(columns);
+  if (cols.join("\u0001") !== columns.join("\u0001")) {
+    const next = gridByIndex(gridByName({ sort, filters, tint }, cols), columns);
+    setCols(columns);
     setOrder(columns.map((_, i) => i));
-    setFilters({});
-    setSort(null);
+    setFilters(next.filters);
+    setSort(next.sort);
     setSelectedRow(null);
   }
+  // A rerun with the same columns keeps sort and filters, but the selected index
+  // would point at a different row. Both row sources are stable per result.
+  const [lastRows, setLastRows] = useState(rows);
+  if (lastRows !== rows) {
+    setLastRows(rows);
+    setSelectedRow(null);
+  }
+
+  useEffect(() => {
+    onViewChange?.(gridByName({ sort, filters, tint }, cols));
+  }, [sort, filters, tint, cols, onViewChange]);
 
   const colOrder = order.length === columns.length ? order : columns.map((_, i) => i);
 
   /** One encoding domain per column, computed once over the full result. */
   const domains = useMemo<(Domain | null)[]>(
-    () => columns.map((name, c) => columnDomain(rows.map((r) => r[c]), name)),
-    [columns, rows]
+    () => cols.map((name, c) => columnDomain(rows.map((r) => r[c]), name)),
+    [cols, rows]
   );
+  /** Column → the producer percentile column that shades it, with its scale. */
+  const pcts = useMemo(() => pctSources(cols, rows), [cols, rows]);
+  const hasPct = pcts.size > 0;
+  const shownTint = effectiveTint(tint, hasPct);
 
   /** Filtered + sorted view; every row keeps its ORIGINAL index for numbering,
    *  selection identity, and external linking. */
@@ -204,7 +243,7 @@ export default function ResultsGrid({
     }
     if (key === "h") {
       e.preventDefault();
-      setHeat((v) => !v);
+      setTint(nextTint(shownTint, hasPct));
       return;
     }
     if (key === "w" || key === "e") {
@@ -286,7 +325,8 @@ export default function ResultsGrid({
               </th>
               {colOrder.map((ci) => {
                 const name = columns[ci];
-                const encoded = heat && domains[ci] !== null;
+                const encoded =
+                  shownTint === "delta" ? domains[ci] !== null : shownTint === "pct" && pcts.has(ci);
                 return (
                   <th
                     key={name}
@@ -375,7 +415,7 @@ export default function ResultsGrid({
                   {colOrder.map((ci, c) => {
                     const raw = cells[ci];
                     const numeric = domains[ci] !== null;
-                    const tint = heat ? cellTint(raw, domains[ci]) : undefined;
+                    const shade = gridShade(shownTint, cells, ci, domains[ci], pcts.get(ci));
                     return (
                       <td
                         key={ci}
@@ -385,14 +425,14 @@ export default function ResultsGrid({
                         onFocus={() => setFocus({ r, c })}
                         onClick={() => selectRow(isSelected ? null : r)}
                         title={raw ?? ""}
-                        style={tint && !rowBg ? { backgroundColor: tint } : undefined}
+                        style={shade && !rowBg ? { backgroundColor: shade } : undefined}
                         className={cn(
                           "max-w-64 truncate whitespace-nowrap border-b border-border/40 px-3 outline-none",
                           pad,
                           numeric
                             ? "font-display text-right text-[13px] tabular-nums"
                             : "font-mono",
-                          sort?.col === ci && !tint && !rowBg && "bg-muted/40",
+                          sort?.col === ci && !shade && !rowBg && "bg-muted/40",
                           "focus:ring-1 focus:ring-inset focus:ring-primary"
                         )}
                       >
@@ -433,14 +473,15 @@ export default function ResultsGrid({
           <kbd className="text-foreground">w</kbd>/<kbd className="text-foreground">e</kbd> density
         </span>
         <button
-          onClick={() => setHeat((v) => !v)}
+          onClick={() => setTint(nextTint(shownTint, hasPct))}
           className={cn(
             "ml-auto inline-flex items-center gap-1 uppercase hover:text-foreground",
-            heat && "text-primary"
+            shownTint !== "off" && "text-primary"
           )}
-          title="Shade numeric cells by distance from the column baseline (h)"
+          title="Shade cells: distance from the column baseline → producer percentile (X_pct) → off (h)"
         >
-          <Flame className="size-3" /> heat <kbd>h</kbd>
+          <Flame className="size-3" />{" "}
+          {shownTint === "pct" ? "percentile" : shownTint === "delta" ? "heat" : "no tint"} <kbd>h</kbd>
         </button>
       </div>
     </div>

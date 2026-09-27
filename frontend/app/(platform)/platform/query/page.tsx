@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { dataApi } from "@lib/platform/orch";
-import { parseQueryView, toSearchParams } from "@lib/platform/viewState";
+import { parseGridView, parseQueryView, toSearchParams } from "@lib/platform/viewState";
 import QueryBuilder from "@components/platform/QueryBuilder";
 
 export const metadata: Metadata = { title: "Query" };
@@ -24,7 +24,11 @@ export default async function QueryPage({
           API your personal key hits, with the equivalent curl for every query.
         </p>
       </div>
-      <QueryBuilder schemas={schemas} initial={parseQueryView(sp, schemas)} />
+      <QueryBuilder
+        schemas={schemas}
+        initial={parseQueryView(sp, schemas)}
+        initialGrid={parseGridView(sp)}
+      />
     </div>
   );
 }
