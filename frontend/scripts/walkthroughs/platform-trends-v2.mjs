@@ -3,7 +3,8 @@
 // each Add re-charts, up to six teams, and a seventh is refused with a note. Removing a
 // team leaves a gap: every other line keeps its colour, and so does a reload of the
 // resulting link; the next Add fills the gap's colour. An old single-team link still
-// charts its one team.
+// charts its one team. A shared CFB ratings link charts its two teams by week within
+// its season, and picking another season re-charts the same teams.
 // /platform is behind org sign-in, so this is recorded locally and is NOT listed on
 // the PR's `Walkthrough steps:` line (CI has no session; the module throws there).
 const THREE = ['Boston Celtics', 'Los Angeles Lakers', 'Golden State Warriors'];
@@ -120,5 +121,33 @@ const trendsV2 = async (page, base) => {
   await idle();
   await count(page.getByTestId('trends-end-label'), 1, 'end labels on an old link');
   await page.waitForTimeout(1200);
+
+  // CFB ratings by week: a shared weekly link charts by week in its season...
+  const WEEKLY = ['Ohio State', 'Michigan'];
+  const WEEKLY_CHART = 'svg[aria-label="adj_net by week"]';
+  const wq = WEEKLY.map((t) => `team=${encodeURIComponent(t)}`).join('&');
+  await page.goto(`${base}/platform/trends?sport=cfb_ratings_weekly&season=2025&${wq}&stat=adj_net`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await page.locator(WEEKLY_CHART).waitFor({ timeout: 120_000 });
+  await idle();
+  for (const t of WEEKLY) await has(legend, t);
+  await has(legend, 'Week ');
+  await count(page.getByTestId('trends-end-label'), 2, 'weekly end labels');
+  const wbox = await page.locator(WEEKLY_CHART).boundingBox();
+  await page.mouse.move(wbox.x + wbox.width * 0.3, wbox.y + wbox.height / 2, { steps: 8 });
+  await page.waitForTimeout(1200);
+  await page.mouse.move(0, 0);
+
+  // ...and another season re-charts the same teams: wait on the URL, then the load.
+  // The switch clears the chart in the render that writes the URL, so the chart coming
+  // back is that load finishing (its "Charting…" can last ~20 ms, too brief to wait on).
+  await page.getByLabel('Season').selectOption('2024');
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('season') === '2024');
+  await page.locator(WEEKLY_CHART).waitFor({ timeout: 60_000 });
+  await idle();
+  await has(page.getByTestId('trends-chart-title'), '2024');
+  await count(page.getByTestId('trends-end-label'), 2, 'weekly end labels after a season switch');
+  await page.waitForTimeout(1500);
 };
 export default trendsV2;

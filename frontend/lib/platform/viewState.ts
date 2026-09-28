@@ -172,8 +172,9 @@ export function wpViewParams(v: WpView): URLSearchParams {
 /** `teams` rides as repeated `team` keys in position order (`team=A&team=B`);
  *  an empty `team=` is a gap left by a removal, so every team keeps its colour
  *  slot through a link. A link from before the overlay (one `team=A`) still
- *  parses, to `['A']`. */
-export type TrendsView = { sport: string; teams: TrendPicks; stat: string };
+ *  parses, to `['A']`. `season` picks a by-week source's season file; blank
+ *  means the newest. */
+export type TrendsView = { sport: string; teams: TrendPicks; stat: string; season: string };
 const TREND_KEYS = TREND_SPORTS.map((s) => s.key);
 
 export function parseTrendsView(sp: URLSearchParams): TrendsView {
@@ -187,12 +188,14 @@ export function parseTrendsView(sp: URLSearchParams): TrendsView {
     sport: pick(sp.get("sport"), TREND_KEYS, TREND_KEYS[0]),
     teams: trimGaps(teams.slice(0, MAX_TRENDS_TEAMS)),
     stat: (sp.get("stat") ?? "").slice(0, MAX_LEN),
+    season: /^\d{4}$/.test(sp.get("season") ?? "") ? sp.get("season")! : "",
   };
 }
 
 export function trendsViewParams(v: TrendsView): URLSearchParams {
   const p = new URLSearchParams();
   if (v.sport !== TREND_KEYS[0]) p.set("sport", v.sport);
+  if (v.season) p.set("season", v.season);
   for (const t of trimGaps(v.teams)) p.append("team", t ?? "");
   if (v.stat) p.set("stat", v.stat);
   return p;

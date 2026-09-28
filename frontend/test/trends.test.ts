@@ -1,8 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_TRENDS_TEAMS, addTeam, pickSlots, removeTeam, spreadLabels } from '../lib/platform/trends.ts';
+import {
+  MAX_TRENDS_TEAMS, addTeam, endLabels, pickSlots, removeTeam, spreadLabels, statColumns, teamNameLookup, wideToSeries,
+} from '../lib/platform/trends.ts';
 import { parseTrendsView, trendsViewParams } from '../lib/platform/viewState.ts';
 import { CATEGORICAL } from '../lib/platform/chartTokens.ts';
+import { TREND_SPORTS } from '../content/trends.ts';
 
 test('the overlay holds one team per categorical slot', () => {
   assert.equal(MAX_TRENDS_TEAMS, CATEGORICAL.length);
@@ -37,7 +40,7 @@ test('the next add fills cat-1', () => {
 });
 
 test('a gap survives a URL round-trip', () => {
-  const v = { sport: 'nba', teams: [null, 'B', null, 'D'], stat: 'avgPoints' };
+  const v = { sport: 'nba', teams: [null, 'B', null, 'D'], stat: 'avgPoints', season: '' };
   const qs = trendsViewParams(v).toString();
   assert.equal(qs, 'sport=nba&team=&team=B&team=&team=D&stat=avgPoints');
   assert.deepEqual(parseTrendsView(new URLSearchParams(qs)), v);
@@ -74,4 +77,87 @@ test('spreadLabels keeps a crowd inside the plot: pushed up off the bottom, down
 
 test('spreadLabels breaks a tie by series order', () => {
   assert.deepEqual(spreadLabels([50, 50, 50], GAP, 0, 240), [50, 64, 78]);
+});
+
+// --- CFB/NFL weekly (wide) sources ---------------------------------------------
+
+const source = (key: string) => {
+  const s = TREND_SPORTS.find((t) => t.key === key);
+  assert.ok(s, `no ${key} source`);
+  return s;
+};
+
+// runQuery hands every cell back as a string (null stays null), so the fixture does too.
+test('wideToSeries: 2 teams over weeks give 2 series, each ordered by week', () => {
+  const rows = [
+    { team_id: '194', through_week: '2', adj_net: '0.25' },
+    { team_id: '130', through_week: '1', adj_net: '0.1' },
+    { team_id: '194', through_week: '1', adj_net: '-0.05' },
+  ];
+  assert.deepEqual(wideToSeries(rows, 'through_week', 'team_id', 'adj_net'), [
+    { team: '194', points: [{ x: 1, value: -0.05 }, { x: 2, value: 0.25 }] },
+    { team: '130', points: [{ x: 1, value: 0.1 }] },
+  ]);
+});
+
+test('wideToSeries drops a row with a null (or NaN) stat instead of charting it as 0', () => {
+  const rows = [
+    { team_id: '194', through_week: '1', adj_net: '0.2' },
+    { team_id: '194', through_week: '2', adj_net: null },
+    { team_id: '130', through_week: '1', adj_net: null },
+    { team_id: '130', through_week: '2', adj_net: 'NaN' }, // a parquet float NaN, stringified
+  ];
+  assert.deepEqual(wideToSeries(rows, 'through_week', 'team_id', 'adj_net'), [
+    { team: '194', points: [{ x: 1, value: 0.2 }] },
+  ]);
+});
+
+test('teamNameLookup joins release ids to a Data API team table by a number key', () => {
+  const names = source('cfb_ratings_weekly').names!;
+  const api = [{ team_id: 194, school: 'Ohio State' }, { team_id: 130, school: 'Michigan' }, { team_id: 2, school: 'Auburn' }];
+  const lookup = teamNameLookup([194, 130, 999], api, names);
+  assert.deepEqual([...lookup], [[194, 'Ohio State'], [130, 'Michigan'], [999, '999']]); // a miss shows its id, never nothing
+});
+
+test('teamNameLookup throws on a string team_id on either side of the join', () => {
+  const names = source('cfb_ratings_weekly').names!;
+  assert.throws(() => teamNameLookup([194], [{ team_id: '194', school: 'Ohio State' }], names), /cfb\.team_info\.team_id/);
+  assert.throws(() => teamNameLookup(['194'], [{ team_id: 194, school: 'Ohio State' }], names), /release/);
+  assert.throws(() => teamNameLookup([Number('x')], [{ team_id: 194, school: 'Ohio State' }], names), /release/); // NaN is no id
+});
+
+test('NFL ratings join abbreviations to nfl.teams.team_abbr; its numeric team_id is refused', () => {
+  const names = source('nfl_ratings_weekly').names!;
+  const api = [{ team_abbr: 'KC', team_id: 2310, team_name: 'Kansas City Chiefs' }, { team_abbr: 'LA', team_id: 2510, team_name: 'Los Angeles Rams' }];
+  assert.deepEqual([...teamNameLookup(['KC', 'LA'], api, names)], [['KC', 'Kansas City Chiefs'], ['LA', 'Los Angeles Rams']]);
+  assert.throws(() => teamNameLookup(['KC'], api, { ...names, key: 'team_id' }), /nfl\.teams\.team_id/);
+});
+
+test('teamNameLookup never gives two release teams the same name', () => {
+  const names = source('nfl_ratings_weekly').names!;
+  const api = [{ team_abbr: 'LA', team_name: 'Los Angeles Rams' }, { team_abbr: 'LAR', team_name: 'Los Angeles Rams' }];
+  assert.deepEqual([...teamNameLookup(['LA', 'LAR'], api, names).values()], ['Los Angeles Rams', 'Los Angeles Rams (LAR)']);
+});
+
+test('statColumns lists numeric columns, never the team, season, week or an id', () => {
+  const described = [
+    { name: 'season', type: 'BIGINT' },
+    { name: 'team_id', type: 'VARCHAR' },
+    { name: 'adj_net', type: 'DOUBLE' },
+    { name: 'games', type: 'BIGINT' },
+    { name: 'venue_id', type: 'BIGINT' },
+    { name: 'plays_off', type: 'UINTEGER' },
+    { name: 'share', type: 'DECIMAL(9,3)' },
+    { name: 'conference', type: 'VARCHAR' },
+    { name: 'through_week', type: 'INTEGER' },
+  ];
+  assert.deepEqual(statColumns(described, source('cfb_ratings_weekly').cols), ['adj_net', 'games', 'plays_off', 'share']);
+});
+
+test('end labels sit in one column at the plot edge, spread even when their lines end at different x', () => {
+  // Line 0 ends mid-plot (its season ended earlier) at the same height as line 1.
+  const labels = endLabels([{ x: 120, y: 100 }, { x: 400, y: 100 }], 400, GAP, 0, 240);
+  assert.deepEqual(labels.map((l) => l.x), [400, 400]);
+  spaced(labels.map((l) => l.y), GAP);
+  assert.equal(labels[0].y, 100); // the earlier-ending line keeps its height, above
 });

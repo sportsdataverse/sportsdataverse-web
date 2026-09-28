@@ -1,8 +1,10 @@
 /**
- * Pure logic for /platform/trends: the multi-team overlay's picks and the
- * end-label layout. Relative `.ts` imports so `node --test` loads it.
+ * Pure logic for /platform/trends: the multi-team overlay's picks, the
+ * end-label layout, and the wide (CFB/NFL weekly) sources' series, stat list
+ * and team-name join. Relative `.ts` imports so `node --test` loads it.
  */
 import { CATEGORICAL, categoricalSlot, type CategoricalSlot } from "./chartTokens.ts";
+import type { TeamNames, TrendSport } from "../../content/trends.ts";
 
 /** One team per categorical slot: `categoricalSlot(i)` never cycles a hue. */
 export const MAX_TRENDS_TEAMS = CATEGORICAL.length;
@@ -64,5 +66,93 @@ export function spreadLabels(ys: readonly number[], gap: number, lo: number, hi:
   for (const i of order) prev = out[i] = Math.max(ys[i], lo, prev + gap);
   let next = Infinity;
   for (const i of order.reverse()) next = out[i] = Math.min(out[i], hi, next - gap);
+  return out;
+}
+
+/**
+ * End labels in one column at the plot's right edge, each tied back to its
+ * line's last point by a leader. CFB/NFL seasons end in different weeks, so a
+ * line can stop mid-plot: a label there would sit on the other lines, and
+ * labels at different x could still collide with them. In one column every
+ * label stays in the gutter, where spacing them is a 1-D problem.
+ */
+export function endLabels(
+  ends: readonly { x: number; y: number }[],
+  right: number,
+  gap: number,
+  lo: number,
+  hi: number
+): { x: number; y: number }[] {
+  return spreadLabels(ends.map((e) => e.y), gap, lo, hi).map((y) => ({ x: right, y }));
+}
+
+type Row = Record<string, unknown>;
+export type WidePoint = { x: number; value: number };
+
+/**
+ * Wide rows (one column per stat) → one series per team, points ordered by
+ * x; series in order of first appearance. A null (or non-numeric) stat is
+ * dropped, never charted as 0.
+ */
+export function wideToSeries(
+  rows: readonly Row[],
+  xCol: string,
+  teamCol: string,
+  stat: string
+): { team: string; points: WidePoint[] }[] {
+  const byTeam = new Map<string, WidePoint[]>();
+  for (const r of rows) {
+    const raw = r[stat];
+    if (raw == null) continue;
+    const value = Number(raw);
+    if (!Number.isFinite(value)) continue;
+    const team = String(r[teamCol]);
+    const points = byTeam.get(team) ?? [];
+    points.push({ x: Number(r[xCol]), value });
+    byTeam.set(team, points);
+  }
+  return [...byTeam].map(([team, points]) => ({ team, points: points.sort((a, b) => a.x - b.x) }));
+}
+
+const NUMERIC = /^(U?(TINYINT|SMALLINT|INTEGER|BIGINT|HUGEINT)|FLOAT|DOUBLE|DECIMAL)\b/;
+
+/** A wide source's stat picker: the numeric columns of a DuckDB DESCRIBE,
+ *  minus the team, season and week columns and any id. */
+export function statColumns(described: readonly { name: string; type: string }[], cols: TrendSport["cols"]): string[] {
+  const skip = new Set([cols.team, cols.season, cols.week]);
+  return described
+    .filter((d) => NUMERIC.test(d.type) && !skip.has(d.name) && !/(^|_)id$/i.test(d.name))
+    .map((d) => d.name);
+}
+
+function assertKeys(values: readonly unknown[], type: TeamNames["keyType"], where: string): void {
+  for (const v of values) {
+    const ok = type === "number" ? Number.isSafeInteger(v) : typeof v === "string" && v !== "";
+    if (!ok) throw new Error(`${where}: expected ${type} team keys, got ${typeof v} ${JSON.stringify(v)}`);
+  }
+}
+
+/**
+ * Release team ids → names from a Data API team table. Both sides' keys are
+ * asserted to be `names.keyType` first: a key-type mismatch throws rather than
+ * silently matching nothing. An id the table lacks is named by itself, and a
+ * name two ids share gets the id appended, so no team drops out of the picker.
+ */
+export function teamNameLookup(
+  ids: readonly unknown[],
+  rows: readonly Row[],
+  names: TeamNames
+): Map<number | string, string> {
+  assertKeys(ids, names.keyType, "release team ids");
+  assertKeys(rows.map((r) => r[names.key]), names.keyType, `${names.schema}.${names.table}.${names.key}`);
+  const byKey = new Map(rows.map((r) => [r[names.key], String(r[names.name])]));
+  const out = new Map<number | string, string>();
+  const used = new Set<string>();
+  for (const id of ids as (number | string)[]) {
+    const name = byKey.get(id) ?? String(id);
+    const unique = used.has(name) ? `${name} (${id})` : name;
+    used.add(unique);
+    out.set(id, unique);
+  }
   return out;
 }
