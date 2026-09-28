@@ -8,6 +8,7 @@ import { TREND_SPORTS } from "@content/trends";
 import type { TrendSport } from "@content/trends";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
 import { trendsViewParams, type TrendsView } from "@lib/platform/viewState";
+import { loadSequencer } from "@lib/platform/wp";
 import { chartVar, type CategoricalSlot } from "@lib/platform/chartTokens";
 import { niceTicks } from "@lib/platform/scales";
 import {
@@ -271,6 +272,8 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
   const [note, setNote] = useState<Note | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A sport switch abandons an in-flight chart: only the newest run may touch the status.
+  const [runs] = useState(loadSequencer);
 
   const sport = useMemo(
     () => TREND_SPORTS.find((s) => s.key === sportKey) ?? TREND_SPORTS[0],
@@ -362,6 +365,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
   async function run(picks: TrendPicks = pickedRef.current) {
     const teams = picks.filter((t): t is string => t !== null);
     if (!teams.length || !stat) return;
+    const ticket = runs.next();
     setBusy("Charting…");
     setError(null);
     setNote(null);
@@ -377,6 +381,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
          ORDER BY season`,
         200 * MAX_TRENDS_TEAMS
       );
+      if (!runs.isLatest(ticket)) return;
       const idx = (name: string) => res.columns.indexOf(name);
       const byTeam = new Map<string, TrendPoint[]>();
       for (const r of res.rows) {
@@ -400,9 +405,9 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
       setChart({ label, series });
       if (missing.length) setNote({ label, missing });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (runs.isLatest(ticket)) setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(null);
+      if (runs.isLatest(ticket)) setBusy(null);
     }
   }
 
@@ -435,6 +440,8 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
               key={s.key}
               onClick={() => {
                 autoRun.current = false;
+                runs.next();
+                setBusy(null);
                 setSportKey(s.key);
                 setTeamOptions([]);
                 setStats([]);
