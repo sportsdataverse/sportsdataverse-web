@@ -41,13 +41,14 @@ const DATA_REPO = "sportsdataverse/sportsdataverse-data";
 /** x is a season (long sources) or a week within one season (weekly ones). */
 type TrendPoint = { x: number; value: number; display: string };
 type TrendSeries = { team: string; slot: CategoricalSlot; points: TrendPoint[] };
-/** A refused pick, or the charted teams with no rows for the stat. */
-type Note = { refused: string } | { label: string; missing: string[] };
+/** A refused pick, the charted teams with no rows for the stat, or a stat the
+ *  season's file does not carry. */
+type Note = { refused: string } | { label: string; missing: string[] } | { absentStat: string };
 
 function noteText(note: Note): string {
-  return "refused" in note
-    ? `${MAX_TRENDS_TEAMS} teams at most, one per colour. Remove one to add ${note.refused}.`
-    : `No ${note.label} for ${note.missing.join(", ")}.`;
+  if ("refused" in note) return `${MAX_TRENDS_TEAMS} teams at most, one per colour. Remove one to add ${note.refused}.`;
+  if ("absentStat" in note) return `${note.absentStat} is not in this season's file. Pick another stat.`;
+  return `No ${note.label} for ${note.missing.join(", ")}.`;
 }
 
 function proxyUrl(sport: TrendSport, asset: string): string {
@@ -411,7 +412,11 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
         // empty. Otherwise the effect below charts once these lists land.
         const picks = pickedRef.current.filter((t): t is string => t !== null);
         const shown = statList.find((x) => x.name === stat);
-        if (autoRun.current && shown && picks.length && !picks.some((t) => teams.includes(t))) {
+        if (autoRun.current && stat && !shown) {
+          // the chosen stat is not in this season's file: say so, don't chart blank
+          autoRun.current = false;
+          setNote({ absentStat: stat });
+        } else if (autoRun.current && shown && picks.length && !picks.some((t) => teams.includes(t))) {
           autoRun.current = false;
           setNote({ label: shown.label, missing: picks });
         }
@@ -457,6 +462,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
     setChart((c) => (c ? { ...c, series: c.series.filter((s) => s.team !== team) } : c));
     setNote((n) => {
       if (!n || "refused" in n) return null; // a refused pick now has room
+      if ("absentStat" in n) return n; // dropping a team doesn't bring the stat back
       const missing = n.missing.filter((t) => t !== team);
       return missing.length ? { ...n, missing } : null;
     });
