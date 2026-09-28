@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   toSearchParams, parseExploreView, exploreViewParams, parseQueryView, queryViewParams,
   exploreLinkMoved, parseWpView, wpViewParams, parseTrendsView, trendsViewParams, parseLookupsView, lookupsViewParams,
+  parseScatterView, scatterViewParams,
   SQL_OP_BY_SUFFIX, SUFFIX_BY_SQL_OP,
 } from '../lib/platform/viewState.ts';
 
@@ -137,4 +138,35 @@ test('an Explore link keeps its filters unless the table or season it named is m
   assert.equal(exploreLinkMoved(link, 'drives', '1999'), true); // table fell back
   // a link that named neither (single-stem / unpartitioned release) keeps them
   assert.equal(exploreLinkMoved({ table: '', season: '' }, 'pbp', '2026'), false);
+});
+
+test('Scatter round-trips source, season and axes; the default source stays off the URL', () => {
+  const v = { schema: 'cfb', table: 'passing', season: '2025', x: 'EPAplay', y: 'yards' };
+  const qs = scatterViewParams(v).toString();
+  assert.equal(qs, 'schema=cfb&table=passing&season=2025&x=EPAplay&y=yards');
+  assert.deepEqual(parseScatterView(sp(qs)), v);
+  const index = parseScatterView(sp('schema=nba&table=player_impact&season=2026&x=o_rapm&y=d_rapm'));
+  assert.deepEqual(index, { schema: 'nba', table: 'player_impact', season: '2026', x: 'o_rapm', y: 'd_rapm' });
+  assert.equal(scatterViewParams(index).toString(), 'season=2026&x=o_rapm&y=d_rapm');
+  assert.deepEqual(parseScatterView(sp(scatterViewParams(index).toString())), index);
+  assert.equal(scatterViewParams(parseScatterView(sp(''))).toString(), '');
+});
+
+test('Scatter drops an x or y that is not a numeric column, falling back to the first two', () => {
+  const numeric = ['d_rapm', 'o_rapm', 'war'];
+  assert.deepEqual(parseScatterView(sp('x=player_name&y=war'), numeric), { schema: 'nba', table: 'player_impact', season: '', x: 'd_rapm', y: 'war' });
+  assert.deepEqual(parseScatterView(sp('x=nope&y=zip'), numeric).x, 'd_rapm');
+  assert.deepEqual(parseScatterView(sp('x=nope&y=zip'), numeric).y, 'o_rapm');
+  assert.deepEqual(parseScatterView(sp('x=war&y=o_rapm'), numeric), { schema: 'nba', table: 'player_impact', season: '', x: 'war', y: 'o_rapm' });
+});
+
+test('Scatter sanitizes a hostile URL: unknown source, bad season, quoted column', () => {
+  const v = parseScatterView(sp('schema=pg_catalog&table=pg_user&season=20251&x=a"b&y=' + 'y'.repeat(300)));
+  assert.equal(v.schema, 'nba');
+  assert.equal(v.table, 'player_impact');
+  assert.equal(v.season, '');
+  assert.equal(v.x, '');
+  assert.equal(v.y.length, 200);
+  // a known schema with another source's table is not a source
+  assert.equal(parseScatterView(sp('schema=nba&table=passing')).table, 'player_impact');
 });
