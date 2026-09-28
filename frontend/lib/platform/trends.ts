@@ -1,7 +1,8 @@
 /**
  * Pure logic for /platform/trends: the multi-team overlay's picks, the
- * end-label layout, and the wide (CFB/NFL weekly) sources' series, stat list
- * and team-name join. Relative `.ts` imports so `node --test` loads it.
+ * end-label layout, the wide (CFB/NFL weekly) sources' series, stat list
+ * and team-name join, and the league band and rank context. Relative `.ts`
+ * imports so `node --test` loads it.
  */
 import { CATEGORICAL, categoricalSlot, type CategoricalSlot } from "./chartTokens.ts";
 import type { TeamNames, TrendSport } from "../../content/trends.ts";
@@ -104,18 +105,20 @@ export function lastPlayedWeek(pairs: readonly { week: number; gamesTotal: numbe
 }
 
 type Row = Record<string, unknown>;
-export type WidePoint = { x: number; value: number };
+export type WidePoint = { x: number; value: number; rank?: number | null };
 
 /**
  * Wide rows (one column per stat) → one series per team, points ordered by
  * x; series in order of first appearance. A null (or non-numeric) stat is
- * dropped, never charted as 0.
+ * dropped, never charted as 0. With `rankCol`, each point carries that row's
+ * own rank (null stays null).
  */
 export function wideToSeries(
   rows: readonly Row[],
   xCol: string,
   teamCol: string,
-  stat: string
+  stat: string,
+  rankCol?: string | null
 ): { team: string; points: WidePoint[] }[] {
   const byTeam = new Map<string, WidePoint[]>();
   for (const r of rows) {
@@ -125,7 +128,9 @@ export function wideToSeries(
     if (!Number.isFinite(value)) continue;
     const team = String(r[teamCol]);
     const points = byTeam.get(team) ?? [];
-    points.push({ x: Number(r[xCol]), value });
+    const point: WidePoint = { x: Number(r[xCol]), value };
+    if (rankCol) point.rank = r[rankCol] == null ? null : Number(r[rankCol]);
+    points.push(point);
     byTeam.set(team, points);
   }
   return [...byTeam].map(([team, points]) => ({ team, points: points.sort((a, b) => a.x - b.x) }));
@@ -206,4 +211,62 @@ export function teamNameLookup(
     out.set(id, unique);
   }
   return out;
+}
+
+/** One x of the league aggregate, as queried: every team in the file at that
+ *  x, not just the picks. `sd` is null below 2 teams (DuckDB stddev_samp). */
+export type BandRow = { x: number; mean: number; sd: number | null; n: number };
+export type BandPoint = { x: number; mean: number; lo: number | null; hi: number | null; n: number };
+
+/**
+ * The league mean ± 1 sd per x, sorted by x: an aggregate over the same file
+ * the lines come from, not a percentile. With no sd, or fewer than 2 teams,
+ * the band is the mean alone (lo = hi = null). A mean that is not a number
+ * throws, never charted.
+ */
+export function leagueBand(rows: readonly BandRow[]): BandPoint[] {
+  return [...rows]
+    .sort((a, b) => a.x - b.x)
+    .map(({ x, mean, sd, n }) => {
+      if (!Number.isFinite(mean)) throw new Error(`${x}: league mean is not a number`);
+      const spread = sd !== null && n >= 2;
+      return { x, mean, lo: spread ? mean - sd : null, hi: spread ? mean + sd : null, n };
+    });
+}
+
+/** The band kept to the lines' x span (`xs`, the charted points' x): it never
+ *  runs past a trimmed week or into a season no line has, and it shrinks when
+ *  a removal shortens the lines. No lines, no band. */
+export function bandWithin(band: readonly BandPoint[], xs: readonly number[]): BandPoint[] {
+  const [first, last] = [Math.min(...xs), Math.max(...xs)];
+  return band.filter((b) => b.x >= first && b.x <= last);
+}
+
+/** The band's filled stretches: runs of 2+ consecutive points with a spread.
+ *  A point without one breaks the fill (its mean is still on the mean line). */
+export function bandRuns(band: readonly BandPoint[]): BandPoint[][] {
+  const runs: BandPoint[][] = [[]];
+  for (const b of band) {
+    if (b.lo === null || b.hi === null) runs.push([]);
+    else runs[runs.length - 1].push(b);
+  }
+  return runs.filter((r) => r.length > 1);
+}
+
+/** "#12 of 136": a producer rank among the teams ranked at that x. No rank,
+ *  no label. An average-tie rank (the CFB summaries rank like R rank()) reads
+ *  as is, "#7.5 of 136". */
+export function rankLabel(rank: number | null | undefined, of: number): string | null {
+  return Number.isFinite(rank) ? `#${rank} of ${of}` : null;
+}
+
+/** The rank column for a stat in the same row, only when the file has it: the
+ *  source's explicit map, else `<stat>_rank`. Never computed or guessed. */
+export function rankColumn(
+  stat: string,
+  columns: readonly string[],
+  ranks?: Readonly<Record<string, string>>
+): string | null {
+  const col = ranks?.[stat] ?? `${stat}_rank`;
+  return columns.includes(col) ? col : null;
 }

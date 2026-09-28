@@ -15,15 +15,22 @@ import { niceTicks } from "@lib/platform/scales";
 import {
   MAX_TRENDS_TEAMS,
   addTeam,
+  bandRuns,
+  bandWithin,
   endLabels,
   lastPlayedWeek,
+  leagueBand,
   pickSlots,
+  rankColumn,
+  rankLabel,
   releaseKey,
   removeTeam,
   statColumns,
   statGroups,
   teamNameLookup,
   wideToSeries,
+  type BandPoint,
+  type BandRow,
   type TrendPicks,
 } from "@lib/platform/trends";
 import useUrlMirror from "@hooks/useUrlMirror";
@@ -33,13 +40,16 @@ import useUrlMirror from "@hooks/useUrlMirror";
  * team in a fixed categorical slot. Hoops (long team_season_stats) chart
  * every season file; the CFB/NFL weekly frames (wide, one column per stat)
  * chart one season by week. Release parquet queried in-browser via DuckDB +
- * range proxy; CFB/NFL rating ids are named from a Data API team table.
+ * range proxy; CFB/NFL rating ids are named from a Data API team table. Under
+ * the lines, the league mean ± 1 sd per x from the same files; beside a value,
+ * the producer's rank where the row carries one.
  */
 
 const DATA_REPO = "sportsdataverse/sportsdataverse-data";
 
-/** x is a season (long sources) or a week within one season (weekly ones). */
-type TrendPoint = { x: number; value: number; display: string };
+/** x is a season (long sources) or a week within one season (weekly ones).
+ *  `rank` is the producer rank's label ("#12 of 136"), where the row has one. */
+type TrendPoint = { x: number; value: number; display: string; rank?: string | null };
 type TrendSeries = { team: string; slot: CategoricalSlot; points: TrendPoint[] };
 /** A refused pick, the charted teams with no rows for the stat, or a stat the
  *  season's file does not carry. */
@@ -64,7 +74,8 @@ const assetsFetcher = async (url: string) => {
 
 const sq = (s: string) => `'${s.replace(/'/g, "''")}'`;
 const qi = (s: string) => `"${s.replace(/"/g, '""')}"`;
-const fmt = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format;
+// "negative": a mean that rounds to zero (NFL adj_net's is ~1e-16) reads 0, not -0.
+const fmt = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3, signDisplay: "negative" }).format;
 
 /** An x value as read: a season as is, a week with what the source's week
  *  number means ("Through week 5", "Entering week 5"). */
@@ -79,10 +90,33 @@ function Swatch({ slot }: { slot: CategoricalSlot }) {
   );
 }
 
+/** The league band's swatch: its neutral fill with the dashed mean line. */
+function BandSwatch() {
+  return (
+    <svg viewBox="0 0 16 12" className="h-3 w-4 shrink-0" aria-hidden="true">
+      <rect x={0} y={1} width={16} height={10} fill={chartVar("div-mid")} />
+      <line x1={0} x2={16} y1={6} y2={6} className="stroke-muted-foreground" strokeWidth={1.5} strokeDasharray="3 2" />
+    </svg>
+  );
+}
+
 /** Legend and hover readout in one: every team's name beside its colour, and
- *  its value at the hovered x (the latest one otherwise). HTML, not SVG
- *  text, so it stays readable at phone width; long names wrap. */
-function TrendsLegend({ series, x, weekLabel }: { series: TrendSeries[]; x: number; weekLabel?: string }) {
+ *  its value (and producer rank, where the row has one) at the hovered x (the
+ *  latest one otherwise); then the league mean there and how many teams it
+ *  averages. HTML, not SVG text, so it stays readable at phone width; long
+ *  names wrap. */
+function TrendsLegend({
+  series,
+  band,
+  x,
+  weekLabel,
+}: {
+  series: TrendSeries[];
+  band: BandPoint[];
+  x: number;
+  weekLabel?: string;
+}) {
+  const league = band.find((b) => b.x === x);
   return (
     <div data-testid="trends-legend" className="mb-2 flex flex-wrap items-center gap-x-5 gap-y-1 font-inter text-sm">
       <span className="font-mono text-xs font-semibold">{xText(weekLabel, x)}</span>
@@ -93,10 +127,26 @@ function TrendsLegend({ series, x, weekLabel }: { series: TrendSeries[]; x: numb
             <Swatch slot={s.slot} />
             <span>
               {s.team} <span className="tabular-nums text-muted-foreground">{p ? p.display : "–"}</span>
+              {p?.rank ? (
+                <span data-testid="trends-rank" className="ml-1.5 text-xs tabular-nums text-muted-foreground">
+                  {p.rank}
+                </span>
+              ) : null}
             </span>
           </span>
         );
       })}
+      {band.length ? (
+        <span data-testid="trends-league" className="flex items-center gap-2">
+          <BandSwatch />
+          <span>
+            League mean ± 1 SD{" "}
+            <span className="tabular-nums text-muted-foreground">
+              {league ? `${fmt(league.mean)} (n = ${league.n})` : "–"}
+            </span>
+          </span>
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -121,12 +171,14 @@ const CHAR_PX = 6.6; // ~Inter 12px average advance, for truncating end labels
 
 function TrendChart({
   series,
+  band,
   label,
   weekLabel,
   hover,
   onHover,
 }: {
   series: TrendSeries[];
+  band: BandPoint[];
   label: string;
   weekLabel?: string;
   hover: number | null;
@@ -140,7 +192,11 @@ function TrendChart({
   const gutter = Math.round(Math.min(180, Math.max(92, W * 0.24)));
   const pad = { l: 48, r: gutter, t: 12, b: 26 };
   const xs = [...new Set(series.flatMap((s) => s.points.map((p) => p.x)))].sort((a, b) => a - b);
-  const values = series.flatMap((s) => s.points.map((p) => p.value));
+  // The band is in the y domain, so it is never clipped.
+  const values = [
+    ...series.flatMap((s) => s.points.map((p) => p.value)),
+    ...band.flatMap((b) => [b.mean, b.lo ?? b.mean, b.hi ?? b.mean]),
+  ];
   const lo = Math.min(...values);
   const hi = Math.max(...values);
   const span = hi - lo || Math.abs(hi) || 1;
@@ -185,6 +241,19 @@ function TrendChart({
           onMouseMove={(e) => onHover(xAt(e))}
           onMouseLeave={() => onHover(null)}
         >
+          {/* The league band under everything, in the neutral diverging midpoint
+              (never amber, never a team slot); it takes no pointer events. */}
+          <g data-testid="trends-band" pointerEvents="none">
+            {bandRuns(band).map((run) => (
+              <polygon
+                key={run[0].x}
+                points={[...run.map((b) => [b.x, b.hi]), ...[...run].reverse().map((b) => [b.x, b.lo])]
+                  .map(([bx, by]) => `${x(bx!).toFixed(1)},${y(by!).toFixed(1)}`)
+                  .join(" ")}
+                fill={chartVar("div-mid")}
+              />
+            ))}
+          </g>
           {ticks.map((tick) => (
             <g key={tick}>
               <line x1={pad.l} x2={W - pad.r} y1={y(tick)} y2={y(tick)} className="stroke-border" strokeDasharray="4 4" />
@@ -211,6 +280,18 @@ function TrendChart({
               </text>
             ) : null
           )}
+          {band.length > 1 ? (
+            <polyline
+              data-testid="trends-mean"
+              data-mean={band.map((b) => `${b.x}:${b.mean}`).join(" ")}
+              points={band.map((b) => `${x(b.x).toFixed(1)},${y(b.mean).toFixed(1)}`).join(" ")}
+              fill="none"
+              className="stroke-muted-foreground"
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+              pointerEvents="none"
+            />
+          ) : null}
           {series.map((s) =>
             s.points.length > 1 ? (
               <polyline
@@ -314,7 +395,9 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
   // (see the onClick below) — never left armed to misfire against a later,
   // unrelated sport's lists.
   const autoRun = useRef(Boolean(initial.teams.length && initial.stat));
-  const [chart, setChart] = useState<{ label: string; season: string; series: TrendSeries[] } | null>(null);
+  const [chart, setChart] = useState<{ label: string; season: string; series: TrendSeries[]; band: BandPoint[] } | null>(
+    null
+  );
   const [hover, setHover] = useState<number | null>(null);
   const [note, setNote] = useState<Note | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -470,12 +553,51 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
 
   type RunQuery = (typeof import("@lib/platform/duckdb"))["runQuery"];
 
+  /** Every season file (long sources), read as one. */
+  const longSrc = () =>
+    `read_parquet([${seasonAssets.map((a) => `'${proxyUrl(sport, a)}'`).join(", ")}], union_by_name=true)`;
+  /** A weekly source's played weeks only: the forward-filled tail is not charted. */
+  const playedWeeks = (xCol: string) => (Number.isFinite(lastWeek) ? `${qi(xCol)} <= ${lastWeek}` : "TRUE");
+
+  /**
+   * The league per x, over the same file(s) as the lines and every team in
+   * them: mean, sd and count of the stat (GROUP BY week, or season for the
+   * long files after filtering to the stat's rows), plus how many teams carry
+   * `rankCol` there, the "of N" of a rank. Every aggregate is CAST: DuckDB-WASM
+   * hands a HUGEINT/BIGINT back as an object or a BigInt, not a number.
+   */
+  async function leagueRows(
+    runQuery: RunQuery,
+    rankCol: string | null
+  ): Promise<{ rows: BandRow[]; ranked: Map<number, number> }> {
+    const c = sport.cols;
+    let sql: string;
+    if (sport.format === "wide") {
+      const [xCol, v] = [c.week ?? c.season, qi(stat)];
+      sql = `SELECT ${qi(xCol)}, CAST(avg(${v}) AS DOUBLE), CAST(stddev_samp(${v}) AS DOUBLE), CAST(count(${v}) AS INTEGER),
+       ${rankCol ? `CAST(count(${qi(rankCol)}) AS INTEGER)` : "0"}
+       FROM read_parquet('${proxyUrl(sport, listAsset)}') WHERE ${playedWeeks(xCol)} GROUP BY 1 HAVING count(${v}) > 0`;
+    } else {
+      sql = `SELECT ${qi(c.season)}, CAST(avg(value) AS DOUBLE), CAST(stddev_samp(value) AS DOUBLE), CAST(count(value) AS INTEGER), 0
+       FROM ${longSrc()} WHERE ${qi(c.stat ?? "stat_name")} = ${sq(stat)} AND value IS NOT NULL GROUP BY 1`;
+    }
+    const res = await runQuery(sql, 1000);
+    return {
+      rows: res.rows.map((r) => ({
+        x: Number(r[0]),
+        mean: Number(r[1] ?? NaN), // Number(null) would be a silent 0
+        sd: r[2] == null ? null : Number(r[2]),
+        n: Number(r[3]),
+      })),
+      ranked: new Map(res.rows.map((r) => [Number(r[0]), Number(r[4])])),
+    };
+  }
+
   /** Long files: every season file, one stat's rows, x = season. */
   async function longPoints(runQuery: RunQuery, teams: string[]): Promise<Map<string, TrendPoint[]>> {
     const c = sport.cols;
-    const urls = seasonAssets.map((a) => `'${proxyUrl(sport, a)}'`).join(", ");
     const res = await runQuery(
-      `SELECT ${qi(c.team)}, ${qi(c.season)}, value, display_value FROM read_parquet([${urls}], union_by_name=true)
+      `SELECT ${qi(c.team)}, ${qi(c.season)}, value, display_value FROM ${longSrc()}
        WHERE ${qi(c.team)} IN (${teams.map(sq).join(", ")}) AND ${qi(c.stat ?? "stat_name")} = ${sq(stat)} AND value IS NOT NULL
        ORDER BY ${qi(c.season)}`,
       200 * MAX_TRENDS_TEAMS
@@ -496,8 +618,14 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
   }
 
   /** Wide files: one season's file, the stat's own column, x = week. Picks
-   *  are names; a names source queries by its release key. */
-  async function widePoints(runQuery: RunQuery, teams: string[]): Promise<Map<string, TrendPoint[]>> {
+   *  are names; a names source queries by its release key. A rank in the same
+   *  row is labelled against the teams ranked at that week (`ranked`). */
+  async function widePoints(
+    runQuery: RunQuery,
+    teams: string[],
+    rankCol: string | null,
+    ranked: Map<number, number>
+  ): Promise<Map<string, TrendPoint[]>> {
     const c = sport.cols;
     const xCol = c.week ?? c.season;
     const keyOf = new Map([...(nameOf ?? [])].map(([k, name]) => [name, k]));
@@ -506,17 +634,16 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
       return k === undefined ? [] : [sq(k)];
     });
     if (!keys.length || !listAsset) return new Map();
-    const played = Number.isFinite(lastWeek) ? ` AND ${qi(xCol)} <= ${lastWeek}` : "";
     const res = await runQuery(
-      `SELECT ${qi(c.team)}, ${qi(xCol)}, ${qi(stat)} FROM read_parquet('${proxyUrl(sport, listAsset)}')
-       WHERE ${qi(c.team)} IN (${keys.join(", ")})${played}`,
+      `SELECT ${qi(c.team)}, ${qi(xCol)}, ${qi(stat)}${rankCol ? `, ${qi(rankCol)}` : ""} FROM read_parquet('${proxyUrl(sport, listAsset)}')
+       WHERE ${qi(c.team)} IN (${keys.join(", ")}) AND ${playedWeeks(xCol)}`,
       60 * MAX_TRENDS_TEAMS
     );
     const rows = res.rows.map((r) => Object.fromEntries(res.columns.map((col, i) => [col, r[i]])));
     return new Map(
-      wideToSeries(rows, xCol, c.team, stat).map((s) => [
+      wideToSeries(rows, xCol, c.team, stat, rankCol).map((s) => [
         nameOf?.get(s.team) ?? s.team,
-        s.points.map((p) => ({ ...p, display: fmt(p.value) })),
+        s.points.map((p) => ({ ...p, display: fmt(p.value), rank: rankLabel(p.rank, ranked.get(p.x) ?? 0) })),
       ])
     );
   }
@@ -533,7 +660,16 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
     const label = stats.find((s) => s.name === stat)?.label ?? stat;
     try {
       const { runQuery } = await import("@lib/platform/duckdb");
-      const byTeam = await (sport.format === "wide" ? widePoints : longPoints)(runQuery, teams);
+      // Ranks only from a column in the same row (wide files): `<stat>_rank`
+      // or the source's map. The stat list holds every numeric column.
+      const names = stats.map((s) => s.name);
+      const rankCol = sport.format === "wide" ? rankColumn(stat, names, sport.ranks) : null;
+      const league = await leagueRows(runQuery, rankCol);
+      if (!runs.isLatest(ticket)) return;
+      const byTeam =
+        sport.format === "wide"
+          ? await widePoints(runQuery, teams, rankCol, league.ranked)
+          : await longPoints(runQuery, teams);
       if (!runs.isLatest(ticket)) return;
       // A team removed while this loaded stays removed; positions never
       // shift, so every other team's slot is still its own.
@@ -543,7 +679,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
         return live(team) && points?.length ? [{ team, slot, points }] : [];
       });
       const missing = teams.filter((t) => live(t) && !byTeam.has(t));
-      setChart({ label, season: activeSeason, series });
+      setChart({ label, season: activeSeason, series, band: leagueBand(league.rows) });
       if (missing.length) setNote({ label, missing });
     } catch (e) {
       if (runs.isLatest(ticket)) setError(e instanceof Error ? e.message : String(e));
@@ -580,8 +716,11 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
   );
 
   const series = chart?.series ?? [];
-  const xCount = new Set(series.flatMap((s) => s.points.map((p) => p.x))).size;
-  const latest = Math.max(...series.flatMap((s) => s.points.map((p) => p.x)));
+  const xs = series.flatMap((s) => s.points.map((p) => p.x));
+  const xCount = new Set(xs).size;
+  const latest = Math.max(...xs);
+  // Kept to the lines now drawn: a removal can shorten them.
+  const band = bandWithin(chart?.band ?? [], xs);
 
   return (
     <>
@@ -724,8 +863,15 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
             {chart.label}
             {chart.season ? ` · ${chart.season}` : null}
           </h3>
-          <TrendsLegend series={series} x={hover ?? latest} weekLabel={weekLabel} />
-          <TrendChart series={series} label={chart.label} weekLabel={weekLabel} hover={hover} onHover={setHover} />
+          <TrendsLegend series={series} band={band} x={hover ?? latest} weekLabel={weekLabel} />
+          <TrendChart
+            series={series}
+            band={band}
+            label={chart.label}
+            weekLabel={weekLabel}
+            hover={hover}
+            onHover={setHover}
+          />
         </div>
       ) : chart && xCount === 1 ? (
         <p className="font-inter text-sm text-muted-foreground">
