@@ -15,33 +15,36 @@ const rolling = async (page, base) => {
   await movers.locator('tbody tr').first().waitFor({ timeout: 60_000 });
   await page.waitForTimeout(1200);
 
-  // A change of view swaps the rows: wait until the named card's text differs.
-  const changes = async (card, act) => {
-    const before = await card.innerText();
+  const urlHas = (k, v) => page.waitForFunction(([k, v]) => new URL(location.href).searchParams.get(k) === v, [k, v]);
+  // A change of view: wait for the URL to name it and the card to finish loading. The rows
+  // themselves may not differ (the top 3 can be active either way), so never wait on a change.
+  const settle = async (card, act, k, v) => {
     await act();
+    await urlHas(k, v);
     await page.waitForFunction(
-      ([id, prev]) => {
+      (id) => {
         const t = document.querySelector(`[data-testid="${id}"]`)?.innerText ?? '';
-        return t !== prev && !t.includes('Loading');
+        return t !== '' && !t.includes('Loading');
       },
-      [await card.getAttribute('data-testid'), before],
+      await card.getAttribute('data-testid'),
       { timeout: 60_000 }
     );
     await page.waitForTimeout(1200);
   };
-  const urlHas = (k, v) => page.waitForFunction(([k, v]) => new URL(location.href).searchParams.get(k) === v, [k, v]);
+  const span = page.getByTestId('rolling-span');
+  const spanHas = async (text) => {
+    if (!(await span.innerText()).includes(text)) throw new Error(`span line lacks "${text}"`);
+  };
 
-  await changes(hero, () => page.getByRole('tab', { name: 'Most improved' }).click());
-  await urlHas('tab', 'improved');
-  await changes(hero, () => page.getByRole('tab', { name: 'Coldest' }).click());
-  await urlHas('tab', 'coldest');
+  await settle(hero, () => page.getByRole('tab', { name: 'Most improved' }).click(), 'tab', 'improved');
+  await settle(hero, () => page.getByRole('tab', { name: 'Coldest' }).click(), 'tab', 'coldest');
   // Active off lets in anyone whose last event is older than two weeks.
-  await changes(movers, () => page.getByRole('checkbox', { name: 'Active only' }).click());
-  await urlHas('active', '0');
-  await changes(movers, () => page.getByLabel('Window').selectOption('300'));
-  await urlHas('window', '300');
-  await changes(movers, () => page.getByRole('button', { name: 'NFL' }).click());
-  await urlHas('league', 'nfl');
+  await settle(movers, () => page.getByRole('checkbox', { name: 'Active only' }).click(), 'active', '0');
+  await spanHas('active filter off');
+  await settle(movers, () => page.getByLabel('Window').selectOption('300'), 'window', '300');
+  await spanHas('last 300');
+  await settle(movers, () => page.getByRole('button', { name: 'NFL' }).click(), 'league', 'nfl');
+  if ((await movers.locator('tbody tr').count()) === 0) throw new Error('no NFL movers rows');
   await page.goto(page.url(), { waitUntil: 'domcontentloaded' }); // the shared link
   await movers.locator('tbody tr').first().waitFor({ timeout: 120_000 });
   await page.waitForTimeout(1200);
