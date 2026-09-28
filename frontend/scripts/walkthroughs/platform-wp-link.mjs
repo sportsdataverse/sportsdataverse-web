@@ -11,7 +11,7 @@ export default async (page, base) => {
   const id = await game.locator('option').nth(1).getAttribute('value');
   await game.selectOption(id);
   await page.waitForFunction((g) => new URL(location.href).searchParams.get('game') === g, id, { timeout: 60_000 });
-  const chart = page.locator('svg[aria-label^="Win probability chart"]');
+  const chart = page.getByTestId('wp-chart');
   await chart.waitFor({ timeout: 60_000 });
   await page.goto(page.url(), { waitUntil: 'domcontentloaded' }); // the shared link
   await chart.waitFor({ timeout: 120_000 });

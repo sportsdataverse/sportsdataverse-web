@@ -5,6 +5,10 @@
  * `{schema}.pbp?game_id=` for one game's WP series. Column names verified
  * against the live Data API (2026-09-27). MBB/WBB publish home_win_prob from
  * 2025 on; earlier seasons have the column but every value is null.
+ *
+ * Team colours (verified live 2026-09-28): MBB/WBB carry them on the schedule
+ * row; CFB and NFL join the schedule's team key to a small team table
+ * (`cfb.team_info` 684 rows, `nfl.teams` 36), read once per sport.
  */
 
 export type WpSport = {
@@ -21,11 +25,21 @@ export type WpSport = {
     week?: string;
     home: string;
     away: string;
+    /** Team keys joined to `teams.key` (CFB ids, NFL abbreviations). */
+    homeId?: string;
+    awayId?: string;
+    /** Colour columns on the schedule row itself (MBB/WBB). */
+    homeColor?: string;
+    homeAlt?: string;
+    awayColor?: string;
+    awayAlt?: string;
     /** Extra filters, `col` or `col__op` (`__gte`, …), that keep games without
      *  plays out of the picker. The API ignores an unknown filter column, so
      *  test/wp.test.ts pins each sport's exact params. */
     filter?: Record<string, string>;
   };
+  /** Team colour table on `{schema}`, when the schedule has no colours. */
+  teams?: { table: string; key: string; color: string; alt: string };
   /** One game's WP series on `{schema}.pbp`. */
   cols: {
     gameId: string;
@@ -62,8 +76,11 @@ export const WP_SPORTS: WpSport[] = [
       week: "week",
       home: "home_team",
       away: "away_team",
+      homeId: "home_id",
+      awayId: "away_id",
       filter: { home_division: "fbs", completed: "true" },
     },
+    teams: { table: "team_info", key: "team_id", color: "color", alt: "alt_color" },
     cols: {
       gameId: "game_id",
       order: "game_play_number",
@@ -83,7 +100,17 @@ export const WP_SPORTS: WpSport[] = [
     schema: "nfl",
     // The schedule carries the whole season up front; a score means it was
     // played (2024: 285 of 285; 2026 so far: 33 of 272).
-    schedule: { id: "game_id", week: "week", home: "home_team", away: "away_team", filter: { home_score__gte: "0" } },
+    // Every schedule abbreviation 2002-2024 (OAK, SD, STL, LA, …) is in nfl.teams.
+    schedule: {
+      id: "game_id",
+      week: "week",
+      home: "home_team",
+      away: "away_team",
+      homeId: "home_team",
+      awayId: "away_team",
+      filter: { home_score__gte: "0" },
+    },
+    teams: { table: "teams", key: "team_abbr", color: "team_color", alt: "team_color2" },
     cols: {
       gameId: "game_id",
       order: "play_id",
@@ -99,7 +126,16 @@ export const WP_SPORTS: WpSport[] = [
     assetPrefix: "play_by_play_",
     schema: "mbb",
     // The schedule's own pbp flag: exact both ways, 2006-2026.
-    schedule: { id: "game_id", home: "home_display_name", away: "away_display_name", filter: { PBP: "true" } },
+    schedule: {
+      id: "game_id",
+      home: "home_display_name",
+      away: "away_display_name",
+      homeColor: "home_color",
+      homeAlt: "home_alternate_color",
+      awayColor: "away_color",
+      awayAlt: "away_alternate_color",
+      filter: { PBP: "true" },
+    },
     cols: {
       gameId: "game_id",
       order: "game_play_number",
@@ -118,7 +154,16 @@ export const WP_SPORTS: WpSport[] = [
     assetPrefix: "play_by_play_",
     schema: "wbb",
     // The schedule's own pbp flag: exact both ways, 2006-2026.
-    schedule: { id: "game_id", home: "home_display_name", away: "away_display_name", filter: { PBP: "true" } },
+    schedule: {
+      id: "game_id",
+      home: "home_display_name",
+      away: "away_display_name",
+      homeColor: "home_color",
+      homeAlt: "home_alternate_color",
+      awayColor: "away_color",
+      awayAlt: "away_alternate_color",
+      filter: { PBP: "true" },
+    },
     cols: {
       gameId: "game_id",
       order: "game_play_number",

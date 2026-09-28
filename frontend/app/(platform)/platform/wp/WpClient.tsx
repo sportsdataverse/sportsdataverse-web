@@ -2,19 +2,27 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
+import useSWRImmutable from "swr/immutable";
+import { useTheme } from "next-themes";
 import { LineChart } from "lucide-react";
 import { WP_SPORTS } from "@content/wp";
 import type { WpSport } from "@content/wp";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
 import { wpViewParams, type WpView } from "@lib/platform/viewState";
+import type { TeamColors } from "@lib/platform/teamColor";
 import { resolvePendingGame } from "@lib/platform/pendingGame";
+import { revealInScroller } from "@lib/platform/scroll";
 import {
   emptyWpMessage,
+  fillSegments,
   gameOptionsFromSchedule,
   loadSequencer,
   pbpParams,
   scheduleParams,
+  teamColorLookup,
+  teamsParams,
   wpPointsFromRows,
+  wpTeamColors,
   type GameOption,
   type WpPoint,
 } from "@lib/platform/wp";
@@ -24,7 +32,8 @@ import useUrlMirror from "@hooks/useUrlMirror";
  * CFBD-style win-probability charts: sport → season → game → home-WP line
  * over the play sequence, with the play log underneath. The season list is
  * the release's assets; the game list and one game's plays are two Data API
- * reads through the member-gated Query proxy.
+ * reads through the member-gated Query proxy, plus (CFB/NFL) one read of the
+ * sport's team colour table per session.
  */
 
 const DATA_REPO = "sportsdataverse/sportsdataverse-data";
@@ -47,16 +56,44 @@ const assetsFetcher = async (url: string) => {
   return data.message as ReleaseAssetSummary[];
 };
 
+/** A team colour always has its name in text: one swatch + name per side.
+ *  HTML, not SVG text, so it reads at phone width (the chart scales with its
+ *  viewBox, which shrank an in-chart legend to ~5px); long names wrap. */
+function WpLegend({ home, away, colors }: { home: string; away: string; colors: { home: string; away: string } }) {
+  const sides = [
+    { side: "home", name: home, color: colors.home, where: "above 50%" },
+    { side: "away", name: away, color: colors.away, where: "below 50%" },
+  ];
+  return (
+    <div className="mb-2 flex flex-wrap gap-x-6 gap-y-1 font-inter text-sm">
+      {sides.map((l) => (
+        <span key={l.side} className="flex items-center gap-2">
+          {/* the fill's own paint: the colour at 25% over the card, 1px border */}
+          <svg viewBox="0 0 12 12" className="size-3 shrink-0" aria-hidden="true">
+            <rect x={0.5} y={0.5} width={11} height={11} rx={2} fill={l.color} fillOpacity={0.25} stroke={l.color} />
+          </svg>
+          <span>
+            {l.name} <span className="text-muted-foreground">· {l.side}, {l.where}</span>
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function WpChart({
   points,
   home,
   away,
+  colors,
   hoverI,
   onHover,
 }: {
   points: WpPoint[];
   home: string;
   away: string;
+  /** Resolved team colours (`pickTeamColors`): fills only, never the line. */
+  colors: { home: string; away: string };
   /** Linked hover: the play index highlighted in BOTH the chart and the log. */
   hoverI: number | null;
   onHover: (i: number | null) => void;
@@ -87,14 +124,23 @@ function WpChart({
   }
   return (
     <svg
+      data-testid="wp-chart"
       ref={svgRef}
       viewBox={`0 0 ${W} ${H}`}
       className="w-full"
       role="img"
-      aria-label={`Win probability chart, ${away} at ${home}`}
+      aria-label={`${home} win probability by play, ${away} at ${home}`}
       onMouseMove={(e) => onHover(indexFromEvent(e))}
       onMouseLeave={() => onHover(null)}
     >
+      {fillSegments(points).map((s, k) => (
+        <polygon
+          key={k}
+          points={s.pts.map(([i, wp]) => `${x(i).toFixed(1)},${y(wp).toFixed(1)}`).join(" ")}
+          fill={colors[s.side]}
+          fillOpacity={0.25}
+        />
+      ))}
       {[0, 0.25, 0.5, 0.75, 1].map((tick) => (
         <g key={tick}>
           <line
@@ -127,9 +173,6 @@ function WpChart({
         </g>
       ))}
       <polyline points={line} fill="none" strokeWidth={2} className="stroke-primary" />
-      <text x={pad.l} y={pad.t - 4} className="fill-current font-inter text-[11px] text-muted-foreground">
-        {home} win probability
-      </text>
       {hoverI != null && points[hoverI] ? (
         (() => {
           const p = points[hoverI];
@@ -184,19 +227,21 @@ export default function WpClient({ initial }: { initial: WpView }) {
   const [loads] = useState(loadSequencer);
   const [points, setPoints] = useState<WpPoint[]>([]);
   const [plays, setPlays] = useState(0);
-  const [teams, setTeams] = useState<{ home: string; away: string }>({ home: "", away: "" });
+  const [game, setGame] = useState<GameOption | null>(null);
+  const { resolvedTheme } = useTheme();
   const [busy, setBusy] = useState<string | null>(null);
   const [hoverI, setHoverI] = useState<number | null>(null);
   const hoverFromChart = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
 
-  // Chart-driven hovers scroll the play log to keep the highlighted row visible;
-  // table-driven hovers must NOT scroll-jack the user's own pointer.
+  // Chart-driven hovers scroll the play log (never the page) to keep the
+  // highlighted row visible; table-driven hovers must NOT scroll-jack the
+  // user's own pointer.
   useEffect(() => {
     if (hoverI == null || !hoverFromChart.current) return;
-    logRef.current
-      ?.querySelector<HTMLElement>(`[data-play="${hoverI}"]`)
-      ?.scrollIntoView({ block: "nearest" });
+    const log = logRef.current;
+    const row = log?.querySelector<HTMLElement>(`[data-play="${hoverI}"]`);
+    if (log && row) revealInScroller(log, row);
   }, [hoverI]);
   const [error, setError] = useState<string | null>(null);
 
@@ -204,6 +249,21 @@ export default function WpClient({ initial }: { initial: WpView }) {
     () => WP_SPORTS.find((s) => s.key === sportKey) ?? WP_SPORTS[0],
     [sportKey]
   );
+
+  // The team colour table isn't season-keyed: one read per sport, never revalidated.
+  // A failed read caches an empty lookup (every team falls back to the default
+  // colours), so switching away and back never tries that sport again.
+  const { data: teamColors } = useSWRImmutable(
+    season && sport.teams ? ["wp-teams", sport.key] : null,
+    async () => {
+      try {
+        return teamColorLookup(await apiRows(teamsParams(sport)!), sport.teams!);
+      } catch {
+        return new Map<string, TeamColors>();
+      }
+    }
+  );
+  const colors = game ? wpTeamColors(game, teamColors, resolvedTheme) : null;
 
   const { data: assets } = useSWR(
     `/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}`,
@@ -293,9 +353,7 @@ export default function WpClient({ initial }: { initial: WpView }) {
       if (!loads.isLatest(ticket)) return;
       setPlays(rows.length);
       setPoints(wpPointsFromRows(rows, sport.cols));
-      const game = list.find((g) => g.id === id);
-      const [away, home] = game ? game.label.replace(/^W\S+ · /, "").split(" @ ") : ["", ""];
-      setTeams({ home: home ?? "", away: away ?? "" });
+      setGame(list.find((g) => g.id === id) ?? null);
     } catch (e) {
       if (!loads.isLatest(ticket)) return;
       setError(e instanceof Error ? e.message : String(e));
@@ -379,13 +437,16 @@ export default function WpClient({ initial }: { initial: WpView }) {
         </div>
       ) : null}
 
-      {points.length > 1 ? (
+      {points.length > 1 && colors && game ? (
         <>
-          <div className="mb-6 rounded-lg border border-border bg-card/70 p-4">
+          {/* opaque card: pickTeamColors checks contrast against CARD, so the chart must sit on it */}
+          <div className="mb-6 rounded-lg border border-border bg-card p-4">
+            <WpLegend home={game.home.name} away={game.away.name} colors={colors} />
             <WpChart
               points={points}
-              home={teams.home}
-              away={teams.away}
+              home={game.home.name}
+              away={game.away.name}
+              colors={colors}
               hoverI={hoverI}
               onHover={(i) => {
                 hoverFromChart.current = true;
