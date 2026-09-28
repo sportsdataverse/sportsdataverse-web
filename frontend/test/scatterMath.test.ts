@@ -5,6 +5,7 @@ import {
   baseView,
   cellNumber,
   chipMatches,
+  exportFilename,
   filledColumns,
   highlightOptions,
   highlightSlots,
@@ -17,12 +18,14 @@ import {
   panView,
   pickRandomAxes,
   scatterAxes,
+  scatterExportText,
   scatterPoints,
   suggest,
   zoomView,
   ZOOM_MAX,
   ZOOM_MIN,
   type ScatterPoint,
+  utcMinute,
 } from '../lib/platform/viz/scatterMath.ts';
 import { addTeam, removeTeam, pickSlots } from '../lib/platform/trends.ts';
 import { ALL_PAIRS_CAP } from '../lib/platform/chartTokens.ts';
@@ -311,4 +314,70 @@ test('pickRandomAxes: two distinct columns, never the current pair or its swap, 
   assert.equal(pickRandomAxes(['a'], { x: 'a', y: 'a' }), null);
   // a current pick that is not a column excludes nothing
   assert.deepEqual(pickRandomAxes(['a', 'b'], { x: 'z', y: 'a' }, () => 0), { x: 'a', y: 'b' });
+});
+
+// --- Export ----------------------------------------------------------------------
+
+const NBA_VIEW = { schema: 'nba', table: 'player_impact', season: '2026', x: 'o_rapm', y: 'd_rapm' };
+
+test('exportFilename: {schema}_{table}_{y}_vs_{x}_{season}.png, the same every time', () => {
+  assert.equal(exportFilename(NBA_VIEW), 'nba_player_impact_d_rapm_vs_o_rapm_2026.png');
+  assert.equal(exportFilename({ ...NBA_VIEW }), exportFilename(NBA_VIEW));
+  // two seasons of one pair never share a name
+  assert.notEqual(exportFilename({ ...NBA_VIEW, season: '2025' }), exportFilename(NBA_VIEW));
+});
+
+test('exportFilename: only [a-z0-9_], runs collapsed, no underscore at either end', () => {
+  const name = exportFilename({ schema: 'NBA', table: 'player impact', season: '2026/27', x: 'o-rapm %', y: '__d.rapm' });
+  assert.equal(name, 'nba_player_impact_d_rapm_vs_o_rapm_2026_27.png');
+  assert.match(name, /^[a-z0-9_]+\.png$/);
+  assert.equal(exportFilename({ schema: '../', table: '"<x>"', season: '', x: 'é', y: '' }), 'x_vs.png');
+  assert.equal(exportFilename({ schema: '', table: '', season: '', x: '', y: '' }), 'vs.png');
+  for (const v of [NBA_VIEW, { schema: '\u0000', table: '💥', season: '-', x: ' ', y: '\n' }]) assert.match(exportFilename(v), /^[a-z0-9_]+\.png$/);
+});
+
+const TEXT = { label: 'NBA player impact', query: 'season=2026&x=o_rapm&y=d_rapm', zoomed: false };
+
+test('scatterExportText: the page title, and a subtitle of source, season and every chip in its slot colour', () => {
+  const t = scatterExportText({ ...NBA_VIEW, hl: ['BOS', 'LAL'] }, TEXT);
+  assert.equal(t.title, 'd_rapm vs o_rapm · 2026');
+  assert.deepEqual(t.subtitle, [
+    { text: 'NBA player impact' },
+    { text: '2026' },
+    { text: 'BOS', color: 'var(--color-chart-cat-1)' },
+    { text: 'LAL', color: 'var(--color-chart-cat-2)' },
+  ]);
+});
+
+test('scatterExportText: the gap a removed chip leaves is skipped, and the others keep their slots, in slot order', () => {
+  const t = scatterExportText({ ...NBA_VIEW, hl: [null, 'LAL', 'BOS'] }, TEXT);
+  assert.deepEqual(t.subtitle.slice(2), [
+    { text: 'LAL', color: 'var(--color-chart-cat-2)' },
+    { text: 'BOS', color: 'var(--color-chart-cat-3)' },
+  ]);
+  assert.deepEqual(scatterExportText({ ...NBA_VIEW, hl: ['BOS', null, 'OKC'] }, TEXT).subtitle.slice(2).map((r) => r.color), [
+    'var(--color-chart-cat-1)',
+    'var(--color-chart-cat-3)',
+  ]);
+  assert.equal(scatterExportText({ ...NBA_VIEW, hl: [null, null] }, TEXT).subtitle.length, 2);
+});
+
+test('scatterExportText: "zoomed" only off the base view, last', () => {
+  assert.ok(!scatterExportText({ ...NBA_VIEW, hl: ['BOS'] }, TEXT).subtitle.some((r) => r.text === 'zoomed'));
+  assert.deepEqual(scatterExportText({ ...NBA_VIEW, hl: ['BOS'] }, { ...TEXT, zoomed: true }).subtitle.at(-1), { text: 'zoomed' });
+  assert.deepEqual(scatterExportText({ ...NBA_VIEW, hl: [] }, { ...TEXT, zoomed: true }).subtitle.map((r) => r.text), ['NBA player impact', '2026', 'zoomed']);
+});
+
+test('scatterExportText: the footer links the view and says when its data last changed, or leaves that out', () => {
+  const v = { ...NBA_VIEW, hl: [] };
+  assert.equal(
+    scatterExportText(v, { ...TEXT, asOf: '2026-08-02T06:49:04.965655+00:00' }).footer,
+    'sportsdataverse.org/platform/scatter?season=2026&x=o_rapm&y=d_rapm · data as of 2026-08-02 06:49 UTC'
+  );
+  // an offset is read as the instant it names, shown in UTC
+  assert.ok(scatterExportText(v, { ...TEXT, asOf: '2026-08-02T01:49:00-05:00' }).footer.endsWith('data as of 2026-08-02 06:49 UTC'));
+  for (const asOf of [undefined, null, '', 'not a date'])
+    assert.equal(scatterExportText(v, { ...TEXT, asOf }).footer, 'sportsdataverse.org/platform/scatter?season=2026&x=o_rapm&y=d_rapm');
+  assert.equal(scatterExportText(v, { ...TEXT, query: '' }).footer, 'sportsdataverse.org/platform/scatter');
+  assert.equal(utcMinute('2026-09-28T15:14:07Z'), '2026-09-28 15:14 UTC');
 });
