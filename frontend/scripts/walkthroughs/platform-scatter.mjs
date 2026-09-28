@@ -6,10 +6,13 @@
 // source lacks falling back, nulls counted in the note, a source switch mid-read never painting
 // or erroring from the abandoned read, and college hoops kept to D-I (dense, translucent marks).
 // P4 T2 then: a highlight from the combobox fades every other mark (per-mark state + pixels),
-// chips keep their colour slot when another goes, a 4th is refused, the outlier labels never
-// overlap, the wheel zooms 4x about the cursor and re-ticks, a drag pans, Reset and the keyboard
-// + / - / Reset buttons work, RANDOM swaps in a distinct pair (resetting the zoom), 390 px has no
-// side scroll, and a zoom or pan frame over ~5k MBB marks is timed.
+// the legend counts the marks drawn per chip, chips keep their colour slot when another goes, a
+// 4th is refused, a chip matching nothing fades nothing, the outlier labels never overlap each
+// other or the marks they must not cover and follow the zoom, the wheel scrolls the page past an
+// inactive chart (with a hint) and zooms 4x about the cursor once it is clicked, Ctrl/Cmd+wheel
+// is never taken, a drag pans, Reset and the keyboard + / - / Reset buttons work, RANDOM swaps in
+// a pair that is not the same one or its swap (resetting the zoom), 390 px has no side scroll,
+// and a zoom or pan frame over ~5k MBB marks is timed.
 // /platform is behind org sign-in, so this is recorded locally and is NOT listed on the PR's
 // `Walkthrough steps:` line (CI has no session; the module throws there).
 
@@ -364,9 +367,13 @@ const scatter = async (page, base) => {
     const hlKeys = () => url().getAll('hl').join('|');
     const legendSlots = () => page.getByTestId('scatter-legend').locator('li[data-chip]').evaluateAll((lis) => lis.map((li) => `${li.dataset.chip}:${li.dataset.slot}`).join(' '));
     const states = () => chart.getAttribute('data-hl');
-    /** (f) the outlier labels: inside the plot, no two overlapping, a leader on every pushed one, all from `allowed`. */
-    const checkLabels = async (when, allowed, min) => {
-      const { plot, w, h } = await plotNow();
+    /** (f) the outlier labels (NBA index marks): inside the plot, no two overlapping, all from
+     *  `allowed`, and none touching a dot it must not cover — the marks `keep` (row indices; by
+     *  default the labelled marks' own) — measured as the reviewer's probe does: a dot (r 4)
+     *  intersecting a label box. */
+    const checkLabels = async (when, allowed, min, keep) => {
+      const box = await plotNow();
+      const { plot, w, h } = box;
       const labels = JSON.parse(await chart.getAttribute('data-labels'));
       if (labels.length < min) fail(`${when}: ${labels.length} labels drawn, want at least ${min}`);
       const [l, r, t, b] = [plot.l, w - plot.r, plot.t, h - plot.b];
@@ -377,8 +384,29 @@ const scatter = async (page, base) => {
           if (a.x < c.x + c.w && c.x < a.x + a.w && a.y < c.y + c.h && c.y < a.y + a.h) fail(`${when}: "${a.text}" overlaps "${c.text}"`);
         }
       }
+      const dots = await Promise.all((keep ?? labels.map((a) => a.i)).map(async (i) => ({ name: nba[i].player_name, ...(await toPx(nba[i].o_rapm, nba[i].d_rapm, box)) })));
+      const contacts = [];
+      for (const d of dots.filter((d) => d.px >= l && d.px <= r && d.py >= t && d.py <= b)) {
+        for (const a of labels) {
+          const [nx, ny] = [Math.max(a.x, Math.min(d.px, a.x + a.w)), Math.max(a.y, Math.min(d.py, a.y + a.h))];
+          if (Math.hypot(nx - d.px, ny - d.py) < 4) contacts.push(`${d.name} under "${a.text}"`);
+        }
+      }
+      console.log(`scatter T2 (f) ${when}: ${labels.length} labels, ${contacts.length} label/mark contacts`);
+      if (contacts.length) fail(`${when}: labels cover marks: ${contacts.join('; ')}`);
       return labels;
     };
+    const zoomIn4 = async () => {
+      for (let i = 0; i < 2; i++) await page.getByRole('button', { name: 'Zoom in' }).click();
+      await page.waitForTimeout(300);
+      const { plot } = await plotNow();
+      if (plot.k !== 4) fail(`two + clicks gave ${plot.k}x`);
+      return nba.flatMap((r, i) => (r.o_rapm >= plot.x[0] && r.o_rapm <= plot.x[1] && r.d_rapm >= plot.y[0] && r.d_rapm <= plot.y[1] ? [i] : []));
+    };
+    const legendCounts = () =>
+      page.getByTestId('scatter-legend').locator('li[data-count]').evaluateAll((lis) => lis.map((li) => [li.dataset.chip ?? 'Others', Number(li.dataset.count)]));
+    const hint = page.getByTestId('scatter-wheel-hint');
+    const focused = () => chart.locator('canvas').evaluate((c) => document.activeElement === c);
     /** Type into the highlight combobox and add the pending (first) suggestion with Enter. */
     const combo = page.getByRole('combobox', { name: /^Highlight/ });
     const list = page.getByRole('listbox', { name: 'Highlight suggestions' });
@@ -410,6 +438,11 @@ const scatter = async (page, base) => {
     const plain = await checkLabels('no highlight', extremes(nba, 4), 4);
     if (!plain.some((l) => l.text === TOP_X)) fail(`${TOP_X}, the top o_rapm, is not labelled`);
     await page.waitForTimeout(800);
+    // (f) zoomed 4x: the labels follow the zoom, naming the extremes of the marks in view
+    const seen = await zoomIn4();
+    await checkLabels('no highlight, 4x', extremes(seen.map((i) => nba[i]), 4), 4);
+    await page.waitForTimeout(800);
+    await page.getByRole('button', { name: 'Reset zoom' }).click();
 
     // (a) "BOS" from the combobox: arrowing moves the pending option and adds nothing; Enter adds it.
     await combo.click();
@@ -449,9 +482,22 @@ const scatter = async (page, base) => {
     if (hit.t < 0.9 || hit.off > 12) fail(`a BOS mark is not chart-cat-1 at full opacity (t ${hit.t.toFixed(2)}, off ${hit.off.toFixed(1)})`);
     if (faded.t < 0.08 || faded.t > 0.25 || faded.off > 12) fail(`a non-BOS mark is not faded muted-foreground (t ${faded.t.toFixed(2)}, off ${faded.off.toFixed(1)})`);
     console.log(`scatter T2 (a): ${nBos} BOS marks slot 0, ${nba.length - nBos} faded; BOS pixel t ${hit.t.toFixed(2)}, faded pixel t ${faded.t.toFixed(2)}`);
-    // (f) with a highlight: only BOS players are named
-    await checkLabels('BOS highlight', byName(nba.filter((r) => r.team_abbreviation === 'BOS')), 4);
+    // (f) with a highlight: only BOS players are named, and no name covers a BOS mark
+    const bosIdx = nba.flatMap((r, i) => (r.team_abbreviation === 'BOS' ? [i] : []));
+    await checkLabels('BOS highlight', byName(nba.filter((r) => r.team_abbreviation === 'BOS')), 4, bosIdx);
     await page.waitForTimeout(1200);
+    // (f) zoomed 4x: the BOS marks in view are named, all of them up to the budget of 8
+    const bosSeen = (await zoomIn4()).filter((i) => bos[i] === '0');
+    const zl = await checkLabels('BOS highlight, 4x', byName(bosSeen.map((i) => nba[i])), Math.min(bosSeen.length, 8), bosIdx);
+    console.log(`scatter T2 (f) BOS 4x: ${bosSeen.length} BOS marks in view, ${zl.length} named`);
+    await page.waitForTimeout(800);
+    await page.getByRole('button', { name: 'Reset zoom' }).click();
+    // M1: the legend counts marks drawn per chip; Tatum (a Celtic) keeps BOS's colour, so his chip draws 0
+    await addChip('Jayson Tatum');
+    const counts = await legendCounts();
+    if (JSON.stringify(counts) !== JSON.stringify([['BOS', nBos], ['Jayson Tatum', 0], ['Others', nba.length - nBos]])) fail(`legend counts ${JSON.stringify(counts)}`);
+    await page.getByRole('button', { name: 'Remove Jayson Tatum' }).click();
+    await page.waitForFunction(() => new URL(location.href).searchParams.getAll('hl').join('|') === 'BOS');
 
     // (b) A second chip takes slot 2; removing the first leaves the second's colour alone.
     await addChip('LAL');
@@ -491,8 +537,26 @@ const scatter = async (page, base) => {
     for (const c of ['LAL', 'OKC']) await page.getByRole('button', { name: `Remove ${c}` }).click();
     await page.waitForFunction(() => new URL(location.href).searchParams.getAll('hl').join('|') === 'BOS');
 
-    // (c) Zooming 4x with the wheel at a mark keeps it under the cursor and re-ticks both axes;
-    // the page does not scroll.
+    // M5: the wheel over an inactive chart scrolls the page and never the chart, with a hint to
+    // click that fades.
+    await page.getByRole('heading', { name: 'Scatter', exact: true }).click(); // focus off the chart
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(300);
+    const vbox = await chart.locator('canvas').boundingBox();
+    const vh = page.viewportSize().height;
+    if (vbox.y >= vh - 20) fail('the chart starts below the fold');
+    await page.mouse.move(vbox.x + vbox.width / 2, (vbox.y + Math.min(vbox.y + vbox.height, vh)) / 2);
+    const still = JSON.stringify((await plotNow()).plot);
+    await page.mouse.wheel(0, 100);
+    await page.waitForTimeout(500);
+    if ((await page.evaluate(() => window.scrollY)) <= 0) fail('a wheel over the inactive chart did not scroll the page');
+    if (JSON.stringify((await plotNow()).plot) !== still) fail('a wheel over the inactive chart changed its domain');
+    if ((await hint.getAttribute('data-shown')) !== 'true') fail('no click-to-zoom hint over the inactive chart');
+    await page.waitForTimeout(2600);
+    if ((await hint.getAttribute('data-shown')) !== 'false') fail('the click-to-zoom hint did not fade');
+
+    // (c) Once clicked, zooming 4x with the wheel at a mark keeps it under the cursor and re-ticks
+    // both axes; the page does not scroll.
     await chart.scrollIntoViewIfNeeded();
     const before = await plotNow();
     const sga = nba.find((r) => r.player_name === TOP_X);
@@ -507,7 +571,8 @@ const scatter = async (page, base) => {
       x: before.plot.x[0] + ((at.px - before.plot.l) / pw) * (before.plot.x[1] - before.plot.x[0]),
       y: before.plot.y[0] + (1 - (at.py - before.plot.t) / ph) * (before.plot.y[1] - before.plot.y[0]),
     };
-    await page.mouse.move(cbox.x + at.px, cbox.y + at.py);
+    await page.mouse.click(cbox.x + at.px, cbox.y + at.py);
+    if (!(await focused())) fail('a click did not make the chart active');
     const scrollY = await page.evaluate(() => window.scrollY);
     for (let i = 0; i < 20 && (await plotNow()).plot.k < 4; i++) {
       await page.mouse.wheel(0, -120);
@@ -539,6 +604,22 @@ const scatter = async (page, base) => {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await page.waitForTimeout(300);
     if (JSON.stringify((await plotNow()).plot.x) !== JSON.stringify(panned.plot.x)) fail('a finger drag panned the chart');
+    // Ctrl/Cmd + wheel is the browser's page zoom, even over the active chart: a probe (a dispatched
+    // wheel event's defaultPrevented) sees it pass untouched and the domain stays; a plain wheel,
+    // the control, is taken.
+    if (!(await focused())) fail('the chart lost focus during the drags');
+    const wheelAt = (mods) =>
+      chart.locator('canvas').evaluate((c, mods) => {
+        const r = c.getBoundingClientRect();
+        const e = new WheelEvent('wheel', { deltaY: -120, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, bubbles: true, cancelable: true, ...mods });
+        c.dispatchEvent(e);
+        return e.defaultPrevented;
+      }, mods);
+    const held = JSON.stringify((await plotNow()).plot);
+    if ((await wheelAt({ ctrlKey: true })) || (await wheelAt({ metaKey: true }))) fail('Ctrl/Cmd + wheel was prevented');
+    await page.waitForTimeout(200);
+    if (JSON.stringify((await plotNow()).plot) !== held) fail('Ctrl/Cmd + wheel zoomed the chart');
+    if (!(await wheelAt({}))) fail('the control failed: a plain wheel over the active chart was not prevented');
     await page.waitForTimeout(800);
 
     // (d) Reset restores the original domain and ticks.
@@ -546,6 +627,12 @@ const scatter = async (page, base) => {
     await page.waitForTimeout(200);
     const reset = await plotNow();
     if (JSON.stringify([reset.plot.k, reset.plot.x, reset.plot.y, reset.plot.xt, reset.plot.yt]) !== JSON.stringify([before.plot.k, before.plot.x, before.plot.y, before.plot.xt, before.plot.yt])) fail(`Reset left ${JSON.stringify(reset.plot)}`);
+    // A click outside the chart (here, Reset) makes it inactive: the wheel no longer zooms.
+    if (await focused()) fail('the chart stayed active after a click outside it');
+    await page.mouse.move(cbox.x + at.px, cbox.y + at.py);
+    await page.mouse.wheel(0, -120);
+    await page.waitForTimeout(300);
+    if ((await plotNow()).plot.k !== 1) fail('the wheel zoomed an inactive chart');
 
     // (g) + / - / Reset from the keyboard: Enter and Space press them, Tab walks them.
     const centre = (p) => [(p.x[0] + p.x[1]) / 2, (p.y[0] + p.y[1]) / 2];
@@ -568,8 +655,8 @@ const scatter = async (page, base) => {
     if (JSON.stringify((await plotNow()).plot.x) !== JSON.stringify(before.plot.x)) fail('keyboard Reset did not restore the domain');
     await page.waitForTimeout(800);
 
-    // (e) RANDOM: a distinct pair that is not the current one (nor its swap), drawn in full; it
-    // resets a zoom, and keeps the highlight.
+    // (e) RANDOM: two distinct columns, not the same pair or its swap (one axis may stay), drawn in
+    // full; it resets a zoom, and keeps the highlight.
     await page.getByRole('button', { name: 'Zoom in' }).click();
     await page.getByRole('button', { name: 'Random axes' }).click();
     await page.waitForFunction(() => {
@@ -586,6 +673,13 @@ const scatter = async (page, base) => {
     await chart.scrollIntoViewIfNeeded();
     await page.waitForTimeout(1200);
 
+    // M2: a chip that matches nothing (BOS on WNBA) fades nothing; it stays in the legend at 0.
+    await page.goto(`${base}/platform/scatter?schema=wnba&table=player_impact&season=2026&x=o_rapm&y=d_rapm&hl=BOS`, { waitUntil: 'domcontentloaded' });
+    const wnba = await drawn('d_rapm vs o_rapm · 2026');
+    if ((await states()) !== '') fail('a chip matching no WNBA mark put the chart in highlight mode');
+    if (JSON.stringify(await legendCounts()) !== JSON.stringify([['BOS', 0], ['Others', wnba]])) fail(`WNBA legend ${JSON.stringify(await legendCounts())}`);
+    await page.waitForTimeout(800);
+
     // Frame time: ~5k MBB marks under a highlight, zoomed by the wheel and panned by a drag.
     await page.goto(`${base}/platform/scatter?schema=mbb&table=player_value&season=2026&x=box_obpm&y=box_dbpm&hl=Duke+Blue+Devils`, { waitUntil: 'domcontentloaded' });
     await drawn('box_dbpm vs box_obpm · 2026');
@@ -593,7 +687,7 @@ const scatter = async (page, base) => {
     const mb = await chart.locator('canvas').boundingBox();
     const times = [];
     const frameMs = async () => times.push(Number(await chart.getAttribute('data-frame-ms')));
-    await page.mouse.move(mb.x + mb.width / 2, mb.y + mb.height / 2);
+    await page.mouse.click(mb.x + mb.width / 2, mb.y + mb.height / 2); // activate the wheel
     for (let i = 0; i < 4; i++) {
       await page.mouse.wheel(0, -120);
       await page.waitForTimeout(150);
