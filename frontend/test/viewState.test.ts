@@ -88,8 +88,24 @@ test('every parsed token/value is capped at 200 chars; sql keeps its own 10k cap
   assert.equal(parseWpView(sp(`game=${long}`)).game.length, 200);
 });
 
+test('Trends teams are repeated team keys: in order, deduped, capped at 6', () => {
+  assert.deepEqual(parseTrendsView(sp('team=A&team=B')).teams, ['A', 'B']);
+  const eight = 'ABCDEFGH'.split('').map((t) => `team=${t}`).join('&');
+  assert.deepEqual(parseTrendsView(sp(eight)).teams, ['A', 'B', 'C', 'D', 'E', 'F']);
+  assert.deepEqual(parseTrendsView(sp('team=A&team=&team=A&team=B')).teams, ['A', 'B']);
+  assert.equal(parseTrendsView(sp(`team=${'x'.repeat(300)}`)).teams[0].length, 200);
+  assert.equal(trendsViewParams({ sport: 'mbb', teams: ['A', 'B'], stat: '' }).toString(), 'team=A&team=B');
+  assert.equal(trendsViewParams({ sport: 'mbb', teams: [], stat: 'x' }).toString(), 'stat=x');
+});
+
+test('an old single-team Trends link still parses to that one team', () => {
+  assert.deepEqual(parseTrendsView(sp('sport=nba&team=Boston%20Celtics&stat=avgRebounds')), {
+    sport: 'nba', teams: ['Boston Celtics'], stat: 'avgRebounds',
+  });
+});
+
 test('Trends and Lookups round-trip and fall back to the first sport', () => {
-  const t = { sport: 'wnba', team: 'Las Vegas Aces', stat: 'avgPoints' };
+  const t = { sport: 'wnba', teams: ['Las Vegas Aces', 'New York Liberty'], stat: 'avgPoints' };
   assert.deepEqual(parseTrendsView(trendsViewParams(t)), t);
   assert.equal(parseTrendsView(sp('sport=zzz')).sport, 'mbb');
   const l = { sport: 'cfb', mode: 'teams' as const, q: '' };
