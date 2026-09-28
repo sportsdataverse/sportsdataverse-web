@@ -14,7 +14,7 @@ import { WP_SPORTS } from "../../content/wp.ts";
 import { TREND_SPORTS } from "../../content/trends.ts";
 import { LOOKUP_SPORTS } from "../../content/lookups.ts";
 import { ROLLING } from "../../content/rolling.ts";
-import { ROLLING_TABS, type RollingTab } from "./rolling.ts";
+import { ROLLING_CARDS, ROLLING_TABS, type RollingCard, type RollingTab } from "./rolling.ts";
 import type { TintMode } from "./scales.ts";
 
 export function toSearchParams(record: Record<string, string | string[] | undefined>): URLSearchParams {
@@ -208,25 +208,39 @@ export function lookupsViewParams(v: LookupsView): URLSearchParams {
 
 // --- Rolling form -------------------------------------------------------------
 
-/** One metric × unit (`window_n` alone is ambiguous, see content/rolling.ts). */
-export type RollingView = { league: string; metric: string; unit: string; window_n: number; tab: RollingTab; active: boolean };
+/** One metric × unit (`window_n` alone is ambiguous, see content/rolling.ts),
+ *  and each card's own window: switching one card never moves another. */
+export type RollingView = {
+  league: string;
+  metric: string;
+  unit: string;
+  win: Record<RollingCard, number>;
+  tab: RollingTab;
+  active: boolean;
+};
 const ROLLING_LEAGUES = Object.keys(ROLLING);
 const TAB_KEYS = ROLLING_TABS.map((t) => t.key);
 
-/** The configured entry for (metric, unit), else the league's first; a window
- *  the entry doesn't publish falls to its first. Active is on unless `active=0`. */
+/** The configured entry for (metric, unit), else the league's first. Each card
+ *  reads only `win.<card>` for a known card (else the legacy `window=`), and keeps
+ *  it only if the entry's unit publishes that window, else the entry's first.
+ *  `window=` is never written back. Active is on unless `active=0`. */
 export function parseRollingView(sp: URLSearchParams): RollingView {
   const league = pick(sp.get("league"), ROLLING_LEAGUES, ROLLING_LEAGUES[0]);
   const [first] = ROLLING[league];
   const metric = sp.get("metric") ?? first.metric;
   const unit = sp.get("unit") ?? first.unit;
   const m = ROLLING[league].find((e) => e.metric === metric && e.unit === unit) ?? first;
-  const n = Number(sp.get("window"));
+  const cardWindow = (card: RollingCard) => {
+    // Task 1 links (#72) carried one page-wide window=; it still sets any card without its own key.
+    const n = Number((sp.get(`win.${card}`) ?? sp.get("window") ?? "").slice(0, MAX_LEN));
+    return m.windows.includes(n) ? n : m.windows[0];
+  };
   return {
     league,
     metric: m.metric,
     unit: m.unit,
-    window_n: m.windows.includes(n) ? n : m.windows[0],
+    win: { hero: cardWindow("hero"), movers: cardWindow("movers") },
     tab: pick(sp.get("tab"), TAB_KEYS, "best"),
     active: sp.get("active") !== "0",
   };
@@ -241,10 +255,16 @@ export function rollingViewParams(v: RollingView): URLSearchParams {
     p.set("metric", v.metric);
     p.set("unit", v.unit);
   }
-  if (v.window_n !== m?.windows[0]) p.set("window", String(v.window_n));
+  for (const card of ROLLING_CARDS) if (v.win[card] !== m?.windows[0]) p.set(`win.${card}`, String(v.win[card]));
   if (v.tab !== "best") p.set("tab", v.tab);
   if (!v.active) p.set("active", "0");
   return p;
+}
+
+/** A link to a rolling view (the overview's "hottest right now" row). */
+export function rollingHref(v: RollingView): string {
+  const qs = rollingViewParams(v).toString();
+  return qs ? `/platform/rolling?${qs}` : "/platform/rolling";
 }
 
 // --- ResultsGrid (sort / column filters / tint), keyed by column NAME --------
