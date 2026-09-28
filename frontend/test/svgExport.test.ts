@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { inlineVars } from '../lib/platform/svgExport.ts';
+import { inlineVars, loadFonts } from '../lib/platform/svgExport.ts';
 
 // What getComputedStyle(...).getPropertyValue(name) returns: "" for an unset name.
 const vars: Record<string, string> = { '--color-primary': '#4fb6e8', '--card': '#111b2e' };
@@ -40,4 +40,17 @@ test('inlineVars terminates on a resolver that answers with a var()', () => {
   // A growing answer never reaches a fixed point: the pass bound stops it.
   const out = inlineVars('fill: var(--grow)', () => 'x var(--grow)');
   assert.ok(out.startsWith('fill: x x ') && out.endsWith('var(--grow)'), out);
+});
+
+test('loadFonts: a face that fails to load never fails the export, and every spec is tried', async () => {
+  const tried: string[] = [];
+  const fonts = {
+    load: async (spec: string) => {
+      tried.push(spec);
+      if (spec.includes('Fallback')) throw new DOMException('A network error occurred.', 'NetworkError');
+      return [];
+    },
+  };
+  await loadFonts(fonts, ['13px "inter", "inter Fallback"', '700 22px "barlowCondensed"']);
+  assert.deepEqual(tried, ['13px "inter", "inter Fallback"', '700 22px "barlowCondensed"']);
 });

@@ -7,6 +7,17 @@
  * footer on the canvas around it, in the fonts the page has already loaded.
  */
 
+/**
+ * Loads every font spec, never failing: `FontFaceSet.load` rejects when ANY
+ * face in a spec's family list errors, and next/font's fallback faces point at
+ * `local(Arial)`, which a machine without it can't resolve, so one missing
+ * fallback would sink the export even with Inter loaded. A face that fails just
+ * leaves the canvas on the next family in the list.
+ */
+export async function loadFonts(fonts: Pick<FontFaceSet, "load">, specs: string[]): Promise<void> {
+  await Promise.allSettled(specs.map((spec) => fonts.load(spec)));
+}
+
 /** `var(--name)` or `var(--name, fallback)` whose fallback nests at most one
  *  pair of parens; deeper nesting resolves innermost-first, a pass at a time. */
 const VAR = /var\(\s*(--[\w-]+)\s*(?:,((?:[^()]|\([^()]*\))*))?\)/g;
@@ -80,7 +91,7 @@ export async function svgToPng(
     body: `13px ${family("--font-inter")}`,
     foot: `11px ${family("--font-inter")}`,
   };
-  await Promise.all([img.decode(), ...Object.values(fonts).map((f) => document.fonts.load(f))]);
+  await Promise.all([img.decode(), loadFonts(document.fonts, Object.values(fonts))]);
 
   const pad = 16;
   const chartTop = pad + 34 + legend.length * 20;
