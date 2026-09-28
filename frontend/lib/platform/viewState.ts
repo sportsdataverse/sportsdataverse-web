@@ -15,6 +15,7 @@ import { TREND_SPORTS } from "../../content/trends.ts";
 import { LOOKUP_SPORTS } from "../../content/lookups.ts";
 import { ROLLING } from "../../content/rolling.ts";
 import { ROLLING_CARDS, ROLLING_TABS, type RollingCard, type RollingTab } from "./rolling.ts";
+import { MAX_TRENDS_TEAMS, trimGaps, type TrendPicks } from "./trends.ts";
 import type { TintMode } from "./scales.ts";
 
 export function toSearchParams(record: Record<string, string | string[] | undefined>): URLSearchParams {
@@ -168,21 +169,31 @@ export function wpViewParams(v: WpView): URLSearchParams {
   return p;
 }
 
-export type TrendsView = { sport: string; team: string; stat: string };
+/** `teams` rides as repeated `team` keys in position order (`team=A&team=B`);
+ *  an empty `team=` is a gap left by a removal, so every team keeps its colour
+ *  slot through a link. A link from before the overlay (one `team=A`) still
+ *  parses, to `['A']`. */
+export type TrendsView = { sport: string; teams: TrendPicks; stat: string };
 const TREND_KEYS = TREND_SPORTS.map((s) => s.key);
 
 export function parseTrendsView(sp: URLSearchParams): TrendsView {
+  const teams: TrendPicks = [];
+  for (const raw of sp.getAll("team")) {
+    const t = raw.slice(0, MAX_LEN);
+    if (t === "") teams.push(null);
+    else if (!teams.includes(t)) teams.push(t); // a repeated name is dropped
+  }
   return {
     sport: pick(sp.get("sport"), TREND_KEYS, TREND_KEYS[0]),
-    team: (sp.get("team") ?? "").slice(0, 200),
-    stat: (sp.get("stat") ?? "").slice(0, 200),
+    teams: trimGaps(teams.slice(0, MAX_TRENDS_TEAMS)),
+    stat: (sp.get("stat") ?? "").slice(0, MAX_LEN),
   };
 }
 
 export function trendsViewParams(v: TrendsView): URLSearchParams {
   const p = new URLSearchParams();
   if (v.sport !== TREND_KEYS[0]) p.set("sport", v.sport);
-  if (v.team) p.set("team", v.team);
+  for (const t of trimGaps(v.teams)) p.append("team", t ?? "");
   if (v.stat) p.set("stat", v.stat);
   return p;
 }
