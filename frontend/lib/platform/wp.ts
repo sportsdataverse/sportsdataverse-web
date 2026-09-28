@@ -18,7 +18,7 @@ const col = (r: Row, c: string | undefined) => (c ? str(r[c]) : "");
 /** The Data API's own row cap (sdv-db MAX_LIMIT). The largest schedule is
  *  ~6.3k games (MBB) and the longest game ~660 plays (4OT MBB), so neither
  *  read comes near it. */
-const API_MAX_ROWS = "50000";
+export const API_MAX_ROWS = "50000";
 
 /** Query-proxy params for the season's game list (`{schema}.schedule`). */
 export function scheduleParams(sport: WpSport, season: string): Record<string, string> {

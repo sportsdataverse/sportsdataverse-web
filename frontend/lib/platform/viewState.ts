@@ -14,6 +14,8 @@ import { WP_SPORTS } from "../../content/wp.ts";
 import { TREND_SPORTS } from "../../content/trends.ts";
 import { LOOKUP_SPORTS } from "../../content/lookups.ts";
 import { ROLLING } from "../../content/rolling.ts";
+import { SCATTER_SOURCES } from "../../content/scatter.ts";
+import { scatterAxes } from "./viz/scatterMath.ts";
 import { ROLLING_CARDS, ROLLING_TABS, type RollingCard, type RollingTab } from "./rolling.ts";
 import { MAX_TRENDS_TEAMS, trimGaps, type TrendPicks } from "./trends.ts";
 import type { TintMode } from "./scales.ts";
@@ -235,6 +237,42 @@ export function lookupsViewParams(v: LookupsView): URLSearchParams {
   if (v.sport !== LOOKUP_KEYS[0]) p.set("sport", v.sport);
   if (v.mode !== "players") p.set("mode", v.mode);
   if (v.q) p.set("q", v.q);
+  return p;
+}
+
+// --- Scatter ------------------------------------------------------------------
+
+/** One source (schema + table, from content/scatter.ts), one season, two
+ *  numeric columns. `hl` and `mode` are reserved for P4 T2 (highlight) and T3
+ *  (faces): not read or written yet. */
+export type ScatterView = { schema: string; table: string; season: string; x: string; y: string };
+const SCATTER_DEFAULT = SCATTER_SOURCES[0];
+
+/** A source outside content/scatter.ts falls back to the first; `numeric`
+ *  (the source's axes, once its catalog is known) drops an x or y that is not
+ *  one of them, falling back to the first two. Without it, x/y are only
+ *  pattern-checked. */
+export function parseScatterView(sp: URLSearchParams, numeric?: readonly string[]): ScatterView {
+  const [schema, table] = [sp.get("schema"), sp.get("table")];
+  const src = SCATTER_SOURCES.find((s) => s.schema === schema && s.table === table) ?? SCATTER_DEFAULT;
+  const col = (k: string) => {
+    const v = (sp.get(k) ?? "").slice(0, MAX_LEN);
+    return COLUMN.test(v) ? v : "";
+  };
+  const season = sp.get("season") ?? "";
+  const axes = numeric ? scatterAxes(col("x"), col("y"), numeric) : { x: col("x"), y: col("y") };
+  return { schema: src.schema, table: src.table, season: /^\d{4}$/.test(season) ? season : "", ...axes };
+}
+
+export function scatterViewParams(v: ScatterView): URLSearchParams {
+  const p = new URLSearchParams();
+  if (v.schema !== SCATTER_DEFAULT.schema || v.table !== SCATTER_DEFAULT.table) {
+    p.set("schema", v.schema);
+    p.set("table", v.table);
+  }
+  if (v.season) p.set("season", v.season);
+  if (v.x) p.set("x", v.x);
+  if (v.y) p.set("y", v.y);
   return p;
 }
 
