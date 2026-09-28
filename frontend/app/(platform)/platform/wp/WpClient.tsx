@@ -14,6 +14,7 @@ import type { TeamColors } from "@lib/platform/teamColor";
 import { resolvePendingGame } from "@lib/platform/pendingGame";
 import { revealInScroller } from "@lib/platform/scroll";
 import { svgToPng, type LegendItem } from "@lib/platform/svgExport";
+import { apiRows } from "@lib/platform/queryRun";
 import {
   emptyWpMessage,
   fillSegments,
@@ -41,17 +42,6 @@ import useUrlMirror from "@hooks/useUrlMirror";
  */
 
 const DATA_REPO = "sportsdataverse/sportsdataverse-data";
-
-/** One `GET /v1/{schema}/{table}` through /api/platform/query/run, the
- *  Query page's call shape. */
-async function apiRows(params: Record<string, string>): Promise<Record<string, unknown>[]> {
-  const res = await fetch(`/api/platform/query/run?${new URLSearchParams(params)}`);
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.detail ?? body?.message ?? `HTTP ${res.status}`);
-  }
-  return ((await res.json()) as { data: Record<string, unknown>[] }).data;
-}
 
 const assetsFetcher = async (url: string) => {
   const res = await fetch(url);
