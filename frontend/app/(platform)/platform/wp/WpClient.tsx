@@ -97,9 +97,11 @@ function WpChart({
     if (points[i].period !== points[i - 1].period) boundaries.push({ i, period: points[i].period });
   }
   // A team colour always has its name in text: one swatch + name per side.
+  // ponytail: truncate at 40 chars so a 50-char non-D1 name can't overrun its half of the legend
+  const short = (name: string) => (name.length > 40 ? `${name.slice(0, 39)}…` : name);
   const legend = [
-    { key: "home", x: pad.l, color: colors.home, label: `${home} · home, above 50%` },
-    { key: "away", x: pad.l + (W - pad.l - pad.r) / 2, color: colors.away, label: `${away} · away, below 50%` },
+    { key: "home", x: pad.l, color: colors.home, label: `${short(home)} · home, above 50%` },
+    { key: "away", x: pad.l + (W - pad.l - pad.r) / 2, color: colors.away, label: `${short(away)} · away, below 50%` },
   ];
   return (
     <svg
@@ -107,7 +109,7 @@ function WpChart({
       viewBox={`0 0 ${W} ${H}`}
       className="w-full"
       role="img"
-      aria-label={`Win probability chart, ${away} at ${home}`}
+      aria-label={`${home} win probability by play, ${away} at ${home}`}
       onMouseMove={(e) => onHover(indexFromEvent(e))}
       onMouseLeave={() => onHover(null)}
     >
@@ -237,8 +239,11 @@ export default function WpClient({ initial }: { initial: WpView }) {
   );
 
   // The team colour table isn't season-keyed: one read per sport, never revalidated.
-  const { data: teamColors } = useSWRImmutable(season && sport.teams ? ["wp-teams", sport.key] : null, async () =>
-    teamColorLookup(await apiRows(teamsParams(sport)!), sport.teams!)
+  // A failed read falls back to the default colours; don't retry it for the life of the page.
+  const { data: teamColors } = useSWRImmutable(
+    season && sport.teams ? ["wp-teams", sport.key] : null,
+    async () => teamColorLookup(await apiRows(teamsParams(sport)!), sport.teams!),
+    { shouldRetryOnError: false }
   );
 
   const { data: assets } = useSWR(
@@ -415,7 +420,8 @@ export default function WpClient({ initial }: { initial: WpView }) {
 
       {points.length > 1 && game ? (
         <>
-          <div className="mb-6 rounded-lg border border-border bg-card/70 p-4">
+          {/* opaque card: pickTeamColors checks contrast against CARD, so the chart must sit on it */}
+          <div className="mb-6 rounded-lg border border-border bg-card p-4">
             <WpChart
               points={points}
               home={game.home.name}
