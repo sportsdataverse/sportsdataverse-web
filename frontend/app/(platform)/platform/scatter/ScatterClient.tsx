@@ -2,13 +2,25 @@
 
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { Table2 } from "lucide-react";
+import { Shuffle, Table2, X } from "lucide-react";
 import { SCATTER_SOURCES, sourceKey, type ScatterSource } from "@content/scatter";
 import { scatterViewParams, type ScatterView } from "@lib/platform/viewState";
 import { API_MAX_ROWS, loadSequencer } from "@lib/platform/wp";
 import { apiRows } from "@lib/platform/queryRun";
-import { formatValue, teamNameLookup } from "@lib/platform/trends";
-import { filledColumns, keepListed, missingNote, numericColumns, scatterAxes, scatterPoints } from "@lib/platform/viz/scatterMath";
+import { addTeam, formatValue, pickSlots, removeTeam, teamNameLookup, type TrendPicks } from "@lib/platform/trends";
+import { ALL_PAIRS_CAP, chartVar } from "@lib/platform/chartTokens";
+import {
+  filledColumns,
+  highlightOptions,
+  highlightSlots,
+  keepListed,
+  missingNote,
+  numericColumns,
+  pickRandomAxes,
+  scatterAxes,
+  scatterPoints,
+  suggest,
+} from "@lib/platform/viz/scatterMath";
 import ScatterCanvas from "@components/platform/viz/ScatterCanvas";
 import useUrlMirror from "@hooks/useUrlMirror";
 
@@ -70,6 +82,13 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
   const [pick, setPick] = useState({ x: initial.x, y: initial.y });
   const [filter, setFilter] = useState("");
   const [showTable, setShowTable] = useState(false);
+  // Highlight chips by colour slot (a removed chip leaves a gap), the combobox
+  // text, its open state and pending option, and the chip a full set refused.
+  const [hl, setHl] = useState<TrendPicks>(initial.hl);
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const [refused, setRefused] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,14 +160,49 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
     [showTable, plotted]
   );
 
-  useUrlMirror(scatterViewParams({ schema: src.schema, table: src.table, season: activeSeason || season, x: ax.x, y: ax.y }));
+  useUrlMirror(scatterViewParams({ schema: src.schema, table: src.table, season: activeSeason || season, x: ax.x, y: ax.y, hl }));
 
   const q = filter.trim().toLowerCase();
   const rail = byLetter(axes.filter((c) => c.toLowerCase().includes(q)));
-  const points = plotted?.points ?? [];
+  const points = useMemo(() => plotted?.points ?? [], [plotted]);
   const noun = src.noun;
+  const options = useMemo(() => highlightOptions(points), [points]);
+  const slots = useMemo(() => highlightSlots(points, hl), [points, hl]);
+  const suggestions = open ? suggest(options, query, hl) : [];
+  const pending = Math.min(active, suggestions.length - 1);
+  const chips = pickSlots(hl);
+  const addChip = (text: string) => {
+    const r = addTeam(hl, text, ALL_PAIRS_CAP);
+    if (r.refused) setRefused(text);
+    else {
+      setHl(r.teams);
+      setRefused(null);
+    }
+    setQuery("");
+    setOpen(false);
+    setActive(0);
+  };
+  const removeChip = (chip: string) => {
+    setHl(removeTeam(hl, chip));
+    setRefused(null);
+  };
+  const onComboKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) setOpen(true);
+      else setActive(Math.max(0, Math.min(suggestions.length - 1, pending + (e.key === "ArrowDown" ? 1 : -1))));
+    } else if (e.key === "Enter" && suggestions[pending]) {
+      e.preventDefault();
+      addChip(suggestions[pending].text);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      if (open) setOpen(false);
+      else setQuery("");
+    }
+  };
   const notes = shown
     ? [
+        refused ? `${ALL_PAIRS_CAP} highlights at most, one per colour. Remove one to add ${refused}.` : "",
         shown.rows.length >= Number(API_MAX_ROWS)
           ? `The Data API stops at ${Number(API_MAX_ROWS).toLocaleString("en-US")} rows and this season reached it: some ${noun} are missing.`
           : "",
@@ -193,6 +247,64 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
             <option key={y}>{y}</option>
           ))}
         </select>
+        {/* ARIA 1.2 combobox: the listbox is suggestions only; a chip is added
+            by Enter on the pending option or a click, never by arrowing. */}
+        <div className="relative w-full sm:w-64">
+          <input
+            role="combobox"
+            aria-label={`Highlight a ${noun === "players" ? "player or team" : "team"} (up to ${ALL_PAIRS_CAP})`}
+            aria-expanded={suggestions.length > 0}
+            aria-controls="scatter-hl-list"
+            aria-autocomplete="list"
+            aria-activedescendant={suggestions[pending] ? `scatter-hl-opt-${pending}` : undefined}
+            value={query}
+            placeholder="Highlight a name or team…"
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setOpen(true);
+              setActive(0);
+            }}
+            onKeyDown={onComboKey}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setOpen(false)}
+            className={`${selectClass} w-full`}
+          />
+          <ul
+            id="scatter-hl-list"
+            role="listbox"
+            aria-label="Highlight suggestions"
+            hidden={!suggestions.length}
+            className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-md border border-border bg-card py-1 font-inter text-sm shadow-md"
+          >
+            {suggestions.map((o, i) => (
+              <li
+                key={o.text}
+                id={`scatter-hl-opt-${i}`}
+                role="option"
+                aria-selected={i === pending}
+                // keep focus in the input, so the click lands before blur closes the list
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => addChip(o.text)}
+                onMouseEnter={() => setActive(i)}
+                className={`flex cursor-pointer items-baseline justify-between gap-3 px-3 py-1 ${i === pending ? "bg-muted" : ""}`}
+              >
+                <span className="truncate text-foreground">{o.text}</span>
+                <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{o.n.toLocaleString("en-US")}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            const next = pickRandomAxes(axes, ax);
+            if (next) setPick(next);
+          }}
+          disabled={axes.length < 3}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-inter text-sm hover:bg-muted disabled:opacity-50"
+        >
+          <Shuffle className="h-4 w-4" aria-hidden="true" /> Random axes
+        </button>
       </div>
 
       <p data-testid="scatter-note" role="status" className="mb-3 min-h-5 font-inter text-sm text-muted-foreground">
@@ -217,10 +329,30 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
               <p className="mb-2 font-inter text-xs text-muted-foreground">
                 {points.length.toLocaleString("en-US")} {noun} · {src.label}
               </p>
-              <p className="font-inter text-xs text-muted-foreground" aria-hidden="true">
-                ↑ {ax.y}
-              </p>
-              <ScatterCanvas points={points} xLabel={ax.x} yLabel={ax.y} />
+              {/* The legend: each chip in its slot colour (text stays ink) with
+                  how many marks it matches, then the faded rest. */}
+              {chips.length && slots ? (
+                <ul data-testid="scatter-legend" aria-label="Highlights" className="mb-2 flex flex-wrap items-center gap-2 font-inter text-xs">
+                  {chips.map(({ team: chip, slot }) => (
+                    <li key={chip} data-chip={chip} data-slot={slot} className="inline-flex items-center gap-1.5 rounded-full border border-border py-0.5 pl-2 pr-0.5">
+                      <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: chartVar(slot) }} />
+                      <span className="text-foreground">{chip}</span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {(options.get(chip.toLowerCase())?.n ?? 0).toLocaleString("en-US")}
+                        <span className="sr-only"> {noun}</span>
+                      </span>
+                      <button type="button" aria-label={`Remove ${chip}`} onClick={() => removeChip(chip)} className="rounded-full p-1 hover:bg-muted">
+                        <X className="h-3 w-3" aria-hidden="true" />
+                      </button>
+                    </li>
+                  ))}
+                  <li className="inline-flex items-center gap-1.5 text-muted-foreground">
+                    <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-muted-foreground/15" />
+                    Others {slots.filter((s) => s < 0).length.toLocaleString("en-US")}
+                  </li>
+                </ul>
+              ) : null}
+              <ScatterCanvas points={points} xLabel={ax.x} yLabel={ax.y} slots={slots} />
               <p className="text-right font-inter text-xs text-muted-foreground" aria-hidden="true">
                 {ax.x} →
               </p>

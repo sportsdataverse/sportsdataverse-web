@@ -35,6 +35,9 @@ import type { TeamNames } from "./trends.ts";
  *   362 of 727, median 1 game): `names.only` keeps the season's D-I list
  *   (team_group_seasons), the rule Trends' band has used since P7 T3.
  * - The NFL team key is an abbreviation (`pos_team`), shown as is.
+ * - NBA, WNBA and NFL rows carry the full team name (`team_name`) beside the
+ *   abbreviation, for the highlight to match; nba_stats and the college
+ *   sources carry one team string only.
  */
 
 /** A team-id column named from a Data API table (lib/platform/trends.ts
@@ -54,13 +57,24 @@ export type ScatterSource = {
   idCol: string;
   labelCol: string;
   teamCol?: string;
+  /** The team's full name where `teamCol` is an abbreviation: a highlight
+   *  chip matches either ("BOS", "Boston Celtics"). */
+  teamNameCol?: string;
   seasonCol: string;
   /** Fixed Data API filters, sent with every read of the source. */
   filter?: Readonly<Record<string, string>>;
   names?: ScatterNames;
 };
 
-const player = (schema: string, table: string, label: string, labelCol: string, teamCol: string, filter?: Record<string, string>): ScatterSource => ({
+const player = (
+  schema: string,
+  table: string,
+  label: string,
+  labelCol: string,
+  teamCol: string,
+  filter?: Record<string, string>,
+  teamNameCol?: string
+): ScatterSource => ({
   schema,
   table,
   label,
@@ -68,6 +82,7 @@ const player = (schema: string, table: string, label: string, labelCol: string, 
   idCol: "player_id",
   labelCol,
   teamCol,
+  teamNameCol,
   seasonCol: "season",
   filter,
 });
@@ -86,8 +101,8 @@ const hoopsNames = (league: "mbb" | "wbb", col: string): ScatterNames => ({
 /** The first entry is the default: a link without schema/table shows it, so
  *  reordering this list changes what every old default link shows. */
 export const SCATTER_SOURCES: readonly ScatterSource[] = [
-  player("nba", "player_impact", "NBA player impact", "player_name", "team_abbreviation", { season_type: "Regular Season" }),
-  player("wnba", "player_impact", "WNBA player impact", "player_name", "team_abbreviation", { season_type: "Regular Season" }),
+  player("nba", "player_impact", "NBA player impact", "player_name", "team_abbreviation", { season_type: "Regular Season" }, "team_name"),
+  player("wnba", "player_impact", "WNBA player impact", "player_name", "team_abbreviation", { season_type: "Regular Season" }, "team_name"),
   player("nba_stats", "player_season_stats", "NBA advanced, per game (NBA Stats)", "player_name", "team_abbreviation", {
     season_type: "regular-season",
     measure_type: "advanced",
@@ -98,9 +113,9 @@ export const SCATTER_SOURCES: readonly ScatterSource[] = [
   player("cfb", "passing", "CFB passing", "passer_player_name", "pos_team"),
   player("cfb", "rushing", "CFB rushing", "rusher_player_name", "pos_team"),
   player("cfb", "receiving", "CFB receiving", "receiver_player_name", "pos_team"),
-  player("nfl", "passing", "NFL passing", "passer_player_name", "pos_team"),
-  player("nfl", "rushing", "NFL rushing", "rusher_player_name", "pos_team"),
-  player("nfl", "receiving", "NFL receiving", "receiver_player_name", "pos_team"),
+  player("nfl", "passing", "NFL passing", "passer_player_name", "pos_team", undefined, "team_name"),
+  player("nfl", "rushing", "NFL rushing", "rusher_player_name", "pos_team", undefined, "team_name"),
+  player("nfl", "receiving", "NFL receiving", "receiver_player_name", "pos_team", undefined, "team_name"),
   {
     schema: "cfb",
     table: "ratings",

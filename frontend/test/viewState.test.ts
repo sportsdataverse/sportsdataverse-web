@@ -141,12 +141,12 @@ test('an Explore link keeps its filters unless the table or season it named is m
 });
 
 test('Scatter round-trips source, season and axes; the default source stays off the URL', () => {
-  const v = { schema: 'cfb', table: 'passing', season: '2025', x: 'EPAplay', y: 'yards' };
+  const v = { schema: 'cfb', table: 'passing', season: '2025', x: 'EPAplay', y: 'yards', hl: [] };
   const qs = scatterViewParams(v).toString();
   assert.equal(qs, 'schema=cfb&table=passing&season=2025&x=EPAplay&y=yards');
   assert.deepEqual(parseScatterView(sp(qs)), v);
   const index = parseScatterView(sp('schema=nba&table=player_impact&season=2026&x=o_rapm&y=d_rapm'));
-  assert.deepEqual(index, { schema: 'nba', table: 'player_impact', season: '2026', x: 'o_rapm', y: 'd_rapm' });
+  assert.deepEqual(index, { schema: 'nba', table: 'player_impact', season: '2026', x: 'o_rapm', y: 'd_rapm', hl: [] });
   assert.equal(scatterViewParams(index).toString(), 'season=2026&x=o_rapm&y=d_rapm');
   assert.deepEqual(parseScatterView(sp(scatterViewParams(index).toString())), index);
   assert.equal(scatterViewParams(parseScatterView(sp(''))).toString(), '');
@@ -154,10 +154,10 @@ test('Scatter round-trips source, season and axes; the default source stays off 
 
 test('Scatter drops an x or y that is not a numeric column, falling back to the first two', () => {
   const numeric = ['d_rapm', 'o_rapm', 'war'];
-  assert.deepEqual(parseScatterView(sp('x=player_name&y=war'), numeric), { schema: 'nba', table: 'player_impact', season: '', x: 'd_rapm', y: 'war' });
+  assert.deepEqual(parseScatterView(sp('x=player_name&y=war'), numeric), { schema: 'nba', table: 'player_impact', season: '', x: 'd_rapm', y: 'war', hl: [] });
   assert.deepEqual(parseScatterView(sp('x=nope&y=zip'), numeric).x, 'd_rapm');
   assert.deepEqual(parseScatterView(sp('x=nope&y=zip'), numeric).y, 'o_rapm');
-  assert.deepEqual(parseScatterView(sp('x=war&y=o_rapm'), numeric), { schema: 'nba', table: 'player_impact', season: '', x: 'war', y: 'o_rapm' });
+  assert.deepEqual(parseScatterView(sp('x=war&y=o_rapm'), numeric), { schema: 'nba', table: 'player_impact', season: '', x: 'war', y: 'o_rapm', hl: [] });
 });
 
 test('Scatter sanitizes a hostile URL: unknown source, bad season, quoted column', () => {
@@ -169,4 +169,23 @@ test('Scatter sanitizes a hostile URL: unknown source, bad season, quoted column
   assert.equal(v.y.length, 200);
   // a known schema with another source's table is not a source
   assert.equal(parseScatterView(sp('schema=nba&table=passing')).table, 'player_impact');
+});
+
+test('Scatter hl: repeated keys by colour slot, a blank key per gap, at most 3, round-tripping; old links parse', () => {
+  const v = parseScatterView(sp('season=2026&x=o_rapm&y=d_rapm&hl=BOS&hl=Jayson%20Tatum'));
+  assert.deepEqual(v.hl, ['BOS', 'Jayson Tatum']);
+  assert.equal(scatterViewParams(v).toString(), 'season=2026&x=o_rapm&y=d_rapm&hl=BOS&hl=Jayson+Tatum');
+  assert.deepEqual(parseScatterView(sp(scatterViewParams(v).toString())), v);
+  // a removed first chip leaves a gap, so the second keeps its slot through a reload
+  const gap = { ...v, hl: [null, 'Jayson Tatum'] };
+  assert.equal(scatterViewParams(gap).toString(), 'season=2026&x=o_rapm&y=d_rapm&hl=&hl=Jayson+Tatum');
+  assert.deepEqual(parseScatterView(sp(scatterViewParams(gap).toString())).hl, [null, 'Jayson Tatum']);
+  assert.deepEqual(parseScatterView(sp('hl=A&hl=B&hl=C&hl=D&hl=E')).hl, ['A', 'B', 'C']); // the cap
+  assert.deepEqual(parseScatterView(sp('hl=&hl=&hl=&hl=D')).hl, []); // 3 positions only
+  assert.deepEqual(parseScatterView(sp('hl=A&hl=A&hl=B&hl=')).hl, ['A', 'B']); // repeats dropped, no trailing gap
+  assert.equal(parseScatterView(sp(`hl=${'x'.repeat(300)}`)).hl[0]?.length, 200);
+  // a T1 link (no hl) still parses, and writes no hl
+  const old = parseScatterView(sp('schema=cfb&table=ratings&season=2025&x=adj_off_epa&y=adj_def_epa'));
+  assert.deepEqual(old.hl, []);
+  assert.equal(scatterViewParams(old).toString(), 'schema=cfb&table=ratings&season=2025&x=adj_off_epa&y=adj_def_epa');
 });
