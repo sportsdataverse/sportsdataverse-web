@@ -9,6 +9,7 @@ import { WP_SPORTS } from "@content/wp";
 import type { WpSport } from "@content/wp";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
 import { wpViewParams, type WpView } from "@lib/platform/viewState";
+import type { TeamColors } from "@lib/platform/teamColor";
 import { resolvePendingGame } from "@lib/platform/pendingGame";
 import { revealInScroller } from "@lib/platform/scroll";
 import {
@@ -250,11 +251,17 @@ export default function WpClient({ initial }: { initial: WpView }) {
   );
 
   // The team colour table isn't season-keyed: one read per sport, never revalidated.
-  // A failed read falls back to the default colours; don't retry it for the life of the page.
+  // A failed read caches an empty lookup (every team falls back to the default
+  // colours), so switching away and back never tries that sport again.
   const { data: teamColors } = useSWRImmutable(
     season && sport.teams ? ["wp-teams", sport.key] : null,
-    async () => teamColorLookup(await apiRows(teamsParams(sport)!), sport.teams!),
-    { shouldRetryOnError: false }
+    async () => {
+      try {
+        return teamColorLookup(await apiRows(teamsParams(sport)!), sport.teams!);
+      } catch {
+        return new Map<string, TeamColors>();
+      }
+    }
   );
   const colors = game ? wpTeamColors(game, teamColors, resolvedTheme) : null;
 
