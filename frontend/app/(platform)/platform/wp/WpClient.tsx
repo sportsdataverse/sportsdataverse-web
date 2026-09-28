@@ -431,6 +431,9 @@ export default function WpClient({ initial }: { initial: WpView }) {
             else {
               abandonLoads();
               setSeason("");
+              // drop the drawn chart too: Export must never download a game the URL no longer names
+              setPoints([]);
+              setGame(null);
             }
           }}
           className="rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
@@ -450,6 +453,8 @@ export default function WpClient({ initial }: { initial: WpView }) {
               else {
                 abandonLoads();
                 setGameId("");
+                setPoints([]);
+                setGame(null);
               }
             }}
             className="min-w-[20rem] rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
