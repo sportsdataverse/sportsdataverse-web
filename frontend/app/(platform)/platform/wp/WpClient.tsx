@@ -55,6 +55,31 @@ const assetsFetcher = async (url: string) => {
   return data.message as ReleaseAssetSummary[];
 };
 
+/** A team colour always has its name in text: one swatch + name per side.
+ *  HTML, not SVG text, so it reads at phone width (the chart scales with its
+ *  viewBox, which shrank an in-chart legend to ~5px); long names wrap. */
+function WpLegend({ home, away, colors }: { home: string; away: string; colors: { home: string; away: string } }) {
+  const sides = [
+    { side: "home", name: home, color: colors.home, where: "above 50%" },
+    { side: "away", name: away, color: colors.away, where: "below 50%" },
+  ];
+  return (
+    <div className="mb-2 flex flex-wrap gap-x-6 gap-y-1 font-inter text-sm">
+      {sides.map((l) => (
+        <span key={l.side} className="flex items-center gap-2">
+          {/* the fill's own paint: the colour at 25% over the card, 1px border */}
+          <svg viewBox="0 0 12 12" className="size-3 shrink-0" aria-hidden="true">
+            <rect x={0.5} y={0.5} width={11} height={11} rx={2} fill={l.color} fillOpacity={0.25} stroke={l.color} />
+          </svg>
+          <span>
+            {l.name} <span className="text-muted-foreground">· {l.side}, {l.where}</span>
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function WpChart({
   points,
   home,
@@ -96,15 +121,9 @@ function WpChart({
   for (let i = 1; i < n; i++) {
     if (points[i].period !== points[i - 1].period) boundaries.push({ i, period: points[i].period });
   }
-  // A team colour always has its name in text: one swatch + name per side.
-  // ponytail: truncate at 40 chars so a 50-char non-D1 name can't overrun its half of the legend
-  const short = (name: string) => (name.length > 40 ? `${name.slice(0, 39)}…` : name);
-  const legend = [
-    { key: "home", x: pad.l, color: colors.home, label: `${short(home)} · home, above 50%` },
-    { key: "away", x: pad.l + (W - pad.l - pad.r) / 2, color: colors.away, label: `${short(away)} · away, below 50%` },
-  ];
   return (
     <svg
+      data-testid="wp-chart"
       ref={svgRef}
       viewBox={`0 0 ${W} ${H}`}
       className="w-full"
@@ -153,14 +172,6 @@ function WpChart({
         </g>
       ))}
       <polyline points={line} fill="none" strokeWidth={2} className="stroke-primary" />
-      {legend.map((l) => (
-        <g key={l.key}>
-          <rect x={l.x} y={pad.t - 13} width={10} height={10} rx={2} fill={l.color} fillOpacity={0.25} stroke={l.color} />
-          <text x={l.x + 14} y={pad.t - 4} className="fill-current font-inter text-[11px] text-muted-foreground">
-            {l.label}
-          </text>
-        </g>
-      ))}
       {hoverI != null && points[hoverI] ? (
         (() => {
           const p = points[hoverI];
@@ -245,6 +256,7 @@ export default function WpClient({ initial }: { initial: WpView }) {
     async () => teamColorLookup(await apiRows(teamsParams(sport)!), sport.teams!),
     { shouldRetryOnError: false }
   );
+  const colors = game ? wpTeamColors(game, teamColors, resolvedTheme) : null;
 
   const { data: assets } = useSWR(
     `/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}`,
@@ -418,15 +430,16 @@ export default function WpClient({ initial }: { initial: WpView }) {
         </div>
       ) : null}
 
-      {points.length > 1 && game ? (
+      {points.length > 1 && colors && game ? (
         <>
           {/* opaque card: pickTeamColors checks contrast against CARD, so the chart must sit on it */}
           <div className="mb-6 rounded-lg border border-border bg-card p-4">
+            <WpLegend home={game.home.name} away={game.away.name} colors={colors} />
             <WpChart
               points={points}
               home={game.home.name}
               away={game.away.name}
-              colors={wpTeamColors(game, teamColors, resolvedTheme)}
+              colors={colors}
               hoverI={hoverI}
               onHover={(i) => {
                 hoverFromChart.current = true;
