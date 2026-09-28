@@ -1,5 +1,6 @@
 // /platform/rolling: the hero cards, the risers/fallers card and the span line render;
-// each tab, the active toggle, the window and the league change the rows and the URL.
+// each tab, the active toggle, each card's own window and the league change the rows and
+// the URL, and switching one card's window leaves the other card's window alone.
 // /platform is behind org sign-in, so this is recorded locally and is NOT listed on
 // the PR's `Walkthrough steps:` line (CI has no session; the module throws there).
 const rolling = async (page, base) => {
@@ -32,8 +33,16 @@ const rolling = async (page, base) => {
     await page.waitForTimeout(1200);
   };
   const span = page.getByTestId('rolling-span');
-  const spanHas = async (text) => {
-    if (!(await span.innerText()).includes(text)) throw new Error(`span line lacks "${text}"`);
+  const has = async (loc, text) => {
+    const t = await loc.innerText();
+    if (!t.includes(text)) throw new Error(`${await loc.getAttribute('data-testid')} lacks "${text}": ${t.slice(0, 200)}`);
+  };
+  const spanHas = (text) => has(span, text);
+  const win = (card) => new URL(page.url()).searchParams.get(`win.${card}`);
+  // The default view is CFB EPA / dropback: windows 50 (the default, so no URL key), 100, 300.
+  const pickWindow = (card, n) => async () => {
+    await page.getByTestId(`win-${card}`).click();
+    await page.getByRole('menuitemradio', { name: `Last ${n} dropbacks` }).click();
   };
 
   await settle(hero, () => page.getByRole('tab', { name: 'Most improved' }).click(), 'tab', 'improved');
@@ -41,8 +50,18 @@ const rolling = async (page, base) => {
   // Active off lets in anyone whose last event is older than two weeks.
   await settle(movers, () => page.getByRole('checkbox', { name: 'Active only' }).click(), 'active', '0');
   await spanHas('active filter off');
-  await settle(movers, () => page.getByLabel('Window').selectOption('300'), 'window', '300');
-  await spanHas('last 300');
+  await spanHas('Full windows only');
+  // One card's window: the other card keeps its URL key, its menu and its own window label.
+  await settle(movers, pickWindow('movers', 300), 'win.movers', '300');
+  if (win('hero') !== null) throw new Error(`win.hero moved to ${win('hero')} with the movers card`);
+  await has(movers, 'last 300 dropbacks vs the 300 before');
+  await has(page.getByTestId('win-hero'), 'Last 50 dropbacks');
+  await has(hero, 'Last 50 dropbacks');
+  await settle(hero, pickWindow('hero', 100), 'win.hero', '100');
+  if (win('movers') !== '300') throw new Error(`win.movers moved to ${win('movers')} with the hero card`);
+  await has(hero, 'Last 100 dropbacks');
+  await has(page.getByTestId('win-movers'), 'Last 300 dropbacks');
+  await has(movers, 'last 300 dropbacks vs the 300 before');
   await settle(movers, () => page.getByRole('button', { name: 'NFL' }).click(), 'league', 'nfl');
   if ((await movers.locator('tbody tr').count()) === 0) throw new Error('no NFL movers rows');
   await page.goto(page.url(), { waitUntil: 'domcontentloaded' }); // the shared link

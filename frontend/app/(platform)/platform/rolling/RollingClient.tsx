@@ -2,6 +2,14 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import { ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs";
 import { ROLLING, type RollingMetric } from "@content/rolling";
 import { formatDelta } from "@lib/platform/scales";
@@ -16,6 +24,7 @@ import {
   metaParams,
   movers,
   windowLabel,
+  type RollingCard,
   type RollingRow,
 } from "@lib/platform/rolling";
 import { parseRollingView, rollingViewParams, type RollingView } from "@lib/platform/viewState";
@@ -26,6 +35,7 @@ import useUrlMirror from "@hooks/useUrlMirror";
  * targets, carries, team plays) for the newest season, read through the Query
  * proxy. One read for the season and its as-of date, then one per card; every
  * read is keyed by the view, so a late response never lands under a newer one.
+ * Each card has its own window (`win.<card>`); the metric and league are page-wide.
  */
 
 type Params = Record<string, string>;
@@ -78,6 +88,31 @@ function MoverRow({ r, m, n }: { r: RollingRow; m: RollingMetric; n: number }) {
   );
 }
 
+/** A card's own window: a chevron menu over the unit's published windows. */
+function WindowMenu({ card, title, m, n, go }: { card: RollingCard; title: string; m: RollingMetric; n: number; go: (patch: Params) => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        data-testid={`win-${card}`}
+        aria-label={`${title} window: last ${windowLabel(n, m.unit)}`}
+        className="flex items-center gap-1 rounded-md border border-input bg-card px-2.5 py-1 font-inter text-xs transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      >
+        Last {windowLabel(n, m.unit)}
+        <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuRadioGroup value={String(n)} onValueChange={(w) => go({ [`win.${card}`]: w })}>
+          {m.windows.map((w) => (
+            <DropdownMenuRadioItem key={w} value={String(w)} className="font-inter">
+              Last {windowLabel(w, m.unit)}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 const Muted = ({ children }: { children: React.ReactNode }) => (
   <p className="font-inter text-sm text-muted-foreground">{children}</p>
 );
@@ -86,39 +121,32 @@ export default function RollingClient({ initial }: { initial: RollingView }) {
   const [view, setView] = useState(initial);
   useUrlMirror(rollingViewParams(view));
   // Every change goes back through the URL codec, so the view is always a
-  // configured league × metric × unit × window.
+  // configured league × metric × unit, and each card a window that unit publishes
+  // (a metric switch drops a card window the new unit lacks).
   const go = (patch: Params) =>
-    setView((v) =>
-      parseRollingView(
-        new URLSearchParams({
-          league: v.league,
-          metric: v.metric,
-          unit: v.unit,
-          window: String(v.window_n),
-          tab: v.tab,
-          active: v.active ? "1" : "0",
-          ...patch,
-        })
-      )
-    );
+    setView((v) => {
+      const p = rollingViewParams(v);
+      for (const [k, val] of Object.entries(patch)) p.set(k, val);
+      return parseRollingView(p);
+    });
 
   const entries = ROLLING[view.league];
   const m = entries.find((e) => e.metric === view.metric && e.unit === view.unit) ?? entries[0];
   const tab = ROLLING_TABS.find((t) => t.key === view.tab) ?? ROLLING_TABS[0];
-  const n = view.window_n;
+  const { hero: heroN, movers: moversN } = view.win;
 
   const meta = useSWR(["rolling-meta", view.league], ([, league]) => apiRows(metaParams(league)));
   const latest = meta.data?.[0];
   const season = latest ? String(latest.season) : null;
   const asOf = latest ? String(latest.as_of_date) : null;
   const since = asOf ? activeSince(asOf) : null;
-  const card = (order: string, limit: number) =>
+  const card = (n: number, order: string, limit: number) =>
     season ? cardParams(view.league, m, n, season, view.active ? since : null, order, limit) : null;
 
-  const heroParams = card(tab.order, 3);
+  const heroParams = card(heroN, tab.order, 3);
   const hero = useSWR(heroParams ? ["rolling-hero", heroParams] : null, ([, p]) => rollingRows(p));
-  const riseParams = card("-delta_prev", 5);
-  const fallParams = card("delta_prev", 5);
+  const riseParams = card(moversN, "-delta_prev", 5);
+  const fallParams = card(moversN, "delta_prev", 5);
   const moves = useSWR(
     riseParams && fallParams ? ["rolling-movers", riseParams, fallParams] : null,
     async ([, r, f]) => movers(...(await Promise.all([rollingRows(r), rollingRows(f)])))
@@ -167,18 +195,6 @@ export default function RollingClient({ initial }: { initial: RollingView }) {
             </option>
           ))}
         </select>
-        <select
-          aria-label="Window"
-          value={n}
-          onChange={(e) => go({ window: e.target.value })}
-          className="rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
-        >
-          {m.windows.map((w) => (
-            <option key={w} value={w}>
-              Last {windowLabel(w, m.unit)}
-            </option>
-          ))}
-        </select>
         <label className="flex items-center gap-2 font-inter text-sm">
           <input
             type="checkbox"
@@ -192,7 +208,7 @@ export default function RollingClient({ initial }: { initial: RollingView }) {
 
       {asOf ? (
         <p data-testid="rolling-span" className="mb-6 font-mono text-xs text-muted-foreground">
-          Window: last {windowLabel(n, m.unit)} (full windows only) · as of {asOf} ·{" "}
+          Full windows only · as of {asOf} ·{" "}
           {view.active ? `active = an event since ${since}` : "active filter off"} · windows span seasons
         </p>
       ) : null}
@@ -205,18 +221,21 @@ export default function RollingClient({ initial }: { initial: RollingView }) {
       {meta.data && !latest ? <Muted>No rolling windows are published for {view.league.toUpperCase()} yet.</Muted> : null}
 
       <Tabs value={view.tab} onValueChange={(t) => go({ tab: t })} className="mb-8">
-        <TabsList>
-          {ROLLING_TABS.map((t) => (
-            <TabsTrigger key={t.key} value={t.key}>
-              {t.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TabsList>
+            {ROLLING_TABS.map((t) => (
+              <TabsTrigger key={t.key} value={t.key}>
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <WindowMenu card="hero" title={`${tab.label} ${who}`} m={m} n={heroN} go={go} />
+        </div>
         <TabsContent value={view.tab} data-testid="rolling-hero">
           {hero.data?.length ? (
             <div className="grid gap-4 sm:grid-cols-3">
               {hero.data.map((row) => (
-                <HeroCard key={row.entity_id} row={row} m={m} n={n} />
+                <HeroCard key={row.entity_id} row={row} m={m} n={heroN} />
               ))}
             </div>
           ) : hero.data ? (
@@ -228,9 +247,12 @@ export default function RollingClient({ initial }: { initial: RollingView }) {
       </Tabs>
 
       <section data-testid="rolling-movers" className="rounded-lg border border-border bg-card p-3 sm:p-4">
-        <h2 className="font-barlow text-lg font-semibold">Risers and fallers</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-barlow text-lg font-semibold">Risers and fallers</h2>
+          <WindowMenu card="movers" title="Risers and fallers" m={m} n={moversN} go={go} />
+        </div>
         <p className="mb-3 font-inter text-xs text-muted-foreground">
-          {m.label} · last {windowLabel(n, m.unit)} vs the {n} before · rank = the move&apos;s rank among every{" "}
+          {m.label} · last {windowLabel(moversN, m.unit)} vs the {moversN} before · rank = the move&apos;s rank among every{" "}
           {m.entity} with two full windows
         </p>
         {moves.data && (moves.data.top.length || moves.data.bottom.length) ? (
@@ -249,13 +271,13 @@ export default function RollingClient({ initial }: { initial: RollingView }) {
               </thead>
               <tbody>
                 {moves.data.top.map((r) => (
-                  <MoverRow key={r.entity_id} r={r} m={m} n={n} />
+                  <MoverRow key={r.entity_id} r={r} m={m} n={moversN} />
                 ))}
                 <tr aria-hidden="true">
                   <td colSpan={5} className="h-4" />
                 </tr>
                 {moves.data.bottom.map((r) => (
-                  <MoverRow key={r.entity_id} r={r} m={m} n={n} />
+                  <MoverRow key={r.entity_id} r={r} m={m} n={moversN} />
                 ))}
               </tbody>
             </table>

@@ -15,6 +15,11 @@ export const ROLLING_TABS: { key: RollingTab; label: string; order: string }[] =
   { key: "coldest", label: "Coldest", order: "cur" },
 ];
 
+/** The page's cards, each with its own window (`win.<card>` in the URL). Stable
+ *  ids: they are URL keys, so renaming one breaks shared links. */
+export const ROLLING_CARDS = ["hero", "movers"] as const;
+export type RollingCard = (typeof ROLLING_CARDS)[number];
+
 export type RollingRow = {
   entity_id: string;
   entity_name: string;

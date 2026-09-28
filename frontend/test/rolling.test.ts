@@ -10,7 +10,7 @@ import {
   windowLabel,
   type RollingRow,
 } from '../lib/platform/rolling.ts';
-import { parseRollingView, rollingViewParams } from '../lib/platform/viewState.ts';
+import { parseRollingView, rollingHref, rollingViewParams } from '../lib/platform/viewState.ts';
 
 const sp = (qs: string) => new URLSearchParams(qs);
 
@@ -66,22 +66,57 @@ test('movers drops null deltas, never lists an entity twice, and ends on the big
 });
 
 test('RollingView round-trips, and a bare URL is the first configured metric', () => {
-  const v = { league: 'nfl', metric: 'success_rate', unit: 'carry', window_n: 100, tab: 'coldest' as const, active: false };
+  const v = { league: 'nfl', metric: 'success_rate', unit: 'carry', win: { hero: 100, movers: 50 }, tab: 'coldest' as const, active: false };
   const qs = rollingViewParams(v).toString();
-  assert.equal(qs, 'league=nfl&metric=success_rate&unit=carry&window=100&tab=coldest&active=0');
+  assert.equal(qs, 'league=nfl&metric=success_rate&unit=carry&win.hero=100&tab=coldest&active=0');
   assert.deepEqual(parseRollingView(sp(qs)), v);
   const first = ROLLING.cfb[0];
-  const bare = { league: 'cfb', metric: first.metric, unit: first.unit, window_n: first.windows[0], tab: 'best', active: true };
+  const w0 = first.windows[0];
+  const bare = { league: 'cfb', metric: first.metric, unit: first.unit, win: { hero: w0, movers: w0 }, tab: 'best', active: true };
   assert.deepEqual(parseRollingView(sp('')), bare);
   assert.equal(rollingViewParams(parseRollingView(sp(''))).toString(), '');
 });
 
 test('RollingView falls back to the first configured metric and window', () => {
   const nfl0 = ROLLING.nfl[0];
-  const nflDefault = { league: 'nfl', metric: nfl0.metric, unit: nfl0.unit, window_n: nfl0.windows[0], tab: 'best', active: true };
+  const w0 = nfl0.windows[0];
+  const nflDefault = { league: 'nfl', metric: nfl0.metric, unit: nfl0.unit, win: { hero: w0, movers: w0 }, tab: 'best', active: true };
   assert.deepEqual(parseRollingView(sp('league=nfl&metric=cpoe&unit=dropback')), nflDefault); // unpublished metric
   assert.deepEqual(parseRollingView(sp('league=nfl&metric=epa&unit=punt')), nflDefault); // unpublished unit
   const target = ROLLING.cfb.find((m) => m.metric === 'epa' && m.unit === 'target')!;
-  assert.equal(parseRollingView(sp('metric=epa&unit=target&window=100')).window_n, target.windows[0]); // 100 is a dropback window
-  assert.deepEqual(parseRollingView(sp(`league=xfl&tab=hottest&active=yes&window=${'9'.repeat(300)}`)), parseRollingView(sp('')));
+  assert.equal(parseRollingView(sp('metric=epa&unit=target&win.hero=100')).win.hero, target.windows[0]); // 100 is a dropback window
+  assert.deepEqual(parseRollingView(sp(`league=xfl&tab=hottest&active=yes&win.hero=${'9'.repeat(300)}`)), parseRollingView(sp('')));
+});
+
+test('win.<card> keeps only a window the card\'s unit publishes, per card, and drops unknown cards and values', () => {
+  const dropback = ROLLING.cfb[0]; // windows 50/100/300
+  assert.equal(dropback.unit, 'dropback');
+  const v = parseRollingView(sp('win.hero=300&win.movers=100&win.foo=100&win.=50&window=300'));
+  assert.deepEqual(v.win, { hero: 300, movers: 100 }); // each card its own window
+  assert.equal(rollingViewParams(v).toString(), 'win.hero=300&win.movers=100'); // no foo, no page window
+  // The page-level window is gone: `window=` is an unknown key, not a default for the cards.
+  assert.deepEqual(parseRollingView(sp('window=300')).win, { hero: 50, movers: 50 });
+  // Not a window of this unit, not a number, over-long: that card falls to its first window.
+  for (const bad of ['30', '150', '0', '-50', 'abc', '', `${'0'.repeat(250)}100`]) {
+    const w = parseRollingView(sp(`win.hero=${bad}&win.movers=300`)).win;
+    assert.deepEqual(w, { hero: dropback.windows[0], movers: 300 }, `win.hero=${bad}`);
+  }
+  // A window is checked against the card's unit: 100 is a dropback window, not a target one.
+  const target = parseRollingView(sp('metric=epa&unit=target&win.hero=60&win.movers=100'));
+  assert.deepEqual(target.win, { hero: 60, movers: 30 });
+  // The default window is omitted, so one card's switch never writes the other's key.
+  assert.equal(rollingViewParams({ ...parseRollingView(sp('')), win: { hero: 50, movers: 300 } }).toString(), 'win.movers=300');
+});
+
+test('the overview link parses back to the view it was built from', () => {
+  const views = [
+    ...Object.keys(ROLLING).map((league) => parseRollingView(sp(`league=${league}`))), // the overview's default per league
+    { league: 'nfl', metric: 'success_rate', unit: 'carry', win: { hero: 100, movers: 50 }, tab: 'coldest' as const, active: false },
+  ];
+  for (const v of views) {
+    const url = new URL(rollingHref(v), 'https://example.org');
+    assert.equal(url.pathname, '/platform/rolling');
+    assert.deepEqual(parseRollingView(url.searchParams), v, rollingHref(v));
+  }
+  assert.equal(rollingHref(parseRollingView(sp(''))), '/platform/rolling'); // no dangling "?"
 });
