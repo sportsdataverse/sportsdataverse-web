@@ -12,6 +12,11 @@
 // Fix round: a stat with an inf value (Miami (OH)'s available_yards_pct_off) still charts
 // with its band; M counts the teams with a value, a .5 rank reads "T-"; college hoops
 // average D-I teams only ("D-I mean ± 1 SD", at the teams' own precision).
+// Small multiples (P7 T4): a Big Ten link draws one panel per member (18 in 2025), every
+// panel on the same y domain; selecting a panel adds its team to the overlay (team= in the
+// URL, "In overlay" on the panel) and the view stays on the panels; the toggle switches to
+// the overlay and back; an NFL division is 4 panels; an MBB conference carries the D-I band;
+// no width scrolls sideways.
 // /platform is behind org sign-in, so this is recorded locally and is NOT listed on
 // the PR's `Walkthrough steps:` line (CI has no session; the module throws there).
 const THREE = ['Boston Celtics', 'Los Angeles Lakers', 'Golden State Warriors'];
@@ -22,6 +27,9 @@ const CHART = 'svg[aria-label="Rebounds Per Game by season"]';
 // pl.read_parquet(f).filter(pl.col('through_week') == 16)['EPAplay_off'].mean(), n = 136.
 // A republish of the 2025 file moves it: re-derive, never loosen the 1e-9.
 const EPA_WEEK16_MEAN = 0.06580872766029501;
+// cfb_groups cfb_team_group_seasons.parquet: count(*) WHERE season = 2025 AND
+// conference_id = 'cfb:big-ten' (all 18 are in the 2025 summaries file).
+const BIG_TEN_2025 = 18;
 
 const trendsV2 = async (page, base) => {
   // /platform needs an org-member session: a cookie minted per memory
@@ -257,6 +265,94 @@ const trendsV2 = async (page, base) => {
   await idle();
   const d1 = /D-I mean ± 1 SD (\d+\.\d) \(n = (\d+)\)/.exec(await legend.innerText());
   if (!d1 || +d1[2] < 300 || +d1[2] > 400) throw new Error(`MBB band is not D-I: ${await legend.innerText()}`);
+  await page.waitForTimeout(1500);
+
+  // --- Small multiples -------------------------------------------------------------
+  const panels = page.getByTestId('trends-panel');
+  const multiples = page.getByTestId('trends-multiples');
+  const noSideScroll = async (what) => {
+    const [sw, cw] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
+    if (sw > cw) throw new Error(`${what}: the page scrolls sideways (${sw} > ${cw})`);
+  };
+  /** Open a multiples link and wait for its panels. */
+  const openMultiples = async (qs) => {
+    await page.goto(`${base}/platform/trends?${qs}`, { waitUntil: 'domcontentloaded' });
+    await multiples.waitFor({ timeout: 120_000 });
+    await idle();
+  };
+  /** Every panel's y domain; they must all be one. */
+  const oneDomain = async (what) => {
+    const domains = await page.getByTestId('trends-panel-plot').evaluateAll((els) => els.map((e) => e.getAttribute('data-y-domain')));
+    if (!domains.length || new Set(domains).size !== 1) throw new Error(`${what}: panel y domains differ: ${[...new Set(domains)].join(' | ')}`);
+  };
+
+  // (a) The Big Ten, 2025 EPA/play: one panel per member, A-Z, one y domain.
+  await openMultiples('sport=cfb_team_summaries_weekly&season=2025&view=multiples&group=cfb%3Abig-ten&stat=EPAplay_off');
+  await count(panels, BIG_TEN_2025, 'Big Ten 2025 panels');
+  await oneDomain('Big Ten');
+  const names = await page.getByTestId('trends-panel-title').allInnerTexts();
+  if (names.join('|') !== [...names].sort((a, b) => a.localeCompare(b)).join('|')) throw new Error(`panels are not A-Z: ${names}`);
+  if ((await page.getByLabel('Conference').inputValue()) !== 'cfb:big-ten') throw new Error('the conference picker is not on the Big Ten');
+  await has(page.getByTestId('trends-chart-title'), 'Big Ten');
+  await has(page.getByTestId('trends-multiples-legend'), 'League mean ± 1 SD');
+  await noSideScroll('Big Ten panels');
+  await multiples.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1500);
+
+  // (b) Selecting a panel adds its team to the overlay; the view stays on the panels.
+  const osu = page.getByRole('button', { name: 'Add Ohio State to the overlay' });
+  await osu.scrollIntoViewIfNeeded();
+  await osu.click();
+  await urlTeams(['Ohio State']);
+  const picked = page.locator('[data-testid="trends-panel"][data-team="Ohio State"]');
+  await has(picked, 'In overlay');
+  if (new URL(page.url()).searchParams.get('view') !== 'multiples') throw new Error('adding a team left the multiples view');
+  await picked.click({ force: true }); // a picked panel (aria-disabled) does nothing
+  await page.waitForTimeout(300);
+  if (teamsInUrl().length !== 1) throw new Error(`a second click on a picked panel changed team=: ${teamsInUrl()}`);
+  await page.waitForTimeout(1200);
+
+  // The toggle: the overlay charts the pick, and back to the same panels.
+  await page.getByRole('button', { name: 'Overlay', exact: true }).click();
+  await page.locator(SUMMARY_CHART).waitFor({ timeout: 120_000 });
+  await idle();
+  await count(page.getByTestId('trends-end-label'), 1, 'overlay end labels after adding from a panel');
+  if (new URL(page.url()).searchParams.has('view')) throw new Error('the overlay kept view= in the URL');
+  await page.waitForTimeout(1200);
+  await page.getByRole('button', { name: 'Small multiples', exact: true }).click();
+  await multiples.waitFor({ timeout: 120_000 });
+  await idle();
+  await count(panels, BIG_TEN_2025, 'Big Ten panels after the toggle');
+  await page.waitForTimeout(1000);
+
+  // Another conference from the picker re-charts.
+  await page.getByLabel('Conference').selectOption({ label: 'SEC' });
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('group') === 'cfb:sec');
+  await multiples.waitFor({ timeout: 120_000 });
+  await idle();
+  await has(page.getByTestId('trends-chart-title'), 'SEC');
+  await oneDomain('SEC');
+  await page.waitForTimeout(1200);
+
+  // (c) NFL ratings by division: 4 panels.
+  await openMultiples('sport=nfl_ratings_weekly&season=2025&view=multiples&group=nfl%3Aafc-east&stat=adj_net');
+  await count(panels, 4, 'AFC East panels');
+  await oneDomain('AFC East');
+  if ((await page.getByLabel('Division').inputValue()) !== 'nfl:afc-east') throw new Error('the division picker is not on the AFC East');
+  await noSideScroll('AFC East panels');
+  await multiples.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1500);
+
+  // (d) MBB 2026, one conference, over the D-I band.
+  await openMultiples('sport=mbb&view=multiples&group=mbb%3Abig-12&stat=avgPoints');
+  await has(page.getByTestId('trends-chart-title'), '2026');
+  await count(panels, 16, 'Big 12 2026 panels'); // mbb_team_group_seasons 2026, conference_id = 'mbb:big-12'
+  await oneDomain('Big 12');
+  await has(page.getByTestId('trends-multiples-legend'), 'D-I mean ± 1 SD');
+  if ((await page.locator('[data-testid="trends-panel-plot"] polygon').count()) < 16) throw new Error('the MBB panels have no band');
+  // (e) no sideways scroll, at any width this runs at (390 px on the phone pass).
+  await noSideScroll('MBB panels');
+  await multiples.scrollIntoViewIfNeeded();
   await page.waitForTimeout(1500);
 };
 export default trendsV2;

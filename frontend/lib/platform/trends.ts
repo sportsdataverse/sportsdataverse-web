@@ -1,8 +1,9 @@
 /**
  * Pure logic for /platform/trends: the multi-team overlay's picks, the
  * end-label layout, the wide (CFB/NFL weekly) sources' series, stat list
- * and team-name join, and the league band and rank context. Relative `.ts`
- * imports so `node --test` loads it.
+ * and team-name join, the league band and rank context, and the small
+ * multiples' groups, panels and shared domain. Relative `.ts` imports so
+ * `node --test` loads it.
  */
 import { CATEGORICAL, categoricalSlot, type CategoricalSlot } from "./chartTokens.ts";
 import type { TeamNames, TrendSport } from "../../content/trends.ts";
@@ -294,6 +295,100 @@ export function assertGroupsJoin(t: { fileTeam: string; fileSeason: string; grou
   if (!INTEGER.test(t.fileSeason) || !INTEGER.test(t.groupsSeason)) {
     throw new Error(`D-I join: release season is ${t.fileSeason}, groups season is ${t.groupsSeason}; want integers`);
   }
+}
+
+/**
+ * Small multiples join a release's team key to a groups file's ESPN id (text),
+ * season to season, by the key's kind (content/trends.ts `TeamGroups.key`):
+ * - integer: an integer id, CAST to text (the D-I rule above);
+ * - digits: a text id, every one all digits (DuckDB would CAST '12.5' too);
+ * - abbr: a text abbreviation, mapped to the id through the groups file's
+ *   newest-season `abbr=` notes. Every release key must map (`keys` ===
+ *   `mappedKeys`), and one-to-one (`pairs` === `mappedKeys` === `mappedIds`).
+ * Anything else throws before the join, never matching nothing quietly.
+ */
+export type GroupKeyKind = "integer" | "digits" | "abbr";
+export type KeyMapCounts = { keys: number; mappedKeys: number; mappedIds: number; pairs: number };
+
+export function assertGroupKeys(t: {
+  kind: GroupKeyKind;
+  fileTeam: string;
+  fileSeason: string;
+  groupsTeam: string;
+  groupsSeason: string;
+  allDigits?: boolean;
+  map?: KeyMapCounts;
+}): void {
+  if (t.groupsTeam !== "VARCHAR") throw new Error(`groups join: groups team_id is ${t.groupsTeam}; want VARCHAR`);
+  if (!INTEGER.test(t.fileSeason) || !INTEGER.test(t.groupsSeason)) {
+    throw new Error(`groups join: release season is ${t.fileSeason}, groups season is ${t.groupsSeason}; want integers`);
+  }
+  if (t.kind === "integer" ? !INTEGER.test(t.fileTeam) : t.fileTeam !== "VARCHAR") {
+    throw new Error(`groups join: release team key is ${t.fileTeam}; want ${t.kind === "integer" ? "an integer" : "VARCHAR"}`);
+  }
+  if (t.kind === "digits" && t.allDigits !== true) throw new Error("groups join: a release team id is not all digits");
+  if (t.kind === "abbr") {
+    const m = t.map;
+    if (!m || m.mappedKeys !== m.keys) {
+      throw new Error(`groups join: ${m ? m.keys - m.mappedKeys : "every"} release abbreviation(s) have no groups id`);
+    }
+    if (m.pairs !== m.mappedKeys || m.pairs !== m.mappedIds) throw new Error("groups join: the abbreviation map is not one-to-one");
+  }
+}
+
+/** A conference or division in one season, and its teams (the picker's names). */
+export type TeamGroup = { id: string; name: string; teams: string[] };
+
+/** The groups query's rows → groups sorted by name, each team listed once,
+ *  A–Z. */
+export function teamGroups(rows: readonly { team: string; id: string; name: string }[]): TeamGroup[] {
+  const byId = new Map<string, TeamGroup>();
+  for (const r of rows) {
+    const g = byId.get(r.id) ?? { id: r.id, name: r.name, teams: [] };
+    if (!g.teams.includes(r.team)) g.teams.push(r.team);
+    byId.set(r.id, g);
+  }
+  return [...byId.values()]
+    .map((g) => ({ ...g, teams: g.teams.sort((a, b) => a.localeCompare(b)) }))
+    .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+}
+
+/** The group to draw: the linked one when this season has it, else the first
+ *  picked team's group, else the first alphabetically. None when the season
+ *  has no groups. */
+export function pickGroup(groups: readonly TeamGroup[], wanted: string, picks: readonly (string | null)[]): TeamGroup | null {
+  const linked = groups.find((g) => g.id === wanted);
+  if (linked) return linked;
+  for (const p of picks) {
+    const g = p === null ? undefined : groups.find((x) => x.teams.includes(p));
+    if (g) return g;
+  }
+  return groups[0] ?? null;
+}
+
+/** The Big Ten has had 18 teams since 2024 (so have the MBB/WBB ACC and Big
+ *  Ten); 20 shows every conference and division in every source. */
+export const MAX_PANELS = 20;
+
+/** Panels in name order (stable, and no ranking implied); past `max`, the rest
+ *  are listed by name instead. */
+export function capPanels(teams: readonly string[], max: number = MAX_PANELS): { shown: string[]; more: string[] } {
+  const sorted = [...teams].sort((a, b) => a.localeCompare(b));
+  return { shown: sorted.slice(0, max), more: sorted.slice(max) };
+}
+
+/** One y domain for every panel: the min and max of every panel's values and
+ *  the band (its mean too, drawn where it has no spread). Non-finite values
+ *  are ignored; nothing finite, no domain. */
+export function sharedDomain(
+  series: readonly { points: readonly { value: number }[] }[],
+  band: readonly { mean: number; lo: number | null; hi: number | null }[] = []
+): { lo: number; hi: number } | null {
+  const vs = [
+    ...series.flatMap((s) => s.points.map((p) => p.value)),
+    ...band.flatMap((b) => [b.mean, b.lo, b.hi]),
+  ].filter((v): v is number => v !== null && Number.isFinite(v));
+  return vs.length ? { lo: Math.min(...vs), hi: Math.max(...vs) } : null;
 }
 
 /** "#12 of 136": a producer rank among the teams with a value at that x. A .5

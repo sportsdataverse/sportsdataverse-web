@@ -14,25 +14,31 @@ import { niceTicks } from "@lib/platform/scales";
 import {
   MAX_TRENDS_TEAMS,
   addTeam,
+  assertGroupKeys,
   assertGroupsJoin,
   bandRuns,
   bandWithin,
+  capPanels,
   displayDecimals,
   endLabels,
   formatValue,
   lastPlayedWeek,
   loadLeague,
+  pickGroup,
   pickSlots,
   rankColumn,
   rankLabel,
   releaseKey,
   removeTeam,
+  sharedDomain,
   statColumns,
   statGroups,
+  teamGroups,
   teamNameLookup,
   wideToSeries,
   type BandPoint,
   type LeagueRows,
+  type TeamGroup,
   type TrendPicks,
 } from "@lib/platform/trends";
 import useUrlMirror from "@hooks/useUrlMirror";
@@ -44,7 +50,8 @@ import useUrlMirror from "@hooks/useUrlMirror";
  * chart one season by week. Release parquet queried in-browser via DuckDB +
  * range proxy; CFB/NFL rating ids are named from a Data API team table. Under
  * the lines, the league mean ± 1 sd per x from the same files; beside a value,
- * the producer's rank where the row carries one.
+ * the producer's rank where the row carries one. Small multiples draw one
+ * panel per team of a conference or division, on one y scale.
  */
 
 const DATA_REPO = "sportsdataverse/sportsdataverse-data";
@@ -53,18 +60,24 @@ const DATA_REPO = "sportsdataverse/sportsdataverse-data";
  *  `rank` is the producer rank's label ("#12 of 136"), where the row has one. */
 type TrendPoint = { x: number; value: number; display: string; rank?: string | null };
 type TrendSeries = { team: string; slot: CategoricalSlot; points: TrendPoint[] };
+/** One conference or division's panels: every member's points (the members
+ *  with rows for the stat), the league band, and the season it was named in. */
+type Panels = { label: string; season: string; group: TeamGroup; series: { team: string; points: TrendPoint[] }[]; band: BandPoint[] };
 /** A refused pick, the charted teams with no rows for the stat, a stat the
- *  season's file does not carry, or charted seasons with no D-I list. */
+ *  season's file does not carry, charted seasons with no D-I list, or a season
+ *  with no conference or division list (`groupList` is the whole sentence). */
 type Note =
   | { refused: string }
   | { label: string; missing: string[] }
   | { absentStat: string }
-  | { noGroups: number[] };
+  | { noGroups: number[] }
+  | { groupList: string };
 
 function noteText(note: Note): string {
   if ("refused" in note) return `${MAX_TRENDS_TEAMS} teams at most, one per colour. Remove one to add ${note.refused}.`;
   if ("absentStat" in note) return `${note.absentStat} is not in this season's file. Pick another stat.`;
   if ("noGroups" in note) return `No D-I team list for ${note.noGroups.join(", ")}: no band there.`;
+  if ("groupList" in note) return note.groupList;
   return `No ${note.label} for ${note.missing.join(", ")}.`;
 }
 
@@ -206,12 +219,7 @@ function TrendChart({
   const pad = { l: 48, r: gutter, t: 12, b: 26 };
   const xs = [...new Set(series.flatMap((s) => s.points.map((p) => p.x)))].sort((a, b) => a - b);
   // The band is in the y domain, so it is never clipped.
-  const values = [
-    ...series.flatMap((s) => s.points.map((p) => p.value)),
-    ...band.flatMap((b) => [b.mean, b.lo ?? b.mean, b.hi ?? b.mean]),
-  ];
-  const lo = Math.min(...values);
-  const hi = Math.max(...values);
+  const { lo, hi } = sharedDomain(series, band) ?? { lo: 0, hi: 1 };
   const span = hi - lo || Math.abs(hi) || 1;
   const yLo = lo - span * 0.08;
   const yHi = hi + span * 0.08;
@@ -388,6 +396,194 @@ function TrendChart({
   );
 }
 
+/** Panel geometry: the left column's pad holds the y ticks, every other panel
+ *  keeps a sliver; the bottom row's pad holds the x ticks. Every plot is the
+ *  same size, so shapes compare across panels. */
+const PANEL = { l: 38, s: 6, r: 6, t: 4, b: 16, gap: 8 };
+
+/** One conference or division, a panel per team (A–Z, at most MAX_PANELS),
+ *  all on one y domain and one x range. In each panel the team's own line is
+ *  in the text ink, or its overlay colour once picked (colour follows the
+ *  team); every other member is a faint context line in the border token,
+ *  over the league band. No hover: small multiples are read by shape, and
+ *  each title carries the team's latest value. A panel is a button that adds
+ *  its team to the overlay. */
+function SmallMultiples({
+  panels,
+  slotOf,
+  onAdd,
+}: {
+  panels: Panels;
+  slotOf: Map<string, CategoricalSlot>;
+  onAdd: (team: string) => void;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  const W = useBoxWidth(box);
+  const { shown } = capPanels(panels.group.teams);
+  const all = panels.series;
+  const pointsOf = new Map(all.map((s) => [s.team, s.points]));
+  const xs = [...new Set(all.flatMap((s) => s.points.map((p) => p.x)))].sort((a, b) => a - b);
+  const band = bandWithin(panels.band, xs);
+  const d = sharedDomain(all, band);
+  // 2 columns on a phone, 3-4 on a desktop; the plots share what is left.
+  const cols = W < 560 ? 2 : W < 900 ? 3 : 4;
+  const plotW = Math.max(40, Math.floor((W - PANEL.l - (cols - 1) * (PANEL.s + PANEL.gap) - cols * PANEL.r) / cols));
+  const plotH = Math.round(Math.min(110, Math.max(64, plotW * 0.55)));
+  const span = d ? d.hi - d.lo || Math.abs(d.hi) || 1 : 1;
+  const [yLo, yHi] = d ? [d.lo - span * 0.08, d.hi + span * 0.08] : [0, 1];
+  const [x0, x1] = [xs[0], xs[xs.length - 1]];
+  // Coordinates inside a plot: each panel shifts its plot by its own left pad.
+  const px = (v: number) => ((v - x0) / (x1 - x0 || 1)) * plotW;
+  const py = (v: number) => PANEL.t + (1 - (v - yLo) / (yHi - yLo)) * plotH;
+  const path = (pts: readonly { x: number; value: number }[]) =>
+    pts.map((p) => `${px(p.x).toFixed(1)},${py(p.value).toFixed(1)}`).join(" ");
+  const lines = new Map(all.map((s) => [s.team, path(s.points)]));
+  const fills = bandRuns(band, xs).map((run) =>
+    [...run.map((b) => [b.x, b.hi!]), ...[...run].reverse().map((b) => [b.x, b.lo!])]
+      .map(([bx, by]) => `${px(bx).toFixed(1)},${py(by).toFixed(1)}`)
+      .join(" ")
+  );
+  const means = bandRuns(band, xs, false).map((run) => path(run.map((b) => ({ x: b.x, value: b.mean }))));
+  const ticks = niceTicks(yLo, yHi, 3);
+  const xStep = Math.max(1, Math.ceil(xs.length / Math.max(1, Math.floor(plotW / 34))));
+  const domain = `${yLo}:${yHi}`;
+
+  return (
+    <div ref={box} className="w-full min-w-0">
+      {W > 0 && d ? (
+        <div
+          data-testid="trends-multiples"
+          className="grid gap-2"
+          style={{
+            gridTemplateColumns: `${PANEL.l + plotW + PANEL.r}px repeat(${cols - 1}, ${PANEL.s + plotW + PANEL.r}px)`,
+          }}
+        >
+          {shown.map((team, i) => {
+            const left = i % cols === 0;
+            const bottom = i + cols >= shown.length; // no panel below it
+            const ox = left ? PANEL.l : PANEL.s;
+            const own = pointsOf.get(team);
+            const last = own?.[own.length - 1];
+            const slot = slotOf.get(team);
+            return (
+              <button
+                key={team}
+                type="button"
+                data-testid="trends-panel"
+                data-team={team}
+                aria-label={slot ? `${team}, in the overlay` : `Add ${team} to the overlay`}
+                aria-disabled={slot ? true : undefined}
+                onClick={() => {
+                  if (!slot) onAdd(team);
+                }}
+                // self-start: a button centres its content, which would drop a
+                // shorter panel (no x ticks) below its row's taller neighbours.
+                className={`min-w-0 self-start rounded-md text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  slot ? "cursor-default" : "hover:bg-muted/60"
+                }`}
+              >
+                <span
+                  data-testid="trends-panel-title"
+                  title={team}
+                  className="block truncate font-inter text-xs font-medium"
+                  style={{ paddingLeft: ox }}
+                >
+                  {team}
+                </span>
+                <span
+                  className="flex items-center gap-1 whitespace-nowrap font-inter text-xs tabular-nums text-muted-foreground"
+                  style={{ paddingLeft: ox }}
+                >
+                  {last ? last.display : "no data"}
+                  {slot ? (
+                    <>
+                      <Swatch slot={slot} />
+                      <span className="text-foreground">In overlay</span>
+                    </>
+                  ) : null}
+                </span>
+                <svg
+                  width={ox + plotW + PANEL.r}
+                  height={PANEL.t + plotH + (bottom ? PANEL.b : 4)}
+                  className="block"
+                  aria-hidden="true"
+                  data-testid="trends-panel-plot"
+                  data-y-domain={domain}
+                >
+                  {left
+                    ? ticks.map((tick) => (
+                        <text
+                          key={tick}
+                          x={ox - 4}
+                          y={py(tick) + 3}
+                          textAnchor="end"
+                          className="fill-current font-inter text-[10px] text-muted-foreground"
+                        >
+                          {tick}
+                        </text>
+                      ))
+                    : null}
+                  {bottom
+                    ? xs.map((v, k) =>
+                        k % xStep === 0 ? (
+                          <text
+                            key={v}
+                            x={ox + px(v)}
+                            y={PANEL.t + plotH + 12}
+                            textAnchor="middle"
+                            className="fill-current font-inter text-[10px] text-muted-foreground"
+                          >
+                            {v}
+                          </text>
+                        ) : null
+                      )
+                    : null}
+                  <g transform={`translate(${ox},0)`}>
+                    {fills.map((pts) => (
+                      <polygon key={pts} points={pts} fill={chartVar("div-mid")} />
+                    ))}
+                    {ticks.map((tick) => (
+                      <line key={tick} x1={0} x2={plotW} y1={py(tick)} y2={py(tick)} className="stroke-border" strokeDasharray="2 3" />
+                    ))}
+                    {means.map((pts) => (
+                      <polyline key={pts} points={pts} fill="none" className="stroke-muted-foreground" strokeWidth={1} strokeDasharray="4 3" />
+                    ))}
+                    {all.map((s) =>
+                      s.team !== team && s.points.length > 1 ? (
+                        <polyline key={s.team} points={lines.get(s.team)} fill="none" className="stroke-border" strokeWidth={1} />
+                      ) : null
+                    )}
+                    {own && own.length > 1 ? (
+                      <polyline
+                        data-testid="trends-panel-line"
+                        points={lines.get(team)}
+                        fill="none"
+                        stroke={slot ? chartVar(slot) : undefined}
+                        className={slot ? undefined : "stroke-foreground"}
+                        strokeWidth={2}
+                        strokeLinejoin="round"
+                      />
+                    ) : own ? (
+                      <circle
+                        data-testid="trends-panel-line"
+                        cx={px(own[0].x)}
+                        cy={py(own[0].value)}
+                        r={2.5}
+                        fill={slot ? chartVar(slot) : undefined}
+                        className={slot ? undefined : "fill-foreground"}
+                      />
+                    ) : null}
+                  </g>
+                </svg>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function TrendsClient({ initial }: { initial: TrendsView }) {
   const [sportKey, setSportKey] = useState(initial.sport);
   const [teamOptions, setTeamOptions] = useState<string[]>([]);
@@ -403,11 +599,18 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
   const pickedRef = useRef(initial.teams);
   const [pending, setPending] = useState("");
   const [stat, setStat] = useState(initial.stat);
-  // A shared link charts itself once its team + stat lists have loaded.
-  // Disarms on a match, a no-match, a load failure and a manual sport switch
-  // (see the onClick below) — never left armed to misfire against a later,
-  // unrelated sport's lists.
-  const autoRun = useRef(Boolean(initial.teams.length && initial.stat));
+  // Overlay (one chart, up to six teams) or small multiples (a panel per team
+  // of `group`, a groups-file id; blank until the default is resolved).
+  const [view, setView] = useState(initial.view);
+  const [group, setGroup] = useState(initial.group);
+  // The loaded season's conferences or divisions, keyed by sport and file.
+  const [groupList, setGroupList] = useState<{ key: string; list: TeamGroup[] } | null>(null);
+  const [panels, setPanels] = useState<Panels | null>(null);
+  // A shared link charts itself once its team + stat lists have loaded (small
+  // multiples need only the stat). Disarms on a match, a no-match, a load
+  // failure and a manual sport switch (see the onClick below) — never left
+  // armed to misfire against a later, unrelated sport's lists.
+  const autoRun = useRef(Boolean(initial.stat && (initial.view === "multiples" || initial.teams.length)));
   const [chart, setChart] = useState<{
     label: string;
     season: string;
@@ -451,6 +654,11 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
   const listAsset = weekly
     ? activeSeason && `${sport.assetPrefix}${activeSeason}.parquet`
     : seasonAssets[seasonAssets.length - 1] ?? "";
+  // Group membership is the listed file's season: the chosen one (weekly), or
+  // the newest (hoops, whose panels still span every season).
+  const listSeason = listAsset.slice(sport.assetPrefix.length, -".parquet".length);
+  const groupsKey = `${sport.key}|${listAsset}`;
+  const levelName = sport.groups.level === "division_id" ? "Division" : "Conference";
 
   // Populate team + stat dropdowns from the newest (or the chosen) season file.
   useEffect(() => {
@@ -516,7 +724,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
           // the chosen stat is not in this season's file: say so, don't chart blank
           autoRun.current = false;
           setNote({ absentStat: stat });
-        } else if (autoRun.current && shown && picks.length && !picks.some((t) => teams.includes(t))) {
+        } else if (autoRun.current && view === "overlay" && shown && picks.length && !picks.some((t) => teams.includes(t))) {
           autoRun.current = false;
           setNote({ label: shown.label, missing: picks });
         }
@@ -535,7 +743,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listAsset, sport.tag]);
 
-  useUrlMirror(trendsViewParams({ sport: sportKey, teams: picked, stat, season: weekly ? activeSeason || season : "" }));
+  useUrlMirror(trendsViewParams({ sport: sportKey, teams: picked, stat, season: weekly ? activeSeason || season : "", view, group }));
 
   function setPicks(next: TrendPicks) {
     pickedRef.current = next;
@@ -553,7 +761,20 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
     }
     setPicks(next.teams);
     setNote(null);
-    if (stat) void run(next.teams);
+    // The overlay re-charts; a panel's colour follows its pick without a query.
+    if (stat && view === "overlay") void run({ picks: next.teams });
+  }
+
+  /** A panel (or a "+N more" name) adds its team to the overlay's picks, under
+   *  the same 6-team cap; the view stays on the panels. */
+  function addToOverlay(team: string) {
+    const next = addTeam(pickedRef.current, team);
+    if (next.refused) {
+      setNote({ refused: team });
+      return;
+    }
+    setPicks(next.teams);
+    setNote((n) => (n && "refused" in n ? null : n));
   }
 
   function dropTeam(team: string) {
@@ -562,7 +783,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
     setChart((c) => (c ? { ...c, series: c.series.filter((s) => s.team !== team) } : c));
     setNote((n) => {
       if (!n || "refused" in n) return null; // a refused pick now has room
-      if ("absentStat" in n || "noGroups" in n) return n; // dropping a team doesn't bring these back
+      if (!("missing" in n)) return n; // dropping a team doesn't bring these back
       const missing = n.missing.filter((t) => t !== team);
       return missing.length ? { ...n, missing } : null;
     });
@@ -602,8 +823,8 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
        WHERE ${playedWeeks(xCol)} GROUP BY 1 HAVING count(${v}) ${finite(v)} > 0`;
     } else {
       let inGroups = "";
-      if (sport.groups) {
-        const groups = `read_parquet('${proxyUrl(sport.groups, sport.groups.asset)}')`;
+      if (sport.groups.d1Band) {
+        const groups = `read_parquet('${proxyUrl(sport.groups, sport.groups.members)}')`;
         const meta = await runQuery(
           `SELECT * FROM (SELECT typeof(team_id), typeof(${qi(c.season)}) FROM ${longSrc()} LIMIT 1),
            (SELECT any_value(typeof(team_id)), any_value(typeof(season)), string_agg(DISTINCT CAST(season AS VARCHAR), ',') FROM ${groups})`,
@@ -635,14 +856,15 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
     };
   }
 
-  /** Long files: every season file, one stat's rows, x = season. */
+  /** Long files: every season file, one stat's rows, x = season. Row caps
+   *  scale with the teams: a conference's panels read up to 18 in one query. */
   async function longPoints(runQuery: RunQuery, teams: string[]): Promise<Map<string, TrendPoint[]>> {
     const c = sport.cols;
     const res = await runQuery(
       `SELECT ${qi(c.team)}, ${qi(c.season)}, value, display_value FROM ${longSrc()}
        WHERE ${qi(c.team)} IN (${teams.map(sq).join(", ")}) AND ${qi(c.stat ?? "stat_name")} = ${sq(stat)} AND value IS NOT NULL
        ORDER BY ${qi(c.season)}`,
-      200 * MAX_TRENDS_TEAMS
+      200 * Math.max(teams.length, MAX_TRENDS_TEAMS)
     );
     const idx = (name: string) => res.columns.indexOf(name);
     const byTeam = new Map<string, TrendPoint[]>();
@@ -679,7 +901,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
     const res = await runQuery(
       `SELECT ${qi(c.team)}, ${qi(xCol)}, ${qi(stat)}${rankCol ? `, ${qi(rankCol)}` : ""} FROM read_parquet('${proxyUrl(sport, listAsset)}')
        WHERE ${qi(c.team)} IN (${keys.join(", ")}) AND ${playedWeeks(xCol)}`,
-      60 * MAX_TRENDS_TEAMS
+      60 * Math.max(teams.length, MAX_TRENDS_TEAMS)
     );
     const rows = res.rows.map((r) => Object.fromEntries(res.columns.map((col, i) => [col, r[i]])));
     return new Map(
@@ -690,7 +912,122 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
     );
   }
 
-  async function run(picks: TrendPicks = pickedRef.current) {
+  /**
+   * The chosen season's conferences or divisions (lib `teamGroups`): each team
+   * in the listed file joined to its membership that season, named from the
+   * group-seasons file. The key types are asserted first (lib
+   * `assertGroupKeys`, the D-I join's rule); NFL abbreviations map through the
+   * newest season's `abbr=` notes, counted to prove the map total and 1:1.
+   */
+  async function groupRows(runQuery: RunQuery): Promise<TeamGroup[]> {
+    const g = sport.groups;
+    const c = sport.cols;
+    const file = `read_parquet('${proxyUrl(sport, listAsset)}')`;
+    const members = `read_parquet('${proxyUrl(g, g.members)}')`;
+    const k = qi(g.key.col);
+    const abbr = g.key.kind === "abbr";
+    const abbrMap = `(SELECT regexp_extract(notes, '^abbr=([A-Z]+)$', 1) abbr, team_id id FROM ${members}
+       WHERE season = (SELECT max(season) FROM ${members}))`;
+    const counts = abbr
+      ? `, (SELECT CAST(count(DISTINCT ${k}) AS INTEGER) FROM ${file}),
+         (SELECT CAST(count(DISTINCT f.k) AS INTEGER), CAST(count(DISTINCT m.id) AS INTEGER),
+                 CAST(count(DISTINCT f.k || ' ' || m.id) AS INTEGER)
+          FROM (SELECT DISTINCT ${k} k FROM ${file}) f JOIN ${abbrMap} m ON m.abbr = f.k)`
+      : "";
+    const meta = await runQuery(
+      `SELECT * FROM (SELECT typeof(${k}), typeof(${qi(c.season)}) FROM ${file} LIMIT 1),
+       (SELECT any_value(typeof(team_id)), any_value(typeof(season)) FROM ${members}),
+       (SELECT bool_and(regexp_full_match(CAST(${k} AS VARCHAR), '[0-9]+')) FROM ${file})${counts}`,
+      1
+    );
+    const [fileTeam, fileSeason, groupsTeam, groupsSeason, digits, keys, mappedKeys, mappedIds, pairs] = meta.rows[0] ?? [];
+    assertGroupKeys({
+      kind: g.key.kind,
+      fileTeam: fileTeam ?? "",
+      fileSeason: fileSeason ?? "",
+      groupsTeam: groupsTeam ?? "",
+      groupsSeason: groupsSeason ?? "",
+      allDigits: digits === "true",
+      map: abbr ? { keys: Number(keys), mappedKeys: Number(mappedKeys), mappedIds: Number(mappedIds), pairs: Number(pairs) } : undefined,
+    });
+    const level = qi(g.level);
+    const res = await runQuery(
+      `SELECT DISTINCT t.${qi(c.team)}, gm.${level}, coalesce(n.short_name, n.name, gm.${level}) FROM ${file} t
+       ${abbr ? `JOIN ${abbrMap} m ON m.abbr = t.${k}` : ""}
+       JOIN ${members} gm ON gm.team_id = ${abbr ? "m.id" : `CAST(t.${k} AS VARCHAR)`} AND gm.season = t.${qi(c.season)}
+       LEFT JOIN read_parquet('${proxyUrl(g, g.names)}') n ON n.group_id = gm.${level} AND n.season = gm.season
+       WHERE gm.${level} IS NOT NULL`,
+      5000
+    );
+    // A names source's rows carry the release key: the picker's name is the team.
+    return teamGroups(res.rows.map((r) => ({ team: nameOf?.get(r[0] ?? "") ?? r[0] ?? "", id: r[1] ?? "", name: r[2] ?? "" })));
+  }
+
+  /**
+   * Small multiples: the season's groups (loaded once per file), the group to
+   * draw (lib `pickGroup`), then every member's points in ONE query and the
+   * same league band as the overlay. With no stat yet, only the group list
+   * loads, for the picker. Each await is checked against the run ticket, so a
+   * sport, season, stat or group switch never paints stale panels.
+   */
+  async function runPanels(wanted: string) {
+    const ticket = runs.next();
+    const charting = stats.some((s) => s.name === stat);
+    setBusy(charting ? "Charting…" : "Loading groups…");
+    setError(null);
+    setPanels(null);
+    if (charting) setNote(null); // else keep a note about the missing stat
+    try {
+      const { runQuery } = await import("@lib/platform/duckdb");
+      let list = groupList?.key === groupsKey ? groupList.list : null;
+      if (!list) {
+        // The group list is auxiliary: if it fails the page says so, and the
+        // overlay still works.
+        let failed = "";
+        try {
+          list = await groupRows(runQuery);
+        } catch (e) {
+          list = [];
+          failed = e instanceof Error ? e.message : String(e);
+        }
+        if (!runs.isLatest(ticket)) return;
+        setGroupList({ key: groupsKey, list });
+        if (failed) console.warn(`Trends: no ${levelName.toLowerCase()} list (${failed})`);
+      }
+      const g = pickGroup(list, wanted, pickedRef.current);
+      if (!g) {
+        setNote({ groupList: `No ${levelName.toLowerCase()} list for ${listSeason}: small multiples need one. The overlay still works.` });
+        return;
+      }
+      setGroup(g.id);
+      if (!charting) return;
+      const label = stats.find((s) => s.name === stat)?.label ?? stat;
+      const league = await loadLeague(() => leagueRows(runQuery));
+      if (!runs.isLatest(ticket)) return;
+      if (league.failed) console.warn(`Trends: no league band (${league.failed})`);
+      const byTeam =
+        sport.format === "wide" ? await widePoints(runQuery, g.teams, null, league.of) : await longPoints(runQuery, g.teams);
+      if (!runs.isLatest(ticket)) return;
+      const series = g.teams.flatMap((team) => {
+        const points = byTeam.get(team);
+        return points?.length ? [{ team, points }] : [];
+      });
+      setPanels({ label, season: listSeason, group: g, series, band: league.band });
+      const missing = g.teams.filter((t) => !byTeam.has(t));
+      if (missing.length) setNote({ label, missing });
+    } catch (e) {
+      if (runs.isLatest(ticket)) setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (runs.isLatest(ticket)) setBusy(null);
+    }
+  }
+
+  /** Chart what the view shows: the overlay of the picks, or a group's panels. */
+  function run(opts: { picks?: TrendPicks; view?: TrendsView["view"]; group?: string } = {}) {
+    return (opts.view ?? view) === "multiples" ? runPanels(opts.group ?? group) : runOverlay(opts.picks);
+  }
+
+  async function runOverlay(picks: TrendPicks = pickedRef.current) {
     const teams = picks.filter((t): t is string => t !== null);
     if (!teams.length || !stat) return;
     const ticket = runs.next();
@@ -739,11 +1076,42 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
   }
 
   useEffect(() => {
-    if (!autoRun.current || !teamOptions.length || !stats.length) return;
+    if (!teamOptions.length || !stats.length) return;
+    const armed = autoRun.current;
     autoRun.current = false;
-    if (picked.some((t) => t !== null && teamOptions.includes(t)) && stats.some((s) => s.name === stat)) void run();
+    // Small multiples always load the season's group list (the picker needs
+    // it); they chart too when the stat is in this file.
+    if (view === "multiples") void run();
+    else if (armed && picked.some((t) => t !== null && teamOptions.includes(t)) && stats.some((s) => s.name === stat)) void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fires when the lists arrive
   }, [teamOptions, stats]);
+
+  /** Switch between the overlay and the panels; each charts what it can. */
+  function switchView(next: TrendsView["view"]) {
+    if (next === view) return;
+    setView(next);
+    setNote(null);
+    if (!teamOptions.length || !stats.length) return; // the lists' landing runs it
+    if (next === "multiples" || (stat && picked.some((t) => t !== null))) void run({ view: next });
+    else {
+      runs.next();
+      setBusy(null);
+      setChart(null);
+    }
+  }
+
+  /** Another group re-charts at once, like an Add. */
+  function changeGroup(next: string) {
+    setGroup(next);
+    void run({ group: next });
+  }
+
+  /** A new stat abandons an in-flight chart; Chart it draws the new one. */
+  function changeStat(next: string) {
+    runs.next();
+    setBusy(null);
+    setStat(next);
+  }
 
   /** A new season keeps the picks and re-charts them once its lists land. */
   function changeSeason(next: string) {
@@ -755,8 +1123,10 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
     setNameOf(null);
     setLastWeek(Infinity);
     setChart(null);
+    setPanels(null);
+    setGroupList(null);
     setNote(null);
-    autoRun.current = picked.some((t) => t !== null) && Boolean(stat);
+    autoRun.current = Boolean(stat) && (view === "multiples" || picked.some((t) => t !== null));
   }
 
   // Hover re-renders the page: group the (391-long) CFB summaries list once.
@@ -771,6 +1141,10 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
   const latest = Math.max(...xs);
   // Kept to the lines now drawn: a removal can shorten them.
   const band = bandWithin(chart?.band ?? [], xs);
+  const slotOf = new Map(pickSlots(picked).map((p) => [p.team, p.slot]));
+  const more = panels ? capPanels(panels.group.teams).more : [];
+  const groups = groupList?.key === groupsKey ? groupList.list : [];
+  const population = sport.groups.d1Band ? "D-I" : "League";
 
   return (
     <>
@@ -791,6 +1165,27 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
         )}
       </p>
 
+      <div role="group" aria-label="View" className="mb-3 inline-flex rounded-md border border-border bg-card p-0.5">
+        {(
+          [
+            ["overlay", "Overlay"],
+            ["multiples", "Small multiples"],
+          ] as const
+        ).map(([v, text]) => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={view === v}
+            onClick={() => switchView(v)}
+            className={`rounded px-3 py-1 font-inter text-sm font-medium transition-colors ${
+              view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+
       <div className="mb-3 flex flex-wrap items-end gap-3">
         <div className="flex flex-wrap gap-2">
           {TREND_SPORTS.map((s) => (
@@ -810,6 +1205,9 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
                 setPending("");
                 setStat("");
                 setChart(null);
+                setPanels(null);
+                setGroupList(null);
+                setGroup(""); // another league's ids
                 setNote(null);
               }}
               className={`rounded-full px-3 py-1 font-inter text-sm font-medium transition-colors ${
@@ -831,6 +1229,22 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
           >
             {[...seasons].reverse().map((y) => (
               <option key={y}>{y}</option>
+            ))}
+          </select>
+        ) : null}
+        {view === "multiples" ? (
+          <select
+            aria-label={levelName}
+            value={groups.some((g) => g.id === group) ? group : ""}
+            onChange={(e) => changeGroup(e.target.value)}
+            disabled={!groups.length}
+            className="rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
+          >
+            {groups.some((g) => g.id === group) ? null : <option value="">{levelName}…</option>}
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
             ))}
           </select>
         ) : null}
@@ -857,7 +1271,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
         <select
           aria-label="Stat"
           value={stat}
-          onChange={(e) => setStat(e.target.value)}
+          onChange={(e) => changeStat(e.target.value)}
           className="min-w-[14rem] rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
         >
           <option value="">Stat… ({stats.length})</option>
@@ -877,7 +1291,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
                 </option>
               ))}
         </select>
-        <Button onClick={() => void run()} disabled={busy !== null || !picked.length || !stat}>
+        <Button onClick={() => void run()} disabled={busy !== null || !stat || (view === "overlay" && !picked.length)}>
           <TrendingUp className="mr-1 h-4 w-4" /> {busy ?? "Chart it"}
         </Button>
       </div>
@@ -907,7 +1321,58 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
         </div>
       ) : null}
 
-      {chart && xCount > 1 ? (
+      {view === "multiples" ? (
+        panels ? (
+          <div className="rounded-lg border border-border bg-card/70 p-4">
+            <h3 data-testid="trends-chart-title" className="mb-1 font-barlow text-lg font-semibold">
+              {panels.label} · {panels.group.name} · {panels.season}
+            </h3>
+            <p className="mb-2 font-inter text-xs text-muted-foreground">
+              The {panels.group.teams.length} teams of the {panels.group.name} in {panels.season}, A–Z, on one y scale
+              {weekly ? "" : ", every season"}. Each title reads the team&apos;s latest value. Select a panel to add its
+              team to the overlay.
+            </p>
+            <div data-testid="trends-multiples-legend" className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 font-inter text-sm">
+              <span className="flex items-center gap-2">
+                <svg viewBox="0 0 16 12" className="h-3 w-4 shrink-0" aria-hidden="true">
+                  <line x1={1} x2={15} y1={6} y2={6} className="stroke-foreground" strokeWidth={2} />
+                </svg>
+                The panel&apos;s team (its overlay colour once added)
+              </span>
+              <span className="flex items-center gap-2">
+                <svg viewBox="0 0 16 12" className="h-3 w-4 shrink-0" aria-hidden="true">
+                  <line x1={1} x2={15} y1={6} y2={6} className="stroke-border" strokeWidth={1.5} />
+                </svg>
+                The rest of the {panels.group.name}
+              </span>
+              {bandWithin(panels.band, panels.series.flatMap((s) => s.points.map((p) => p.x))).length ? (
+                <span className="flex items-center gap-2">
+                  <BandSwatch />
+                  {population} mean ± 1 SD
+                </span>
+              ) : null}
+            </div>
+            <SmallMultiples panels={panels} slotOf={slotOf} onAdd={addToOverlay} />
+            {more.length ? (
+              <p data-testid="trends-more" className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 font-inter text-sm">
+                <span className="text-muted-foreground">+{more.length} more:</span>
+                {more.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    aria-label={`Add ${t} to the overlay`}
+                    onClick={() => addToOverlay(t)}
+                    className="text-primary underline-offset-2 hover:underline"
+                  >
+                    {t}
+                  </button>
+                ))}
+              </p>
+            ) : null}
+            {weekLabel ? <p className="mt-1 text-center font-inter text-xs text-muted-foreground">{weekLabel}</p> : null}
+          </div>
+        ) : null
+      ) : chart && xCount > 1 ? (
         <div className="rounded-lg border border-border bg-card/70 p-4">
           <h3 data-testid="trends-chart-title" className="mb-2 font-barlow text-lg font-semibold">
             {chart.label}
@@ -916,7 +1381,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
           <TrendsLegend
             series={series}
             band={band}
-            population={sport.groups ? "D-I" : "League"}
+            population={population}
             meanDigits={chart.meanDigits}
             x={hover ?? latest}
             weekLabel={weekLabel}

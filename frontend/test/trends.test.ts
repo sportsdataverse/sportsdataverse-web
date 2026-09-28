@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MAX_TRENDS_TEAMS, addTeam, assertGroupsJoin, bandRuns, bandWithin, displayDecimals, endLabels, formatValue, lastPlayedWeek,
+  MAX_PANELS, MAX_TRENDS_TEAMS, addTeam, assertGroupKeys, assertGroupsJoin, capPanels, pickGroup, sharedDomain, teamGroups, bandRuns, bandWithin, displayDecimals, endLabels, formatValue, lastPlayedWeek,
   leagueBand, loadLeague, pickSlots, rankColumn, rankLabel, releaseKey, removeTeam, spreadLabels, statColumns, statGroups,
   teamNameLookup, wideToSeries,
 } from '../lib/platform/trends.ts';
@@ -42,7 +42,7 @@ test('the next add fills cat-1', () => {
 });
 
 test('a gap survives a URL round-trip', () => {
-  const v = { sport: 'nba', teams: [null, 'B', null, 'D'], stat: 'avgPoints', season: '' };
+  const v = { sport: 'nba', teams: [null, 'B', null, 'D'], stat: 'avgPoints', season: '', view: 'overlay' as const, group: '' };
   const qs = trendsViewParams(v).toString();
   assert.equal(qs, 'sport=nba&team=&team=B&team=&team=D&stat=avgPoints');
   assert.deepEqual(parseTrendsView(new URLSearchParams(qs)), v);
@@ -299,7 +299,7 @@ test('assertGroupsJoin: an integer release id joins a text groups id; a float or
 });
 
 test('only the college hoops sources limit their band to D-I, from their groups release', () => {
-  assert.deepEqual(TREND_SPORTS.filter((s) => s.groups).map((s) => [s.key, s.groups!.tag, s.groups!.asset]), [
+  assert.deepEqual(TREND_SPORTS.filter((s) => s.groups.d1Band).map((s) => [s.key, s.groups.tag, s.groups.members]), [
     ['mbb', 'mbb_groups', 'mbb_team_group_seasons.parquet'],
     ['wbb', 'wbb_groups', 'wbb_team_group_seasons.parquet'],
   ]);
@@ -355,4 +355,136 @@ test('wideToSeries carries the row\'s own rank when asked; a null rank stays nul
   assert.deepEqual(wideToSeries(rows, 'through_week', 'pos_team', 'EPAplay_off', 'EPAplay_off_rank'), [
     { team: 'Ohio State', points: [{ x: 1, value: 0.2, rank: 8 }, { x: 2, value: 0.3, rank: null }] },
   ]);
+});
+
+// --- Small multiples -----------------------------------------------------------
+
+test('view=multiples&group=X round-trips; view and group are written only for multiples', () => {
+  const v = { sport: 'cfb_team_summaries_weekly', teams: ['Ohio State'], stat: 'EPAplay_off', season: '2025', view: 'multiples' as const, group: 'cfb:big-ten' };
+  const qs = trendsViewParams(v).toString();
+  assert.equal(qs, 'sport=cfb_team_summaries_weekly&season=2025&view=multiples&group=cfb%3Abig-ten&team=Ohio+State&stat=EPAplay_off');
+  assert.deepEqual(parseTrendsView(new URLSearchParams(qs)), v);
+  // The overlay is the default: no view key, and no group key with it.
+  assert.equal(trendsViewParams({ ...v, view: 'overlay' }).toString(), 'sport=cfb_team_summaries_weekly&season=2025&team=Ohio+State&stat=EPAplay_off');
+  assert.equal(trendsViewParams({ ...v, group: '' }).toString(), 'sport=cfb_team_summaries_weekly&season=2025&view=multiples&team=Ohio+State&stat=EPAplay_off');
+});
+
+test('an unknown view falls back to the overlay; a malformed group is dropped; old links still parse', () => {
+  const p = (qs: string) => parseTrendsView(new URLSearchParams(qs));
+  assert.equal(p('view=grid').view, 'overlay');
+  assert.equal(p('view=MULTIPLES').view, 'overlay');
+  assert.equal(p('view=multiples').view, 'multiples');
+  for (const bad of ['big-ten', 'cfb:Big Ten', "cfb:big-ten'--", 'cfb:', ':big-ten', 'cfb:big_ten']) {
+    assert.equal(p(`view=multiples&group=${encodeURIComponent(bad)}`).group, '', bad);
+  }
+  assert.equal(p(`group=cfb:${'x'.repeat(300)}`).group.length, 200); // capped like every token (and matches no group)
+  assert.equal(p('group=nfl:afc-east').group, 'nfl:afc-east');
+  assert.deepEqual(p('sport=nba&team=Boston%20Celtics&stat=avgRebounds'), {
+    sport: 'nba', teams: ['Boston Celtics'], stat: 'avgRebounds', season: '', view: 'overlay', group: '',
+  });
+});
+
+test('sharedDomain spans every panel and the band, ignoring non-finite values', () => {
+  const series = [
+    { points: [{ value: 0.1 }, { value: 0.3 }] },
+    { points: [{ value: -0.2 }, { value: NaN }] },
+    { points: [{ value: Infinity }, { value: 0.25 }] },
+  ];
+  assert.deepEqual(sharedDomain(series), { lo: -0.2, hi: 0.3 });
+  // The band's hi/lo widen it; a mean with no spread still counts, a null lo/hi does not.
+  const band = [{ mean: 0.05, lo: -0.3, hi: 0.4 }, { mean: 0.5, lo: null, hi: null }];
+  assert.deepEqual(sharedDomain(series, band), { lo: -0.3, hi: 0.5 });
+  assert.deepEqual(sharedDomain([], [{ mean: 1, lo: null, hi: null }]), { lo: 1, hi: 1 });
+});
+
+test('sharedDomain of nothing finite is null', () => {
+  assert.equal(sharedDomain([]), null);
+  assert.equal(sharedDomain([{ points: [] }]), null);
+  assert.equal(sharedDomain([{ points: [{ value: NaN }] }], [{ mean: NaN, lo: null, hi: null }]), null);
+});
+
+test('capPanels shows 20 teams A-Z and lists the rest as more', () => {
+  assert.equal(MAX_PANELS, 20);
+  const teams = Array.from({ length: 23 }, (_, i) => `Team ${String.fromCharCode(90 - i)}`); // Z..D
+  const { shown, more } = capPanels(teams);
+  assert.equal(shown.length, 20);
+  assert.deepEqual([shown[0], shown[19]], ['Team D', 'Team W']);
+  assert.deepEqual(more, ['Team X', 'Team Y', 'Team Z']);
+  // The Big Ten (18 since 2024) fits whole, in name order.
+  const b1g = ['Wisconsin', 'Illinois', 'Ohio State', 'Michigan State', 'Michigan'];
+  assert.deepEqual(capPanels(b1g), { shown: ['Illinois', 'Michigan', 'Michigan State', 'Ohio State', 'Wisconsin'], more: [] });
+  assert.deepEqual(capPanels(b1g, 2), { shown: ['Illinois', 'Michigan'], more: ['Michigan State', 'Ohio State', 'Wisconsin'] });
+});
+
+test('assertGroupKeys: an integer ESPN id joins as text; a float, text or a text groups id throws', () => {
+  const ok = { kind: 'integer' as const, fileTeam: 'INTEGER', fileSeason: 'INTEGER', groupsTeam: 'VARCHAR', groupsSeason: 'INTEGER' };
+  assert.doesNotThrow(() => assertGroupKeys(ok));
+  assert.doesNotThrow(() => assertGroupKeys({ ...ok, fileTeam: 'BIGINT', fileSeason: 'BIGINT' }));
+  assert.throws(() => assertGroupKeys({ ...ok, fileTeam: 'DOUBLE' }), /release team key is DOUBLE/); // "103.0" matches nothing
+  assert.throws(() => assertGroupKeys({ ...ok, fileTeam: 'VARCHAR' }), /release team key/);
+  assert.throws(() => assertGroupKeys({ ...ok, groupsTeam: 'INTEGER' }), /groups team_id is INTEGER/);
+  assert.throws(() => assertGroupKeys({ ...ok, groupsSeason: 'VARCHAR' }), /season/);
+  assert.throws(() => assertGroupKeys({ ...ok, fileSeason: 'DOUBLE' }), /season/);
+});
+
+test('assertGroupKeys: a text ESPN id joins only when every id is all digits', () => {
+  const ok = { kind: 'digits' as const, fileTeam: 'VARCHAR', fileSeason: 'BIGINT', groupsTeam: 'VARCHAR', groupsSeason: 'INTEGER', allDigits: true };
+  assert.doesNotThrow(() => assertGroupKeys(ok));
+  assert.throws(() => assertGroupKeys({ ...ok, allDigits: false }), /not all digits/);
+  assert.throws(() => assertGroupKeys({ ...ok, allDigits: undefined }), /not all digits/); // unknown is not proof
+  assert.throws(() => assertGroupKeys({ ...ok, fileTeam: 'BIGINT' }), /want VARCHAR/);
+});
+
+test('assertGroupKeys: NFL abbreviations join only through a total, one-to-one map', () => {
+  const ok = { kind: 'abbr' as const, fileTeam: 'VARCHAR', fileSeason: 'BIGINT', groupsTeam: 'VARCHAR', groupsSeason: 'INTEGER' };
+  const map = { keys: 32, mappedKeys: 32, mappedIds: 32, pairs: 32 };
+  assert.doesNotThrow(() => assertGroupKeys({ ...ok, map }));
+  // A season's own notes say STL/SD/OAK where the ratings say LA/LAC/LV: 3 unmapped.
+  assert.throws(() => assertGroupKeys({ ...ok, map: { ...map, mappedKeys: 29, mappedIds: 29, pairs: 29 } }), /3 release abbreviation/);
+  assert.throws(() => assertGroupKeys({ ...ok, map: { ...map, mappedIds: 31, pairs: 32 } }), /one-to-one/); // two codes, one team
+  assert.throws(() => assertGroupKeys({ ...ok, map: { ...map, pairs: 33, mappedIds: 33 } }), /one-to-one/); // one code, two teams
+  assert.throws(() => assertGroupKeys(ok), /abbreviation/); // no map at all
+  assert.throws(() => assertGroupKeys({ ...ok, map, fileTeam: 'INTEGER' }), /want VARCHAR/);
+});
+
+test('every source groups through its league groups release, at the verified level and key', () => {
+  assert.deepEqual(
+    TREND_SPORTS.map((s) => [s.key, s.groups.tag, s.groups.members, s.groups.names, s.groups.level, s.groups.key.col, s.groups.key.kind]),
+    [
+      ['mbb', 'mbb_groups', 'mbb_team_group_seasons.parquet', 'mbb_group_seasons.parquet', 'conference_id', 'team_id', 'integer'],
+      ['wbb', 'wbb_groups', 'wbb_team_group_seasons.parquet', 'wbb_group_seasons.parquet', 'conference_id', 'team_id', 'integer'],
+      ['nba', 'nba_groups', 'nba_team_group_seasons.parquet', 'nba_group_seasons.parquet', 'conference_id', 'team_id', 'integer'],
+      ['wnba', 'wnba_groups', 'wnba_team_group_seasons.parquet', 'wnba_group_seasons.parquet', 'conference_id', 'team_id', 'integer'],
+      ['cfb_team_summaries_weekly', 'cfb_groups', 'cfb_team_group_seasons.parquet', 'cfb_group_seasons.parquet', 'conference_id', 'team_id', 'digits'],
+      ['cfb_ratings_weekly', 'cfb_groups', 'cfb_team_group_seasons.parquet', 'cfb_group_seasons.parquet', 'conference_id', 'team_id', 'digits'],
+      ['nfl_ratings_weekly', 'nfl_groups', 'nfl_team_group_seasons.parquet', 'nfl_group_seasons.parquet', 'division_id', 'team_id', 'abbr'],
+    ]
+  );
+});
+
+const groupRows = [
+  { team: 'Ohio State', id: 'cfb:big-ten', name: 'Big Ten' },
+  { team: 'Alabama', id: 'cfb:sec', name: 'SEC' },
+  { team: 'Michigan', id: 'cfb:big-ten', name: 'Big Ten' },
+  { team: 'Ohio State', id: 'cfb:big-ten', name: 'Big Ten' }, // a weekly file lists a team every week
+  { team: 'Clemson', id: 'cfb:acc', name: 'ACC' },
+];
+
+test('teamGroups: groups by name, each team once, A-Z', () => {
+  assert.deepEqual(teamGroups(groupRows), [
+    { id: 'cfb:acc', name: 'ACC', teams: ['Clemson'] },
+    { id: 'cfb:big-ten', name: 'Big Ten', teams: ['Michigan', 'Ohio State'] },
+    { id: 'cfb:sec', name: 'SEC', teams: ['Alabama'] },
+  ]);
+  assert.deepEqual(teamGroups([]), []);
+});
+
+test('pickGroup: the linked group, else the first picked team\'s, else the first by name', () => {
+  const groups = teamGroups(groupRows);
+  assert.equal(pickGroup(groups, 'cfb:sec', ['Ohio State'])?.id, 'cfb:sec'); // the link wins
+  assert.equal(pickGroup(groups, '', ['Ohio State', 'Alabama'])?.id, 'cfb:big-ten');
+  // A gap, or a pick in no group (not in this season), is skipped for the next pick.
+  assert.equal(pickGroup(groups, 'cfb:pac-12', [null, 'Nowhere', 'Alabama'])?.id, 'cfb:sec');
+  assert.equal(pickGroup(groups, '', [])?.id, 'cfb:acc');
+  assert.equal(pickGroup([], 'cfb:acc', ['Clemson']), null);
 });

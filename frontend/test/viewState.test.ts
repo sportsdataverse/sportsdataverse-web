@@ -88,6 +88,9 @@ test('every parsed token/value is capped at 200 chars; sql keeps its own 10k cap
   assert.equal(parseWpView(sp(`game=${long}`)).game.length, 200);
 });
 
+/** A pre-multiples Trends view: the overlay, no group. */
+const OVERLAY = { view: 'overlay' as const, group: '' };
+
 test('Trends teams are repeated team keys: in order, gaps kept, deduped, capped at 6 positions', () => {
   assert.deepEqual(parseTrendsView(sp('team=A&team=B')).teams, ['A', 'B']);
   const eight = 'ABCDEFGH'.split('').map((t) => `team=${t}`).join('&');
@@ -98,27 +101,27 @@ test('Trends teams are repeated team keys: in order, gaps kept, deduped, capped 
   assert.deepEqual(parseTrendsView(sp('team=A&team=&team=')).teams, ['A']); // trailing gaps trimmed
   assert.deepEqual(parseTrendsView(sp('team=&team=&team=&team=&team=&team=&team=G')).teams, []); // 6 positions
   assert.equal(parseTrendsView(sp(`team=${'x'.repeat(300)}`)).teams[0]?.length, 200);
-  assert.equal(trendsViewParams({ sport: 'mbb', teams: ['A', 'B'], stat: '', season: '' }).toString(), 'team=A&team=B');
-  assert.equal(trendsViewParams({ sport: 'mbb', teams: [], stat: 'x', season: '' }).toString(), 'stat=x');
-  assert.equal(trendsViewParams({ sport: 'mbb', teams: ['A', null, 'C', null], stat: '', season: '' }).toString(), 'team=A&team=&team=C');
+  assert.equal(trendsViewParams({ sport: 'mbb', teams: ['A', 'B'], stat: '', season: '', ...OVERLAY }).toString(), 'team=A&team=B');
+  assert.equal(trendsViewParams({ sport: 'mbb', teams: [], stat: 'x', season: '', ...OVERLAY }).toString(), 'stat=x');
+  assert.equal(trendsViewParams({ sport: 'mbb', teams: ['A', null, 'C', null], stat: '', season: '', ...OVERLAY }).toString(), 'team=A&team=&team=C');
 });
 
 test('an old single-team Trends link still parses to that one team', () => {
   assert.deepEqual(parseTrendsView(sp('sport=nba&team=Boston%20Celtics&stat=avgRebounds')), {
-    sport: 'nba', teams: ['Boston Celtics'], stat: 'avgRebounds', season: '',
+    sport: 'nba', teams: ['Boston Celtics'], stat: 'avgRebounds', season: '', ...OVERLAY,
   });
 });
 
 test('a weekly Trends link carries its season, written after the sport', () => {
   const qs = 'sport=cfb_ratings_weekly&season=2025&team=Ohio%20State&team=Michigan&stat=adj_net';
   const v = parseTrendsView(sp(qs));
-  assert.deepEqual(v, { sport: 'cfb_ratings_weekly', teams: ['Ohio State', 'Michigan'], stat: 'adj_net', season: '2025' });
+  assert.deepEqual(v, { sport: 'cfb_ratings_weekly', teams: ['Ohio State', 'Michigan'], stat: 'adj_net', season: '2025', ...OVERLAY });
   assert.equal(trendsViewParams(v).toString(), qs.replace('%20', '+'));
   assert.equal(parseTrendsView(sp('sport=cfb_ratings_weekly&season=25')).season, ''); // not a year: newest season
 });
 
 test('Trends and Lookups round-trip and fall back to the first sport', () => {
-  const t = { sport: 'wnba', teams: ['Las Vegas Aces', 'New York Liberty'], stat: 'avgPoints', season: '' };
+  const t = { sport: 'wnba', teams: ['Las Vegas Aces', 'New York Liberty'], stat: 'avgPoints', season: '', ...OVERLAY };
   assert.deepEqual(parseTrendsView(trendsViewParams(t)), t);
   assert.equal(parseTrendsView(sp('sport=zzz')).sport, 'mbb');
   const l = { sport: 'cfb', mode: 'teams' as const, q: '' };
