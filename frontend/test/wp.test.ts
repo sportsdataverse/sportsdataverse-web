@@ -11,6 +11,8 @@ import {
   scheduleParams,
   teamColorLookup,
   teamsParams,
+  wpExportFilename,
+  wpExportText,
   wpPointsFromRows,
   wpTeamColors,
 } from '../lib/platform/wp.ts';
@@ -45,8 +47,8 @@ test('gameOptionsFromSchedule labels a row "W3 · Away @ Home" and stringifies t
     cfb.schedule
   );
   assert.deepEqual({ id: g.id, label: g.label }, { id: '401628374', label: 'W3 · Away @ Home' });
-  assert.deepEqual(g.home, { name: 'Home', key: '333', color: '', alt: '' });
-  assert.deepEqual(g.away, { name: 'Away', key: '61', color: '', alt: '' });
+  assert.deepEqual(g.home, { name: 'Home', key: '333', color: '', alt: '', score: '' });
+  assert.deepEqual(g.away, { name: 'Away', key: '61', color: '', alt: '', score: '' });
 });
 
 test('gameOptionsFromSchedule: no week column means no week prefix (MBB display names)', () => {
@@ -85,10 +87,12 @@ test('scheduleParams: each sport reads only games that have plays', () => {
   const base = (schema: string, select: string) => ({ schema, table: 'schedule', season: '2024', select, limit: '50000' });
   const teams = 'game_id,week,home_team,away_team';
   const names = 'game_id,home_display_name,away_display_name,home_color,home_alternate_color,away_color,away_alternate_color';
-  assert.deepEqual(scheduleParams(sport('cfb'), '2024'), { ...base('cfb', `${teams},home_id,away_id`), home_division: 'fbs', completed: 'true' });
-  assert.deepEqual(scheduleParams(sport('nfl'), '2024'), { ...base('nfl', teams), home_score__gte: '0' });
-  assert.deepEqual(scheduleParams(sport('mbb'), '2024'), { ...base('mbb', names), PBP: 'true' });
-  assert.deepEqual(scheduleParams(sport('wbb'), '2024'), { ...base('wbb', names), PBP: 'true' });
+  // The export header's date and final score ride on the same read.
+  const cfbSelect = `${teams},home_id,away_id,start_date,home_points,away_points`;
+  assert.deepEqual(scheduleParams(sport('cfb'), '2024'), { ...base('cfb', cfbSelect), home_division: 'fbs', completed: 'true' });
+  assert.deepEqual(scheduleParams(sport('nfl'), '2024'), { ...base('nfl', `${teams},gameday,home_score,away_score`), home_score__gte: '0' });
+  assert.deepEqual(scheduleParams(sport('mbb'), '2024'), { ...base('mbb', `${names},game_date,home_score,away_score`), PBP: 'true' });
+  assert.deepEqual(scheduleParams(sport('wbb'), '2024'), { ...base('wbb', `${names},game_date,home_score,away_score`), PBP: 'true' });
 });
 
 test('pbpParams: one game, pruned to its season, only the columns the chart reads', () => {
@@ -189,4 +193,36 @@ test('wpTeamColors: a null colour, or a team missing from the lookup, falls back
   const lookup = teamColorLookup([{ team_id: 333, color: null, alt_color: null }], cfb.teams!);
   assert.deepEqual(wpTeamColors(cfbGame(333, 99999), lookup, 'light'), { home: CHART_FALLBACK.light[0], away: CHART_FALLBACK.light[1] });
   assert.deepEqual(wpTeamColors(cfbGame(333, 61), undefined, 'light'), { home: CHART_FALLBACK.light[0], away: CHART_FALLBACK.light[1] });
+});
+
+test('wpExportFilename: sport key + game id', () => {
+  assert.equal(wpExportFilename('cfb', '401628374'), 'wp_cfb_401628374.png');
+  assert.equal(wpExportFilename('nfl', '2024_01_BAL_KC'), 'wp_nfl_2024_01_BAL_KC.png');
+});
+
+const PAGE = 'https://sportsdataverse.org/platform/wp?sport=cfb&season=2024&game=401628374';
+
+test('wpExportText: "Away @ Home · final A–H · date" over "URL · release updated <asset time>"', () => {
+  // cfb.schedule start_date is a UTC kickoff: 02:30Z on the 15th is 10:30 PM ET on the 14th.
+  const [g] = gameOptionsFromSchedule(
+    [{ game_id: 401628374, week: 3, home_team: 'Home', away_team: 'Away', home_id: 333, away_id: 61, start_date: '2024-09-15T02:30:00.000Z', home_points: 42, away_points: 10 }],
+    cfb.schedule
+  );
+  assert.deepEqual(wpExportText(g, PAGE, '2026-09-20T14:03:11Z'), {
+    title: 'Away @ Home · final 10–42 · Sep 14, 2024',
+    footer: `${PAGE} · release updated 2026-09-20 14:03 UTC`,
+  });
+});
+
+test('wpExportText: a plain schedule date is that day; a 0 score is a score; missing parts drop out', () => {
+  const nfl = (row: Record<string, unknown>) =>
+    gameOptionsFromSchedule([{ game_id: '2024_01_BAL_KC', week: 1, home_team: 'KC', away_team: 'BAL', ...row }], sport('nfl').schedule)[0];
+  assert.equal(wpExportText(nfl({ gameday: '2024-09-05', home_score: 27, away_score: 0 }), PAGE).title, 'BAL @ KC · final 0–27 · Sep 5, 2024');
+  assert.deepEqual(wpExportText(nfl({ home_score: null, away_score: null }), PAGE), { title: 'BAL @ KC', footer: PAGE });
+  // MBB game_date is already the local (ET) date.
+  const [m] = gameOptionsFromSchedule(
+    [{ game_id: 401746082, home_display_name: 'Houston Cougars', away_display_name: 'Florida Gators', game_date: '2025-04-07', home_score: 63, away_score: 65 }],
+    sport('mbb').schedule
+  );
+  assert.equal(wpExportText(m, PAGE).title, 'Florida Gators @ Houston Cougars · final 65–63 · Apr 7, 2025');
 });

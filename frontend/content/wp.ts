@@ -33,6 +33,12 @@ export type WpSport = {
     homeAlt?: string;
     awayColor?: string;
     awayAlt?: string;
+    /** Game date and final score, for the PNG export's header. `date` is an
+     *  ISO day (NFL `gameday`, MBB/WBB `game_date`: already the local date) or
+     *  a UTC kickoff (CFB `start_date`). */
+    date?: string;
+    homeScore?: string;
+    awayScore?: string;
     /** Extra filters, `col` or `col__op` (`__gte`, …), that keep games without
      *  plays out of the picker. The API ignores an unknown filter column, so
      *  test/wp.test.ts pins each sport's exact params. */
@@ -78,6 +84,9 @@ export const WP_SPORTS: WpSport[] = [
       away: "away_team",
       homeId: "home_id",
       awayId: "away_id",
+      date: "start_date",
+      homeScore: "home_points",
+      awayScore: "away_points",
       filter: { home_division: "fbs", completed: "true" },
     },
     teams: { table: "team_info", key: "team_id", color: "color", alt: "alt_color" },
@@ -108,6 +117,9 @@ export const WP_SPORTS: WpSport[] = [
       away: "away_team",
       homeId: "home_team",
       awayId: "away_team",
+      date: "gameday",
+      homeScore: "home_score",
+      awayScore: "away_score",
       filter: { home_score__gte: "0" },
     },
     teams: { table: "teams", key: "team_abbr", color: "team_color", alt: "team_color2" },
@@ -134,6 +146,9 @@ export const WP_SPORTS: WpSport[] = [
       homeAlt: "home_alternate_color",
       awayColor: "away_color",
       awayAlt: "away_alternate_color",
+      date: "game_date",
+      homeScore: "home_score",
+      awayScore: "away_score",
       filter: { PBP: "true" },
     },
     cols: {
@@ -162,6 +177,9 @@ export const WP_SPORTS: WpSport[] = [
       homeAlt: "home_alternate_color",
       awayColor: "away_color",
       awayAlt: "away_alternate_color",
+      date: "game_date",
+      homeScore: "home_score",
+      awayScore: "away_score",
       filter: { PBP: "true" },
     },
     cols: {
