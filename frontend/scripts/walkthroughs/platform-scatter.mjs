@@ -532,6 +532,13 @@ const scatter = async (page, base) => {
     const panned = await plotNow();
     const span = zoomed.plot.x[1] - zoomed.plot.x[0];
     if (Math.abs(zoomed.plot.x[0] - panned.plot.x[0] - (60 / plotW) * span) > span * 1e-6 || panned.plot.k !== zoomed.plot.k) fail(`a 60 px drag moved x from ${zoomed.plot.x} to ${panned.plot.x}`);
+    // A finger drag belongs to the page: it never pans the chart.
+    const [tx, ty] = [cbox.x + before.plot.l + 100, cbox.y + before.plot.t + 100];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tx, y: ty }] });
+    for (let i = 1; i <= 6; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: tx + i * 10, y: ty + i * 4 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForTimeout(300);
+    if (JSON.stringify((await plotNow()).plot.x) !== JSON.stringify(panned.plot.x)) fail('a finger drag panned the chart');
     await page.waitForTimeout(800);
 
     // (d) Reset restores the original domain and ticks.
