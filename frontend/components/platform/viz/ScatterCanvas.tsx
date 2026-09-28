@@ -23,14 +23,15 @@ const RING_ALPHA = 0.5;
 /** Marks' ring discs over this share of the plot area are too dense to count
  *  (MBB player value, ~10k marks; NBA on a phone, 1.14): per-mark rings stack
  *  into surface and paint the densest band as empty. Past it, no rings, and
- *  every mark at DENSE_ALPHA so overlaps build up: 1 mark 50%, 2 75%, 3 88%,
- *  4 94%. 0.5 keeps an isolated mark at 1.98:1 (light) / 2.15:1 (dark) on
- *  card, DESIGN.md's ~2:1 floor for a mark told apart by eye (chart-seq-2);
- *  0.35 would drop it to 1.59 / 1.67:1. The table view carries the values.
+ *  every mark at DENSE_ALPHA so overlaps build up: 1 mark 55%, 2 80%, 3 91%,
+ *  4 96%. 0.55 keeps an isolated mark at 2.13:1 (light) / 2.33:1 (dark) on
+ *  card, over DESIGN.md's floor for a mark told apart by eye (chart-seq-2,
+ *  2.08 / 2.14); 0.5 fell short in light (1.97:1). The table view carries the
+ *  values.
  *  ponytail: opacity saturates about 4 marks deep, so a core of dozens reads
  *  as one flat block; a hexbin or density grid is the upgrade. */
 const DENSE = 0.5;
-const DENSE_ALPHA = 0.5;
+const DENSE_ALPHA = 0.55;
 const HIT_PX = 20;
 
 /** Canvas colours: theme tokens, resolved once per theme. */
