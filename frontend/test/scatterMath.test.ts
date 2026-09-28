@@ -213,6 +213,9 @@ test('highlightSlots: each mark takes its first matching chip\'s slot, -1 for no
   assert.deepEqual(highlightSlots(pts, ['Jayson Tatum', 'BOS']), [0, -1, 1, -1]);
   // a gap keeps the survivors' slots
   assert.deepEqual(highlightSlots(pts, [null, 'LAL']), [-1, 1, -1, 1]);
+  // chips that match no mark (carried over to another source): the plain chart, nothing faded
+  assert.equal(highlightSlots(pts, ['DEN', 'Nikola Jokic']), null);
+  assert.deepEqual(highlightSlots(pts, ['DEN', 'lal']), [-1, 1, -1, 1]);
 });
 
 test('highlight chips: the first free slot, kept when another chip goes; a 4th refused (ALL_PAIRS_CAP)', () => {

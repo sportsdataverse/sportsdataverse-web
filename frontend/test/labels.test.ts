@@ -62,7 +62,8 @@ test('outlierIndices: top and bottom k on each axis, most extreme first, de-dupl
 test('labelIndices: outliers alone, or with a highlight only highlighted marks (their outliers + up to 8 own)', () => {
   const pts = Array.from({ length: 30 }, (_, i) => ({ x: i, y: -i }));
   assert.deepEqual(labelIndices(pts, null), outlierIndices(pts, 4));
-  assert.deepEqual(labelIndices(pts, pts.map(() => -1)), outlierIndices(pts, 4));
+  // a highlight with no highlighted mark (none in view) names nothing, never the faded rest
+  assert.deepEqual(labelIndices(pts, pts.map(() => -1)), []);
   // a 3-mark highlight: all three named, nothing else
   const three = pts.map((_, i) => ([5, 12, 29].includes(i) ? 0 : -1));
   assert.deepEqual(new Set(labelIndices(pts, three)), new Set([5, 12, 29]));
@@ -83,4 +84,62 @@ test('labelIndices: a highlight clear of every outlier names only its own extrem
   const slots = pts.map((_, i) => (i >= 10 && i < 20 ? 2 : -1));
   // top x 19, 18; bottom x 10, 11; top y 13 (9), 16 (8); bottom y 10 (0), 17 (1)
   assert.deepEqual(new Set(labelIndices(pts, slots)), new Set([19, 18, 10, 11, 13, 16, 17]));
+});
+
+test('labelIndices: a highlight of 8 or fewer is named in full, the middle marks too', () => {
+  // the reviewer's five.ts: 100 far-out context marks, 5 highlighted in the middle (102 is middle on both axes)
+  const pts = [
+    ...Array.from({ length: 100 }, (_, i) => ({ x: (i % 2 ? 1 : -1) * (100 + i), y: (i % 3 ? 1 : -1) * (100 + i) })),
+    { x: 1, y: 3 }, { x: 2, y: 1 }, { x: 3, y: 2.5 }, { x: 4, y: 5 }, { x: 5, y: 2 },
+  ];
+  const slots = pts.map((_, i) => (i >= 100 ? 0 : -1));
+  assert.deepEqual([...labelIndices(pts, slots)].sort((a, b) => a - b), [100, 101, 102, 103, 104]);
+  // 9 highlighted in the middle: back to the highlight's own extremes (2 per side per axis), at most 8
+  const nine = [...pts.slice(0, 100), ...Array.from({ length: 9 }, (_, i) => ({ x: i, y: (i * 4) % 9 }))];
+  const got = labelIndices(nine, nine.map((_, i) => (i >= 100 ? 1 : -1)));
+  assert.ok(got.length <= 8 && got.length >= 4 && got.every((i) => i >= 100), `${got}`);
+});
+
+test('outlierIndices: the one-pass top-k matches four full sorts, ties to the lower index', () => {
+  let seed = 11;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+  const bySort = (pts: { x: number; y: number }[], k: number) => {
+    const idx = pts.map((_, i) => i);
+    const by = (f: (i: number) => number) => [...idx].sort((a, b) => f(a) - f(b) || a - b).slice(0, k);
+    const lists = [by((i) => -pts[i].x), by((i) => pts[i].x), by((i) => -pts[i].y), by((i) => pts[i].y)];
+    const out = new Set<number>();
+    for (let r = 0; r < k; r++) for (const l of lists) if (r < l.length) out.add(l[r]);
+    return [...out];
+  };
+  for (let trial = 0; trial < 200; trial++) {
+    const n = 1 + Math.floor(rnd() * 60);
+    // small integer values: plenty of ties
+    const pts = Array.from({ length: n }, () => ({ x: Math.floor(rnd() * 7) - 3, y: Math.floor(rnd() * 5) }));
+    for (const k of [1, 2, 4]) assert.deepEqual(outlierIndices(pts, k), bySort(pts, k), `trial ${trial}, k ${k}`);
+  }
+  assert.deepEqual(outlierIndices([{ x: 1, y: 1 }], 0), []);
+  // one pass with bounded lists: ~0.6 ms for MBB's 5,015 marks (four full sorts took 13-18 ms; an
+  // unbounded list, 500+ ms). It reruns every zoom frame, so a generous ceiling still guards it.
+  const big = Array.from({ length: 5015 }, () => ({ x: rnd() * 40 - 20, y: rnd() * 20 - 10 }));
+  const t0 = performance.now();
+  outlierIndices(big, 4);
+  assert.ok(performance.now() - t0 < 100, `outlierIndices on 5,015 marks took ${(performance.now() - t0).toFixed(1)} ms`);
+});
+
+test('placeLabels never puts a label on an obstacle (the marks a name must not cover)', () => {
+  const bounds: Bounds = { l: 0, t: 0, r: 400, b: 300 };
+  // 8 marks in a tight cluster, each also an obstacle, plus a ring of other obstacle dots around them
+  const marks = Array.from({ length: 8 }, (_, i) => ({ x: 200 + (i % 3) * 9, y: 150 + (i % 4) * 7 }));
+  const ring = Array.from({ length: 16 }, (_, i) => ({ x: 214 + 30 * Math.cos(i / 2.5), y: 160 + 22 * Math.sin(i / 2.5) }));
+  const dot = (p: { x: number; y: number }) => ({ x: p.x - 5, y: p.y - 5, w: 10, h: 10 });
+  const obstacles = [...marks, ...ring].map(dot);
+  const boxes = marks.map((_, i) => ({ w: 58 + i * 5, h: 15 }));
+  const plain = placeLabels(marks, boxes, bounds, 7);
+  const hitsObstacle = (out: typeof plain) =>
+    out.some((p, i) => p && obstacles.some((o) => overlap({ ...p, ...boxes[i] }, o)));
+  assert.ok(hitsObstacle(plain), 'without obstacles, some label lands on a mark');
+  const out = placeLabels(marks, boxes, bounds, 7, obstacles);
+  assert.equal(hitsObstacle(out), false);
+  assert.ok(out.filter(Boolean).length >= 6, `${out.filter(Boolean).length} of 8 placed`);
+  for (const [i, p] of out.entries()) if (p) assert.equal(p.leader, gap(marks[i], { ...p, ...boxes[i] }) > 7);
 });

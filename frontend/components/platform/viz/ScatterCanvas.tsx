@@ -26,9 +26,14 @@ import {
  * device-pixel scale; the hover label is HTML.
  *
  * Zoom and pan live in refs (never the URL) and reset with the marks (an
- * axis, source or season switch): the wheel zooms about the pointer, a mouse
- * or pen drag pans, and + / − / Reset are the touch and keyboard path. A
- * finger drag scrolls the page.
+ * axis, source or season switch). The wheel zooms about the pointer only once
+ * the chart is active (clicked, or focused from the keyboard); otherwise it
+ * scrolls the page and a hint says to click. Ctrl/⌘ + wheel is always the
+ * browser's page zoom. A mouse drag pans; + / − / Reset are the touch and
+ * keyboard path. A finger drag scrolls the page, and so does a pen drag
+ * wherever the browser treats a pen as touch (it sends pointercancel).
+ * ponytail: no pen panning; it would need touch-action: none, which takes
+ * one-finger page scroll away from phones too.
  */
 
 /** The right gutter holds the Y median's caption, clear of every mark. */
@@ -56,6 +61,8 @@ const HIT_PX = 20;
 const STEP = 2;
 const WHEEL = 0.002;
 const LABEL_FONT = 11;
+/** How long the "click to zoom" hint stays up after a wheel over an inactive chart. */
+const HINT_MS = 2000;
 
 /** Canvas colours: theme tokens, resolved once per theme. */
 const TOKENS = {
@@ -128,6 +135,9 @@ export default function ScatterCanvas({
   const drag = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null);
   const draw = useRef<() => void>(() => {});
   const frame = useRef(0);
+  const [hint, setHint] = useState(false);
+  const hintTimer = useRef(0);
+  useEffect(() => () => clearTimeout(hintTimer.current), []);
 
   const geo = useMemo(() => {
     const xs = points.map((p) => p.x);
@@ -295,16 +305,27 @@ export default function ScatterCanvas({
       ctx.setLineDash([]);
 
       // Outlier labels (or the highlighted ones): names in text ink on a
-      // surface halo, kept apart and inside the plot; a pushed name gets a
-      // thin leader back to its mark.
-      const shown = showLabels ? labelled.filter((i) => !Number.isNaN(at[i].px)) : [];
+      // surface halo, kept apart, inside the plot and off the marks that
+      // matter (every highlighted dot, or the labelled dots); a pushed name
+      // gets a thin leader back to its mark. Zoomed, the outliers are those
+      // of the marks in view, so labels follow the zoom.
+      const inPlot = (i: number) => at[i].px >= left && at[i].px <= right && at[i].py >= top && at[i].py <= bottom;
+      let shown: number[] = [];
+      if (showLabels && v === geo.base) shown = labelled.filter(inPlot);
+      else if (showLabels) {
+        const seen = at.flatMap((_, i) => (inPlot(i) ? [i] : []));
+        shown = labelIndices(seen.map((i) => points[i]), slots ? seen.map((i) => slots[i]) : null).map((j) => seen[j]);
+      }
+      const dotBox = (i: number) => ({ x: at[i].px - R - 1, y: at[i].py - R - 1, w: 2 * R + 2, h: 2 * R + 2 });
+      const obstacles = (slots ? at.flatMap((_, i) => (slots[i] >= 0 && inPlot(i) ? [i] : [])) : shown).map(dotBox);
       ctx.font = `600 ${LABEL_FONT}px ${font}`;
       const boxes = shown.map((i) => ({ w: Math.ceil(ctx.measureText(points[i].label).width) + 4, h: LABEL_FONT + 4 }));
       const placed = placeLabels(
         shown.map((i) => ({ x: at[i].px, y: at[i].py })),
         boxes,
         { l: left, t: top, r: right, b: bottom },
-        R + 3
+        R + 3,
+        obstacles
       );
       const layout: { i: number; text: string; x: number; y: number; w: number; h: number; leader: boolean }[] = [];
       placed.forEach((p, j) => {
@@ -376,12 +397,23 @@ export default function ScatterCanvas({
     schedule();
   }, [geo, W, H, hover, theme, slots, showLabels, labelled, points, view, schedule]);
 
-  // The wheel zooms about the pointer. React's wheel listener is passive, so
-  // this one is native: preventDefault (no page scroll) only over the canvas.
+  // The wheel zooms about the pointer, but only over an active (focused)
+  // chart: a page scrolled past the chart keeps scrolling, and the hint says
+  // to click. Ctrl/⌘ + wheel is the browser's page zoom, never handled.
+  // React's wheel listener is passive, so this one is native: preventDefault
+  // only when it zooms.
   useEffect(() => {
     const el = canvas.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) return;
+      if (el.ownerDocument.activeElement !== el) {
+        setHint(true);
+        clearTimeout(hintTimer.current);
+        hintTimer.current = window.setTimeout(() => setHint(false), HINT_MS);
+        return;
+      }
+      setHint(false);
       e.preventDefault();
       const r = el.getBoundingClientRect();
       const px = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
@@ -397,7 +429,8 @@ export default function ScatterCanvas({
     if (i !== (hover?.i ?? -1)) setHovered(i < 0 ? null : { of: points, i, ...drawnAt.current[i] });
   }
 
-  // A mouse or pen drag pans; a finger drag is left to scroll the page.
+  // A mouse drag pans (a pen too, where the browser lets it); a finger drag,
+  // and a pen treated as touch (pointercancel), are left to scroll the page.
   function onDown(e: React.PointerEvent<HTMLCanvasElement>) {
     if (e.pointerType !== "touch" && e.button === 0) {
       drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
@@ -454,10 +487,13 @@ export default function ScatterCanvas({
         data-hl={states}
         className="relative w-full"
       >
+        {/* Focusable, so a click (focus) or Tab makes the chart active for
+            the wheel; blur or a click elsewhere makes it inactive again. */}
         <canvas
           ref={canvas}
           role="img"
-          aria-label={`${yLabel} against ${xLabel}: ${points.length} marks${slots ? `, ${highlighted} highlighted` : ""} with median lines. The table view lists every value.`}
+          tabIndex={0}
+          aria-label={`${yLabel} against ${xLabel}: ${points.length} marks${slots ? `, ${highlighted} highlighted` : ""} with median lines. Focused, the mouse wheel zooms; the buttons above zoom too. The table view lists every value.`}
           className="block cursor-grab active:cursor-grabbing"
           style={{ width: W, height: H }}
           onPointerMove={onMove}
@@ -470,6 +506,14 @@ export default function ScatterCanvas({
             if (e.pointerType === "mouse" && !drag.current) setHovered(null);
           }}
         />
+        <p
+          data-testid="scatter-wheel-hint"
+          data-shown={hint ? "true" : "false"}
+          aria-hidden="true"
+          className={`pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm transition-opacity duration-300 ${hint ? "opacity-100" : "opacity-0"}`}
+        >
+          Click to zoom with the wheel
+        </p>
         {hp && hover ? (
           <div
             data-testid="scatter-hover"

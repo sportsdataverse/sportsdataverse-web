@@ -171,6 +171,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
   const suggestions = open ? suggest(options, query, hl) : [];
   const pending = Math.min(active, suggestions.length - 1);
   const chips = pickSlots(hl);
+  const others = slots ? slots.filter((s) => s < 0).length : points.length;
   const addChip = (text: string) => {
     const r = addTeam(hl, text, ALL_PAIRS_CAP);
     if (r.refused) setRefused(text);
@@ -330,25 +331,30 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
                 {points.length.toLocaleString("en-US")} {noun} · {src.label}
               </p>
               {/* The legend: each chip in its slot colour (text stays ink) with
-                  how many marks it matches, then the faded rest. */}
-              {chips.length && slots ? (
+                  the marks drawn in that colour (a mark matching two chips counts
+                  once, for the earlier), then the faded rest. A chip matching no
+                  mark stays, at 0, so it can be removed. */}
+              {chips.length ? (
                 <ul data-testid="scatter-legend" aria-label="Highlights" className="mb-2 flex flex-wrap items-center gap-2 font-inter text-xs">
-                  {chips.map(({ team: chip, slot }) => (
-                    <li key={chip} data-chip={chip} data-slot={slot} className="inline-flex items-center gap-1.5 rounded-full border border-border py-0.5 pl-2 pr-0.5">
-                      <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: chartVar(slot) }} />
-                      <span className="text-foreground">{chip}</span>
-                      <span className="tabular-nums text-muted-foreground">
-                        {(options.get(chip.toLowerCase())?.n ?? 0).toLocaleString("en-US")}
-                        <span className="sr-only"> {noun}</span>
-                      </span>
-                      <button type="button" aria-label={`Remove ${chip}`} onClick={() => removeChip(chip)} className="rounded-full p-1 hover:bg-muted">
-                        <X className="h-3 w-3" aria-hidden="true" />
-                      </button>
-                    </li>
-                  ))}
-                  <li className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  {chips.map(({ team: chip, slot }) => {
+                    const n = slots ? slots.filter((s) => s === hl.indexOf(chip)).length : 0;
+                    return (
+                      <li key={chip} data-chip={chip} data-slot={slot} data-count={n} className="inline-flex items-center gap-1.5 rounded-full border border-border py-0.5 pl-2 pr-0.5">
+                        <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: chartVar(slot) }} />
+                        <span className="text-foreground">{chip}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {n.toLocaleString("en-US")}
+                          <span className="sr-only"> {noun}</span>
+                        </span>
+                        <button type="button" aria-label={`Remove ${chip}`} onClick={() => removeChip(chip)} className="rounded-full p-1 hover:bg-muted">
+                          <X className="h-3 w-3" aria-hidden="true" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                  <li data-others data-count={others} className="inline-flex items-center gap-1.5 text-muted-foreground">
                     <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-muted-foreground/15" />
-                    Others {slots.filter((s) => s < 0).length.toLocaleString("en-US")}
+                    Others {others.toLocaleString("en-US")}
                   </li>
                 </ul>
               ) : null}

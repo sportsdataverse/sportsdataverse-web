@@ -164,15 +164,18 @@ export function chipMatches(p: ScatterPoint, chip: string): boolean {
  * Each mark's highlight slot: the position (= colour slot) of the first chip
  * it matches, so a mark matching two chips takes the earlier chip's colour;
  * -1 for none. `picks` keeps gaps (null) where a chip was removed, so every
- * surviving chip keeps its slot. Null with no chip at all (the plain chart).
+ * surviving chip keeps its slot. Null — the plain chart — with no chip, or
+ * when no mark matches any chip (a "BOS" chip carried over to WNBA must not
+ * fade every mark).
  */
 export function highlightSlots(points: readonly ScatterPoint[], picks: readonly (string | null)[]): number[] | null {
   const chips = picks.flatMap((c, i) => (c === null ? [] : [[c.toLowerCase(), i] as const]));
   if (!chips.length) return null;
-  return points.map((p) => {
+  const slots = points.map((p) => {
     const own = names(p).map((n) => n.toLowerCase());
     return chips.find(([c]) => own.includes(c))?.[1] ?? -1;
   });
+  return slots.some((s) => s >= 0) ? slots : null;
 }
 
 /** Every string a chip can be, with how many marks it matches: one entry
