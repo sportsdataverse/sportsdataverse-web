@@ -40,12 +40,61 @@ export type TrendSport = {
   names?: TeamNames;
   /** Stat → its producer rank column, where the rank is not `<stat>_rank`. */
   ranks?: Readonly<Record<string, string>>;
-  /** Limit the league band to one division: a team-group-seasons release
-   *  (`season` INTEGER, `team_id` VARCHAR ESPN id, one row per D-I team per
-   *  season, keyed by the ending year like the ESPN files). The ESPN hoops
-   *  files' `team_id` is INTEGER: the join casts it to text. */
-  groups?: { tag: string; asset: string };
+  /** The league's conferences or divisions, season by season (small
+   *  multiples), and, for college hoops, the D-I list the band averages. */
+  groups: TeamGroups;
 };
+
+/**
+ * One mechanism for every source: the league's team-group release, tag
+ * `<league>_groups` (all six exist). DESCRIBE, 2026-09-28, identical in every
+ * league:
+ * - `<league>_team_group_seasons.parquet` (membership): league, team_id_source,
+ *   team_name, subdivision_id, conference_id, division_id, source, notes
+ *   VARCHAR; season INTEGER; team_id VARCHAR (the ESPN id, all digits);
+ *   sources_agree BOOLEAN. One row per team per season, keyed like the
+ *   source's own seasons (hoops: the ending year). NFL `notes` read
+ *   `abbr=KC` in every season; NBA's `nba_stats_team_id=…` (1997 on; `abbr=`
+ *   before), WNBA's `wnba_stats_team_id=…`. Only D-I teams in mbb/wbb, every
+ *   division in cfb.
+ * - `<league>_group_seasons.parquet` (names): group_id, level, name,
+ *   short_name, abbreviation, parent_group_id VARCHAR; season, n_teams
+ *   INTEGER. The membership file has no group name: the UI shows short_name
+ *   ("Big Ten", "AFC East").
+ * Group ids are `<league>:<slug>` (`cfb:big-ten`, `nfl:afc-east`).
+ */
+export type TeamGroups = {
+  tag: string;
+  members: string;
+  names: string;
+  /** The membership column the panels group by. */
+  level: "conference_id" | "division_id";
+  /** The source column that joins membership `team_id`, and how (lib
+   *  `assertGroupKeys`): an integer ESPN id CAST to text, a text ESPN id of
+   *  digits, or an abbreviation mapped through the newest season's `abbr=`. */
+  key: { col: string; kind: "integer" | "digits" | "abbr" };
+  /** The band averages these teams only: the college files list non-D-I
+   *  opponents too (MBB 2026: 727 teams, 365 D-I). */
+  d1Band?: boolean;
+};
+
+const groupsOf = (league: string, level: TeamGroups["level"], key: TeamGroups["key"], d1Band = false): TeamGroups => ({
+  tag: `${league}_groups`,
+  members: `${league}_team_group_seasons.parquet`,
+  names: `${league}_group_seasons.parquet`,
+  level,
+  key,
+  ...(d1Band ? { d1Band } : {}),
+});
+
+// Levels, and the largest group in each source's seasons (2026-09-28):
+// - CFB and the college hoops by conference: 18 (Big Ten 2024-26; MBB ACC and
+//   Big Ten 2026, WBB the same). Division would split a conference.
+// - NFL by division, the unit that decides a playoff spot: 4 since 2002, 6
+//   (AFC Central) 1999-2001. A conference (16) is most of the league.
+// - NBA by conference, 15: it seeds the playoffs; divisions (5) have not since 2016.
+// - WNBA by conference, 8: it has no divisions.
+const ESPN_ID = { col: "team_id", kind: "integer" } as const;
 
 // The ratings frames' producer ranks, verified in sdv-py (dense ranks; def
 // ascending, lower allowed EPA is better): sportsdataverse/cfb/cfb_ratings.py
@@ -55,12 +104,12 @@ const RATING_RANKS = { adj_off_epa: "off_rank", adj_def_epa: "def_rank", adj_net
 const HOOPS_COLS = { team: "team_display_name", season: "season", stat: "stat_name" };
 
 export const TREND_SPORTS: TrendSport[] = [
-  // The college files list non-D-I opponents too (MBB 2026: 727 teams, 365
-  // D-I), so their band is D-I only.
-  { key: "mbb", label: "MBB", tag: "espn_mens_college_basketball_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS, groups: { tag: "mbb_groups", asset: "mbb_team_group_seasons.parquet" } },
-  { key: "wbb", label: "WBB", tag: "espn_womens_college_basketball_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS, groups: { tag: "wbb_groups", asset: "wbb_team_group_seasons.parquet" } },
-  { key: "nba", label: "NBA", tag: "espn_nba_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS },
-  { key: "wnba", label: "WNBA", tag: "espn_wnba_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS },
+  // The hoops files' team_id is INTEGER (the ESPN id): it joins as text.
+  // Every NBA/WNBA team joins in every season; MBB/WBB join D-I only.
+  { key: "mbb", label: "MBB", tag: "espn_mens_college_basketball_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS, groups: groupsOf("mbb", "conference_id", ESPN_ID, true) },
+  { key: "wbb", label: "WBB", tag: "espn_womens_college_basketball_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS, groups: groupsOf("wbb", "conference_id", ESPN_ID, true) },
+  { key: "nba", label: "NBA", tag: "espn_nba_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS, groups: groupsOf("nba", "conference_id", ESPN_ID) },
+  { key: "wnba", label: "WNBA", tag: "espn_wnba_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS, groups: groupsOf("wnba", "conference_id", ESPN_ID) },
   // Weekly frames. Columns from DESCRIBE on each release's newest file
   // (2026; 2025 identical), 2026-09-28:
   // team_id, pos_team (the school), division, conference, fbs_class VARCHAR;
@@ -78,6 +127,8 @@ export const TREND_SPORTS: TrendSport[] = [
     cols: { team: "pos_team", season: "season", week: "through_week", games: "playsgame_off_n" },
     weekLabel: "Through week",
     groupStats: true,
+    // team_id is the ESPN id as digits; 136/136 teams join in 2025, every season 2004-2026.
+    groups: groupsOf("cfb", "conference_id", { col: "team_id", kind: "digits" }),
   },
   // team_id VARCHAR of digits (the ESPN id, NOT a bigint), season BIGINT,
   // through_week INTEGER (W = through week W); stats adj_off_epa, adj_def_epa,
@@ -95,6 +146,7 @@ export const TREND_SPORTS: TrendSport[] = [
     weekLabel: "Through week",
     names: { schema: "cfb", table: "team_info", key: "team_id", name: "school", keyType: "number" },
     ranks: RATING_RANKS,
+    groups: groupsOf("cfb", "conference_id", { col: "team_id", kind: "digits" }),
   },
   // team_id VARCHAR abbreviation (ARI, KC, LA…), season BIGINT, as_of_week
   // INTEGER (W = the rating entering week W); stats adj_off_epa, adj_def_epa, adj_st_epa, adj_net, games,
@@ -111,5 +163,11 @@ export const TREND_SPORTS: TrendSport[] = [
     weekLabel: "Entering week",
     names: { schema: "nfl", table: "teams", key: "team_abbr", name: "team_name", keyType: "string" },
     ranks: RATING_RANKS,
+    // The groups file keys the ESPN id, not the abbreviation. The ratings use
+    // today's codes in every season (LA, LAC, LV in 2002), while a season's
+    // notes use that season's (STL, SD, OAK): the map is the NEWEST season's
+    // notes, 32/32 one-to-one; the ESPN id is stable across a move, so every
+    // season 1999-2026 then joins 31-32/31-32.
+    groups: groupsOf("nfl", "division_id", { col: "team_id", kind: "abbr" }),
   },
 ];

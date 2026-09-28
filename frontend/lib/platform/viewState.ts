@@ -173,11 +173,23 @@ export function wpViewParams(v: WpView): URLSearchParams {
  *  an empty `team=` is a gap left by a removal, so every team keeps its colour
  *  slot through a link. A link from before the overlay (one `team=A`) still
  *  parses, to `['A']`. `season` picks a by-week source's season file; blank
- *  means the newest. */
-export type TrendsView = { sport: string; teams: TrendPicks; stat: string; season: string };
+ *  means the newest. `view=multiples` draws one panel per team of `group` (a
+ *  groups-file id, `cfb:big-ten`; blank means the default group); no `view`,
+ *  or any other, is the overlay. */
+export type TrendsView = {
+  sport: string;
+  teams: TrendPicks;
+  stat: string;
+  season: string;
+  view: "overlay" | "multiples";
+  group: string;
+};
 const TREND_KEYS = TREND_SPORTS.map((s) => s.key);
+const TREND_VIEWS = ["overlay", "multiples"] as const;
+const GROUP_ID = /^[a-z0-9]+:[a-z0-9-]+$/;
 
 export function parseTrendsView(sp: URLSearchParams): TrendsView {
+  const group = (sp.get("group") ?? "").slice(0, MAX_LEN);
   const teams: TrendPicks = [];
   for (const raw of sp.getAll("team")) {
     const t = raw.slice(0, MAX_LEN);
@@ -189,6 +201,8 @@ export function parseTrendsView(sp: URLSearchParams): TrendsView {
     teams: trimGaps(teams.slice(0, MAX_TRENDS_TEAMS)),
     stat: (sp.get("stat") ?? "").slice(0, MAX_LEN),
     season: /^\d{4}$/.test(sp.get("season") ?? "") ? sp.get("season")! : "",
+    view: pick(sp.get("view"), TREND_VIEWS, "overlay"),
+    group: GROUP_ID.test(group) ? group : "",
   };
 }
 
@@ -196,6 +210,10 @@ export function trendsViewParams(v: TrendsView): URLSearchParams {
   const p = new URLSearchParams();
   if (v.sport !== TREND_KEYS[0]) p.set("sport", v.sport);
   if (v.season) p.set("season", v.season);
+  if (v.view === "multiples") {
+    p.set("view", v.view);
+    if (v.group) p.set("group", v.group);
+  }
   for (const t of trimGaps(v.teams)) p.append("team", t ?? "");
   if (v.stat) p.set("stat", v.stat);
   return p;
