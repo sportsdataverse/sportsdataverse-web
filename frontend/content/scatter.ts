@@ -8,20 +8,21 @@ import type { TeamNames } from "./trends.ts";
  *
  * Verified 2026-09-28 through the member proxy (`/api/platform/query/tables`,
  * `/api/platform/query/run`): axes = numeric columns less ids and season;
- * rows = the largest season under `filter`. None comes near the Data API's
- * 50,000-row cap; the plan's `limit=5000` would have cut 27 college seasons.
+ * rows = the largest season under `filter`, before the D-I cut. None comes
+ * near the Data API's 50,000-row cap; the plan's `limit=5000` would have cut
+ * 27 college seasons.
  *
- * | source                        | axes          | largest season                 |
- * |-------------------------------|---------------|--------------------------------|
- * | nba.player_impact             | 20            | 605 (2022)                     |
- * | wnba.player_impact            | 20            | 238 (2026)                     |
- * | nba_stats.player_season_stats | 201 (74 used) | 605 (2022)                     |
- * | mbb.player_value              | 4             | 9,990 (2026); 20 of 21 > 5,000 |
- * | wbb.player_value              | 4             | 8,305 (2026); 7 of 13 > 5,000  |
- * | cfb.passing/rushing/receiving | 65 / 39 / 47  | 635 / 1,673 / 2,331            |
- * | nfl.passing/rushing/receiving | 74 / 39 / 47  | 123 / 371 / 551                |
- * | cfb.ratings                   | 13            | 138; 138 of 138 ids named      |
- * | mbb.ratings                   | 9             | 727; 365 of 727 ids named      |
+ * | source                        | axes          | largest season                   |
+ * |-------------------------------|---------------|----------------------------------|
+ * | nba.player_impact             | 20            | 605 (2022)                       |
+ * | wnba.player_impact            | 20            | 238 (2026)                       |
+ * | nba_stats.player_season_stats | 201 (74 used) | 605 (2022)                       |
+ * | mbb.player_value              | 4             | 9,990 (2026; 5,015 D-I)          |
+ * | wbb.player_value              | 4             | 8,305 (2026; 4,692 D-I)          |
+ * | cfb.passing/rushing/receiving | 65 / 39 / 47  | 635 / 1,673 / 2,331              |
+ * | nfl.passing/rushing/receiving | 74 / 39 / 47  | 123 / 371 / 551                  |
+ * | cfb.ratings                   | 13            | 138; 138 of 138 ids named        |
+ * | mbb.ratings                   | 9             | 727 (2026; 365 D-I, all named)   |
  *
  * Traps, each handled here rather than in the page:
  * - player_impact and player_season_stats hold playoff rows beside the
@@ -30,14 +31,18 @@ import type { TeamNames } from "./trends.ts";
  *   season type (~24 rows per player-season, each measure type filling its
  *   own columns): one slice, advanced per game. Empty columns leave the rail.
  * - Team tables and college player_value carry a team id, no name: `names`.
- *   mbb.team_group_seasons lists D-I only; a non-D-I id is labelled by itself.
+ * - College hoops tables hold every ESPN team, non-D-I too (mbb.ratings 2026:
+ *   362 of 727, median 1 game): `names.only` keeps the season's D-I list
+ *   (team_group_seasons), the rule Trends' band has used since P7 T3.
  * - The NFL team key is an abbreviation (`pos_team`), shown as is.
  */
 
 /** A team-id column named from a Data API table (lib/platform/trends.ts
  *  `teamNameLookup`, which asserts both keys are `keyType`). `col` is the
- *  source column it renames; `bySeason` reads only the viewed season's rows. */
-export type ScatterNames = TeamNames & { col: string; bySeason?: boolean };
+ *  source column it renames; `bySeason` reads only the viewed season's rows.
+ *  `only` names the population the table lists ("D-I"): rows whose `col` is
+ *  not in it are left out and counted in the note. */
+export type ScatterNames = TeamNames & { col: string; bySeason?: boolean; only?: string };
 
 export type ScatterSource = {
   schema: string;
@@ -75,8 +80,11 @@ const hoopsNames = (league: "mbb" | "wbb", col: string): ScatterNames => ({
   keyType: "string",
   col,
   bySeason: true,
+  only: "D-I",
 });
 
+/** The first entry is the default: a link without schema/table shows it, so
+ *  reordering this list changes what every old default link shows. */
 export const SCATTER_SOURCES: readonly ScatterSource[] = [
   player("nba", "player_impact", "NBA player impact", "player_name", "team_abbreviation", { season_type: "Regular Season" }),
   player("wnba", "player_impact", "WNBA player impact", "player_name", "team_abbreviation", { season_type: "Regular Season" }),

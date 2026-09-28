@@ -48,22 +48,47 @@ export function nearest(points: readonly { px: number; py: number }[], px: numbe
 const NUMERIC = new Set(["smallint", "integer", "bigint", "numeric", "real", "double precision"]);
 const ID_OR_SEASON = /(^|_)id$|^season$/;
 
-/** A source's axes: the catalog's numeric columns (`/v1/{schema}/tables`),
- *  less ids, the season and the fixed filters, A–Z. */
-export function numericColumns(catalog: Readonly<Record<string, string>>, source: ScatterSource): string[] {
-  const fixed = new Set([source.idCol, source.seasonCol, ...Object.keys(source.filter ?? {})]);
+const RANK = /_rank$/;
+
+/** A source's axes: the catalog's numeric columns (`/v1/{schema}/tables`)
+ *  less ids and the season, A–Z, every `_rank` column last (as Trends' stat
+ *  picker). Fixed-filter columns are text in every source, so never here. */
+export function numericColumns(catalog: Readonly<Record<string, string>>): string[] {
   return Object.entries(catalog)
-    .filter(([c, type]) => NUMERIC.has(type) && !ID_OR_SEASON.test(c) && !fixed.has(c))
+    .filter(([c, type]) => NUMERIC.has(type) && !ID_OR_SEASON.test(c))
     .map(([c]) => c)
-    .sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+    .sort((a, b) => Number(RANK.test(a)) - Number(RANK.test(b)) || a.localeCompare(b, "en", { sensitivity: "base" }));
 }
 
-const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+/** A cell as a number: JSON numbers as they are, and Postgres `numeric`,
+ *  which the Data API sends as a string ("12.50"); NaN for anything else
+ *  (null, "", text), so the finite check drops it. */
+export function cellNumber(v: unknown): number {
+  if (typeof v === "number") return v;
+  return typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+}
+
+const finite = (v: unknown) => Number.isFinite(cellNumber(v));
 
 /** The columns with at least one finite value in the rows: a measure-type
  *  slice (nba_stats) leaves the others' columns empty. */
 export function filledColumns(columns: readonly string[], rows: readonly Row[]): string[] {
   return columns.filter((c) => rows.some((r) => finite(r[c])));
+}
+
+/**
+ * Rows whose `col` is in `listed` (a season's D-I team list), and how many
+ * were left out. An empty list (no list for that season) filters nothing and
+ * says so: `listed: false`, never an empty chart.
+ */
+export function keepListed<R extends Row>(
+  rows: readonly R[],
+  col: string,
+  listed: ReadonlySet<unknown>
+): { rows: R[]; left: number; listed: boolean } {
+  if (!listed.size) return { rows: [...rows], left: 0, listed: false };
+  const kept = rows.filter((r) => listed.has(r[col]));
+  return { rows: kept, left: rows.length - kept.length, listed: true };
 }
 
 /** A kept x/y: a numeric column of the source, else the first two columns
@@ -81,8 +106,8 @@ export function scatterAxes(x: string, y: string, numeric: readonly string[]): {
 export type ScatterPoint = { label: string; team: string; x: number; y: number };
 
 /**
- * Rows → points: a row whose x or y is null or not finite is not plotted and
- * is counted per axis. `nameOf` renames `source.names.col` (a team id).
+ * Rows → points: a row whose x or y is null or not finite (after
+ * `cellNumber`) is not plotted and is counted per axis. `nameOf` renames `source.names.col` (a team id).
  */
 export function scatterPoints(
   rows: readonly Row[],
@@ -100,10 +125,10 @@ export function scatterPoints(
   let missingX = 0;
   let missingY = 0;
   for (const r of rows) {
-    const [vx, vy] = [r[x], r[y]];
-    if (!finite(vx)) missingX++;
-    if (!finite(vy)) missingY++;
-    if (finite(vx) && finite(vy)) points.push({ label: text(r, source.labelCol), team: text(r, source.teamCol), x: vx, y: vy });
+    const [vx, vy] = [cellNumber(r[x]), cellNumber(r[y])];
+    if (!Number.isFinite(vx)) missingX++;
+    if (!Number.isFinite(vy)) missingY++;
+    if (Number.isFinite(vx) && Number.isFinite(vy)) points.push({ label: text(r, source.labelCol), team: text(r, source.teamCol), x: vx, y: vy });
   }
   return { points, missingX, missingY };
 }

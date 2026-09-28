@@ -14,19 +14,26 @@ import { median, nearest, paddedDomain, type ScatterPoint } from "@lib/platform/
  * are canvas text at device-pixel scale; the hover label is HTML.
  */
 
-const PAD = { l: 52, r: 16, t: 34, b: 26 };
+/** The right gutter holds the Y median's caption, clear of every mark. */
+const PAD = { l: 52, r: 52, t: 34, b: 26 };
 const R = 4; // dot radius: an 8 px marker
 const RING = 2; // the surface ring around every dot
 /** The ring is a subtle stroke, drawn per mark while marks are countable. */
 const RING_ALPHA = 0.5;
-/** Marks' ring discs over this share of the plot area are too dense to count:
- *  per-mark rings, at any opacity, stack into surface and paint the densest
- *  band (MBB player value, ~10k marks) as empty. Past it, one solid fill.
- *  ponytail: a fixed share; a density grid would pick per region. */
+/** Marks' ring discs over this share of the plot area are too dense to count
+ *  (MBB player value, ~10k marks; NBA on a phone, 1.14): per-mark rings stack
+ *  into surface and paint the densest band as empty. Past it, no rings, and
+ *  every mark at DENSE_ALPHA so overlaps build up: 1 mark 50%, 2 75%, 3 88%,
+ *  4 94%. 0.5 keeps an isolated mark at 1.98:1 (light) / 2.15:1 (dark) on
+ *  card, DESIGN.md's ~2:1 floor for a mark told apart by eye (chart-seq-2);
+ *  0.35 would drop it to 1.59 / 1.67:1. The table view carries the values.
+ *  ponytail: opacity saturates about 4 marks deep, so a core of dozens reads
+ *  as one flat block; a hexbin or density grid is the upgrade. */
 const DENSE = 0.5;
+const DENSE_ALPHA = 0.5;
 const HIT_PX = 20;
 
-/** Canvas colours: theme tokens, resolved per draw. */
+/** Canvas colours: theme tokens, resolved once per theme. */
 const TOKENS = {
   mark: "--color-chart-cat-1",
   surface: "--color-card",
@@ -79,6 +86,8 @@ export default function ScatterCanvas({
   // marks (source, season or axis switch) drops it without an effect.
   const [hovered, setHovered] = useState<{ of: readonly ScatterPoint[]; i: number } | null>(null);
   const hover = hovered?.of === points ? hovered.i : null;
+  // Token colours and the font, read off the DOM once per theme, not per hover.
+  const style = useRef<{ theme: number; c: Record<keyof typeof TOKENS, string>; font: string } | null>(null);
 
   const geo = useMemo(() => {
     const xs = points.map((p) => p.x);
@@ -96,6 +105,7 @@ export default function ScatterCanvas({
       yTicks: niceTicks(y0, y1, H < 400 ? 4 : 6),
       mx: median(xs),
       my: median(ys),
+      dense: (points.length * Math.PI * (R + RING) ** 2) / (plotW * plotH) > DENSE,
     };
   }, [points, W, H]);
 
@@ -105,8 +115,11 @@ export default function ScatterCanvas({
     if (!host || !el || W <= 0) return;
     const frame = requestAnimationFrame(() => {
       const ctx = sizeCanvas(el, W, H);
-      const c = Object.fromEntries(Object.entries(TOKENS).map(([k, v]) => [k, resolveColor(host, v)])) as Record<keyof typeof TOKENS, string>;
-      const font = getComputedStyle(host).fontFamily;
+      if (style.current?.theme !== theme) {
+        const c = Object.fromEntries(Object.entries(TOKENS).map(([k, v]) => [k, resolveColor(host, v)]));
+        style.current = { theme, c: c as Record<keyof typeof TOKENS, string>, font: getComputedStyle(host).fontFamily };
+      }
+      const { c, font } = style.current;
       const crisp = (v: number) => Math.round(v) + 0.5;
       const [left, right, top, bottom] = [PAD.l, W - PAD.r, PAD.t, H - PAD.b];
 
@@ -136,8 +149,8 @@ export default function ScatterCanvas({
         ctx.fillText(formatValue(t), left - 6, y);
       }
 
-      // Dots, each in a 2 px surface ring so overlaps stay countable (dense
-      // sets aside, see DENSE). Every hover change repaints them all.
+      // Dots, each in a 2 px surface ring so overlaps stay countable, or, past
+      // DENSE, translucent and ringless. Every hover change repaints them all.
       // ponytail: ~10k marks (MBB player value) repaint in one frame; cache
       // the base layer offscreen if faces (T3) push a frame past 16 ms.
       const dot = (x: number, y: number, ringAlpha: number) => {
@@ -153,15 +166,16 @@ export default function ScatterCanvas({
         ctx.fillStyle = c.mark;
         ctx.fill();
       };
-      const coverage = (geo.px.length * Math.PI * (R + RING) ** 2) / ((right - left) * (bottom - top));
-      if (coverage > DENSE) {
-        ctx.beginPath();
-        for (const p of geo.px) {
-          ctx.moveTo(p.px + R, p.py);
-          ctx.arc(p.px, p.py, R, 0, Math.PI * 2);
-        }
+      if (geo.dense) {
+        // One path per mark: a single path would fill its overlaps once.
+        ctx.globalAlpha = DENSE_ALPHA;
         ctx.fillStyle = c.mark;
-        ctx.fill();
+        for (const p of geo.px) {
+          ctx.beginPath();
+          ctx.arc(p.px, p.py, R, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
       } else for (const p of geo.px) dot(p.px, p.py, RING_ALPHA);
 
       // The median crosshair, each line captioned MEDIAN over its bold value.
@@ -203,7 +217,7 @@ export default function ScatterCanvas({
         const flip = x > right - 70;
         caption("MEDIAN", formatValue(geo.mx), flip ? x - 5 : x + 5, top - 4, flip ? "right" : "left");
       }
-      if (geo.my != null) caption("MEDIAN", formatValue(geo.my), right - 4, geo.sy(geo.my) - 5, "right");
+      if (geo.my != null) caption("MEDIAN", formatValue(geo.my), W - 2, geo.sy(geo.my) - 5, "right");
 
       // The hovered mark, redrawn on top inside a ring of text ink.
       if (hover != null && geo.px[hover]) {
@@ -234,6 +248,7 @@ export default function ScatterCanvas({
       ref={box}
       data-testid="scatter-canvas"
       data-marks={points.length}
+      data-dense={geo.dense ? "true" : "false"}
       data-median-x={geo.mx ?? ""}
       data-median-y={geo.my ?? ""}
       data-plot={JSON.stringify({ l: PAD.l, r: PAD.r, t: PAD.t, b: PAD.b, x: [geo.x0, geo.x1], y: [geo.y0, geo.y1] })}
@@ -247,7 +262,11 @@ export default function ScatterCanvas({
         style={{ width: W, height: H }}
         onPointerMove={onPointer}
         onPointerDown={onPointer}
-        onPointerLeave={() => setHovered(null)}
+        // A finger lift fires pointerleave too: only a mouse leaving clears
+        // the label. A tap on empty space clears it (onPointer, no mark).
+        onPointerLeave={(e) => {
+          if (e.pointerType === "mouse") setHovered(null);
+        }}
       />
       {hp && at ? (
         <div

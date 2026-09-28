@@ -8,7 +8,7 @@ import { scatterViewParams, type ScatterView } from "@lib/platform/viewState";
 import { API_MAX_ROWS, loadSequencer } from "@lib/platform/wp";
 import { apiRows } from "@lib/platform/queryRun";
 import { formatValue, teamNameLookup } from "@lib/platform/trends";
-import { filledColumns, missingNote, numericColumns, scatterAxes, scatterPoints } from "@lib/platform/viz/scatterMath";
+import { filledColumns, keepListed, missingNote, numericColumns, scatterAxes, scatterPoints } from "@lib/platform/viz/scatterMath";
 import ScatterCanvas from "@components/platform/viz/ScatterCanvas";
 import useUrlMirror from "@hooks/useUrlMirror";
 
@@ -20,8 +20,17 @@ import useUrlMirror from "@hooks/useUrlMirror";
  */
 
 type Row = Record<string, unknown>;
-/** One (source, season) read, keyed so a switch never paints another's rows. */
-type Loaded = { key: string; rows: Row[]; nameOf?: Map<number | string, string>; unnamed: number };
+/** One (source, season) read, keyed so a switch never paints another's rows.
+ *  `left`: rows outside `names.only` (non-D-I), left out; `unlisted`: the
+ *  season has no such list, so nothing was left out. */
+type Loaded = {
+  key: string;
+  rows: Row[];
+  nameOf?: Map<number | string, string>;
+  unnamed: number;
+  left: number;
+  unlisted: boolean;
+};
 
 const catalogFetcher = async (url: string) => {
   const res = await fetch(url);
@@ -41,11 +50,12 @@ async function seasonList(src: ScatterSource): Promise<string[]> {
   return Array.from({ length: b - a + 1 }, (_, i) => String(b - i));
 }
 
-/** Rail rows grouped by first letter, A–Z (no metric registry yet). */
+/** Rail rows grouped by first letter, A–Z (no metric registry yet), then
+ *  every `_rank` column under "Ranks" (numericColumns sorts them last). */
 function byLetter(cols: readonly string[]): [string, string[]][] {
   const out = new Map<string, string[]>();
   for (const c of cols) {
-    const k = /[a-z]/i.test(c[0]) ? c[0].toUpperCase() : "#";
+    const k = /_rank$/.test(c) ? "Ranks" : /[a-z]/i.test(c[0]) ? c[0].toUpperCase() : "#";
     out.set(k, [...(out.get(k) ?? []), c]);
   }
   return [...out];
@@ -73,8 +83,10 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
   const shown = loaded?.key === loadKey ? loaded : null;
 
   useEffect(() => {
-    if (!activeSeason) return;
+    // The ticket first: a switch to a source whose seasons are still loading
+    // abandons the in-flight read too, so it cannot set the busy or error state.
     const ticket = runs.next();
+    if (!activeSeason) return;
     (async () => {
       setBusy(true);
       setError(null);
@@ -95,14 +107,18 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
         ]);
         if (!runs.isLatest(ticket)) return;
         let nameOf: Map<number | string, string> | undefined;
-        let unnamed = 0;
+        let [kept, unnamed, left, unlisted] = [rows, 0, 0, false];
         if (names && nameRows) {
-          const ids = [...new Set(rows.map((r) => r[names.col]).filter((v) => v != null))];
-          nameOf = teamNameLookup(ids, nameRows, names);
+          // teamNameLookup asserts both key types before anything is matched.
+          nameOf = teamNameLookup([...new Set(rows.map((r) => r[names.col]).filter((v) => v != null))], nameRows, names);
           const known = new Set(nameRows.map((r) => r[names.key]));
-          unnamed = ids.filter((id) => !known.has(id)).length;
+          if (names.only) {
+            const d1 = keepListed(rows, names.col, known);
+            [kept, left, unlisted] = [d1.rows, d1.left, !d1.listed];
+          }
+          unnamed = new Set(kept.map((r) => r[names.col]).filter((v) => v != null && !known.has(v))).size;
         }
-        setLoaded({ key: loadKey, rows, nameOf, unnamed });
+        setLoaded({ key: loadKey, rows: kept, nameOf, unnamed, left, unlisted });
       } catch (e) {
         if (runs.isLatest(ticket)) setError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -112,7 +128,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one read per (source, season)
   }, [loadKey]);
 
-  const numeric = useMemo(() => (catalog?.[src.table] ? numericColumns(catalog[src.table], src) : []), [catalog, src]);
+  const numeric = useMemo(() => (catalog?.[src.table] ? numericColumns(catalog[src.table]) : []), [catalog, src]);
   // Once rows land, only the columns they fill (an nba_stats slice fills 75 of 201).
   const axes = useMemo(() => (shown ? filledColumns(numeric, shown.rows) : numeric), [numeric, shown]);
   const ax = axes.length ? scatterAxes(pick.x, pick.y, axes) : pick;
@@ -136,6 +152,8 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
         shown.rows.length >= Number(API_MAX_ROWS)
           ? `The Data API stops at ${Number(API_MAX_ROWS).toLocaleString("en-US")} rows and this season reached it: some ${noun} are missing.`
           : "",
+        shown.left ? `${shown.left.toLocaleString("en-US")} non-${src.names?.only} ${noun} left out.` : "",
+        shown.unlisted ? `No ${src.names?.only} list for ${activeSeason}: every ${noun.replace(/s$/, "")} is shown.` : "",
         shown.rows.length ? "" : `No ${noun} in ${activeSeason}.`,
         plotted ? missingNote(noun, [[ax.x, plotted.missingX], [ax.y, plotted.missingY]]) : "",
         shown.unnamed && src.names
@@ -178,17 +196,19 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
       </div>
 
       <p data-testid="scatter-note" role="status" className="mb-3 min-h-5 font-inter text-sm text-muted-foreground">
-        {busy ? `Loading ${src.label} ${activeSeason}…` : notes.join(" ")}
+        {busy && activeSeason ? `Loading ${src.label} ${activeSeason}…` : notes.join(" ")}
       </p>
 
       {failure ? (
-        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 font-mono text-xs text-destructive">
+        <div data-testid="scatter-error" className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 font-mono text-xs text-destructive">
           {failure}
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)]">
-        <section className="order-1 min-w-0 lg:order-2">
+      {/* Chart first, rail after it, in the DOM and on screen alike: stacked on
+          a phone, the rail to the chart's right on a desktop. */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_15rem]">
+        <section className="min-w-0">
           {plotted && points.length ? (
             <div className="rounded-lg border border-border bg-card p-4">
               <h3 data-testid="scatter-title" className="font-barlow text-lg font-semibold">
@@ -206,15 +226,14 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
               </p>
               <button
                 type="button"
-                aria-pressed={showTable}
-                aria-controls="scatter-table"
+                aria-expanded={showTable}
                 onClick={() => setShowTable((v) => !v)}
                 className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1 font-inter text-sm hover:bg-muted"
               >
                 <Table2 className="h-4 w-4" /> Table
               </button>
               {showTable ? (
-                <div id="scatter-table" className="mt-3 max-h-96 overflow-auto rounded-md border border-border">
+                <div className="mt-3 max-h-96 overflow-auto rounded-md border border-border">
                   <table data-testid="scatter-table" className="w-full font-inter text-sm">
                     <caption className="sr-only">
                       {ax.y} vs {ax.x}, {activeSeason}: every plotted {noun.replace(/s$/, "")}, A–Z
@@ -248,7 +267,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
           ) : null}
         </section>
 
-        <aside className="order-2 min-w-0 lg:order-1" aria-label="Axes">
+        <aside className="min-w-0" aria-label="Axes">
           <input
             type="search"
             value={filter}
@@ -257,42 +276,47 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
             aria-label="Filter columns"
             className={`${selectClass} mb-2 w-full`}
           />
-          <div className="max-h-72 overflow-y-auto rounded-md border border-border bg-card lg:max-h-[36rem]">
-            <div className="sticky top-0 z-10 grid grid-cols-[1fr_2rem_2rem] items-center bg-card px-3 py-1.5 font-inter text-xs font-medium text-muted-foreground">
-              <span>Column</span>
-              <span className="text-center">X</span>
-              <span className="text-center">Y</span>
-            </div>
-            {rail.map(([letter, cols]) => (
-              <div key={letter}>
-                <p className="px-3 pt-2 font-mono text-[11px] text-muted-foreground">{letter}</p>
-                {cols.map((c) => (
-                  <div key={c} data-testid="scatter-rail-row" className="grid grid-cols-[1fr_2rem_2rem] items-center px-3 py-0.5 font-inter text-sm hover:bg-muted/60">
-                    <span className="truncate" title={c}>
-                      {c}
-                    </span>
-                    <input
-                      type="radio"
-                      name="scatter-x"
-                      aria-label={`X: ${c}`}
-                      checked={ax.x === c}
-                      onChange={() => setPick({ x: c, y: ax.y })}
-                      className="mx-auto accent-primary"
-                    />
-                    <input
-                      type="radio"
-                      name="scatter-y"
-                      aria-label={`Y: ${c}`}
-                      checked={ax.y === c}
-                      onChange={() => setPick({ x: ax.x, y: c })}
-                      className="mx-auto accent-primary"
-                    />
-                  </div>
-                ))}
+          {/* X and Y radios share each row, so one fieldset labels both groups;
+              each radio's own name says which axis it sets. */}
+          <fieldset className="min-w-0">
+            <legend className="sr-only">Axes: pick one X column and one Y column</legend>
+            <div className="max-h-72 overflow-y-auto rounded-md border border-border bg-card lg:max-h-[36rem]">
+              <div className="sticky top-0 z-10 grid grid-cols-[1fr_2rem_2rem] items-center bg-card px-3 py-1.5 font-inter text-xs font-medium text-muted-foreground">
+                <span>Column</span>
+                <span className="text-center">X</span>
+                <span className="text-center">Y</span>
               </div>
-            ))}
-            {rail.length ? null : <p className="px-3 py-2 font-inter text-sm text-muted-foreground">No column matches.</p>}
-          </div>
+              {rail.map(([letter, cols]) => (
+                <div key={letter}>
+                  <p className="px-3 pt-2 font-mono text-[11px] text-muted-foreground">{letter}</p>
+                  {cols.map((c) => (
+                    <div key={c} data-testid="scatter-rail-row" className="grid grid-cols-[1fr_2rem_2rem] items-center px-3 py-0.5 font-inter text-sm hover:bg-muted/60">
+                      <span className="truncate" title={c}>
+                        {c}
+                      </span>
+                      <input
+                        type="radio"
+                        name="scatter-x"
+                        aria-label={`X: ${c}`}
+                        checked={ax.x === c}
+                        onChange={() => setPick({ x: c, y: ax.y })}
+                        className="mx-auto accent-primary"
+                      />
+                      <input
+                        type="radio"
+                        name="scatter-y"
+                        aria-label={`Y: ${c}`}
+                        checked={ax.y === c}
+                        onChange={() => setPick({ x: ax.x, y: c })}
+                        className="mx-auto accent-primary"
+                      />
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {rail.length ? null : <p className="px-3 py-2 font-inter text-sm text-muted-foreground">No column matches.</p>}
+            </div>
+          </fieldset>
         </aside>
       </div>
     </>

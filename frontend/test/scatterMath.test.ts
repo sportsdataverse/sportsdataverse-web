@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SCATTER_SOURCES } from '../content/scatter.ts';
 import {
+  cellNumber,
   filledColumns,
+  keepListed,
   median,
   missingNote,
   nearest,
@@ -47,20 +49,42 @@ test('nearest: -1 beyond 20 px, the closer of two marks, a tie to the lower inde
   assert.equal(nearest([], 0, 0), -1);
 });
 
-test('numericColumns: numeric catalog types only, no ids, season or fixed filters, A-Z', () => {
+test('numericColumns: numeric catalog types only, no ids or season, A-Z with every _rank last', () => {
   const catalog = {
     player_id: 'bigint', player_name: 'text', team_id: 'bigint', season: 'bigint', season_type: 'text',
     w_pct: 'double precision', GP: 'bigint', ast: 'integer', off_rating: 'numeric', flag: 'boolean',
+    ast_rank: 'bigint', gp_rank: 'bigint',
   };
-  assert.deepEqual(numericColumns(catalog, source('nba', 'player_impact')), ['ast', 'GP', 'off_rating', 'w_pct']);
+  assert.deepEqual(numericColumns(catalog), ['ast', 'GP', 'off_rating', 'w_pct', 'ast_rank', 'gp_rank']);
   // NFL's player_id is text: dropped as not numeric, never as a stat
-  const nfl = numericColumns({ player_id: 'text', pos_team: 'text', season: 'bigint', yards: 'double precision' }, source('nfl', 'passing'));
-  assert.deepEqual(nfl, ['yards']);
+  assert.deepEqual(numericColumns({ player_id: 'text', pos_team: 'text', season: 'bigint', yards: 'double precision' }), ['yards']);
 });
 
-test('filledColumns keeps columns with any finite value', () => {
-  const rows = [{ a: null, b: 1, c: Number.NaN }, { a: null, b: null, c: '3' }];
-  assert.deepEqual(filledColumns(['a', 'b', 'c'], rows), ['b']);
+test('cellNumber: numbers as they are, Postgres numeric strings converted, everything else NaN', () => {
+  assert.equal(cellNumber(3.5), 3.5);
+  assert.equal(cellNumber('12.50'), 12.5);
+  assert.equal(cellNumber('-0.3'), -0.3);
+  for (const v of [null, undefined, '', '  ', 'n/a', true, {}]) assert.ok(Number.isNaN(cellNumber(v)), String(v));
+  assert.equal(cellNumber('Infinity'), Infinity); // numeric, then dropped by the finite check
+});
+
+test('filledColumns keeps columns with any finite value, a numeric string included', () => {
+  const rows = [{ a: null, b: 1, c: Number.NaN, d: '' }, { a: null, b: null, c: '3', d: 'x' }];
+  assert.deepEqual(filledColumns(['a', 'b', 'c', 'd'], rows), ['b', 'c']);
+});
+
+test('keepListed keeps rows on the list and counts the rest; no list filters nothing', () => {
+  const rows = [{ team_id: '150' }, { team_id: '99' }, { team_id: null }, { team_id: '150' }];
+  const d1 = keepListed(rows, 'team_id', new Set(['150', '2']));
+  assert.deepEqual(d1, { rows: [{ team_id: '150' }, { team_id: '150' }], left: 2, listed: true });
+  assert.deepEqual(keepListed(rows, 'team_id', new Set()), { rows, left: 0, listed: false });
+  // keys compare by value and type: a number id is not its string
+  assert.equal(keepListed([{ team_id: 150 }], 'team_id', new Set(['150'])).left, 1);
+});
+
+test('the college hoops sources keep D-I only; no other source filters', () => {
+  const only = SCATTER_SOURCES.filter((s) => s.names?.only).map((s) => `${s.schema}.${s.table}:${s.names?.only}`);
+  assert.deepEqual(only, ['mbb.player_value:D-I', 'wbb.player_value:D-I', 'mbb.ratings:D-I']);
 });
 
 test('scatterAxes keeps valid picks and falls back to the first two numeric columns', () => {
@@ -80,10 +104,14 @@ test('scatterPoints drops null and non-finite x or y, counting each axis, and na
     { player: 'B', team_id: '99', min: null, box_bpm: 1 },
     { player: 'C', team_id: '150', min: 5, box_bpm: Number.POSITIVE_INFINITY },
     { player: 'D', team_id: '150', min: null, box_bpm: null },
-    { player: 'E', team_id: '150', min: '7', box_bpm: 1 }, // a string is not a number
+    { player: 'E', team_id: '150', min: '7', box_bpm: '1.5' }, // Postgres numeric arrives as a string
+    { player: 'F', team_id: '150', min: 'n/a', box_bpm: 1 },
   ];
   const { points, missingX, missingY } = scatterPoints(rows, src, 'min', 'box_bpm', new Map([['150', 'Duke Blue Devils']]));
-  assert.deepEqual(points, [{ label: 'A', team: 'Duke Blue Devils', x: 10, y: 2 }]);
+  assert.deepEqual(points, [
+    { label: 'A', team: 'Duke Blue Devils', x: 10, y: 2 },
+    { label: 'E', team: 'Duke Blue Devils', x: 7, y: 1.5 },
+  ]);
   assert.equal(missingX, 3);
   assert.equal(missingY, 2);
   // a team table: the label IS the named id; unnamed ids stay themselves
@@ -97,15 +125,33 @@ test('missingNote reads per axis, singular and plural, skipping zeros', () => {
   assert.equal(missingNote('players', [['x', 0], ['y', 0]]), '');
 });
 
-test('sizeCanvas backs CSS px with DPR device pixels and scales the context', () => {
-  const calls: number[][] = [];
-  const canvas = { width: 0, height: 0, style: { width: '', height: '' }, getContext: () => ({ setTransform: (...a: number[]) => calls.push(a) }) };
-  const ctx = sizeCanvas(canvas as unknown as HTMLCanvasElement, 300.5, 200, 2);
-  assert.ok(ctx);
-  assert.deepEqual([canvas.width, canvas.height, canvas.style.width, canvas.style.height], [601, 400, '300.5px', '200px']);
-  assert.deepEqual(calls, [[2, 0, 0, 2, 0, 0]]);
-  sizeCanvas(canvas as unknown as HTMLCanvasElement, 100, 50, 1);
-  assert.deepEqual([canvas.width, canvas.height], [100, 50]);
+test('sizeCanvas backs CSS px with DPR device pixels, reallocating only on a size change', () => {
+  const calls: string[] = [];
+  let [w, h, writes] = [0, 0, 0];
+  const ctx2d = {
+    setTransform: (...a: number[]) => calls.push(`t${a.join(',')}`),
+    clearRect: (...a: number[]) => calls.push(`c${a.join(',')}`),
+  };
+  const canvas = {
+    get width() { return w; },
+    set width(v: number) { w = v; writes++; },
+    get height() { return h; },
+    set height(v: number) { h = v; writes++; },
+    style: { width: '', height: '' },
+    getContext: () => ctx2d,
+  };
+  const size = (cw: number, ch: number, dpr: number) => sizeCanvas(canvas as unknown as HTMLCanvasElement, cw, ch, dpr);
+  assert.ok(size(300.5, 200, 2));
+  assert.deepEqual([w, h, canvas.style.width, canvas.style.height, writes], [601, 400, '300.5px', '200px', 2]);
+  // the scale is applied after a clear at identity: drawing works in CSS px
+  assert.deepEqual(calls, ['t1,0,0,1,0,0', 'c0,0,601,400', 't2,0,0,2,0,0']);
+  size(300.5, 200, 2); // a hover redraw: same size, cleared, not reallocated
+  assert.equal(writes, 2);
+  assert.deepEqual(calls.slice(3), ['t1,0,0,1,0,0', 'c0,0,601,400', 't2,0,0,2,0,0']);
+  size(300.5, 200, 1); // a DPR change reallocates
+  assert.deepEqual([w, h, writes], [301, 200, 4]);
+  size(100, 50, 1);
+  assert.deepEqual([w, h], [100, 50]);
   const dead = { ...canvas, getContext: () => null };
   assert.throws(() => sizeCanvas(dead as unknown as HTMLCanvasElement, 1, 1, 1), /no 2d canvas context/);
 });
