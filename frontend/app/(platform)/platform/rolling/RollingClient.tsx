@@ -31,10 +31,10 @@ import useUrlMirror from "@hooks/useUrlMirror";
 type Params = Record<string, string>;
 const rollingRows = async (p: Params) => (await apiRows(p)) as unknown as RollingRow[];
 
-function Delta({ value, m }: { value: number | null; m: RollingMetric }) {
+function Delta({ value, m, n }: { value: number | null; m: RollingMetric; n: number }) {
   if (value == null) return <span className="font-mono text-muted-foreground">–</span>;
   return (
-    <span className={`whitespace-nowrap font-mono ${deltaTone(value, m.noise)}`}>
+    <span className={`whitespace-nowrap font-mono ${deltaTone(value, m.noise[n])}`}>
       {formatDelta(value).glyph} {formatUnits(value, m.format)}
     </span>
   );
@@ -48,7 +48,7 @@ function HeroCard({ row, m, n }: { row: RollingRow; m: RollingMetric; n: number 
       </span>
       <div className="mt-3 font-barlow text-4xl font-semibold tabular-nums">{formatValue(row.cur, m.format)}</div>
       <div className="mt-1 text-sm">
-        <Delta value={row.delta_season} m={m} />{" "}
+        <Delta value={row.delta_season} m={m} n={n} />{" "}
         <span className="font-inter text-xs text-muted-foreground">
           {row.delta_season == null ? "no full window before the season" : "vs season start"}
         </span>
@@ -59,7 +59,7 @@ function HeroCard({ row, m, n }: { row: RollingRow; m: RollingMetric; n: number 
   );
 }
 
-function MoverRow({ r, m }: { r: RollingRow; m: RollingMetric }) {
+function MoverRow({ r, m, n }: { r: RollingRow; m: RollingMetric; n: number }) {
   const prev = r.prev == null ? "–" : formatValue(r.prev, m.format);
   return (
     <tr className="border-t border-border">
@@ -72,7 +72,7 @@ function MoverRow({ r, m }: { r: RollingRow; m: RollingMetric }) {
       </td>
       <td className="hidden px-3 py-1.5 text-right font-mono text-xs text-muted-foreground sm:table-cell">{prev}</td>
       <td className="px-1.5 py-1.5 text-right text-xs sm:px-3">
-        <Delta value={r.delta_prev} m={m} />
+        <Delta value={r.delta_prev} m={m} n={n} />
       </td>
     </tr>
   );
@@ -193,7 +193,7 @@ export default function RollingClient({ initial }: { initial: RollingView }) {
       {asOf ? (
         <p data-testid="rolling-span" className="mb-6 font-mono text-xs text-muted-foreground">
           Window: last {windowLabel(n, m.unit)} (full windows only) · as of {asOf} ·{" "}
-          {view.active ? `active = an event since ${since}` : "active filter off"}
+          {view.active ? `active = an event since ${since}` : "active filter off"} · windows span seasons
         </p>
       ) : null}
 
@@ -249,13 +249,13 @@ export default function RollingClient({ initial }: { initial: RollingView }) {
               </thead>
               <tbody>
                 {moves.data.top.map((r) => (
-                  <MoverRow key={r.entity_id} r={r} m={m} />
+                  <MoverRow key={r.entity_id} r={r} m={m} n={n} />
                 ))}
                 <tr aria-hidden="true">
                   <td colSpan={5} className="h-4" />
                 </tr>
                 {moves.data.bottom.map((r) => (
-                  <MoverRow key={r.entity_id} r={r} m={m} />
+                  <MoverRow key={r.entity_id} r={r} m={m} n={n} />
                 ))}
               </tbody>
             </table>

@@ -38,12 +38,21 @@ test('windowLabel pluralizes the unit', () => {
 
 test('a card query filters the unit and full windows; active adds the date floor', () => {
   const m = ROLLING.cfb[0];
-  const p = cardParams('cfb', m, 50, '2026', '2026-09-12', '-delta_prev', 5);
+  const p = cardParams('cfb', m, 300, '2026', '2026-09-12', '-delta_prev', 5); // not windows[0]
   assert.deepEqual(
     [p.schema, p.table, p.season, p.metric, p.window_unit, p.window_n, p.entity_type, p.qualified, p.last_event_date__gte, p.order, p.limit],
-    ['cfb', 'rolling_windows', '2026', m.metric, m.unit, '50', m.entity, 'true', '2026-09-12', '-delta_prev', '5']
+    ['cfb', 'rolling_windows', '2026', m.metric, m.unit, '300', m.entity, 'true', '2026-09-12', '-delta_prev', '5']
   );
   assert.equal('last_event_date__gte' in cardParams('cfb', m, 50, '2026', null, 'cur', 3), false);
+});
+
+test('every configured entry has a noise threshold for exactly its windows', () => {
+  for (const [league, entries] of Object.entries(ROLLING)) {
+    for (const e of entries) {
+      assert.deepEqual(Object.keys(e.noise).map(Number), e.windows, `${league} ${e.metric}/${e.unit}`);
+      for (const v of Object.values(e.noise)) assert.ok(v > 0, `${league} ${e.metric}/${e.unit} noise ${v}`);
+    }
+  }
 });
 
 test('movers drops null deltas, never lists an entity twice, and ends on the biggest faller', () => {
