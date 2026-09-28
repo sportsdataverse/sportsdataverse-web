@@ -197,7 +197,7 @@ function gameDate(raw: string): string {
 
 /**
  * The PNG export's header and footer: `Away @ Home · final A–H · date` over
- * `<page URL> · data as of <asOf>`. `asOf` is the season release asset's
+ * `<page URL> · release updated <asOf>`. `asOf` is the season release asset's
  * `updated_at` (GitHub, UTC). A part the page doesn't have drops out.
  */
 export function wpExportText(game: GameOption, url: string, asOf?: string): { title: string; footer: string } {
@@ -207,6 +207,6 @@ export function wpExportText(game: GameOption, url: string, asOf?: string): { ti
     home.score && away.score ? `final ${away.score}–${home.score}` : "",
     gameDate(game.date),
   ];
-  const footer = [url, asOf ? `data as of ${asOf.slice(0, 16).replace("T", " ")} UTC` : ""];
+  const footer = [url, asOf ? `release updated ${asOf.slice(0, 16).replace("T", " ")} UTC` : ""];
   return { title: title.filter(Boolean).join(" · "), footer: footer.filter(Boolean).join(" · ") };
 }

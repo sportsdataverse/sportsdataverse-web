@@ -202,7 +202,7 @@ test('wpExportFilename: sport key + game id', () => {
 
 const PAGE = 'https://sportsdataverse.org/platform/wp?sport=cfb&season=2024&game=401628374';
 
-test('wpExportText: "Away @ Home · final A–H · date" over "URL · data as of <asset time>"', () => {
+test('wpExportText: "Away @ Home · final A–H · date" over "URL · release updated <asset time>"', () => {
   // cfb.schedule start_date is a UTC kickoff: 02:30Z on the 15th is 10:30 PM ET on the 14th.
   const [g] = gameOptionsFromSchedule(
     [{ game_id: 401628374, week: 3, home_team: 'Home', away_team: 'Away', home_id: 333, away_id: 61, start_date: '2024-09-15T02:30:00.000Z', home_points: 42, away_points: 10 }],
@@ -210,7 +210,7 @@ test('wpExportText: "Away @ Home · final A–H · date" over "URL · data as of
   );
   assert.deepEqual(wpExportText(g, PAGE, '2026-09-20T14:03:11Z'), {
     title: 'Away @ Home · final 10–42 · Sep 14, 2024',
-    footer: `${PAGE} · data as of 2026-09-20 14:03 UTC`,
+    footer: `${PAGE} · release updated 2026-09-20 14:03 UTC`,
   });
 });
 

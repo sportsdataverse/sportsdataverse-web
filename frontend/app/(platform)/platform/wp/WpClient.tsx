@@ -464,7 +464,7 @@ export default function WpClient({ initial }: { initial: WpView }) {
         ) : null}
         {busy ? <span className="font-inter text-sm text-muted-foreground">{busy}</span> : null}
         <Button variant="outline" size="sm" className="ml-auto" onClick={exportPng} disabled={!chartReady}>
-          <Download className="mr-2 h-4 w-4" />
+          <Download />
           Export PNG
         </Button>
       </div>
