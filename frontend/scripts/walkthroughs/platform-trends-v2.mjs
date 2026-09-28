@@ -132,7 +132,7 @@ const trendsV2 = async (page, base) => {
   await page.locator(WEEKLY_CHART).waitFor({ timeout: 120_000 });
   await idle();
   for (const t of WEEKLY) await has(legend, t);
-  await has(legend, 'Week ');
+  await has(legend, 'Through week '); // CFB's week W includes week W (NFL's is 'Entering week')
   await count(page.getByTestId('trends-end-label'), 2, 'weekly end labels');
   const wbox = await page.locator(WEEKLY_CHART).boundingBox();
   await page.mouse.move(wbox.x + wbox.width * 0.3, wbox.y + wbox.height / 2, { steps: 8 });

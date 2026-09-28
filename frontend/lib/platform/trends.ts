@@ -77,13 +77,30 @@ export function spreadLabels(ys: readonly number[], gap: number, lo: number, hi:
  * label stays in the gutter, where spacing them is a 1-D problem.
  */
 export function endLabels(
-  ends: readonly { x: number; y: number }[],
+  ys: readonly number[],
   right: number,
   gap: number,
   lo: number,
   hi: number
 ): { x: number; y: number }[] {
-  return spreadLabels(ends.map((e) => e.y), gap, lo, hi).map((y) => ({ x: right, y }));
+  return spreadLabels(ys, gap, lo, hi).map((y) => ({ x: right, y }));
+}
+
+/**
+ * The last week a weekly file actually played: the file-wide games total,
+ * week by week, stops changing once a producer forward-fills unplayed weeks
+ * (CFB 2026 repeats week 4 through week 15). That flat tail is trimmed; a
+ * week that still adds games (a partial postseason) is kept. No rows: no trim.
+ * A total that is not a number throws: it would otherwise never look flat.
+ */
+export function lastPlayedWeek(pairs: readonly { week: number; gamesTotal: number }[]): number {
+  const bad = pairs.find((p) => !Number.isFinite(p.gamesTotal));
+  if (bad) throw new Error(`week ${bad.week}: games total is not a number`);
+  const byWeek = [...pairs].sort((a, b) => a.week - b.week);
+  let i = byWeek.length - 1;
+  if (i < 0) return Infinity;
+  while (i > 0 && byWeek[i - 1].gamesTotal === byWeek[i].gamesTotal) i--;
+  return byWeek[i].week;
 }
 
 type Row = Record<string, unknown>;
@@ -117,12 +134,46 @@ export function wideToSeries(
 const NUMERIC = /^(U?(TINYINT|SMALLINT|INTEGER|BIGINT|HUGEINT)|FLOAT|DOUBLE|DECIMAL)\b/;
 
 /** A wide source's stat picker: the numeric columns of a DuckDB DESCRIBE,
- *  minus the team, season and week columns and any id. */
+ *  minus the team, season and week columns, any id, and the `_n` sample
+ *  sizes (the CFB summaries carry 144 of them). */
 export function statColumns(described: readonly { name: string; type: string }[], cols: TrendSport["cols"]): string[] {
   const skip = new Set([cols.team, cols.season, cols.week]);
   return described
-    .filter((d) => NUMERIC.test(d.type) && !skip.has(d.name) && !/(^|_)id$/i.test(d.name))
+    .filter((d) => NUMERIC.test(d.type) && !skip.has(d.name) && !/(^|_)id$/i.test(d.name) && !/_n$/.test(d.name))
     .map((d) => d.name);
+}
+
+const STAT_GROUPS: [string, RegExp][] = [
+  ["Offense", /_off$/],
+  ["Defense", /_def$/],
+  ["Offense pass/rush", /_off_(pass|rush)$/],
+  ["Defense pass/rush", /_def_(pass|rush)$/],
+  ["Margin", /_margin(_pass|_rush)?$/],
+];
+const lower = (a: string, b: string) => {
+  const [x, y] = [a.toLowerCase(), b.toLowerCase()];
+  return x < y ? -1 : x > y ? 1 : 0;
+};
+
+/** A long stat list as picker groups: offense, defense, their pass/rush
+ *  splits, margin, the rest, and every `_rank` column last. Each group is
+ *  sorted ignoring case; empty groups are dropped. */
+export function statGroups(stats: readonly string[]): { label: string; stats: string[] }[] {
+  const groups = [...STAT_GROUPS.map(([label]) => label), "Other", "Ranks"].map((label) => ({ label, stats: [] as string[] }));
+  for (const stat of stats) {
+    const i = /_rank$/.test(stat) ? groups.length - 1 : STAT_GROUPS.findIndex(([, re]) => re.test(stat));
+    groups[i < 0 ? groups.length - 2 : i].stats.push(stat);
+  }
+  return groups.filter((g) => g.stats.sort(lower).length);
+}
+
+/** A release team-key cell (DuckDB hands back strings) as the join key. A
+ *  number key must be all digits: DuckDB's own BIGINT cast would also take
+ *  '12.5', ' 12 ', '1e2', '0x1F' and '1_000'. */
+export function releaseKey(cell: string, type: TeamNames["keyType"]): number | string {
+  if (type === "string") return cell;
+  if (!/^\d+$/.test(cell)) throw new Error(`release team id ${JSON.stringify(cell)} is not all digits`);
+  return Number(cell);
 }
 
 function assertKeys(values: readonly unknown[], type: TeamNames["keyType"], where: string): void {

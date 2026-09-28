@@ -29,8 +29,14 @@ export type TrendSport = {
   /** season: every season file on one chart; week: one season, by week. */
   xAxis: "season" | "week";
   /** `stat` is long only: the column naming the stat. A wide source's stats
-   *  are its numeric columns, listed by DESCRIBE at load. */
-  cols: { team: string; season: string; week?: string; stat?: string };
+   *  are its numeric columns, listed by DESCRIBE at load. `games` (weekly
+   *  only) dates the file: weeks past the last one that added games are a
+   *  forward-filled tail and are not charted. */
+  cols: { team: string; season: string; week?: string; stat?: string; games?: string };
+  /** What a week number means on the x axis (weekly only). */
+  weekLabel?: "Through week" | "Entering week";
+  /** Group a long stat list into picker sections (lib `statGroups`). */
+  groupStats?: boolean;
   names?: TeamNames;
 };
 
@@ -43,9 +49,11 @@ export const TREND_SPORTS: TrendSport[] = [
   { key: "wnba", label: "WNBA", tag: "espn_wnba_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS },
   // Weekly frames. Columns from DESCRIBE on each release's newest file
   // (2026; 2025 identical), 2026-09-28:
-  // team_id VARCHAR, pos_team VARCHAR (the school), division, conference,
-  // season BIGINT, through_week INTEGER, and 537 numeric stats (`*_off`,
-  // `*_def`, `*_margin`, their `_n` counts and `_rank` columns).
+  // team_id, pos_team (the school), division, conference, fbs_class VARCHAR;
+  // season BIGINT; through_week INTEGER (W = through week W); and 535 numeric
+  // columns: `*_off`, `*_def`, their `_pass`/`_rush` splits, `*_margin`, 144
+  // `_n` sample sizes (not charted) and 186 `_rank` columns. playsgame_off_n
+  // equals the ratings' `games` on every joined row.
   {
     key: "cfb_team_summaries_weekly",
     label: "CFB weekly",
@@ -53,12 +61,15 @@ export const TREND_SPORTS: TrendSport[] = [
     assetPrefix: "cfb_team_summaries_weekly_",
     format: "wide",
     xAxis: "week",
-    cols: { team: "pos_team", season: "season", week: "through_week" },
+    cols: { team: "pos_team", season: "season", week: "through_week", games: "playsgame_off_n" },
+    weekLabel: "Through week",
+    groupStats: true,
   },
   // team_id VARCHAR of digits (the ESPN id, NOT a bigint), season BIGINT,
-  // through_week INTEGER; stats adj_off_epa, adj_def_epa, adj_st_epa, adj_net,
-  // fei_off, fei_def, fei_net, games, off_pace, off_rank, def_rank, net_rank,
-  // net_z. Names: cfb.team_info (team_id bigint, school), ids cast to BIGINT.
+  // through_week INTEGER (W = through week W); stats adj_off_epa, adj_def_epa,
+  // adj_st_epa, adj_net, fei_off, fei_def, fei_net, games, off_pace, off_rank,
+  // def_rank, net_rank, net_z. Names: cfb.team_info (team_id bigint, school);
+  // a release id must be all digits to join (lib `releaseKey`).
   {
     key: "cfb_ratings_weekly",
     label: "CFB ratings",
@@ -66,11 +77,12 @@ export const TREND_SPORTS: TrendSport[] = [
     assetPrefix: "cfb_ratings_weekly_",
     format: "wide",
     xAxis: "week",
-    cols: { team: "team_id", season: "season", week: "through_week" },
+    cols: { team: "team_id", season: "season", week: "through_week", games: "games" },
+    weekLabel: "Through week",
     names: { schema: "cfb", table: "team_info", key: "team_id", name: "school", keyType: "number" },
   },
   // team_id VARCHAR abbreviation (ARI, KC, LA…), season BIGINT, as_of_week
-  // INTEGER; stats adj_off_epa, adj_def_epa, adj_st_epa, adj_net, games,
+  // INTEGER (W = the rating entering week W); stats adj_off_epa, adj_def_epa, adj_st_epa, adj_net, games,
   // off_rank, def_rank, net_rank, net_z. nfl.teams.team_id is nflverse's
   // numeric id, not the abbreviation: the join key is team_abbr.
   {
@@ -80,7 +92,8 @@ export const TREND_SPORTS: TrendSport[] = [
     assetPrefix: "nfl_ratings_weekly_",
     format: "wide",
     xAxis: "week",
-    cols: { team: "team_id", season: "season", week: "as_of_week" },
+    cols: { team: "team_id", season: "season", week: "as_of_week", games: "games" },
+    weekLabel: "Entering week",
     names: { schema: "nfl", table: "teams", key: "team_abbr", name: "team_name", keyType: "string" },
   },
 ];

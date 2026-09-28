@@ -16,9 +16,12 @@ import {
   MAX_TRENDS_TEAMS,
   addTeam,
   endLabels,
+  lastPlayedWeek,
   pickSlots,
+  releaseKey,
   removeTeam,
   statColumns,
+  statGroups,
   teamNameLookup,
   wideToSeries,
   type TrendPicks,
@@ -62,14 +65,9 @@ const sq = (s: string) => `'${s.replace(/'/g, "''")}'`;
 const qi = (s: string) => `"${s.replace(/"/g, '""')}"`;
 const fmt = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format;
 
-/** The release's team column as the join key: a number-keyed id is cast
- *  strictly (a non-digit id fails the query, never matches nothing). */
-const teamExpr = (sport: TrendSport) =>
-  sport.names?.keyType === "number" ? `CAST(${qi(sport.cols.team)} AS BIGINT)` : qi(sport.cols.team);
-/** A DuckDB cell (always a string) back to the join key's type. */
-const keyFrom = (sport: TrendSport, cell: string): number | string =>
-  sport.names?.keyType === "number" ? Number(cell) : cell;
-const xText = (xName: string, x: number) => (xName === "week" ? `Week ${x}` : String(x));
+/** An x value as read: a season as is, a week with what the source's week
+ *  number means ("Through week 5", "Entering week 5"). */
+const xText = (weekLabel: string | undefined, x: number) => (weekLabel ? `${weekLabel} ${x}` : String(x));
 
 /** A line swatch in the series' slot colour. */
 function Swatch({ slot }: { slot: CategoricalSlot }) {
@@ -83,10 +81,10 @@ function Swatch({ slot }: { slot: CategoricalSlot }) {
 /** Legend and hover readout in one: every team's name beside its colour, and
  *  its value at the hovered x (the latest one otherwise). HTML, not SVG
  *  text, so it stays readable at phone width; long names wrap. */
-function TrendsLegend({ series, x, xName }: { series: TrendSeries[]; x: number; xName: string }) {
+function TrendsLegend({ series, x, weekLabel }: { series: TrendSeries[]; x: number; weekLabel?: string }) {
   return (
     <div data-testid="trends-legend" className="mb-2 flex flex-wrap items-center gap-x-5 gap-y-1 font-inter text-sm">
-      <span className="font-mono text-xs font-semibold">{xText(xName, x)}</span>
+      <span className="font-mono text-xs font-semibold">{xText(weekLabel, x)}</span>
       {series.map((s) => {
         const p = s.points.find((q) => q.x === x);
         return (
@@ -123,13 +121,13 @@ const CHAR_PX = 6.6; // ~Inter 12px average advance, for truncating end labels
 function TrendChart({
   series,
   label,
-  xName,
+  weekLabel,
   hover,
   onHover,
 }: {
   series: TrendSeries[];
   label: string;
-  xName: string;
+  weekLabel?: string;
   hover: number | null;
   onHover: (x: number | null) => void;
 }) {
@@ -157,7 +155,7 @@ function TrendChart({
   // Labels in one column at the plot's right edge: a line that ends early
   // (its season finished in an earlier week) keeps its label out of the plot.
   const labels = endLabels(
-    ends.map((p) => ({ x: x(p.x), y: y(p.value) })),
+    ends.map((p) => y(p.value)),
     W - pad.r,
     LABEL_PX + 2,
     pad.t + LABEL_PX / 2,
@@ -182,7 +180,7 @@ function TrendChart({
           viewBox={`0 0 ${W} ${H}`}
           className="block"
           role="img"
-          aria-label={`${label} by ${xName}`}
+          aria-label={`${label} by ${weekLabel ? "week" : "season"}`}
           onMouseMove={(e) => onHover(xAt(e))}
           onMouseLeave={() => onHover(null)}
         >
@@ -235,20 +233,24 @@ function TrendChart({
             )
           )}
           {/* Direct end labels: text in the foreground colour (cat-3/cat-5 are
-              under 3:1 on light card), tied to the line by a slot-coloured leader,
-              dotted out to the edge from a line that ends early. */}
+              under 3:1 on light card), tied to the line by a slot-coloured leader.
+              A line that ends early gets a dot at its real last point and a faint
+              dotted leader, so the leader never reads as a value held to the edge. */}
           {series.map((s, k) => {
             const p = ends[k];
             const [ex, ey, l] = [x(p.x), y(p.value), labels[k]];
+            const early = ex < l.x - 1;
             return (
               <g key={s.team} data-testid="trends-end-label">
-                <title>{`${s.team}: ${xText(xName, p.x)} ${p.display}`}</title>
+                <title>{`${s.team}: ${xText(weekLabel, p.x)} ${p.display}`}</title>
+                {early ? <circle cx={ex} cy={ey} r={2.5} fill={chartVar(s.slot)} /> : null}
                 <polyline
                   points={`${ex + 3},${ey} ${l.x + 3},${ey} ${l.x + 9},${l.y}`}
                   fill="none"
                   stroke={chartVar(s.slot)}
                   strokeWidth={1.5}
-                  strokeDasharray={ex < l.x - 1 ? "2 3" : undefined}
+                  strokeDasharray={early ? "2 3" : undefined}
+                  strokeOpacity={early ? 0.5 : undefined}
                 />
                 <text
                   x={l.x + 12}
@@ -282,6 +284,11 @@ function TrendChart({
           ) : null}
         </svg>
       ) : null}
+      {weekLabel ? (
+        <p className="text-center font-inter text-xs text-muted-foreground" style={{ paddingRight: gutter - 48 }}>
+          {weekLabel}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -290,8 +297,10 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
   const [sportKey, setSportKey] = useState(initial.sport);
   const [teamOptions, setTeamOptions] = useState<string[]>([]);
   const [stats, setStats] = useState<{ name: string; label: string }[]>([]);
-  // Release team key → name, for a source whose team column is an id.
-  const [nameOf, setNameOf] = useState<Map<number | string, string> | null>(null);
+  // Release team-key cell → name, for a source whose team column is an id.
+  const [nameOf, setNameOf] = useState<Map<string, string> | null>(null);
+  // A weekly file's last played week: later weeks are a forward-filled tail.
+  const [lastWeek, setLastWeek] = useState(Infinity);
   const [season, setSeason] = useState(initial.season);
   // Picks by position = colour slot (see lib/platform/trends.ts). The ref is
   // the live value for a chart that lands after a removal made while loading.
@@ -335,6 +344,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
   // release has it, else the newest.
   const weekly = sport.xAxis === "week";
   const xName = weekly ? "week" : "season";
+  const weekLabel = weekly ? sport.weekLabel : undefined;
   const seasons = seasonAssets.map((a) => a.slice(sport.assetPrefix.length, -".parquet".length)).filter((y) => /^\d{4}$/.test(y));
   const activeSeason = weekly && seasons.length ? (seasons.includes(season) ? season : seasons[seasons.length - 1]) : "";
   const listAsset = weekly
@@ -354,7 +364,8 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
         const c = sport.cols;
         let teams: string[];
         let statList: { name: string; label: string }[];
-        let lookup: Map<number | string, string> | null = null;
+        let lookup: Map<string, string> | null = null;
+        let last = Infinity;
         if (sport.format === "long") {
           const [teamRes, statRes] = [
             await runQuery(`SELECT DISTINCT ${qi(c.team)} FROM ${src} WHERE ${qi(c.team)} IS NOT NULL ORDER BY 1`, 1000),
@@ -364,16 +375,28 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
           statList = statRes.rows.map((r) => ({ name: r[0] ?? "", label: r[1] ?? r[0] ?? "" })).filter((s) => s.name);
         } else {
           const [keyRes, described] = [
-            await runQuery(`SELECT DISTINCT ${teamExpr(sport)} FROM ${src} WHERE ${qi(c.team)} IS NOT NULL`, 1000),
+            await runQuery(`SELECT DISTINCT ${qi(c.team)} FROM ${src} WHERE ${qi(c.team)} IS NOT NULL ORDER BY 1`, 1000),
             await runQuery(`DESCRIBE SELECT * FROM ${src}`, 2000),
           ];
           const [n, t] = [described.columns.indexOf("column_name"), described.columns.indexOf("column_type")];
           statList = statColumns(described.rows.map((r) => ({ name: r[n] ?? "", type: r[t] ?? "" })), c).map((name) => ({ name, label: name }));
+          if (c.week && c.games) {
+            // sum() is a HUGEINT, which DuckDB-WASM hands back as an object: cast it.
+            const played = await runQuery(
+              `SELECT ${qi(c.week)} w, CAST(sum(${qi(c.games)}) AS BIGINT) g FROM ${src} GROUP BY 1`,
+              100
+            );
+            last = lastPlayedWeek(played.rows.map((r) => ({ week: Number(r[0]), gamesTotal: Number(r[1]) })));
+          }
+          // Keys stay the release's own strings in SQL; a number key must be
+          // all digits before it joins the Data API's numeric ids.
           const keys = keyRes.rows.map((r) => r[0] ?? "").filter(Boolean);
           if (sport.names) {
-            const { schema, table, key, name } = sport.names;
+            const { schema, table, key, name, keyType } = sport.names;
             const rows = await apiRows({ schema, table, select: `${key},${name}`, limit: "5000" });
-            lookup = teamNameLookup(keys.map((k) => keyFrom(sport, k)), rows, sport.names);
+            const ids = keys.map((k) => releaseKey(k, keyType));
+            const byId = teamNameLookup(ids, rows, sport.names);
+            lookup = new Map(keys.map((k, i) => [k, byId.get(ids[i]) ?? k]));
             teams = [...lookup.values()];
           } else teams = keys;
           teams.sort((a, b) => a.localeCompare(b));
@@ -382,6 +405,16 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
         setTeamOptions(teams);
         setStats(statList);
         setNameOf(lookup);
+        setLastWeek(last);
+        // A link or a season switch whose picks are all missing from this file
+        // (a season they did not play): name them rather than leave the chart
+        // empty. Otherwise the effect below charts once these lists land.
+        const picks = pickedRef.current.filter((t): t is string => t !== null);
+        const shown = statList.find((x) => x.name === stat);
+        if (autoRun.current && shown && picks.length && !picks.some((t) => teams.includes(t))) {
+          autoRun.current = false;
+          setNote({ label: shown.label, missing: picks });
+        }
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : String(e));
@@ -463,20 +496,20 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
     const xCol = c.week ?? c.season;
     const keyOf = new Map([...(nameOf ?? [])].map(([k, name]) => [name, k]));
     const keys = teams.flatMap((t) => {
-      if (!sport.names) return [sq(t)];
-      const k = keyOf.get(t);
-      return k === undefined ? [] : [typeof k === "number" ? String(k) : sq(k)];
+      const k = sport.names ? keyOf.get(t) : t;
+      return k === undefined ? [] : [sq(k)];
     });
     if (!keys.length || !listAsset) return new Map();
+    const played = Number.isFinite(lastWeek) ? ` AND ${qi(xCol)} <= ${lastWeek}` : "";
     const res = await runQuery(
-      `SELECT ${teamExpr(sport)} AS ${qi(c.team)}, ${qi(xCol)}, ${qi(stat)} FROM read_parquet('${proxyUrl(sport, listAsset)}')
-       WHERE ${teamExpr(sport)} IN (${keys.join(", ")})`,
+      `SELECT ${qi(c.team)}, ${qi(xCol)}, ${qi(stat)} FROM read_parquet('${proxyUrl(sport, listAsset)}')
+       WHERE ${qi(c.team)} IN (${keys.join(", ")})${played}`,
       60 * MAX_TRENDS_TEAMS
     );
     const rows = res.rows.map((r) => Object.fromEntries(res.columns.map((col, i) => [col, r[i]])));
     return new Map(
       wideToSeries(rows, xCol, c.team, stat).map((s) => [
-        (sport.names && nameOf?.get(keyFrom(sport, s.team))) || s.team,
+        nameOf?.get(s.team) ?? s.team,
         s.points.map((p) => ({ ...p, display: fmt(p.value) })),
       ])
     );
@@ -528,10 +561,17 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
     setTeamOptions([]);
     setStats([]);
     setNameOf(null);
+    setLastWeek(Infinity);
     setChart(null);
     setNote(null);
     autoRun.current = picked.some((t) => t !== null) && Boolean(stat);
   }
+
+  // Hover re-renders the page: group the (391-long) CFB summaries list once.
+  const statSections = useMemo(
+    () => (sport.groupStats ? statGroups(stats.map((s) => s.name)) : null),
+    [sport, stats]
+  );
 
   const series = chart?.series ?? [];
   const xCount = new Set(series.flatMap((s) => s.points.map((p) => p.x))).size;
@@ -570,6 +610,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
                 setTeamOptions([]);
                 setStats([]);
                 setNameOf(null);
+                setLastWeek(Infinity);
                 setPicks([]);
                 setPending("");
                 setStat("");
@@ -625,11 +666,21 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
           className="min-w-[14rem] rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
         >
           <option value="">Stat… ({stats.length})</option>
-          {stats.map((s) => (
-            <option key={s.name} value={s.name}>
-              {s.label}
-            </option>
-          ))}
+          {statSections
+            ? statSections.map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.stats.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))
+            : stats.map((s) => (
+                <option key={s.name} value={s.name}>
+                  {s.label}
+                </option>
+              ))}
         </select>
         <Button onClick={() => void run()} disabled={busy !== null || !picked.length || !stat}>
           <TrendingUp className="mr-1 h-4 w-4" /> {busy ?? "Chart it"}
@@ -667,12 +718,12 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
             {chart.label}
             {chart.season ? ` · ${chart.season}` : null}
           </h3>
-          <TrendsLegend series={series} x={hover ?? latest} xName={xName} />
-          <TrendChart series={series} label={chart.label} xName={xName} hover={hover} onHover={setHover} />
+          <TrendsLegend series={series} x={hover ?? latest} weekLabel={weekLabel} />
+          <TrendChart series={series} label={chart.label} weekLabel={weekLabel} hover={hover} onHover={setHover} />
         </div>
       ) : chart && xCount === 1 ? (
         <p className="font-inter text-sm text-muted-foreground">
-          Only one {xName} of data for that combination ({xText(xName, latest)}):{" "}
+          Only one {xName} of data for that combination ({xText(weekLabel, latest)}):{" "}
           {series.map((s) => `${s.team} ${s.points[0].display}`).join(", ")}.
         </p>
       ) : null}

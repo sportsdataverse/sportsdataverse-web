@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MAX_TRENDS_TEAMS, addTeam, endLabels, pickSlots, removeTeam, spreadLabels, statColumns, teamNameLookup, wideToSeries,
+  MAX_TRENDS_TEAMS, addTeam, endLabels, lastPlayedWeek, pickSlots, releaseKey, removeTeam, spreadLabels, statColumns,
+  statGroups, teamNameLookup, wideToSeries,
 } from '../lib/platform/trends.ts';
 import { parseTrendsView, trendsViewParams } from '../lib/platform/viewState.ts';
 import { CATEGORICAL } from '../lib/platform/chartTokens.ts';
@@ -131,12 +132,36 @@ test('NFL ratings join abbreviations to nfl.teams.team_abbr; its numeric team_id
   const api = [{ team_abbr: 'KC', team_id: 2310, team_name: 'Kansas City Chiefs' }, { team_abbr: 'LA', team_id: 2510, team_name: 'Los Angeles Rams' }];
   assert.deepEqual([...teamNameLookup(['KC', 'LA'], api, names)], [['KC', 'Kansas City Chiefs'], ['LA', 'Los Angeles Rams']]);
   assert.throws(() => teamNameLookup(['KC'], api, { ...names, key: 'team_id' }), /nfl\.teams\.team_id/);
+  assert.throws(() => teamNameLookup([''], api, names), /release/); // an empty key is no team
 });
 
 test('teamNameLookup never gives two release teams the same name', () => {
   const names = source('nfl_ratings_weekly').names!;
   const api = [{ team_abbr: 'LA', team_name: 'Los Angeles Rams' }, { team_abbr: 'LAR', team_name: 'Los Angeles Rams' }];
   assert.deepEqual([...teamNameLookup(['LA', 'LAR'], api, names).values()], ['Los Angeles Rams', 'Los Angeles Rams (LAR)']);
+});
+
+test('releaseKey takes a number-keyed release id only when it is all digits', () => {
+  assert.equal(releaseKey('194', 'number'), 194);
+  // DuckDB CAST(… AS BIGINT) would accept every one of these.
+  for (const bad of ['12.5', ' 12 ', '1e2', '0x1F', '1_000', '']) assert.throws(() => releaseKey(bad, 'number'), /digits/);
+  assert.equal(releaseKey('KC', 'string'), 'KC');
+});
+
+test('lastPlayedWeek trims a forward-filled tail and keeps every week that moved', () => {
+  const pairs = (totals: number[], first = 1) => totals.map((gamesTotal, i) => ({ week: first + i, gamesTotal }));
+  // CFB 2026 as published: games stop at week 4, weeks 5-15 repeat it.
+  assert.equal(lastPlayedWeek(pairs([102, 200, 314, 430, 430, 430, 430, 430, 430, 430, 430, 430, 430, 430, 430])), 4);
+  // CFB 2025: a partial postseason still adds games, so both bowl weeks stay.
+  assert.equal(lastPlayedWeek(pairs([1370, 1504, 1522, 1524], 13)), 16);
+  // Strictly increasing, in any row order: nothing to trim.
+  assert.equal(lastPlayedWeek([{ week: 4, gamesTotal: 96 }, { week: 2, gamesTotal: 32 }, { week: 3, gamesTotal: 64 }]), 4);
+  // Only the flat TAIL goes: a dip and recovery mid-season is not a tail.
+  assert.equal(lastPlayedWeek(pairs([10, 20, 15, 15, 20, 20])), 5);
+  assert.equal(lastPlayedWeek([]), Infinity); // nothing to go on: no trim
+  // A total that is not a number (DuckDB-WASM hands a HUGEINT sum back as an
+  // object) must fail loudly, not quietly skip the trim.
+  assert.throws(() => lastPlayedWeek(pairs([10, NaN, 20])), /games total/);
 });
 
 test('statColumns lists numeric columns, never the team, season, week or an id', () => {
@@ -150,13 +175,45 @@ test('statColumns lists numeric columns, never the team, season, week or an id',
     { name: 'share', type: 'DECIMAL(9,3)' },
     { name: 'conference', type: 'VARCHAR' },
     { name: 'through_week', type: 'INTEGER' },
+    { name: 'playsgame_off_n', type: 'BIGINT' }, // a sample size, not a stat
+    { name: 'success_def_n', type: 'BIGINT' },
   ];
   assert.deepEqual(statColumns(described, source('cfb_ratings_weekly').cols), ['adj_net', 'games', 'plays_off', 'share']);
 });
 
+test('statGroups: side, pass/rush, margin, other, then every rank; each sorted ignoring case', () => {
+  const stats = [
+    'yards_off', 'TEPA_off', 'havoc_off', 'EPAplay_off_rank', 'success_def', 'EPAplay_def_pass', 'havoc_off_rush',
+    'TEPA_off_pass', 'EPAplay_margin', 'success_margin_rush', 'net_adj_epa', 'valid_games', 'adj_off_epa', 'havoc_def_rank',
+  ];
+  assert.deepEqual(statGroups(stats), [
+    { label: 'Offense', stats: ['havoc_off', 'TEPA_off', 'yards_off'] },
+    { label: 'Defense', stats: ['success_def'] },
+    { label: 'Offense pass/rush', stats: ['havoc_off_rush', 'TEPA_off_pass'] },
+    { label: 'Defense pass/rush', stats: ['EPAplay_def_pass'] },
+    { label: 'Margin', stats: ['EPAplay_margin', 'success_margin_rush'] },
+    { label: 'Other', stats: ['adj_off_epa', 'net_adj_epa', 'valid_games'] },
+    { label: 'Ranks', stats: ['EPAplay_off_rank', 'havoc_def_rank'] },
+  ]);
+  assert.deepEqual(statGroups(['yards_off']).map((g) => g.label), ['Offense']); // empty groups dropped
+});
+
+test('only CFB team summaries group their stat picker; ratings keep a flat list', () => {
+  assert.deepEqual(TREND_SPORTS.filter((s) => s.groupStats).map((s) => s.key), ['cfb_team_summaries_weekly']);
+});
+
+test('each weekly source names its weeks and the games column that dates them', () => {
+  const weekly = TREND_SPORTS.filter((s) => s.xAxis === 'week');
+  assert.deepEqual(weekly.map((s) => [s.key, s.cols.week, s.cols.games, s.weekLabel]), [
+    ['cfb_team_summaries_weekly', 'through_week', 'playsgame_off_n', 'Through week'],
+    ['cfb_ratings_weekly', 'through_week', 'games', 'Through week'],
+    ['nfl_ratings_weekly', 'as_of_week', 'games', 'Entering week'], // as_of_week W = the rating entering week W
+  ]);
+});
+
 test('end labels sit in one column at the plot edge, spread even when their lines end at different x', () => {
   // Line 0 ends mid-plot (its season ended earlier) at the same height as line 1.
-  const labels = endLabels([{ x: 120, y: 100 }, { x: 400, y: 100 }], 400, GAP, 0, 240);
+  const labels = endLabels([100, 100], 400, GAP, 0, 240);
   assert.deepEqual(labels.map((l) => l.x), [400, 400]);
   spaced(labels.map((l) => l.y), GAP);
   assert.equal(labels[0].y, 100); // the earlier-ending line keeps its height, above
