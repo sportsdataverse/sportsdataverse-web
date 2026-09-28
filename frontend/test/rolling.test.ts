@@ -94,8 +94,6 @@ test('win.<card> keeps only a window the card\'s unit publishes, per card, and d
   const v = parseRollingView(sp('win.hero=300&win.movers=100&win.foo=100&win.=50&window=300'));
   assert.deepEqual(v.win, { hero: 300, movers: 100 }); // each card its own window
   assert.equal(rollingViewParams(v).toString(), 'win.hero=300&win.movers=100'); // no foo, no page window
-  // The page-level window is gone: `window=` is an unknown key, not a default for the cards.
-  assert.deepEqual(parseRollingView(sp('window=300')).win, { hero: 50, movers: 50 });
   // Not a window of this unit, not a number, over-long: that card falls to its first window.
   for (const bad of ['30', '150', '0', '-50', 'abc', '', `${'0'.repeat(250)}100`]) {
     const w = parseRollingView(sp(`win.hero=${bad}&win.movers=300`)).win;
@@ -106,6 +104,26 @@ test('win.<card> keeps only a window the card\'s unit publishes, per card, and d
   assert.deepEqual(target.win, { hero: 60, movers: 30 });
   // The default window is omitted, so one card's switch never writes the other's key.
   assert.equal(rollingViewParams({ ...parseRollingView(sp('')), win: { hero: 50, movers: 300 } }).toString(), 'win.movers=300');
+  // "Default" is the view's own unit's first window (30 targets), not the league's first entry's (50).
+  assert.equal(rollingViewParams(parseRollingView(sp('metric=epa&unit=target'))).toString(), 'metric=epa&unit=target');
+});
+
+test('a Task 1 link\'s page-wide window= still sets every card without its own key, and is rewritten to win.*', () => {
+  const rewrite = (qs: string) => rollingViewParams(parseRollingView(sp(qs))).toString();
+  // The link #72's evidence advertises as restoring exactly.
+  const t1 = 'league=nfl&metric=success_rate&unit=carry&window=100&tab=improved&active=0';
+  assert.deepEqual(parseRollingView(sp(t1)), {
+    league: 'nfl', metric: 'success_rate', unit: 'carry', win: { hero: 100, movers: 100 }, tab: 'improved', active: false,
+  });
+  assert.equal(rewrite(t1), 'league=nfl&metric=success_rate&unit=carry&win.hero=100&win.movers=100&tab=improved&active=0');
+  // A card's own key wins over the page-wide one.
+  assert.deepEqual(parseRollingView(sp('window=300&win.movers=100')).win, { hero: 300, movers: 100 });
+  assert.equal(rewrite('window=300&win.movers=100'), 'win.hero=300&win.movers=100');
+  // The same unit check and cap as win.*: 300 is not a target window; an over-long value is dropped.
+  assert.deepEqual(parseRollingView(sp('metric=epa&unit=target&window=300')).win, { hero: 30, movers: 30 });
+  assert.equal(rewrite('metric=epa&unit=target&window=300'), 'metric=epa&unit=target');
+  assert.deepEqual(parseRollingView(sp(`window=${'0'.repeat(250)}100`)).win, { hero: 50, movers: 50 });
+  assert.equal(rewrite(`window=${'0'.repeat(250)}100`), '');
 });
 
 test('the overview link parses back to the view it was built from', () => {

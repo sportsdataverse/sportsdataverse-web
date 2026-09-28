@@ -222,8 +222,9 @@ const ROLLING_LEAGUES = Object.keys(ROLLING);
 const TAB_KEYS = ROLLING_TABS.map((t) => t.key);
 
 /** The configured entry for (metric, unit), else the league's first. Each card
- *  reads only `win.<card>` for a known card, and keeps it only if the entry's
- *  unit publishes that window, else the entry's first. Active is on unless `active=0`. */
+ *  reads only `win.<card>` for a known card (else the legacy `window=`), and keeps
+ *  it only if the entry's unit publishes that window, else the entry's first.
+ *  `window=` is never written back. Active is on unless `active=0`. */
 export function parseRollingView(sp: URLSearchParams): RollingView {
   const league = pick(sp.get("league"), ROLLING_LEAGUES, ROLLING_LEAGUES[0]);
   const [first] = ROLLING[league];
@@ -231,7 +232,8 @@ export function parseRollingView(sp: URLSearchParams): RollingView {
   const unit = sp.get("unit") ?? first.unit;
   const m = ROLLING[league].find((e) => e.metric === metric && e.unit === unit) ?? first;
   const cardWindow = (card: RollingCard) => {
-    const n = Number((sp.get(`win.${card}`) ?? "").slice(0, MAX_LEN));
+    // Task 1 links (#72) carried one page-wide window=; it still sets any card without its own key.
+    const n = Number((sp.get(`win.${card}`) ?? sp.get("window") ?? "").slice(0, MAX_LEN));
     return m.windows.includes(n) ? n : m.windows[0];
   };
   return {

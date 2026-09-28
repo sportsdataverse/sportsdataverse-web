@@ -20,35 +20,36 @@ type OverviewProps = {
 /**
  * "Hottest right now": per league, the #1 of /platform/rolling's default view
  * (its Best card: first metric, smallest window, active, full windows only),
- * linking to that view. Two limit-1 reads per league: the season and as-of
- * date (active is relative to it), then the card.
+ * linking to that view. It makes the rolling page's own two reads under its own
+ * SWR keys (the season and as-of date, then the hero card's top 3) and shows
+ * row 0, so the #1 is the page's #1 (the API has no tie-break column) and a
+ * click-through renders from the cache.
  */
 const HOTTEST = Object.keys(ROLLING).map((league) => parseRollingView(new URLSearchParams({ league })));
 
-async function hottest(v: RollingView) {
-  const [latest] = await apiRows(metaParams(v.league));
-  if (!latest) return null;
-  const m = ROLLING[v.league].find((e) => e.metric === v.metric && e.unit === v.unit) ?? ROLLING[v.league][0];
-  const order = (ROLLING_TABS.find((t) => t.key === v.tab) ?? ROLLING_TABS[0]).order;
-  const asOf = String(latest.as_of_date);
-  const params = cardParams(v.league, m, v.win.hero, String(latest.season), activeSince(asOf), order, 1);
-  const [row] = (await apiRows(params)) as unknown as RollingRow[];
-  return { m, asOf, row };
-}
-
 function HottestCard({ view }: { view: RollingView }) {
-  const { data, error } = useSWR(["overview-hottest", view.league], () => hottest(view));
+  // The view came through parseRollingView, so its entry and tab exist.
+  const m = ROLLING[view.league].find((e) => e.metric === view.metric && e.unit === view.unit)!;
+  const order = ROLLING_TABS.find((t) => t.key === view.tab)!.order;
+  const meta = useSWR(["rolling-meta", view.league], ([, league]) => apiRows(metaParams(league)));
+  const latest = meta.data?.[0];
+  const asOf = latest ? String(latest.as_of_date) : null;
+  const heroParams =
+    latest && asOf ? cardParams(view.league, m, view.win.hero, String(latest.season), activeSince(asOf), order, 3) : null;
+  const hero = useSWR(heroParams ? ["rolling-hero", heroParams] : null, async ([, p]) => (await apiRows(p)) as unknown as RollingRow[]);
+  const error = meta.error ?? hero.error;
+  const row = hero.data?.[0];
   let body: React.ReactNode;
   if (error) body = `Couldn't load: ${error instanceof Error ? error.message : String(error)}`;
-  else if (data === undefined) body = "Loading…";
-  else if (data === null) body = "No rolling windows published yet.";
-  else if (!data.row) body = `No active ${data.m.entity}s with a full window.`;
+  else if (meta.data && !latest) body = "No rolling windows published yet.";
+  else if (!hero.data) body = "Loading…";
+  else if (!row) body = `No active ${m.entity}s with a full window.`;
   else
     body = (
       <>
-        <span className="font-medium text-foreground">{data.row.entity_name}</span>{" "}
-        <span className="font-mono text-foreground">{formatValue(data.row.cur, data.m.format)}</span> {data.m.label},
-        last {windowLabel(view.win.hero, data.m.unit)} · <span className="whitespace-nowrap">as of {data.asOf}</span>
+        <span className="font-medium text-foreground">{row.entity_name}</span>{" "}
+        <span className="font-mono text-foreground">{formatValue(row.cur, m.format)}</span> {m.label},
+        last {windowLabel(view.win.hero, m.unit)} · <span className="whitespace-nowrap">as of {asOf}</span>
       </>
     );
   return (
