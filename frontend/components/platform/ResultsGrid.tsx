@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Flame, GripVertical, ListFilter, X } from "lucide-react";
 import { cn } from "@lib/utils";
 import { columnTip } from "@lib/platform/glossary";
+import { revealInScroller } from "@lib/platform/scroll";
 import {
   columnDomain,
   gridShade,
@@ -170,14 +171,14 @@ export default function ResultsGrid({
     return m;
   }, [view]);
 
-  // Externally-driven highlight (chart hover): bring the row into view.
+  // Externally-driven highlight (chart hover): bring the row into view in the
+  // grid's own scroller, never the page.
   useEffect(() => {
     if (highlightIndex == null) return;
     const vi = viewIndexByOrig.get(highlightIndex);
     if (vi == null) return;
-    bodyRef.current
-      ?.querySelector<HTMLElement>(`[data-row="${vi}"]`)
-      ?.scrollIntoView({ block: "nearest" });
+    const row = bodyRef.current?.querySelector<HTMLElement>(`[data-row="${vi}"]`);
+    if (row && scrollerRef.current) revealInScroller(scrollerRef.current, row);
   }, [highlightIndex, viewIndexByOrig]);
 
   function focusCell(r: number, c: number) {

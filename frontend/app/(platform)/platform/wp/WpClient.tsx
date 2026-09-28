@@ -10,6 +10,7 @@ import type { WpSport } from "@content/wp";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
 import { wpViewParams, type WpView } from "@lib/platform/viewState";
 import { resolvePendingGame } from "@lib/platform/pendingGame";
+import { revealInScroller } from "@lib/platform/scroll";
 import {
   emptyWpMessage,
   fillSegments,
@@ -219,13 +220,14 @@ export default function WpClient({ initial }: { initial: WpView }) {
   const hoverFromChart = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
 
-  // Chart-driven hovers scroll the play log to keep the highlighted row visible;
-  // table-driven hovers must NOT scroll-jack the user's own pointer.
+  // Chart-driven hovers scroll the play log (never the page) to keep the
+  // highlighted row visible; table-driven hovers must NOT scroll-jack the
+  // user's own pointer.
   useEffect(() => {
     if (hoverI == null || !hoverFromChart.current) return;
-    logRef.current
-      ?.querySelector<HTMLElement>(`[data-play="${hoverI}"]`)
-      ?.scrollIntoView({ block: "nearest" });
+    const log = logRef.current;
+    const row = log?.querySelector<HTMLElement>(`[data-play="${hoverI}"]`);
+    if (log && row) revealInScroller(log, row);
   }, [hoverI]);
   const [error, setError] = useState<string | null>(null);
 
