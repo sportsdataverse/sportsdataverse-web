@@ -9,6 +9,9 @@
 // from the same file, with one "League mean ± 1 SD" legend entry; the CFB summaries band's
 // final-week mean equals the parquet's; hovering over the band still moves the readout;
 // a rating with a producer rank reads "#N of M" beside its value, one without reads none.
+// Fix round: a stat with an inf value (Miami (OH)'s available_yards_pct_off) still charts
+// with its band; M counts the teams with a value, a .5 rank reads "T-"; college hoops
+// average D-I teams only ("D-I mean ± 1 SD", at the teams' own precision).
 // /platform is behind org sign-in, so this is recorded locally and is NOT listed on
 // the PR's `Walkthrough steps:` line (CI has no session; the module throws there).
 const THREE = ['Boston Celtics', 'Los Angeles Lakers', 'Golden State Warriors'];
@@ -214,5 +217,46 @@ const trendsV2 = async (page, base) => {
   if ((await readoutX()) === before) throw new Error(`hovering the band left the readout at "${before}"`);
   await page.waitForTimeout(1200);
   await page.mouse.move(0, 0);
+
+  /** Chart a 2025 CFB summaries stat for two teams; its band must draw. */
+  const summaries = async (teams, stat) => {
+    const tq = teams.map((t) => `team=${encodeURIComponent(t)}`).join('&');
+    await page.goto(`${base}/platform/trends?sport=cfb_team_summaries_weekly&season=2025&${tq}&stat=${stat}`, {
+      waitUntil: 'domcontentloaded',
+    });
+    const chart = `svg[aria-label="${stat} by week"]`;
+    await page.locator(chart).waitFor({ timeout: 120_000 });
+    await idle();
+    if ((await page.locator(`${chart} [data-testid="trends-band"] polygon`).count()) < 1) throw new Error(`${stat}: no league band`);
+    return chart;
+  };
+
+  // An inf in the file (Miami (OH), weeks 1-3) is left out of the band, not fatal to the chart.
+  await summaries(['Miami (OH)', 'Ohio State'], 'available_yards_pct_off');
+  await count(page.getByTestId('trends-end-label'), 2, 'available_yards_pct_off end labels');
+  await page.waitForTimeout(1200);
+
+  // Week 1 of red_zone_success_off_pass: 83 teams have a value (the producer ranks 93),
+  // Georgia's 5.5 is a two-way tie for 5th.
+  const rz = await summaries(['Georgia', 'Texas'], 'red_zone_success_off_pass');
+  await page.locator(rz).scrollIntoViewIfNeeded();
+  const rzBox = await page.locator(rz).boundingBox();
+  await page.mouse.move(rzBox.x + 49, rzBox.y + rzBox.height / 2, { steps: 6 }); // the plot's left edge: week 1
+  await page.waitForTimeout(800);
+  if ((await readoutX()) !== 'Through week 1') throw new Error(`expected week 1, read "${await readoutX()}"`);
+  const wk1 = await ranks();
+  if (wk1.join('|') !== '#T-5 of 83|#50 of 83') throw new Error(`week 1 ranks: ${wk1}`);
+  await page.waitForTimeout(1200);
+  await page.mouse.move(0, 0);
+
+  // MBB: the band is D-I only (~365 teams; the file lists ~730), at the teams' one decimal.
+  await page.goto(`${base}/platform/trends?sport=mbb&team=Duke%20Blue%20Devils&team=Kansas%20Jayhawks&stat=avgPoints`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await page.locator('svg[aria-label="Points Per Game by season"]').waitFor({ timeout: 120_000 });
+  await idle();
+  const d1 = /D-I mean ± 1 SD (\d+\.\d) \(n = (\d+)\)/.exec(await legend.innerText());
+  if (!d1 || +d1[2] < 300 || +d1[2] > 400) throw new Error(`MBB band is not D-I: ${await legend.innerText()}`);
+  await page.waitForTimeout(1500);
 };
 export default trendsV2;

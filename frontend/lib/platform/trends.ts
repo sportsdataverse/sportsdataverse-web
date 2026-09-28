@@ -242,22 +242,89 @@ export function bandWithin(band: readonly BandPoint[], xs: readonly number[]): B
   return band.filter((b) => b.x >= first && b.x <= last);
 }
 
-/** The band's filled stretches: runs of 2+ consecutive points with a spread.
- *  A point without one breaks the fill (its mean is still on the mean line). */
-export function bandRuns(band: readonly BandPoint[]): BandPoint[][] {
-  const runs: BandPoint[][] = [[]];
+/**
+ * The band's drawable stretches: runs of 2+ points, the fill (`filled`) or
+ * the mean line. A charted x (`xs`) with no league value between two points
+ * breaks a run rather than being bridged (a season with no D-I list has no
+ * band); so does a point without a spread, for the fill (its mean is still on
+ * the mean line).
+ */
+export function bandRuns(band: readonly BandPoint[], xs: readonly number[], filled = true): BandPoint[][] {
+  const runs: BandPoint[][] = [];
+  let last: BandPoint | null = null;
   for (const b of band) {
-    if (b.lo === null || b.hi === null) runs.push([]);
-    else runs[runs.length - 1].push(b);
+    if (filled && (b.lo === null || b.hi === null)) {
+      last = null;
+      continue;
+    }
+    const prev = last;
+    if (prev && !xs.some((x) => x > prev.x && x < b.x)) runs[runs.length - 1].push(b);
+    else runs.push([b]);
+    last = b;
   }
   return runs.filter((r) => r.length > 1);
 }
 
-/** "#12 of 136": a producer rank among the teams ranked at that x. No rank,
- *  no label. An average-tie rank (the CFB summaries rank like R rank()) reads
- *  as is, "#7.5 of 136". */
-export function rankLabel(rank: number | null | undefined, of: number): string | null {
-  return Number.isFinite(rank) ? `#${rank} of ${of}` : null;
+/** The league query's rows, the teams with a value per x (a rank's "of"), and
+ *  the seasons a D-I source's groups file lists. */
+export type LeagueRows = { rows: BandRow[]; of: Map<number, number>; seasons?: number[] };
+export type League = { band: BandPoint[]; of: Map<number, number>; seasons?: number[]; failed?: string };
+
+/** The league layer is auxiliary: a query that fails (DuckDB's stddev_samp is
+ *  "out of range" on an inf) or a mean that is not a number leaves the chart
+ *  with no band and no rank count, never without its lines. */
+export async function loadLeague(query: () => Promise<LeagueRows>): Promise<League> {
+  try {
+    const { rows, of, seasons } = await query();
+    return { band: leagueBand(rows), of, seasons };
+  } catch (e) {
+    return { band: [], of: new Map(), failed: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+const INTEGER = /^U?(TINYINT|SMALLINT|INTEGER|BIGINT)$/;
+
+/** The D-I semi-join matches a release's integer ESPN team id, cast to text,
+ *  to the groups file's text id, season to season. A float id would cast to
+ *  "103.0" and match nothing, so any other key type throws before the join. */
+export function assertGroupsJoin(t: { fileTeam: string; fileSeason: string; groupsTeam: string; groupsSeason: string }): void {
+  if (!INTEGER.test(t.fileTeam) || t.groupsTeam !== "VARCHAR") {
+    throw new Error(`D-I join: release team_id is ${t.fileTeam}, groups team_id is ${t.groupsTeam}; want an integer and VARCHAR`);
+  }
+  if (!INTEGER.test(t.fileSeason) || !INTEGER.test(t.groupsSeason)) {
+    throw new Error(`D-I join: release season is ${t.fileSeason}, groups season is ${t.groupsSeason}; want integers`);
+  }
+}
+
+/** "#12 of 136": a producer rank among the teams with a value at that x. A .5
+ *  rank is a two-way average tie (the CFB summaries rank like R rank()) and
+ *  reads "#T-7", anything else as an integer: GOP's formatRank
+ *  (game-on-paper-app astro/src/utils/misc.ts), formatting the producer's
+ *  value, never recomputing it. No rank, or no count, no label. */
+export function rankLabel(rank: number | null | undefined, of: number | undefined): string | null {
+  if (rank == null || !Number.isFinite(rank) || !of) return null;
+  return `#${String(rank).includes(".5") ? `T-${Math.floor(rank)}` : Math.floor(rank)} of ${of}`;
+}
+
+const upTo3 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 });
+
+/** A value as charted: at most 3 decimals, or exactly `decimals` to match a
+ *  source's own display strings. One that rounds to zero reads 0, never -0
+ *  (Intl's signDisplay "negative" does this too, but throws a RangeError on
+ *  Firefox 111-115, ESR 115 among them). */
+export function formatValue(v: number, decimals?: number): string {
+  const nf =
+    decimals === undefined
+      ? upTo3
+      : new Intl.NumberFormat("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  const s = nf.format(v);
+  return /^-0(\.0*)?$/.test(s) ? s.slice(1) : s;
+}
+
+/** The decimals a source's display strings use ("46.9" → 1, "3,421" → 0), so
+ *  a league mean reads at the teams' own precision. */
+export function displayDecimals(displays: readonly string[]): number {
+  return Math.max(0, ...displays.map((d) => /\.(\d+)/.exec(d)?.[1].length ?? 0));
 }
 
 /** The rank column for a stat in the same row, only when the file has it: the

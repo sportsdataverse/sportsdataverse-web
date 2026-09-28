@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MAX_TRENDS_TEAMS, addTeam, bandRuns, bandWithin, endLabels, lastPlayedWeek, leagueBand, pickSlots, rankColumn, rankLabel, releaseKey,
-  removeTeam, spreadLabels, statColumns, statGroups, teamNameLookup, wideToSeries,
+  MAX_TRENDS_TEAMS, addTeam, assertGroupsJoin, bandRuns, bandWithin, displayDecimals, endLabels, formatValue, lastPlayedWeek,
+  leagueBand, loadLeague, pickSlots, rankColumn, rankLabel, releaseKey, removeTeam, spreadLabels, statColumns, statGroups,
+  teamNameLookup, wideToSeries,
 } from '../lib/platform/trends.ts';
 import { parseTrendsView, trendsViewParams } from '../lib/platform/viewState.ts';
 import { CATEGORICAL } from '../lib/platform/chartTokens.ts';
@@ -251,18 +252,85 @@ test('the band is trimmed with the lines: no band past the last charted week', (
   assert.deepEqual(bandWithin(band, []), []); // no lines, no band
 });
 
+const bp = (x: number, spread = true) => ({ x, mean: 0, lo: spread ? -1 : null, hi: spread ? 1 : null, n: 2 });
+const xsOf = (runs: { x: number }[][]) => runs.map((run) => run.map((b) => b.x));
+
 test('bandRuns splits the filled band where a week has no sd; single points are left to the mean line', () => {
-  const p = (x: number, spread: boolean) => ({ x, mean: 0, lo: spread ? -1 : null, hi: spread ? 1 : null, n: 2 });
-  const band = [p(1, true), p(2, true), p(3, false), p(4, true), p(5, false), p(6, true), p(7, true), p(8, true)];
-  assert.deepEqual(bandRuns(band).map((run) => run.map((b) => b.x)), [[1, 2], [6, 7, 8]]);
-  assert.deepEqual(bandRuns([]), []);
+  const band = [bp(1), bp(2), bp(3, false), bp(4), bp(5, false), bp(6), bp(7), bp(8)];
+  const xs = [1, 2, 3, 4, 5, 6, 7, 8];
+  assert.deepEqual(xsOf(bandRuns(band, xs)), [[1, 2], [6, 7, 8]]);
+  assert.deepEqual(xsOf(bandRuns(band, xs, false)), [[1, 2, 3, 4, 5, 6, 7, 8]]); // the mean line needs no sd
+  assert.deepEqual(bandRuns([], xs), []);
 });
 
-test('rankLabel reads "#12 of 136"; no rank, no label', () => {
+test('bandRuns never bridges a charted x with no league value (a season with no D-I list)', () => {
+  const band = [bp(2019), bp(2020), bp(2022), bp(2023)]; // 2021 is charted, but has no band point
+  assert.deepEqual(xsOf(bandRuns(band, [2019, 2020, 2021, 2022, 2023])), [[2019, 2020], [2022, 2023]]);
+  assert.deepEqual(xsOf(bandRuns(band, [2019, 2020, 2021, 2022, 2023], false)), [[2019, 2020], [2022, 2023]]);
+  // A league x no line has is no gap: nothing charted there to leave out.
+  assert.deepEqual(xsOf(bandRuns(band, [2019, 2023])), [[2019, 2020, 2022, 2023]]);
+});
+
+test('loadLeague: a failed query or a NaN mean leaves no band and no rank count, never an error', async () => {
+  const of = new Map([[1, 136]]);
+  const ok = await loadLeague(async () => ({ rows: [{ x: 1, mean: 0.05, sd: 0.1, n: 136 }], of }));
+  assert.deepEqual([ok.band.length, ok.of.get(1), ok.failed], [1, 136, undefined]);
+  // DuckDB's stddev_samp raises on an inf ("out of range"): the lines chart without the band.
+  const failed = await loadLeague(async () => {
+    throw new Error('Out of Range Error: STDDEV_SAMP is out of range!');
+  });
+  assert.deepEqual([failed.band, failed.of.size], [[], 0]);
+  assert.match(failed.failed ?? '', /out of range/);
+  const nan = await loadLeague(async () => ({ rows: [{ x: 1, mean: NaN, sd: 0.1, n: 136 }], of }));
+  assert.deepEqual([nan.band, nan.of.size], [[], 0]);
+  assert.match(nan.failed ?? '', /league mean/);
+});
+
+test('assertGroupsJoin: an integer release id joins a text groups id; a float or text release id throws', () => {
+  const ok = { fileTeam: 'INTEGER', fileSeason: 'INTEGER', groupsTeam: 'VARCHAR', groupsSeason: 'INTEGER' };
+  assert.doesNotThrow(() => assertGroupsJoin(ok));
+  assert.doesNotThrow(() => assertGroupsJoin({ ...ok, fileTeam: 'BIGINT' }));
+  // A DOUBLE id would stringify as "103.0" and match no D-I team at all.
+  assert.throws(() => assertGroupsJoin({ ...ok, fileTeam: 'DOUBLE' }), /team_id/);
+  assert.throws(() => assertGroupsJoin({ ...ok, fileTeam: 'VARCHAR' }), /team_id/);
+  assert.throws(() => assertGroupsJoin({ ...ok, groupsTeam: 'INTEGER' }), /team_id/);
+  assert.throws(() => assertGroupsJoin({ ...ok, groupsSeason: 'VARCHAR' }), /season/);
+  assert.throws(() => assertGroupsJoin({ ...ok, fileSeason: 'DOUBLE' }), /season/);
+});
+
+test('only the college hoops sources limit their band to D-I, from their groups release', () => {
+  assert.deepEqual(TREND_SPORTS.filter((s) => s.groups).map((s) => [s.key, s.groups!.tag, s.groups!.asset]), [
+    ['mbb', 'mbb_groups', 'mbb_team_group_seasons.parquet'],
+    ['wbb', 'wbb_groups', 'wbb_team_group_seasons.parquet'],
+  ]);
+});
+
+test('formatValue: at most 3 decimals, or the source\'s own; a value rounding to zero is never -0', () => {
+  assert.equal(formatValue(0.24731), '0.247');
+  assert.equal(formatValue(-1.695692197767329e-16), '0'); // NFL adj_net's league mean
+  assert.equal(formatValue(42.327668700000004, 1), '42.3');
+  assert.equal(formatValue(42, 1), '42.0');
+  assert.equal(formatValue(-0.01, 1), '0.0');
+  assert.equal(formatValue(-0.25, 1), '-0.3');
+});
+
+test('displayDecimals reads the precision of a source\'s display strings', () => {
+  assert.equal(displayDecimals(['46.9', '39.4', '2.0']), 1);
+  assert.equal(displayDecimals(['3,421', '47']), 0);
+  assert.equal(displayDecimals(['47', '46.9']), 1); // the widest string wins, wherever it sits
+  assert.equal(displayDecimals(['45.25%', '1.5']), 2);
+  assert.equal(displayDecimals([]), 0);
+});
+
+test('rankLabel reads "#12 of 136", a .5 tie as "#T-7" (GOP formatRank); no rank or no count, no label', () => {
   assert.equal(rankLabel(12, 136), '#12 of 136');
-  assert.equal(rankLabel(7.5, 136), '#7.5 of 136'); // the summaries rank ties by average (R rank())
+  // The summaries rank ties by average (R rank()): 7.5 is a two-way tie for 7th.
+  assert.equal(rankLabel(7.5, 136), '#T-7 of 136');
+  assert.equal(rankLabel(5.5, 83), '#T-5 of 83');
+  assert.equal(rankLabel(8.0, 136), '#8 of 136');
   assert.equal(rankLabel(null, 136), null);
   assert.equal(rankLabel(NaN, 136), null);
+  assert.equal(rankLabel(8, undefined), null); // the league query failed: no "of"
 });
 
 test('rankColumn: <stat>_rank when the file has it, the ratings map otherwise, never a guess', () => {
