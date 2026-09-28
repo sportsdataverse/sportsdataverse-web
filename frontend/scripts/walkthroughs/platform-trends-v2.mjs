@@ -300,12 +300,16 @@ const trendsV2 = async (page, base) => {
   await page.waitForTimeout(1500);
 
   // (b) Selecting a panel adds its team to the overlay; the view stays on the panels.
-  const osu = page.getByRole('button', { name: 'Add Ohio State to the overlay' });
+  // The label carries the visible value: "Add Ohio State (0.247) to the overlay".
+  const osu = page.getByRole('button', { name: /^Add Ohio State \(-?\d+\.\d+\) to the overlay$/ });
   await osu.scrollIntoViewIfNeeded();
   await osu.click();
   await urlTeams(['Ohio State']);
   const picked = page.locator('[data-testid="trends-panel"][data-team="Ohio State"]');
   await has(picked, 'In overlay');
+  if (!/^Ohio State \(-?\d+\.\d+\), in overlay$/.test(await picked.getAttribute('aria-label'))) {
+    throw new Error(`picked panel label: ${await picked.getAttribute('aria-label')}`);
+  }
   if (new URL(page.url()).searchParams.get('view') !== 'multiples') throw new Error('adding a team left the multiples view');
   await picked.click({ force: true }); // a picked panel (aria-disabled) does nothing
   await page.waitForTimeout(300);
@@ -343,12 +347,23 @@ const trendsV2 = async (page, base) => {
   await multiples.scrollIntoViewIfNeeded();
   await page.waitForTimeout(1500);
 
-  // (d) MBB 2026, one conference, over the D-I band.
+  // (d) MBB 2026, one conference, over the D-I band. Membership is 2026's; the lines span every season.
   await openMultiples('sport=mbb&view=multiples&group=mbb%3Abig-12&stat=avgPoints');
-  await has(page.getByTestId('trends-chart-title'), '2026');
+  await has(page.getByTestId('trends-chart-title'), 'Big 12 (2026 members)');
   await count(panels, 16, 'Big 12 2026 panels'); // mbb_team_group_seasons 2026, conference_id = 'mbb:big-12'
   await oneDomain('Big 12');
   await has(page.getByTestId('trends-multiples-legend'), 'D-I mean ± 1 SD');
+  // Every x tick label sits inside its own panel (a centred first season lost its "2").
+  const clipped = await page.getByTestId('trends-panel-plot').evaluateAll((svgs) =>
+    svgs.flatMap((svg) => {
+      const box = svg.getBoundingClientRect();
+      return [...svg.querySelectorAll(':scope > text')]
+        .map((t) => [t.textContent, t.getBoundingClientRect()])
+        .filter(([, r]) => r.left < box.left - 0.5 || r.right > box.right + 0.5)
+        .map(([text]) => text);
+    })
+  );
+  if (clipped.length) throw new Error(`tick labels cross their panel's edge: ${clipped.join(', ')}`);
   if ((await page.locator('[data-testid="trends-panel-plot"] polygon').count()) < 16) throw new Error('the MBB panels have no band');
   // (e) no sideways scroll, at any width this runs at (390 px on the phone pass).
   await noSideScroll('MBB panels');

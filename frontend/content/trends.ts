@@ -53,8 +53,10 @@ export type TrendSport = {
  *   team_name, subdivision_id, conference_id, division_id, source, notes
  *   VARCHAR; season INTEGER; team_id VARCHAR (the ESPN id, all digits);
  *   sources_agree BOOLEAN. One row per team per season, keyed like the
- *   source's own seasons (hoops: the ending year). NFL/NBA `notes` read
- *   `abbr=KC`. Only D-I teams in mbb/wbb, every division in cfb.
+ *   source's own seasons (hoops: the ending year). NFL `notes` read
+ *   `abbr=KC` in every season; NBA's `nba_stats_team_id=…` (1997 on; `abbr=`
+ *   before), WNBA's `wnba_stats_team_id=…`. Only D-I teams in mbb/wbb, every
+ *   division in cfb.
  * - `<league>_group_seasons.parquet` (names): group_id, level, name,
  *   short_name, abbreviation, parent_group_id VARCHAR; season, n_teams
  *   INTEGER. The membership file has no group name: the UI shows short_name

@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MAX_PANELS, MAX_TRENDS_TEAMS, addTeam, assertGroupKeys, assertGroupsJoin, capPanels, pickGroup, sharedDomain, teamGroups, bandRuns, bandWithin, displayDecimals, endLabels, formatValue, lastPlayedWeek,
+  MAX_PANELS, MAX_TRENDS_TEAMS, addTeam, assertGroupKeys, assertGroupsJoin, capPanels, loadGroupList, panelValue, panelXTicks, pickGroup,
+  sharedDomain, teamGroups, bandRuns, bandWithin, displayDecimals, endLabels, formatValue, lastPlayedWeek,
   leagueBand, loadLeague, pickSlots, rankColumn, rankLabel, releaseKey, removeTeam, spreadLabels, statColumns, statGroups,
   teamNameLookup, wideToSeries,
 } from '../lib/platform/trends.ts';
@@ -487,4 +488,46 @@ test('pickGroup: the linked group, else the first picked team\'s, else the first
   assert.equal(pickGroup(groups, 'cfb:pac-12', [null, 'Nowhere', 'Alabama'])?.id, 'cfb:sec');
   assert.equal(pickGroup(groups, '', [])?.id, 'cfb:acc');
   assert.equal(pickGroup([], 'cfb:acc', ['Clemson']), null);
+});
+
+test('loadGroupList stores a list that loaded, even an empty one, and reuses a cached one', async () => {
+  const b1g = teamGroups(groupRows);
+  assert.deepEqual(await loadGroupList(null, async () => b1g), { list: b1g, store: true });
+  assert.deepEqual(await loadGroupList(null, async () => []), { list: [], store: true }); // a season with no groups
+  let loads = 0;
+  const cached = await loadGroupList(b1g, async () => (loads++, []));
+  assert.deepEqual([cached, loads], [{ list: b1g, store: false }, 0]);
+});
+
+test('loadGroupList never stores a failed load, so the next chart retries it', async () => {
+  const failed = await loadGroupList(null, async () => {
+    throw new Error('HTTP 502 from the range proxy');
+  });
+  assert.deepEqual(failed, { failed: 'HTTP 502 from the range proxy', store: false });
+  assert.ok(!('list' in failed)); // nothing that could be read as "no groups"
+});
+
+test('panelXTicks anchors the first tick at start and the last x at end, the rest centred', () => {
+  const seasons = Array.from({ length: 24 }, (_, i) => 2003 + i);
+  const wide = panelXTicks(seasons, 217); // 5 labels fit: every 5th season
+  assert.deepEqual(wide.map((t) => t.x), [2003, 2008, 2013, 2018, 2023]);
+  assert.deepEqual(wide.map((t) => t.anchor), ['start', 'middle', 'middle', 'middle', 'middle']);
+  const weeks = Array.from({ length: 16 }, (_, i) => i + 1);
+  const ends = panelXTicks(weeks, 240); // 6 fit: every 3rd week lands on week 16
+  assert.deepEqual(ends.map((t) => `${t.x}:${t.anchor}`), ['1:start', '4:middle', '7:middle', '10:middle', '13:middle', '16:end']);
+  assert.deepEqual(panelXTicks([2026], 100), [{ x: 2026, anchor: 'start' }]);
+  // Ticks stay at least minGap apart, so a start/end label never meets its neighbour.
+  const step = (plotW: number, n: number) => {
+    const t = panelXTicks(Array.from({ length: n }, (_, i) => i), plotW);
+    return t.length > 1 ? ((t[1].x - t[0].x) * plotW) / (n - 1) : Infinity;
+  };
+  for (const [w, n] of [[122, 24], [217, 24], [240, 16], [300, 22], [122, 22]]) assert.ok(step(w, n) >= 40, `${w}px, ${n} xs`);
+});
+
+test('panelValue: the last value, with its x when it is not the panel\'s last x', () => {
+  const pts = [{ x: 2024, display: '70.1' }, { x: 2025, display: '71.2' }];
+  assert.equal(panelValue(pts, 2025), '71.2');
+  assert.equal(panelValue(pts, 2026), '71.2 (2025)'); // Duke stops a season early
+  assert.equal(panelValue([{ x: 14, display: '0.12' }], 16, (x) => `wk ${x}`), '0.12 (wk 14)');
+  assert.equal(panelValue([], 2026), 'no data');
 });

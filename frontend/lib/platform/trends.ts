@@ -377,6 +377,50 @@ export function capPanels(teams: readonly string[], max: number = MAX_PANELS): {
   return { shown: sorted.slice(0, max), more: sorted.slice(max) };
 }
 
+/** The season's group list: the cached one, else a load. Only a load that
+ *  worked is stored; a failed one (a proxy or DuckDB error) is never
+ *  remembered as "no groups", so the next chart retries it. A load that
+ *  worked and found none is stored: that season has no list. */
+export async function loadGroupList(
+  cached: TeamGroup[] | null,
+  load: () => Promise<TeamGroup[]>
+): Promise<{ list: TeamGroup[]; store: boolean } | { failed: string; store: false }> {
+  if (cached) return { list: cached, store: false };
+  try {
+    return { list: await load(), store: true };
+  } catch (e) {
+    return { failed: e instanceof Error ? e.message : String(e), store: false };
+  }
+}
+
+/** A panel's x ticks: every `step`-th x, at least `minGap` px apart. The first
+ *  sits on the plot's left edge and the last x on its right, and a panel off
+ *  the left column has a 6 px pad, so those two are anchored start and end: a
+ *  centred "2003" lost its "2". */
+export function panelXTicks(
+  xs: readonly number[],
+  plotW: number,
+  minGap = 40
+): { x: number; anchor: "start" | "middle" | "end" }[] {
+  const step = Math.max(1, Math.ceil(xs.length / Math.max(1, Math.floor(plotW / minGap))));
+  return xs.flatMap((x, k) =>
+    k % step ? [] : [{ x, anchor: k === 0 ? ("start" as const) : k === xs.length - 1 ? ("end" as const) : ("middle" as const) }]
+  );
+}
+
+/** A panel title's value: the team's last point, with its x when that is not
+ *  the panel's last x (a team whose data stops earlier), so it never reads as
+ *  the latest. No points, "no data". */
+export function panelValue(
+  points: readonly { x: number; display: string }[],
+  lastX: number,
+  xLabel: (x: number) => string = String
+): string {
+  const p = points[points.length - 1];
+  if (!p) return "no data";
+  return p.x === lastX ? p.display : `${p.display} (${xLabel(p.x)})`;
+}
+
 /** One y domain for every panel: the min and max of every panel's values and
  *  the band (its mean too, drawn where it has no spread). Non-finite values
  *  are ignored; nothing finite, no domain. */
