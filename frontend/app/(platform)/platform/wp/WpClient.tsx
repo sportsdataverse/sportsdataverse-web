@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import useSWRImmutable from "swr/immutable";
 import { useTheme } from "next-themes";
-import { LineChart } from "lucide-react";
+import { Download, LineChart } from "lucide-react";
+import { Button } from "@components/ui/button";
 import { WP_SPORTS } from "@content/wp";
 import type { WpSport } from "@content/wp";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
@@ -12,6 +13,7 @@ import { wpViewParams, type WpView } from "@lib/platform/viewState";
 import type { TeamColors } from "@lib/platform/teamColor";
 import { resolvePendingGame } from "@lib/platform/pendingGame";
 import { revealInScroller } from "@lib/platform/scroll";
+import { svgToPng, type LegendItem } from "@lib/platform/svgExport";
 import {
   emptyWpMessage,
   fillSegments,
@@ -21,6 +23,8 @@ import {
   scheduleParams,
   teamColorLookup,
   teamsParams,
+  wpExportFilename,
+  wpExportText,
   wpPointsFromRows,
   wpTeamColors,
   type GameOption,
@@ -56,24 +60,28 @@ const assetsFetcher = async (url: string) => {
   return data.message as ReleaseAssetSummary[];
 };
 
+/** One swatch + name per side: the page legend and the PNG export's. */
+function legendItems(home: string, away: string, colors: { home: string; away: string }): LegendItem[] {
+  return [
+    { name: home, color: colors.home, note: "home, above 50%" },
+    { name: away, color: colors.away, note: "away, below 50%" },
+  ];
+}
+
 /** A team colour always has its name in text: one swatch + name per side.
  *  HTML, not SVG text, so it reads at phone width (the chart scales with its
  *  viewBox, which shrank an in-chart legend to ~5px); long names wrap. */
 function WpLegend({ home, away, colors }: { home: string; away: string; colors: { home: string; away: string } }) {
-  const sides = [
-    { side: "home", name: home, color: colors.home, where: "above 50%" },
-    { side: "away", name: away, color: colors.away, where: "below 50%" },
-  ];
   return (
     <div className="mb-2 flex flex-wrap gap-x-6 gap-y-1 font-inter text-sm">
-      {sides.map((l) => (
-        <span key={l.side} className="flex items-center gap-2">
+      {legendItems(home, away, colors).map((l) => (
+        <span key={l.note} className="flex items-center gap-2">
           {/* the fill's own paint: the colour at 25% over the card, 1px border */}
           <svg viewBox="0 0 12 12" className="size-3 shrink-0" aria-hidden="true">
             <rect x={0.5} y={0.5} width={11} height={11} rx={2} fill={l.color} fillOpacity={0.25} stroke={l.color} />
           </svg>
           <span>
-            {l.name} <span className="text-muted-foreground">· {l.side}, {l.where}</span>
+            {l.name} <span className="text-muted-foreground">· {l.note}</span>
           </span>
         </span>
       ))}
@@ -88,6 +96,7 @@ function WpChart({
   colors,
   hoverI,
   onHover,
+  svgRef,
 }: {
   points: WpPoint[];
   home: string;
@@ -97,12 +106,13 @@ function WpChart({
   /** Linked hover: the play index highlighted in BOTH the chart and the log. */
   hoverI: number | null;
   onHover: (i: number | null) => void;
+  /** The chart's <svg>: pointer mapping here, PNG export in the page. */
+  svgRef: React.RefObject<SVGSVGElement | null>;
 }) {
   const W = 820;
   const H = 280;
   const pad = { l: 44, r: 12, t: 16, b: 24 };
   const n = points.length;
-  const svgRef = useRef<SVGSVGElement>(null);
   if (n < 2) return null;
   const x = (i: number) => pad.l + (i * (W - pad.l - pad.r)) / (n - 1);
   const y = (wp: number) => pad.t + (1 - wp) * (H - pad.t - pad.b);
@@ -184,7 +194,7 @@ function WpChart({
           const by = above ? hy - 74 : hy + 12;
           const play = p.text.length > 76 ? `${p.text.slice(0, 75)}…` : p.text;
           return (
-            <g pointerEvents="none">
+            <g pointerEvents="none" data-export-skip="">
               <line x1={hx} x2={hx} y1={pad.t} y2={H - pad.b} className="stroke-score" strokeWidth={1} />
               <circle cx={hx} cy={hy} r={4} className="fill-score stroke-background" strokeWidth={1.5} />
               <rect x={bx} y={by} width={boxW} height={62} rx={6} className="fill-popover stroke-border" strokeWidth={1} />
@@ -233,6 +243,7 @@ export default function WpClient({ initial }: { initial: WpView }) {
   const [hoverI, setHoverI] = useState<number | null>(null);
   const hoverFromChart = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<SVGSVGElement>(null);
 
   // Chart-driven hovers scroll the play log (never the page) to keep the
   // highlighted row visible; table-driven hovers must NOT scroll-jack the
@@ -264,6 +275,7 @@ export default function WpClient({ initial }: { initial: WpView }) {
     }
   );
   const colors = game ? wpTeamColors(game, teamColors, resolvedTheme) : null;
+  const chartReady = points.length > 1 && colors && game ? { colors, game } : null;
 
   const { data: assets } = useSWR(
     `/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}`,
@@ -362,6 +374,28 @@ export default function WpClient({ initial }: { initial: WpView }) {
     }
   }
 
+  /** The chart as drawn now (theme, fills) with its title, legend and
+   *  freshness, from what the page already holds: no request. */
+  async function exportPng() {
+    if (!chartReady || !chartRef.current) return;
+    const { game: g, colors: c } = chartReady;
+    const asOf = assets?.find((a) => a.name === season)?.updated_at;
+    try {
+      const blob = await svgToPng(chartRef.current, {
+        ...wpExportText(g, window.location.href, asOf),
+        legend: legendItems(g.home.name, g.away.name, c),
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = wpExportFilename(sport.key, g.id);
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(`PNG export failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
   return (
     <>
       <div className="mb-6 flex items-center justify-between gap-4">
@@ -429,6 +463,10 @@ export default function WpClient({ initial }: { initial: WpView }) {
           </select>
         ) : null}
         {busy ? <span className="font-inter text-sm text-muted-foreground">{busy}</span> : null}
+        <Button variant="outline" size="sm" className="ml-auto" onClick={exportPng} disabled={!chartReady}>
+          <Download className="mr-2 h-4 w-4" />
+          Export PNG
+        </Button>
       </div>
 
       {error ? (
@@ -447,6 +485,7 @@ export default function WpClient({ initial }: { initial: WpView }) {
               home={game.home.name}
               away={game.away.name}
               colors={colors}
+              svgRef={chartRef}
               hoverI={hoverI}
               onHover={(i) => {
                 hoverFromChart.current = true;

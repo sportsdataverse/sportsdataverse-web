@@ -7,8 +7,8 @@ import { pickTeamColors, type TeamColors } from "./teamColor.ts";
 
 /** One side of a game: `key` joins the sport's team table (CFB id, NFL
  *  abbreviation); `color`/`alt` come straight off the schedule (MBB/WBB). */
-export type WpTeam = TeamColors & { name: string; key: string };
-export type GameOption = { id: string; label: string; home: WpTeam; away: WpTeam };
+export type WpTeam = TeamColors & { name: string; key: string; score: string };
+export type GameOption = { id: string; label: string; date: string; home: WpTeam; away: WpTeam };
 export type WpPoint = { x: number; wp: number; period: number; clock: string; text: string; score: string };
 type Row = Record<string, unknown>;
 
@@ -30,7 +30,10 @@ export function scheduleParams(sport: WpSport, season: string): Record<string, s
     season,
     // A Set, since NFL's team key is the home/away abbreviation column itself.
     select: [
-      ...new Set([s.id, s.week, s.home, s.away, s.homeId, s.awayId, s.homeColor, s.homeAlt, s.awayColor, s.awayAlt]),
+      ...new Set([
+        s.id, s.week, s.home, s.away, s.homeId, s.awayId, s.homeColor, s.homeAlt, s.awayColor, s.awayAlt,
+        s.date, s.homeScore, s.awayScore,
+      ]),
     ]
       .filter(Boolean)
       .join(","),
@@ -116,8 +119,21 @@ export function gameOptionsFromSchedule(rows: Row[], schedule: WpSport["schedule
     .map((r) => ({
       id: str(r[schedule.id]),
       label: `${week(r) !== Infinity ? `W${week(r)} · ` : ""}${str(r[schedule.away])} @ ${str(r[schedule.home])}`,
-      home: { name: str(r[schedule.home]), key: col(r, schedule.homeId), color: col(r, schedule.homeColor), alt: col(r, schedule.homeAlt) },
-      away: { name: str(r[schedule.away]), key: col(r, schedule.awayId), color: col(r, schedule.awayColor), alt: col(r, schedule.awayAlt) },
+      date: col(r, schedule.date),
+      home: {
+        name: str(r[schedule.home]),
+        key: col(r, schedule.homeId),
+        color: col(r, schedule.homeColor),
+        alt: col(r, schedule.homeAlt),
+        score: col(r, schedule.homeScore),
+      },
+      away: {
+        name: str(r[schedule.away]),
+        key: col(r, schedule.awayId),
+        color: col(r, schedule.awayColor),
+        alt: col(r, schedule.awayAlt),
+        score: col(r, schedule.awayScore),
+      },
     }));
 }
 
@@ -156,4 +172,41 @@ export function emptyWpMessage(plays: number, points: number, sport: string, sea
   return plays > 0 && points === 0
     ? `WP isn't published for ${sport} ${season}.`
     : "No win-probability data for this game.";
+}
+
+/** The PNG export's file name: `wp_cfb_401628374.png`. */
+export function wpExportFilename(sport: string, gameId: string): string {
+  return `wp_${sport}_${gameId}.png`;
+}
+
+/** A schedule date for the export header, "Sep 14, 2024". An ISO day is that
+ *  day; a UTC kickoff (CFB) is its US Eastern date.
+ *  ponytail: ET for every kickoff, so a late Hawaii game reads a day on; use
+ *  the venue's zone if the schedule ever carries one. */
+function gameDate(raw: string): string {
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  const d = new Date(raw);
+  if (!raw || Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: day ? "UTC" : "America/New_York",
+  });
+}
+
+/**
+ * The PNG export's header and footer: `Away @ Home · final A–H · date` over
+ * `<page URL> · data as of <asOf>`. `asOf` is the season release asset's
+ * `updated_at` (GitHub, UTC). A part the page doesn't have drops out.
+ */
+export function wpExportText(game: GameOption, url: string, asOf?: string): { title: string; footer: string } {
+  const { home, away } = game;
+  const title = [
+    `${away.name} @ ${home.name}`,
+    home.score && away.score ? `final ${away.score}–${home.score}` : "",
+    gameDate(game.date),
+  ];
+  const footer = [url, asOf ? `data as of ${asOf.slice(0, 16).replace("T", " ")} UTC` : ""];
+  return { title: title.filter(Boolean).join(" · "), footer: footer.filter(Boolean).join(" · ") };
 }
