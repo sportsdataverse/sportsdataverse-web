@@ -18,6 +18,7 @@ import {
   Package,
   FileCode2,
   Gauge, Users,
+  Flame,
 } from "lucide-react";
 
 export type PlatformNavItem = {
@@ -64,6 +65,7 @@ export const PLATFORM_NAV: { title: string | null; items: PlatformNavItem[] }[] 
       { href: "/platform/models", label: "Models", icon: Boxes },
       { href: "/platform/wp", label: "Win Prob", icon: Percent },
       { href: "/platform/trends", label: "Trends", icon: TrendingUp },
+      { href: "/platform/rolling", label: "Rolling form", icon: Flame },
     ],
   },
   {

@@ -13,6 +13,8 @@
 import { WP_SPORTS } from "../../content/wp.ts";
 import { TREND_SPORTS } from "../../content/trends.ts";
 import { LOOKUP_SPORTS } from "../../content/lookups.ts";
+import { ROLLING } from "../../content/rolling.ts";
+import { ROLLING_TABS, type RollingTab } from "./rolling.ts";
 import type { TintMode } from "./scales.ts";
 
 export function toSearchParams(record: Record<string, string | string[] | undefined>): URLSearchParams {
@@ -201,6 +203,47 @@ export function lookupsViewParams(v: LookupsView): URLSearchParams {
   if (v.sport !== LOOKUP_KEYS[0]) p.set("sport", v.sport);
   if (v.mode !== "players") p.set("mode", v.mode);
   if (v.q) p.set("q", v.q);
+  return p;
+}
+
+// --- Rolling form -------------------------------------------------------------
+
+/** One metric × unit (`window_n` alone is ambiguous, see content/rolling.ts). */
+export type RollingView = { league: string; metric: string; unit: string; window_n: number; tab: RollingTab; active: boolean };
+const ROLLING_LEAGUES = Object.keys(ROLLING);
+const TAB_KEYS = ROLLING_TABS.map((t) => t.key);
+
+/** The configured entry for (metric, unit), else the league's first; a window
+ *  the entry doesn't publish falls to its first. Active is on unless `active=0`. */
+export function parseRollingView(sp: URLSearchParams): RollingView {
+  const league = pick(sp.get("league"), ROLLING_LEAGUES, ROLLING_LEAGUES[0]);
+  const [first] = ROLLING[league];
+  const metric = sp.get("metric") ?? first.metric;
+  const unit = sp.get("unit") ?? first.unit;
+  const m = ROLLING[league].find((e) => e.metric === metric && e.unit === unit) ?? first;
+  const n = Number(sp.get("window"));
+  return {
+    league,
+    metric: m.metric,
+    unit: m.unit,
+    window_n: m.windows.includes(n) ? n : m.windows[0],
+    tab: pick(sp.get("tab"), TAB_KEYS, "best"),
+    active: sp.get("active") !== "0",
+  };
+}
+
+export function rollingViewParams(v: RollingView): URLSearchParams {
+  const p = new URLSearchParams();
+  const entries = ROLLING[v.league] ?? [];
+  const m = entries.find((e) => e.metric === v.metric && e.unit === v.unit);
+  if (v.league !== ROLLING_LEAGUES[0]) p.set("league", v.league);
+  if (m !== entries[0]) {
+    p.set("metric", v.metric);
+    p.set("unit", v.unit);
+  }
+  if (v.window_n !== m?.windows[0]) p.set("window", String(v.window_n));
+  if (v.tab !== "best") p.set("tab", v.tab);
+  if (!v.active) p.set("active", "0");
   return p;
 }
 
