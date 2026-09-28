@@ -3,12 +3,17 @@
  * `{schema}.pbp`) → the game picker's options and one game's WP series.
  */
 import type { WpSport } from "../../content/wp.ts";
+import { pickTeamColors, type TeamColors } from "./teamColor.ts";
 
-export type GameOption = { id: string; label: string };
+/** One side of a game: `key` joins the sport's team table (CFB id, NFL
+ *  abbreviation); `color`/`alt` come straight off the schedule (MBB/WBB). */
+export type WpTeam = TeamColors & { name: string; key: string };
+export type GameOption = { id: string; label: string; home: WpTeam; away: WpTeam };
 export type WpPoint = { x: number; wp: number; period: number; clock: string; text: string; score: string };
 type Row = Record<string, unknown>;
 
 const str = (v: unknown): string => (v == null ? "" : String(v));
+const col = (r: Row, c: string | undefined) => (c ? str(r[c]) : "");
 
 /** The Data API's own row cap (sdv-db MAX_LIMIT). The largest schedule is
  *  ~6.3k games (MBB) and the longest game ~660 plays (4OT MBB), so neither
@@ -23,9 +28,41 @@ export function scheduleParams(sport: WpSport, season: string): Record<string, s
     schema: sport.schema,
     table: "schedule",
     season,
-    select: [s.id, s.week, s.home, s.away].filter(Boolean).join(","),
+    // A Set, since NFL's team key is the home/away abbreviation column itself.
+    select: [
+      ...new Set([s.id, s.week, s.home, s.away, s.homeId, s.awayId, s.homeColor, s.homeAlt, s.awayColor, s.awayAlt]),
+    ]
+      .filter(Boolean)
+      .join(","),
     limit: API_MAX_ROWS,
   };
+}
+
+/** Query-proxy params for the sport's team colour table: not season-keyed, so
+ *  one read per sport serves every season and game. */
+export function teamsParams(sport: WpSport): Record<string, string> | null {
+  const t = sport.teams;
+  return t ? { schema: sport.schema, table: t.table, select: `${t.key},${t.color},${t.alt}`, limit: API_MAX_ROWS } : null;
+}
+
+/** Team table rows → colours by team key (stringified, like the schedule's). */
+export function teamColorLookup(rows: Row[], teams: NonNullable<WpSport["teams"]>): Map<string, TeamColors> {
+  return new Map(rows.map((r) => [str(r[teams.key]), { color: str(r[teams.color]), alt: str(r[teams.alt]) }]));
+}
+
+/**
+ * The fill colours for a game, through `pickTeamColors` against the page's
+ * resolved theme (next-themes; undefined before mount → the site's default,
+ * dark). A team missing from the lookup, or with no colour at all, falls to
+ * `pickTeamColors`' own fallback walk.
+ */
+export function wpTeamColors(
+  game: GameOption,
+  lookup: Map<string, TeamColors> | undefined,
+  resolvedTheme: string | undefined
+): { home: string; away: string } {
+  const colors = (t: WpTeam) => lookup?.get(t.key) ?? t;
+  return pickTeamColors(colors(game.home), colors(game.away), resolvedTheme === "light" ? "light" : "dark");
 }
 
 /** Query-proxy params for one game's plays (`{schema}.pbp`); `season` lets
@@ -79,7 +116,38 @@ export function gameOptionsFromSchedule(rows: Row[], schedule: WpSport["schedule
     .map((r) => ({
       id: str(r[schedule.id]),
       label: `${week(r) !== Infinity ? `W${week(r)} · ` : ""}${str(r[schedule.away])} @ ${str(r[schedule.home])}`,
+      home: { name: str(r[schedule.home]), key: col(r, schedule.homeId), color: col(r, schedule.homeColor), alt: col(r, schedule.homeAlt) },
+      away: { name: str(r[schedule.away]), key: col(r, schedule.awayId), color: col(r, schedule.awayColor), alt: col(r, schedule.awayAlt) },
     }));
+}
+
+export type FillSegment = { side: "home" | "away"; pts: [number, number][] };
+
+/**
+ * The area between the WP line and 50%, as closed polygons in (play index,
+ * wp) space: one per run above 50% (home) or below (away), split at each
+ * crossing, whose play index is interpolated between the two plays either
+ * side of it. Each run starts and ends on the 50% line. A play exactly at 50%
+ * keeps the current side, so touching 50% is not a crossing.
+ */
+export function fillSegments(points: { wp: number }[]): FillSegment[] {
+  const segs: FillSegment[] = [];
+  const firstOff = points.find((p) => p.wp !== 0.5);
+  let side: FillSegment["side"] = firstOff && firstOff.wp < 0.5 ? "away" : "home";
+  points.forEach(({ wp }, i) => {
+    const s = wp > 0.5 ? "home" : wp < 0.5 ? "away" : side;
+    if (i === 0) segs.push({ side: s, pts: [[0, 0.5]] });
+    else if (s !== side) {
+      const a = points[i - 1].wp;
+      const t = i - 1 + (0.5 - a) / (wp - a);
+      segs[segs.length - 1].pts.push([t, 0.5]);
+      segs.push({ side: s, pts: [[t, 0.5]] });
+    }
+    side = s;
+    segs[segs.length - 1].pts.push([i, wp]);
+  });
+  if (segs.length) segs[segs.length - 1].pts.push([points.length - 1, 0.5]);
+  return segs;
 }
 
 /** The empty state once a game has loaded without a chart. Plays whose WP is

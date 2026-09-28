@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
+import useSWRImmutable from "swr/immutable";
+import { useTheme } from "next-themes";
 import { LineChart } from "lucide-react";
 import { WP_SPORTS } from "@content/wp";
 import type { WpSport } from "@content/wp";
@@ -10,11 +12,15 @@ import { wpViewParams, type WpView } from "@lib/platform/viewState";
 import { resolvePendingGame } from "@lib/platform/pendingGame";
 import {
   emptyWpMessage,
+  fillSegments,
   gameOptionsFromSchedule,
   loadSequencer,
   pbpParams,
   scheduleParams,
+  teamColorLookup,
+  teamsParams,
   wpPointsFromRows,
+  wpTeamColors,
   type GameOption,
   type WpPoint,
 } from "@lib/platform/wp";
@@ -24,7 +30,8 @@ import useUrlMirror from "@hooks/useUrlMirror";
  * CFBD-style win-probability charts: sport → season → game → home-WP line
  * over the play sequence, with the play log underneath. The season list is
  * the release's assets; the game list and one game's plays are two Data API
- * reads through the member-gated Query proxy.
+ * reads through the member-gated Query proxy, plus (CFB/NFL) one read of the
+ * sport's team colour table per session.
  */
 
 const DATA_REPO = "sportsdataverse/sportsdataverse-data";
@@ -51,12 +58,15 @@ function WpChart({
   points,
   home,
   away,
+  colors,
   hoverI,
   onHover,
 }: {
   points: WpPoint[];
   home: string;
   away: string;
+  /** Resolved team colours (`pickTeamColors`): fills only, never the line. */
+  colors: { home: string; away: string };
   /** Linked hover: the play index highlighted in BOTH the chart and the log. */
   hoverI: number | null;
   onHover: (i: number | null) => void;
@@ -85,6 +95,11 @@ function WpChart({
   for (let i = 1; i < n; i++) {
     if (points[i].period !== points[i - 1].period) boundaries.push({ i, period: points[i].period });
   }
+  // A team colour always has its name in text: one swatch + name per side.
+  const legend = [
+    { key: "home", x: pad.l, color: colors.home, label: `${home} · home, above 50%` },
+    { key: "away", x: pad.l + (W - pad.l - pad.r) / 2, color: colors.away, label: `${away} · away, below 50%` },
+  ];
   return (
     <svg
       ref={svgRef}
@@ -95,6 +110,14 @@ function WpChart({
       onMouseMove={(e) => onHover(indexFromEvent(e))}
       onMouseLeave={() => onHover(null)}
     >
+      {fillSegments(points).map((s, k) => (
+        <polygon
+          key={k}
+          points={s.pts.map(([i, wp]) => `${x(i).toFixed(1)},${y(wp).toFixed(1)}`).join(" ")}
+          fill={colors[s.side]}
+          fillOpacity={0.25}
+        />
+      ))}
       {[0, 0.25, 0.5, 0.75, 1].map((tick) => (
         <g key={tick}>
           <line
@@ -127,9 +150,14 @@ function WpChart({
         </g>
       ))}
       <polyline points={line} fill="none" strokeWidth={2} className="stroke-primary" />
-      <text x={pad.l} y={pad.t - 4} className="fill-current font-inter text-[11px] text-muted-foreground">
-        {home} win probability
-      </text>
+      {legend.map((l) => (
+        <g key={l.key}>
+          <rect x={l.x} y={pad.t - 13} width={10} height={10} rx={2} fill={l.color} fillOpacity={0.25} stroke={l.color} />
+          <text x={l.x + 14} y={pad.t - 4} className="fill-current font-inter text-[11px] text-muted-foreground">
+            {l.label}
+          </text>
+        </g>
+      ))}
       {hoverI != null && points[hoverI] ? (
         (() => {
           const p = points[hoverI];
@@ -184,7 +212,8 @@ export default function WpClient({ initial }: { initial: WpView }) {
   const [loads] = useState(loadSequencer);
   const [points, setPoints] = useState<WpPoint[]>([]);
   const [plays, setPlays] = useState(0);
-  const [teams, setTeams] = useState<{ home: string; away: string }>({ home: "", away: "" });
+  const [game, setGame] = useState<GameOption | null>(null);
+  const { resolvedTheme } = useTheme();
   const [busy, setBusy] = useState<string | null>(null);
   const [hoverI, setHoverI] = useState<number | null>(null);
   const hoverFromChart = useRef(false);
@@ -203,6 +232,11 @@ export default function WpClient({ initial }: { initial: WpView }) {
   const sport = useMemo(
     () => WP_SPORTS.find((s) => s.key === sportKey) ?? WP_SPORTS[0],
     [sportKey]
+  );
+
+  // The team colour table isn't season-keyed: one read per sport, never revalidated.
+  const { data: teamColors } = useSWRImmutable(season && sport.teams ? ["wp-teams", sport.key] : null, async () =>
+    teamColorLookup(await apiRows(teamsParams(sport)!), sport.teams!)
   );
 
   const { data: assets } = useSWR(
@@ -293,9 +327,7 @@ export default function WpClient({ initial }: { initial: WpView }) {
       if (!loads.isLatest(ticket)) return;
       setPlays(rows.length);
       setPoints(wpPointsFromRows(rows, sport.cols));
-      const game = list.find((g) => g.id === id);
-      const [away, home] = game ? game.label.replace(/^W\S+ · /, "").split(" @ ") : ["", ""];
-      setTeams({ home: home ?? "", away: away ?? "" });
+      setGame(list.find((g) => g.id === id) ?? null);
     } catch (e) {
       if (!loads.isLatest(ticket)) return;
       setError(e instanceof Error ? e.message : String(e));
@@ -379,13 +411,14 @@ export default function WpClient({ initial }: { initial: WpView }) {
         </div>
       ) : null}
 
-      {points.length > 1 ? (
+      {points.length > 1 && game ? (
         <>
           <div className="mb-6 rounded-lg border border-border bg-card/70 p-4">
             <WpChart
               points={points}
-              home={teams.home}
-              away={teams.away}
+              home={game.home.name}
+              away={game.away.name}
+              colors={wpTeamColors(game, teamColors, resolvedTheme)}
               hoverI={hoverI}
               onHover={(i) => {
                 hoverFromChart.current = true;
