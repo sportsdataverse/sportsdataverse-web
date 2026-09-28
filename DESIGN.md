@@ -73,6 +73,11 @@ them; Tailwind classes `fill-chart-*` / `stroke-chart-*` / `bg-chart-*`).
   eye (an ordinal dot, a tier chip) starts at `chart-seq-2` (2.08 / 2.14).
 - Grid lines stay `border`, axis text `muted-foreground`, the crosshair `score`
   (it counts toward the amber budget).
+- Context lines (the rest of a group behind a highlighted series, e.g. Trends
+  small multiples) are `muted-foreground` at 40% opacity, never `border`:
+  `border` on the `chart-div-mid` band is 1.08:1 light / 1.03:1 dark, where
+  40% `muted-foreground` is 1.78 / 1.95:1 (1.87 / 2.14:1 on `card`), and a
+  `foreground` series stays 8.2 / 5.4:1 against it.
 
 Amber discipline: the scoreboard amber appears in at most three places per
 view (ticker, one active marker, one underline). It is never body text on
