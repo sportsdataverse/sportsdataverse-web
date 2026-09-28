@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_TRENDS_TEAMS, addTeam, spreadLabels } from '../lib/platform/trends.ts';
+import { MAX_TRENDS_TEAMS, addTeam, pickSlots, removeTeam, spreadLabels } from '../lib/platform/trends.ts';
+import { parseTrendsView, trendsViewParams } from '../lib/platform/viewState.ts';
 import { CATEGORICAL } from '../lib/platform/chartTokens.ts';
 
 test('the overlay holds one team per categorical slot', () => {
@@ -14,6 +15,33 @@ test('addTeam appends, ignores a duplicate, and refuses a 7th pick instead of cy
   const six = ['A', 'B', 'C', 'D', 'E', 'F'];
   assert.deepEqual(addTeam(six, 'G'), { teams: six, refused: true });
   assert.deepEqual(addTeam(six, 'C'), { teams: six, refused: false }); // already on: not a refusal
+});
+
+test('addTeam fills the first gap before growing the list', () => {
+  assert.deepEqual(addTeam([null, 'B', 'C'], 'D'), { teams: ['D', 'B', 'C'], refused: false });
+  const gapped = ['A', 'B', null, 'D', 'E', 'F'];
+  assert.deepEqual(addTeam(gapped, 'G'), { teams: ['A', 'B', 'G', 'D', 'E', 'F'], refused: false });
+});
+
+test('removing #1 leaves #2 in cat-2: a removal leaves a gap, never shifts', () => {
+  const after = removeTeam(['A', 'B', 'C'], 'A');
+  assert.deepEqual(after, [null, 'B', 'C']);
+  assert.deepEqual(pickSlots(after), [{ team: 'B', slot: 'cat-2' }, { team: 'C', slot: 'cat-3' }]);
+  assert.deepEqual(removeTeam(['A', 'B', 'C'], 'C'), ['A', 'B']); // no trailing gap
+  assert.deepEqual(removeTeam(['A', null, 'C'], 'C'), ['A']);
+});
+
+test('the next add fills cat-1', () => {
+  const next = addTeam(removeTeam(['A', 'B', 'C'], 'A'), 'D').teams;
+  assert.deepEqual(pickSlots(next).map((p) => `${p.team}:${p.slot}`), ['D:cat-1', 'B:cat-2', 'C:cat-3']);
+});
+
+test('a gap survives a URL round-trip', () => {
+  const v = { sport: 'nba', teams: [null, 'B', null, 'D'], stat: 'avgPoints' };
+  const qs = trendsViewParams(v).toString();
+  assert.equal(qs, 'sport=nba&team=&team=B&team=&team=D&stat=avgPoints');
+  assert.deepEqual(parseTrendsView(new URLSearchParams(qs)), v);
+  assert.deepEqual(pickSlots(parseTrendsView(new URLSearchParams(qs)).teams).map((p) => p.slot), ['cat-2', 'cat-4']);
 });
 
 const GAP = 14;

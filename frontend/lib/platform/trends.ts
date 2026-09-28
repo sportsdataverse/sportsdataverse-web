@@ -1,22 +1,51 @@
 /**
- * Pure logic for /platform/trends: the multi-team overlay's cap and pick rule,
- * and the end-label layout. Relative `.ts` imports so `node --test` loads it.
+ * Pure logic for /platform/trends: the multi-team overlay's picks and the
+ * end-label layout. Relative `.ts` imports so `node --test` loads it.
  */
-import { CATEGORICAL } from "./chartTokens.ts";
+import { CATEGORICAL, categoricalSlot, type CategoricalSlot } from "./chartTokens.ts";
 
 /** One team per categorical slot: `categoricalSlot(i)` never cycles a hue. */
 export const MAX_TRENDS_TEAMS = CATEGORICAL.length;
 
-/** Add a pick to the overlay. A team already on is a no-op; past the cap the
- *  pick is refused (the page says so), never folded onto a used colour. */
+/** Picks by position, and position IS the colour slot, so a team keeps its
+ *  colour when another is removed (a removal leaves a gap, `null`). Never
+ *  ends in a gap; at most MAX_TRENDS_TEAMS long. */
+export type TrendPicks = (string | null)[];
+
+export function trimGaps(picks: readonly (string | null)[]): TrendPicks {
+  let n = picks.length;
+  while (n > 0 && picks[n - 1] === null) n--;
+  return picks.slice(0, n);
+}
+
+/** Add a pick in the first gap, else at the end. A team already on is a
+ *  no-op; with no gap and no room the pick is refused (the page says so),
+ *  never folded onto a used colour. */
 export function addTeam(
-  teams: readonly string[],
+  picks: readonly (string | null)[],
   team: string,
   max: number = MAX_TRENDS_TEAMS
-): { teams: string[]; refused: boolean } {
-  if (teams.includes(team)) return { teams: [...teams], refused: false };
-  if (teams.length >= max) return { teams: [...teams], refused: true };
-  return { teams: [...teams, team], refused: false };
+): { teams: TrendPicks; refused: boolean } {
+  const out = [...picks];
+  if (out.includes(team)) return { teams: out, refused: false };
+  const gap = out.indexOf(null);
+  if (gap >= 0) out[gap] = team;
+  else if (out.length < max) out.push(team);
+  else return { teams: out, refused: true };
+  return { teams: out, refused: false };
+}
+
+/** Remove a pick, leaving a gap: every other team keeps its position. */
+export function removeTeam(picks: readonly (string | null)[], team: string): TrendPicks {
+  return trimGaps(picks.map((t) => (t === team ? null : t)));
+}
+
+/** Each pick with its colour slot (slot = position); gaps skipped. */
+export function pickSlots(picks: readonly (string | null)[]): { team: string; slot: CategoricalSlot }[] {
+  return picks.flatMap((team, i) => {
+    const slot = categoricalSlot(i);
+    return team !== null && slot ? [{ team, slot }] : [];
+  });
 }
 
 /**

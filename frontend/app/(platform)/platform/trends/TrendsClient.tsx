@@ -2,15 +2,22 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { TrendingUp, X } from "lucide-react";
+import { Plus, TrendingUp, X } from "lucide-react";
 import { Button } from "@components/ui/button";
 import { TREND_SPORTS } from "@content/trends";
 import type { TrendSport } from "@content/trends";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
 import { trendsViewParams, type TrendsView } from "@lib/platform/viewState";
-import { categoricalSlot, chartVar, type CategoricalSlot } from "@lib/platform/chartTokens";
+import { chartVar, type CategoricalSlot } from "@lib/platform/chartTokens";
 import { niceTicks } from "@lib/platform/scales";
-import { MAX_TRENDS_TEAMS, addTeam, spreadLabels } from "@lib/platform/trends";
+import {
+  MAX_TRENDS_TEAMS,
+  addTeam,
+  pickSlots,
+  removeTeam,
+  spreadLabels,
+  type TrendPicks,
+} from "@lib/platform/trends";
 import useUrlMirror from "@hooks/useUrlMirror";
 
 /**
@@ -24,6 +31,14 @@ const DATA_REPO = "sportsdataverse/sportsdataverse-data";
 
 type TrendPoint = { season: number; value: number; display: string };
 type TrendSeries = { team: string; slot: CategoricalSlot; points: TrendPoint[] };
+/** A refused pick, or the charted teams with no rows for the stat. */
+type Note = { refused: string } | { label: string; missing: string[] };
+
+function noteText(note: Note): string {
+  return "refused" in note
+    ? `${MAX_TRENDS_TEAMS} teams at most, one per colour. Remove one to add ${note.refused}.`
+    : `No ${note.label} for ${note.missing.join(", ")}.`;
+}
 
 function proxyUrl(sport: TrendSport, asset: string): string {
   return `${window.location.origin}/api/platform/datasets/file?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}&asset=${encodeURIComponent(asset)}`;
@@ -173,6 +188,7 @@ function TrendChart({
             s.points.length > 1 ? (
               <polyline
                 key={s.team}
+                data-team={s.team}
                 points={s.points.map((p) => `${x(p.season).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ")}
                 fill="none"
                 stroke={chartVar(s.slot)}
@@ -180,7 +196,14 @@ function TrendChart({
                 strokeLinejoin="round"
               />
             ) : (
-              <circle key={s.team} cx={x(s.points[0].season)} cy={y(s.points[0].value)} r={3} fill={chartVar(s.slot)} />
+              <circle
+                key={s.team}
+                data-team={s.team}
+                cx={x(s.points[0].season)}
+                cy={y(s.points[0].value)}
+                r={3}
+                fill={chartVar(s.slot)}
+              />
             )
           )}
           {/* Direct end labels: text in the foreground colour (cat-3/cat-5 are
@@ -232,7 +255,11 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
   const [sportKey, setSportKey] = useState(initial.sport);
   const [teamOptions, setTeamOptions] = useState<string[]>([]);
   const [stats, setStats] = useState<{ name: string; label: string }[]>([]);
-  const [picked, setPicked] = useState<string[]>(initial.teams);
+  // Picks by position = colour slot (see lib/platform/trends.ts). The ref is
+  // the live value for a chart that lands after a removal made while loading.
+  const [picked, setPicked] = useState<TrendPicks>(initial.teams);
+  const pickedRef = useRef(initial.teams);
+  const [pending, setPending] = useState("");
   const [stat, setStat] = useState(initial.stat);
   // A shared link charts itself once its team + stat lists have loaded.
   // Disarms on a match, a no-match, a load failure and a manual sport switch
@@ -241,7 +268,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
   const autoRun = useRef(Boolean(initial.teams.length && initial.stat));
   const [chart, setChart] = useState<{ label: string; series: TrendSeries[] } | null>(null);
   const [hover, setHover] = useState<number | null>(null);
-  const [note, setNote] = useState<string | null>(null);
+  const [note, setNote] = useState<Note | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -302,34 +329,39 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
 
   useUrlMirror(trendsViewParams({ sport: sportKey, teams: picked, stat }));
 
-  useEffect(() => {
-    if (!autoRun.current || !teamOptions.length || !stats.length) return;
-    autoRun.current = false;
-    if (picked.some((t) => teamOptions.includes(t)) && stats.some((s) => s.name === stat)) void run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires when the lists arrive
-  }, [teamOptions, stats]);
-
-  function pickTeam(team: string) {
-    if (!team) return;
-    const next = addTeam(picked, team);
-    setPicked(next.teams);
-    setNote(
-      next.refused
-        ? `${MAX_TRENDS_TEAMS} teams at most, one per colour. Remove one to add ${team}.`
-        : null
-    );
+  function setPicks(next: TrendPicks) {
+    pickedRef.current = next;
+    setPicked(next);
   }
 
-  function removeTeam(team: string) {
-    setPicked((p) => p.filter((t) => t !== team));
-    // The rest keep their colours until the next chart.
-    setChart((c) => (c ? { ...c, series: c.series.filter((s) => s.team !== team) } : c));
+  /** Add the pending pick and re-chart, so chips, URL and chart agree. */
+  function addPending() {
+    if (!pending) return;
+    const next = addTeam(picked, pending);
+    setPending("");
+    if (next.refused) {
+      setNote({ refused: pending });
+      return;
+    }
+    setPicks(next.teams);
     setNote(null);
+    if (stat) void run(next.teams);
   }
 
-  async function run() {
-    if (!picked.length || !stat) return;
-    const { runQuery } = await import("@lib/platform/duckdb");
+  function dropTeam(team: string) {
+    setPicks(removeTeam(picked, team));
+    // A gap, not a shift: the rest keep their positions, so their colours.
+    setChart((c) => (c ? { ...c, series: c.series.filter((s) => s.team !== team) } : c));
+    setNote((n) => {
+      if (!n || "refused" in n) return null; // a refused pick now has room
+      const missing = n.missing.filter((t) => t !== team);
+      return missing.length ? { ...n, missing } : null;
+    });
+  }
+
+  async function run(picks: TrendPicks = pickedRef.current) {
+    const teams = picks.filter((t): t is string => t !== null);
+    if (!teams.length || !stat) return;
     setBusy("Charting…");
     setError(null);
     setNote(null);
@@ -337,10 +369,11 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
     setHover(null);
     const label = stats.find((s) => s.name === stat)?.label ?? stat;
     try {
+      const { runQuery } = await import("@lib/platform/duckdb");
       const urls = seasonAssets.map((a) => `'${proxyUrl(sport, a)}'`).join(", ");
       const res = await runQuery(
         `SELECT team_display_name, season, value, display_value FROM read_parquet([${urls}], union_by_name=true)
-         WHERE team_display_name IN (${picked.map(sq).join(", ")}) AND stat_name = ${sq(stat)} AND value IS NOT NULL
+         WHERE team_display_name IN (${teams.map(sq).join(", ")}) AND stat_name = ${sq(stat)} AND value IS NOT NULL
          ORDER BY season`,
         200 * MAX_TRENDS_TEAMS
       );
@@ -356,21 +389,29 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
         });
         byTeam.set(team, points);
       }
-      // Slot i is the i-th pick; picked is capped at MAX_TRENDS_TEAMS, so every slot exists.
-      const series = picked.flatMap((team, i) => {
-        const slot = categoricalSlot(i);
+      // A team removed while this loaded stays removed; positions never
+      // shift, so every other team's slot is still its own.
+      const live = (t: string) => pickedRef.current.includes(t);
+      const series = pickSlots(picks).flatMap(({ team, slot }) => {
         const points = byTeam.get(team);
-        return slot && points?.length ? [{ team, slot, points }] : [];
+        return live(team) && points?.length ? [{ team, slot, points }] : [];
       });
-      const missing = picked.filter((t) => !byTeam.has(t));
+      const missing = teams.filter((t) => live(t) && !byTeam.has(t));
       setChart({ label, series });
-      if (missing.length) setNote(`No ${label} for ${missing.join(", ")}.`);
+      if (missing.length) setNote({ label, missing });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(null);
     }
   }
+
+  useEffect(() => {
+    if (!autoRun.current || !teamOptions.length || !stats.length) return;
+    autoRun.current = false;
+    if (picked.some((t) => t !== null && teamOptions.includes(t)) && stats.some((s) => s.name === stat)) void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires when the lists arrive
+  }, [teamOptions, stats]);
 
   const series = chart?.series ?? [];
   const seasonCount = new Set(series.flatMap((s) => s.points.map((p) => p.season))).size;
@@ -397,7 +438,8 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
                 setSportKey(s.key);
                 setTeamOptions([]);
                 setStats([]);
-                setPicked([]);
+                setPicks([]);
+                setPending("");
                 setStat("");
                 setChart(null);
                 setNote(null);
@@ -412,21 +454,26 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
             </button>
           ))}
         </div>
-        <select
-          aria-label="Add a team"
-          value=""
-          onChange={(e) => pickTeam(e.target.value)}
-          className="min-w-[16rem] rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
-        >
-          <option value="">
-            Add team… ({picked.length}/{MAX_TRENDS_TEAMS})
-          </option>
-          {teamOptions
-            .filter((t) => !picked.includes(t))
-            .map((t) => (
-              <option key={t}>{t}</option>
-            ))}
-        </select>
+        <div className="flex gap-2">
+          <select
+            aria-label="Add a team"
+            value={pending}
+            onChange={(e) => setPending(e.target.value)}
+            className="min-w-[16rem] rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm"
+          >
+            <option value="">
+              Team… ({picked.filter(Boolean).length}/{MAX_TRENDS_TEAMS})
+            </option>
+            {teamOptions
+              .filter((t) => !picked.includes(t))
+              .map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+          </select>
+          <Button variant="outline" onClick={addPending} disabled={busy !== null || !pending}>
+            <Plus className="mr-1 h-4 w-4" /> Add
+          </Button>
+        </div>
         <select
           aria-label="Stat"
           value={stat}
@@ -440,17 +487,17 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
             </option>
           ))}
         </select>
-        <Button onClick={run} disabled={busy !== null || !picked.length || !stat}>
+        <Button onClick={() => void run()} disabled={busy !== null || !picked.length || !stat}>
           <TrendingUp className="mr-1 h-4 w-4" /> {busy ?? "Chart it"}
         </Button>
       </div>
 
       {picked.length ? (
         <div data-testid="trends-picked" className="mb-3 flex flex-wrap gap-2">
-          {picked.map((t) => (
+          {pickSlots(picked).map(({ team: t }) => (
             <button
               key={t}
-              onClick={() => removeTeam(t)}
+              onClick={() => dropTeam(t)}
               aria-label={`Remove ${t}`}
               className="flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1 font-inter text-sm hover:bg-muted"
             >
@@ -461,7 +508,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
       ) : null}
 
       <p data-testid="trends-note" role="status" className="mb-3 min-h-5 font-inter text-sm text-muted-foreground">
-        {note}
+        {note ? noteText(note) : null}
       </p>
 
       {error ? (
