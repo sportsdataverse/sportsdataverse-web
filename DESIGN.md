@@ -31,7 +31,7 @@ them; Tailwind classes `fill-chart-*` / `stroke-chart-*` / `bg-chart-*`).
 | `chart-cat-5` | `#e87ba4` | `#d55181` | series 5 (magenta) |
 | `chart-cat-6` | `#008300` | `#008300` | series 6 (green) |
 | `chart-div-neg-3`, `chart-div-neg-2`, `chart-div-neg-1` | `destructive` mixed 100 / 66 / 33% into `chart-div-mid` | same | below baseline (worse) |
-| `chart-div-mid` | `#e3e8ef` | `#2b3548` | at baseline (neutral slate) |
+| `chart-div-mid` | `#e3e8ef` | `#2b3548` | at baseline (neutral slate); the league band (Trends) |
 | `chart-div-pos-1`, `chart-div-pos-2`, `chart-div-pos-3` | `primary` mixed 33 / 66 / 100% into `chart-div-mid` | same | above baseline (better) |
 | `chart-seq-1`, `chart-seq-2`, `chart-seq-3`, `chart-seq-4`, `chart-seq-5` | `primary` mixed 20 / 40 / 60 / 80 / 100% into `card` | same | magnitude (one hue) |
 
