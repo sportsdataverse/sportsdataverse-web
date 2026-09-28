@@ -18,6 +18,7 @@ import { SCATTER_SOURCES } from "../../content/scatter.ts";
 import { scatterAxes } from "./viz/scatterMath.ts";
 import { ROLLING_CARDS, ROLLING_TABS, type RollingCard, type RollingTab } from "./rolling.ts";
 import { MAX_TRENDS_TEAMS, trimGaps, type TrendPicks } from "./trends.ts";
+import { ALL_PAIRS_CAP } from "./chartTokens.ts";
 import type { TintMode } from "./scales.ts";
 
 export function toSearchParams(record: Record<string, string | string[] | undefined>): URLSearchParams {
@@ -190,17 +191,24 @@ const TREND_KEYS = TREND_SPORTS.map((s) => s.key);
 const TREND_VIEWS = ["overlay", "multiples"] as const;
 const GROUP_ID = /^[a-z0-9]+:[a-z0-9-]+$/;
 
+/** Picks by position from repeated `key`s (position = colour slot): a blank
+ *  key is a gap, a repeated value is dropped, at most `max` positions, no
+ *  trailing gap. */
+function readPicks(sp: URLSearchParams, key: string, max: number): TrendPicks {
+  const picks: TrendPicks = [];
+  for (const raw of sp.getAll(key)) {
+    const t = raw.slice(0, MAX_LEN);
+    if (t === "") picks.push(null);
+    else if (!picks.includes(t)) picks.push(t);
+  }
+  return trimGaps(picks.slice(0, max));
+}
+
 export function parseTrendsView(sp: URLSearchParams): TrendsView {
   const group = (sp.get("group") ?? "").slice(0, MAX_LEN);
-  const teams: TrendPicks = [];
-  for (const raw of sp.getAll("team")) {
-    const t = raw.slice(0, MAX_LEN);
-    if (t === "") teams.push(null);
-    else if (!teams.includes(t)) teams.push(t); // a repeated name is dropped
-  }
   return {
     sport: pick(sp.get("sport"), TREND_KEYS, TREND_KEYS[0]),
-    teams: trimGaps(teams.slice(0, MAX_TRENDS_TEAMS)),
+    teams: readPicks(sp, "team", MAX_TRENDS_TEAMS),
     stat: (sp.get("stat") ?? "").slice(0, MAX_LEN),
     season: /^\d{4}$/.test(sp.get("season") ?? "") ? sp.get("season")! : "",
     view: pick(sp.get("view"), TREND_VIEWS, "overlay"),
@@ -243,9 +251,10 @@ export function lookupsViewParams(v: LookupsView): URLSearchParams {
 // --- Scatter ------------------------------------------------------------------
 
 /** One source (schema + table, from content/scatter.ts), one season, two
- *  numeric columns. `hl` and `mode` are reserved for P4 T2 (highlight) and T3
- *  (faces): not read or written yet. */
-export type ScatterView = { schema: string; table: string; season: string; x: string; y: string };
+ *  numeric columns, and up to ALL_PAIRS_CAP highlight chips by colour slot
+ *  (`hl`, a blank key per gap, as Trends' `team`). `mode` is reserved for
+ *  P4 T3 (faces): not read or written yet. */
+export type ScatterView = { schema: string; table: string; season: string; x: string; y: string; hl: TrendPicks };
 const SCATTER_DEFAULT = SCATTER_SOURCES[0];
 
 /** A source outside content/scatter.ts falls back to the first; `numeric`
@@ -261,7 +270,7 @@ export function parseScatterView(sp: URLSearchParams, numeric?: readonly string[
   };
   const season = sp.get("season") ?? "";
   const axes = numeric ? scatterAxes(col("x"), col("y"), numeric) : { x: col("x"), y: col("y") };
-  return { schema: src.schema, table: src.table, season: /^\d{4}$/.test(season) ? season : "", ...axes };
+  return { schema: src.schema, table: src.table, season: /^\d{4}$/.test(season) ? season : "", ...axes, hl: readPicks(sp, "hl", ALL_PAIRS_CAP) };
 }
 
 export function scatterViewParams(v: ScatterView): URLSearchParams {
@@ -273,6 +282,7 @@ export function scatterViewParams(v: ScatterView): URLSearchParams {
   if (v.season) p.set("season", v.season);
   if (v.x) p.set("x", v.x);
   if (v.y) p.set("y", v.y);
+  for (const c of trimGaps(v.hl)) p.append("hl", c ?? "");
   return p;
 }
 

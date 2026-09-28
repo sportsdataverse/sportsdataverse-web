@@ -2,17 +2,30 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SCATTER_SOURCES } from '../content/scatter.ts';
 import {
+  baseView,
   cellNumber,
+  chipMatches,
   filledColumns,
+  highlightOptions,
+  highlightSlots,
   keepListed,
   median,
   missingNote,
   nearest,
   numericColumns,
   paddedDomain,
+  panView,
+  pickRandomAxes,
   scatterAxes,
   scatterPoints,
+  suggest,
+  zoomView,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  type ScatterPoint,
 } from '../lib/platform/viz/scatterMath.ts';
+import { addTeam, removeTeam, pickSlots } from '../lib/platform/trends.ts';
+import { ALL_PAIRS_CAP } from '../lib/platform/chartTokens.ts';
 import { resolveColor, sizeCanvas } from '../lib/platform/viz/canvas.ts';
 
 const source = (schema: string, table: string) => SCATTER_SOURCES.find((s) => s.schema === schema && s.table === table)!;
@@ -109,8 +122,8 @@ test('scatterPoints drops null and non-finite x or y, counting each axis, and na
   ];
   const { points, missingX, missingY } = scatterPoints(rows, src, 'min', 'box_bpm', new Map([['150', 'Duke Blue Devils']]));
   assert.deepEqual(points, [
-    { label: 'A', team: 'Duke Blue Devils', x: 10, y: 2 },
-    { label: 'E', team: 'Duke Blue Devils', x: 7, y: 1.5 },
+    { label: 'A', team: 'Duke Blue Devils', teamName: '', x: 10, y: 2 },
+    { label: 'E', team: 'Duke Blue Devils', teamName: '', x: 7, y: 1.5 },
   ]);
   assert.equal(missingX, 3);
   assert.equal(missingY, 2);
@@ -171,4 +184,131 @@ test('resolveColor reads the token off a probe inside the host, then removes it'
   assert.equal(seen, 'var(--color-chart-cat-1)');
   assert.equal(color, 'rgb(42, 120, 214)');
   assert.equal(kids.length, 0);
+});
+
+// --- P4 T2: highlight, zoom and pan, RANDOM ---------------------------------------
+
+const pt = (label: string, team: string, teamName = '', x = 0, y = 0): ScatterPoint => ({ label, team, teamName, x, y });
+
+test('scatterPoints carries the full team name where the source has one (NBA: team_name beside BOS)', () => {
+  const r = scatterPoints([{ player_name: 'Jayson Tatum', team_abbreviation: 'BOS', team_name: 'Boston Celtics', o_rapm: 1, d_rapm: 2 }], source('nba', 'player_impact'), 'o_rapm', 'd_rapm');
+  assert.deepEqual(r.points, [{ label: 'Jayson Tatum', team: 'BOS', teamName: 'Boston Celtics', x: 1, y: 2 }]);
+});
+
+test('chipMatches: the name, the team, the team abbreviation or full name, ignoring case; never a substring', () => {
+  const tatum = pt('Jayson Tatum', 'BOS', 'Boston Celtics');
+  for (const chip of ['Jayson Tatum', 'jayson tatum', 'BOS', 'bos', 'Boston Celtics', 'BOSTON CELTICS']) assert.ok(chipMatches(tatum, chip), chip);
+  for (const chip of ['Tatum', 'BO', 'Boston', 'LAL', '']) assert.equal(chipMatches(tatum, chip), false, chip);
+  // a team table: the label is the team name
+  assert.ok(chipMatches(pt('Indiana', ''), 'indiana'));
+});
+
+test('highlightSlots: each mark takes its first matching chip\'s slot, -1 for none, null with no chip', () => {
+  const pts = [pt('Jayson Tatum', 'BOS', 'Boston Celtics'), pt('LeBron James', 'LAL'), pt('Jaylen Brown', 'BOS'), pt('Luka Doncic', 'LAL')];
+  assert.equal(highlightSlots(pts, []), null);
+  assert.equal(highlightSlots(pts, [null, null]), null);
+  assert.deepEqual(highlightSlots(pts, ['bos']), [0, -1, 0, -1]);
+  // a mark matching two chips takes the earlier chip's colour
+  assert.deepEqual(highlightSlots(pts, ['BOS', 'Jayson Tatum', 'LAL']), [0, 2, 0, 2]);
+  assert.deepEqual(highlightSlots(pts, ['Jayson Tatum', 'BOS']), [0, -1, 1, -1]);
+  // a gap keeps the survivors' slots
+  assert.deepEqual(highlightSlots(pts, [null, 'LAL']), [-1, 1, -1, 1]);
+  // chips that match no mark (carried over to another source): the plain chart, nothing faded
+  assert.equal(highlightSlots(pts, ['DEN', 'Nikola Jokic']), null);
+  assert.deepEqual(highlightSlots(pts, ['DEN', 'lal']), [-1, 1, -1, 1]);
+});
+
+test('highlight chips: the first free slot, kept when another chip goes; a 4th refused (ALL_PAIRS_CAP)', () => {
+  assert.equal(ALL_PAIRS_CAP, 3);
+  let picks: (string | null)[] = [];
+  for (const c of ['BOS', 'LAL', 'OKC']) picks = addTeam(picks, c, ALL_PAIRS_CAP).teams;
+  assert.deepEqual(picks, ['BOS', 'LAL', 'OKC']);
+  const fourth = addTeam(picks, 'DEN', ALL_PAIRS_CAP);
+  assert.equal(fourth.refused, true);
+  assert.deepEqual(fourth.teams, ['BOS', 'LAL', 'OKC']);
+  picks = removeTeam(picks, 'BOS');
+  assert.deepEqual(pickSlots(picks), [{ team: 'LAL', slot: 'cat-2' }, { team: 'OKC', slot: 'cat-3' }]); // survivors never repainted
+  picks = addTeam(picks, 'DEN', ALL_PAIRS_CAP).teams;
+  assert.deepEqual(picks, ['DEN', 'LAL', 'OKC']); // the new chip takes the free slot 1
+});
+
+test('highlightOptions and suggest: names, teams and team names once each, with match counts; exact, prefix, then the rest', () => {
+  const pts = [pt('Jayson Tatum', 'BOS', 'Boston Celtics'), pt('Jaylen Brown', 'BOS', 'Boston Celtics'), pt('Bosnian Guy', 'DEN', 'Denver Nuggets'), pt('Ambos', 'LAL', 'Los Angeles Lakers')];
+  const opts = highlightOptions(pts);
+  assert.deepEqual(opts.get('bos'), { text: 'BOS', n: 2 });
+  assert.deepEqual(opts.get('boston celtics'), { text: 'Boston Celtics', n: 2 });
+  assert.deepEqual(opts.get('jayson tatum'), { text: 'Jayson Tatum', n: 1 });
+  assert.deepEqual(suggest(opts, 'bos', []).map((o) => o.text), ['BOS', 'Bosnian Guy', 'Boston Celtics', 'Ambos']);
+  assert.deepEqual(suggest(opts, '  BOS ', ['BOS']).map((o) => o.text), ['Bosnian Guy', 'Boston Celtics', 'Ambos']); // chips on are left out
+  assert.deepEqual(suggest(opts, '', []), []);
+  const many = highlightOptions(Array.from({ length: 20 }, (_, i) => pt(`Player ${i}`, 'X')));
+  assert.equal(suggest(many, 'player', []).length, 8);
+  assert.equal(suggest(many, 'player', [], 3).length, 3);
+});
+
+test('zoomView keeps the anchored point in place at every scale in [0.5, 32]', () => {
+  const base = baseView([-10, 30], [0, 5]);
+  for (const [fx, fy] of [[0.5, 0.5], [0, 1], [0.13, 0.87], [1, 0]]) {
+    let v = base;
+    const ax = v.x[0] + fx * (v.x[1] - v.x[0]);
+    const ay = v.y[0] + fy * (v.y[1] - v.y[0]);
+    for (let step = 0; step < 40; step++) {
+      // zoom in to the cap, then back out past the floor
+      v = zoomView(v, base, fx, fy, step < 20 ? 1.3 : 1 / 1.3);
+      assert.ok(v.k >= ZOOM_MIN && v.k <= ZOOM_MAX, `k ${v.k}`);
+      const [gx, gy] = [(ax - v.x[0]) / (v.x[1] - v.x[0]), (ay - v.y[0]) / (v.y[1] - v.y[0])];
+      assert.ok(Math.abs(gx - fx) < 1e-9 && Math.abs(gy - fy) < 1e-9, `k ${v.k}: anchor at ${gx}, ${gy}`);
+      assert.ok(Math.abs((base.x[1] - base.x[0]) / (v.x[1] - v.x[0]) - v.k) < 1e-9, 'k is the base span over the visible span');
+    }
+  }
+});
+
+test('zoomView clamps the total zoom to 0.5-32 of the base; the span follows k', () => {
+  const base = baseView([0, 100], [0, 10]);
+  const four = zoomView(base, base, 0.5, 0.5, 4);
+  assert.deepEqual(four, { k: 4, x: [37.5, 62.5], y: [3.75, 6.25] });
+  const top = zoomView(four, base, 0.5, 0.5, 1000);
+  assert.equal(top.k, ZOOM_MAX);
+  assert.ok(Math.abs(top.x[1] - top.x[0] - 100 / 32) < 1e-9);
+  const bottom = zoomView(base, base, 0.25, 0.25, 0.001);
+  assert.equal(bottom.k, ZOOM_MIN);
+  assert.ok(Math.abs(bottom.x[1] - bottom.x[0] - 200) < 1e-9);
+  assert.deepEqual(zoomView(top, base, 0.5, 0.5, 2), top); // at the cap, a further zoom in is a no-op
+});
+
+test('panView slides both domains by a fraction of their span, keeping k', () => {
+  const v = { k: 2, x: [10, 20] as [number, number], y: [0, 4] as [number, number] };
+  assert.deepEqual(panView(v, 0.1, 0), { k: 2, x: [9, 19], y: [0, 4] }); // drag right: lower x comes into view
+  assert.deepEqual(panView(v, 0, -0.25), { k: 2, x: [10, 20], y: [1, 5] }); // drag down (fy up is -): higher y
+  assert.deepEqual(panView(panView(v, 0.3, 0.2), -0.3, -0.2), v);
+});
+
+test('pickRandomAxes: two distinct columns, never the current pair or its swap, deterministic with a seeded rng', () => {
+  const cols = ['a', 'b', 'c', 'd'];
+  const seeded = (seed: number) => () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+  const seen = new Map<string, number>();
+  const rng = seeded(7);
+  for (let i = 0; i < 5000; i++) {
+    const p = pickRandomAxes(cols, { x: 'a', y: 'b' }, rng)!;
+    assert.notEqual(p.x, p.y);
+    assert.ok(!(p.x === 'a' && p.y === 'b') && !(p.x === 'b' && p.y === 'a'), `${p.x},${p.y}`);
+    seen.set(`${p.x},${p.y}`, (seen.get(`${p.x},${p.y}`) ?? 0) + 1);
+  }
+  assert.equal(seen.size, 4 * 3 - 2); // every other ordered pair comes up
+  for (const n of seen.values()) assert.ok(n > 350 && n < 650, `uniform: ${[...seen]}`); // 500 expected each
+  const run = (seed: number) => {
+    const r = seeded(seed);
+    return Array.from({ length: 8 }, () => pickRandomAxes(cols, { x: 'c', y: 'a' }, r));
+  };
+  assert.deepEqual(run(42), run(42));
+  assert.notDeepEqual(run(42), run(43));
+  // the rng's edges map to the first and last pair left
+  assert.deepEqual(pickRandomAxes(cols, { x: 'a', y: 'b' }, () => 0), { x: 'a', y: 'c' });
+  assert.deepEqual(pickRandomAxes(cols, { x: 'a', y: 'b' }, () => 0.9999999), { x: 'd', y: 'c' });
+  assert.deepEqual(pickRandomAxes(cols, { x: 'd', y: 'c' }, () => 0.9999999), { x: 'd', y: 'b' });
+  // no other pair: null
+  assert.equal(pickRandomAxes(['a', 'b'], { x: 'a', y: 'b' }, () => 0.5), null);
+  assert.equal(pickRandomAxes(['a'], { x: 'a', y: 'a' }), null);
+  // a current pick that is not a column excludes nothing
+  assert.deepEqual(pickRandomAxes(['a', 'b'], { x: 'z', y: 'a' }, () => 0), { x: 'a', y: 'b' });
 });

@@ -78,6 +78,9 @@ them; Tailwind classes `fill-chart-*` / `stroke-chart-*` / `bg-chart-*`).
   `border` on the `chart-div-mid` band is 1.08:1 light / 1.03:1 dark, where
   40% `muted-foreground` is 1.78 / 1.95:1 (1.87 / 2.14:1 on `card`), and a
   `foreground` series stays 8.2 / 5.4:1 against it.
+- A highlighted scatter (Scatter's chips) draws every non-matching mark in
+  `muted-foreground` at 15% opacity with no ring; the matches take their
+  chip's slot (`chart-cat-1`–`3`) at full opacity with the surface ring.
 
 Amber discipline: the scoreboard amber appears in at most three places per
 view (ticker, one active marker, one underline). It is never body text on

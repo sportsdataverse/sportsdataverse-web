@@ -1,6 +1,7 @@
 /**
  * Pure pieces of /platform/scatter: the medians, the padded axis domain, the
- * hover hit test, and Data API rows → plotted points.
+ * hover hit test, Data API rows → plotted points, the highlight chips, the
+ * zoom and pan transform, and RANDOM's axis pick.
  */
 import type { ScatterSource } from "../../../content/scatter.ts";
 
@@ -103,7 +104,9 @@ export function scatterAxes(x: string, y: string, numeric: readonly string[]): {
   };
 }
 
-export type ScatterPoint = { label: string; team: string; x: number; y: number };
+/** `teamName`: the team's full name where `team` is an abbreviation
+ *  (`source.teamNameCol`), else "". */
+export type ScatterPoint = { label: string; team: string; teamName: string; x: number; y: number };
 
 /**
  * Rows → points: a row whose x or y is null or not finite (after
@@ -128,7 +131,8 @@ export function scatterPoints(
     const [vx, vy] = [cellNumber(r[x]), cellNumber(r[y])];
     if (!Number.isFinite(vx)) missingX++;
     if (!Number.isFinite(vy)) missingY++;
-    if (Number.isFinite(vx) && Number.isFinite(vy)) points.push({ label: text(r, source.labelCol), team: text(r, source.teamCol), x: vx, y: vy });
+    if (Number.isFinite(vx) && Number.isFinite(vy))
+      points.push({ label: text(r, source.labelCol), team: text(r, source.teamCol), teamName: text(r, source.teamNameCol), x: vx, y: vy });
   }
   return { points, missingX, missingY };
 }
@@ -139,4 +143,131 @@ export function missingNote(noun: string, missing: readonly [string, number][]):
     .filter(([, n]) => n > 0)
     .map(([col, n]) => `${n.toLocaleString("en-US")} ${n === 1 ? noun.replace(/s$/, "") : noun} ${n === 1 ? "has" : "have"} no value for ${col}.`)
     .join(" ");
+}
+
+// --- Highlight -----------------------------------------------------------------
+
+/** The strings a mark answers to: its name, its team and the team's full
+ *  name (NBA's "BOS" and "Boston Celtics"), each once. */
+function names(p: ScatterPoint): string[] {
+  return [...new Set([p.label, p.team, p.teamName].filter(Boolean))];
+}
+
+/** A chip matches a mark whose name, team or team name equals it, ignoring
+ *  case: "bos" matches every Celtics player. */
+export function chipMatches(p: ScatterPoint, chip: string): boolean {
+  const c = chip.toLowerCase();
+  return names(p).some((n) => n.toLowerCase() === c);
+}
+
+/**
+ * Each mark's highlight slot: the position (= colour slot) of the first chip
+ * it matches, so a mark matching two chips takes the earlier chip's colour;
+ * -1 for none. `picks` keeps gaps (null) where a chip was removed, so every
+ * surviving chip keeps its slot. Null — the plain chart — with no chip, or
+ * when no mark matches any chip (a "BOS" chip carried over to WNBA must not
+ * fade every mark).
+ */
+export function highlightSlots(points: readonly ScatterPoint[], picks: readonly (string | null)[]): number[] | null {
+  const chips = picks.flatMap((c, i) => (c === null ? [] : [[c.toLowerCase(), i] as const]));
+  if (!chips.length) return null;
+  const slots = points.map((p) => {
+    const own = names(p).map((n) => n.toLowerCase());
+    return chips.find(([c]) => own.includes(c))?.[1] ?? -1;
+  });
+  return slots.some((s) => s >= 0) ? slots : null;
+}
+
+/** Every string a chip can be, with how many marks it matches: one entry
+ *  per case-folded string, keeping the first spelling seen. */
+export function highlightOptions(points: readonly ScatterPoint[]): Map<string, { text: string; n: number }> {
+  const out = new Map<string, { text: string; n: number }>();
+  for (const p of points) {
+    for (const text of new Set(names(p).map((n) => n.toLowerCase()))) {
+      const o = out.get(text);
+      if (o) o.n++;
+      else out.set(text, { text: names(p).find((n) => n.toLowerCase() === text)!, n: 1 });
+    }
+  }
+  return out;
+}
+
+/** Up to `limit` options containing the query (any case), the exact match
+ *  first, then prefixes, then the rest, A–Z within each; chips already on
+ *  are left out. */
+export function suggest(
+  options: ReadonlyMap<string, { text: string; n: number }>,
+  query: string,
+  picks: readonly (string | null)[],
+  limit = 8
+): { text: string; n: number }[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const on = new Set(picks.filter((c): c is string => c !== null).map((c) => c.toLowerCase()));
+  const rank = (k: string) => (k === q ? 0 : k.startsWith(q) ? 1 : 2);
+  return [...options]
+    .filter(([k]) => k.includes(q) && !on.has(k))
+    .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b))
+    .slice(0, limit)
+    .map(([, o]) => o);
+}
+
+// --- Zoom and pan ----------------------------------------------------------------
+
+export const ZOOM_MIN = 0.5;
+export const ZOOM_MAX = 32;
+
+/** The visible domain of each axis and the zoom `k` it is at (the base
+ *  domain's span over the visible span; 1 = unzoomed). */
+export type ZoomView = { k: number; x: [number, number]; y: [number, number] };
+
+export const baseView = (x: [number, number], y: [number, number]): ZoomView => ({ k: 1, x, y });
+
+/**
+ * Zoom by `factor` about the point at fractions (fx, fy) of the visible
+ * domains (0 = the domain's low end): that point stays where it is on
+ * screen, and the total zoom is kept to [ZOOM_MIN, ZOOM_MAX] of `base`.
+ */
+export function zoomView(v: ZoomView, base: ZoomView, fx: number, fy: number, factor: number): ZoomView {
+  const k = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, v.k * factor));
+  const axis = ([a, b]: [number, number], [a0, b0]: [number, number], f: number): [number, number] => {
+    const at = a + f * (b - a); // the anchored value
+    const span = (b0 - a0) / k;
+    return [at - f * span, at - f * span + span];
+  };
+  return { k, x: axis(v.x, base.x, fx), y: axis(v.y, base.y, fy) };
+}
+
+/** Slide the visible domains by fractions of their span (a drag right by a
+ *  tenth of the plot is dfx = 0.1, and shows lower x values). */
+export function panView(v: ZoomView, dfx: number, dfy: number): ZoomView {
+  const dx = dfx * (v.x[1] - v.x[0]);
+  const dy = dfy * (v.y[1] - v.y[0]);
+  return { k: v.k, x: [v.x[0] - dx, v.x[1] - dx], y: [v.y[0] - dy, v.y[1] - dy] };
+}
+
+// --- RANDOM ----------------------------------------------------------------------
+
+/**
+ * Two distinct columns, uniformly among every ordered pair except the
+ * current one and its swap (both would redraw the same chart). Null when no
+ * other pair exists. `rng` returns [0, 1), Math.random's contract.
+ */
+export function pickRandomAxes(
+  columns: readonly string[],
+  current: { x: string; y: string },
+  rng: () => number = Math.random
+): { x: string; y: string } | null {
+  const n = columns.length;
+  const [i, j] = [columns.indexOf(current.x), columns.indexOf(current.y)];
+  // ordered pair (a, b), a != b, as one index: a * (n - 1) + (b > a ? b - 1 : b)
+  const at = (a: number, b: number) => a * (n - 1) + (b > a ? b - 1 : b);
+  const skip = i >= 0 && j >= 0 && i !== j ? [at(i, j), at(j, i)].sort((a, b) => a - b) : [];
+  const m = n * (n - 1) - skip.length;
+  if (n < 2 || m <= 0) return null;
+  let p = Math.min(m - 1, Math.floor(rng() * m));
+  for (const s of skip) if (p >= s) p++;
+  const a = Math.floor(p / (n - 1));
+  const r = p % (n - 1);
+  return { x: columns[a], y: columns[r >= a ? r + 1 : r] };
 }
