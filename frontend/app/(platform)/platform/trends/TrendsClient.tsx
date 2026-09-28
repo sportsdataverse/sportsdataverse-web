@@ -1352,7 +1352,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
                 // Membership is one season's; the lines span every season, and
                 // teams move (11 of the 18 MBB Big Ten members were in it in 2003).
                 <>
-                  The {panels.group.teams.length} {panels.season} members of the {panels.group.name}, A–Z, over every
+                  The {panels.group.name}&apos;s {panels.group.teams.length} members as of {panels.season}, A–Z, over every
                   season on one y scale; before a move, a team&apos;s line is its old {levelName.toLowerCase()}&apos;s.
                 </>
               )}{" "}
