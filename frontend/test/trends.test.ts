@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MAX_TRENDS_TEAMS, addTeam, endLabels, lastPlayedWeek, pickSlots, releaseKey, removeTeam, spreadLabels, statColumns,
-  statGroups, teamNameLookup, wideToSeries,
+  MAX_TRENDS_TEAMS, addTeam, assertGroupsJoin, bandRuns, bandWithin, displayDecimals, endLabels, formatValue, lastPlayedWeek,
+  leagueBand, loadLeague, pickSlots, rankColumn, rankLabel, releaseKey, removeTeam, spreadLabels, statColumns, statGroups,
+  teamNameLookup, wideToSeries,
 } from '../lib/platform/trends.ts';
 import { parseTrendsView, trendsViewParams } from '../lib/platform/viewState.ts';
 import { CATEGORICAL } from '../lib/platform/chartTokens.ts';
@@ -217,4 +218,141 @@ test('end labels sit in one column at the plot edge, spread even when their line
   assert.deepEqual(labels.map((l) => l.x), [400, 400]);
   spaced(labels.map((l) => l.y), GAP);
   assert.equal(labels[0].y, 100); // the earlier-ending line keeps its height, above
+});
+
+// --- League band and rank context --------------------------------------------------
+
+const near = (got: number | null, want: number) => assert.ok(got !== null && Math.abs(got - want) < 1e-12, `${got} is not ${want}`);
+
+test('leagueBand: mean 0.05 / sd 0.1 is a band from -0.05 to 0.15, sorted by x', () => {
+  const band = leagueBand([{ x: 2, mean: 0.2, sd: 0.1, n: 136 }, { x: 1, mean: 0.05, sd: 0.1, n: 136 }]);
+  assert.deepEqual(band.map((b) => [b.x, b.n]), [[1, 136], [2, 136]]);
+  near(band[0].lo, -0.05);
+  near(band[0].hi, 0.15);
+  assert.equal(band[0].mean, 0.05);
+});
+
+test('leagueBand draws the mean only where there is no sd or fewer than 2 teams', () => {
+  const band = leagueBand([{ x: 1, mean: 0.3, sd: null, n: 5 }, { x: 2, mean: 0.4, sd: 0.1, n: 1 }]);
+  assert.deepEqual(band, [{ x: 1, mean: 0.3, lo: null, hi: null, n: 5 }, { x: 2, mean: 0.4, lo: null, hi: null, n: 1 }]);
+});
+
+test('leagueBand throws on a mean that is not a number instead of charting NaN', () => {
+  // DuckDB-WASM hands an uncast HUGEINT back as an object: Number() of it is NaN.
+  assert.throws(() => leagueBand([{ x: 3, mean: NaN, sd: 0.1, n: 136 }]), /league mean/);
+});
+
+test('the band is trimmed with the lines: no band past the last charted week', () => {
+  // CFB 2026: the file runs to week 15, the lines stop at lastPlayedWeek (4).
+  const band = leagueBand(Array.from({ length: 15 }, (_, i) => ({ x: i + 1, mean: 0.1, sd: 0.2, n: 136 })));
+  assert.deepEqual(bandWithin(band, [1, 2, 3, 4, 1, 2]).map((b) => b.x), [1, 2, 3, 4]);
+  // Hoops: every season has a mean, the lines span only some: none outside them.
+  // A removal that shortens the lines shortens the band the same way.
+  assert.deepEqual(bandWithin(band, [3, 5]).map((b) => b.x), [3, 4, 5]);
+  assert.deepEqual(bandWithin(band, []), []); // no lines, no band
+});
+
+const bp = (x: number, spread = true) => ({ x, mean: 0, lo: spread ? -1 : null, hi: spread ? 1 : null, n: 2 });
+const xsOf = (runs: { x: number }[][]) => runs.map((run) => run.map((b) => b.x));
+
+test('bandRuns splits the filled band where a week has no sd; single points are left to the mean line', () => {
+  const band = [bp(1), bp(2), bp(3, false), bp(4), bp(5, false), bp(6), bp(7), bp(8)];
+  const xs = [1, 2, 3, 4, 5, 6, 7, 8];
+  assert.deepEqual(xsOf(bandRuns(band, xs)), [[1, 2], [6, 7, 8]]);
+  assert.deepEqual(xsOf(bandRuns(band, xs, false)), [[1, 2, 3, 4, 5, 6, 7, 8]]); // the mean line needs no sd
+  assert.deepEqual(bandRuns([], xs), []);
+});
+
+test('bandRuns never bridges a charted x with no league value (a season with no D-I list)', () => {
+  const band = [bp(2019), bp(2020), bp(2022), bp(2023)]; // 2021 is charted, but has no band point
+  assert.deepEqual(xsOf(bandRuns(band, [2019, 2020, 2021, 2022, 2023])), [[2019, 2020], [2022, 2023]]);
+  assert.deepEqual(xsOf(bandRuns(band, [2019, 2020, 2021, 2022, 2023], false)), [[2019, 2020], [2022, 2023]]);
+  // A league x no line has is no gap: nothing charted there to leave out.
+  assert.deepEqual(xsOf(bandRuns(band, [2019, 2023])), [[2019, 2020, 2022, 2023]]);
+});
+
+test('loadLeague: a failed query or a NaN mean leaves no band and no rank count, never an error', async () => {
+  const of = new Map([[1, 136]]);
+  const ok = await loadLeague(async () => ({ rows: [{ x: 1, mean: 0.05, sd: 0.1, n: 136 }], of }));
+  assert.deepEqual([ok.band.length, ok.of.get(1), ok.failed], [1, 136, undefined]);
+  // DuckDB's stddev_samp raises on an inf ("out of range"): the lines chart without the band.
+  const failed = await loadLeague(async () => {
+    throw new Error('Out of Range Error: STDDEV_SAMP is out of range!');
+  });
+  assert.deepEqual([failed.band, failed.of.size], [[], 0]);
+  assert.match(failed.failed ?? '', /out of range/);
+  const nan = await loadLeague(async () => ({ rows: [{ x: 1, mean: NaN, sd: 0.1, n: 136 }], of }));
+  assert.deepEqual([nan.band, nan.of.size], [[], 0]);
+  assert.match(nan.failed ?? '', /league mean/);
+});
+
+test('assertGroupsJoin: an integer release id joins a text groups id; a float or text release id throws', () => {
+  const ok = { fileTeam: 'INTEGER', fileSeason: 'INTEGER', groupsTeam: 'VARCHAR', groupsSeason: 'INTEGER' };
+  assert.doesNotThrow(() => assertGroupsJoin(ok));
+  assert.doesNotThrow(() => assertGroupsJoin({ ...ok, fileTeam: 'BIGINT' }));
+  // A DOUBLE id would stringify as "103.0" and match no D-I team at all.
+  assert.throws(() => assertGroupsJoin({ ...ok, fileTeam: 'DOUBLE' }), /team_id/);
+  assert.throws(() => assertGroupsJoin({ ...ok, fileTeam: 'VARCHAR' }), /team_id/);
+  assert.throws(() => assertGroupsJoin({ ...ok, groupsTeam: 'INTEGER' }), /team_id/);
+  assert.throws(() => assertGroupsJoin({ ...ok, groupsSeason: 'VARCHAR' }), /season/);
+  assert.throws(() => assertGroupsJoin({ ...ok, fileSeason: 'DOUBLE' }), /season/);
+});
+
+test('only the college hoops sources limit their band to D-I, from their groups release', () => {
+  assert.deepEqual(TREND_SPORTS.filter((s) => s.groups).map((s) => [s.key, s.groups!.tag, s.groups!.asset]), [
+    ['mbb', 'mbb_groups', 'mbb_team_group_seasons.parquet'],
+    ['wbb', 'wbb_groups', 'wbb_team_group_seasons.parquet'],
+  ]);
+});
+
+test('formatValue: at most 3 decimals, or the source\'s own; a value rounding to zero is never -0', () => {
+  assert.equal(formatValue(0.24731), '0.247');
+  assert.equal(formatValue(-1.695692197767329e-16), '0'); // NFL adj_net's league mean
+  assert.equal(formatValue(42.327668700000004, 1), '42.3');
+  assert.equal(formatValue(42, 1), '42.0');
+  assert.equal(formatValue(-0.01, 1), '0.0');
+  assert.equal(formatValue(-0.25, 1), '-0.3');
+});
+
+test('displayDecimals reads the precision of a source\'s display strings', () => {
+  assert.equal(displayDecimals(['46.9', '39.4', '2.0']), 1);
+  assert.equal(displayDecimals(['3,421', '47']), 0);
+  assert.equal(displayDecimals(['47', '46.9']), 1); // the widest string wins, wherever it sits
+  assert.equal(displayDecimals(['45.25%', '1.5']), 2);
+  assert.equal(displayDecimals([]), 0);
+});
+
+test('rankLabel reads "#12 of 136", a .5 tie as "#T-7" (GOP formatRank); no rank or no count, no label', () => {
+  assert.equal(rankLabel(12, 136), '#12 of 136');
+  // The summaries rank ties by average (R rank()): 7.5 is a two-way tie for 7th.
+  assert.equal(rankLabel(7.5, 136), '#T-7 of 136');
+  assert.equal(rankLabel(5.5, 83), '#T-5 of 83');
+  assert.equal(rankLabel(8.0, 136), '#8 of 136');
+  assert.equal(rankLabel(null, 136), null);
+  assert.equal(rankLabel(NaN, 136), null);
+  assert.equal(rankLabel(8, undefined), null); // the league query failed: no "of"
+});
+
+test('rankColumn: <stat>_rank when the file has it, the ratings map otherwise, never a guess', () => {
+  const summaries = source('cfb_team_summaries_weekly');
+  assert.equal(rankColumn('EPAplay_off', ['EPAplay_off', 'EPAplay_off_rank'], summaries.ranks), 'EPAplay_off_rank');
+  assert.equal(rankColumn('EPAplay_off_n', ['EPAplay_off_n', 'EPAplay_off_rank'], summaries.ranks), null);
+  for (const key of ['cfb_ratings_weekly', 'nfl_ratings_weekly']) {
+    const { ranks } = source(key);
+    assert.deepEqual(ranks, { adj_off_epa: 'off_rank', adj_def_epa: 'def_rank', adj_net: 'net_rank' });
+    const cols = ['adj_net', 'adj_def_epa', 'adj_st_epa', 'net_rank', 'off_rank'];
+    assert.equal(rankColumn('adj_net', cols, ranks), 'net_rank');
+    assert.equal(rankColumn('adj_st_epa', cols, ranks), null); // no producer rank for it
+    assert.equal(rankColumn('adj_def_epa', cols, ranks), null); // mapped, but not in this file
+  }
+});
+
+test('wideToSeries carries the row\'s own rank when asked; a null rank stays null', () => {
+  const rows = [
+    { pos_team: 'Ohio State', through_week: '1', EPAplay_off: '0.2', EPAplay_off_rank: '8' },
+    { pos_team: 'Ohio State', through_week: '2', EPAplay_off: '0.3', EPAplay_off_rank: null },
+  ];
+  assert.deepEqual(wideToSeries(rows, 'through_week', 'pos_team', 'EPAplay_off', 'EPAplay_off_rank'), [
+    { team: 'Ohio State', points: [{ x: 1, value: 0.2, rank: 8 }, { x: 2, value: 0.3, rank: null }] },
+  ]);
 });

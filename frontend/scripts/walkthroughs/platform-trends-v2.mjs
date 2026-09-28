@@ -5,12 +5,23 @@
 // resulting link; the next Add fills the gap's colour. An old single-team link still
 // charts its one team. A shared CFB ratings link charts its two teams by week within
 // its season, and picking another season re-charts the same teams.
+// League band (P7 T3): every chart draws the league mean (dashed) over a mean ± 1 SD band
+// from the same file, with one "League mean ± 1 SD" legend entry; the CFB summaries band's
+// final-week mean equals the parquet's; hovering over the band still moves the readout;
+// a rating with a producer rank reads "#N of M" beside its value, one without reads none.
+// Fix round: a stat with an inf value (Miami (OH)'s available_yards_pct_off) still charts
+// with its band; M counts the teams with a value, a .5 rank reads "T-"; college hoops
+// average D-I teams only ("D-I mean ± 1 SD", at the teams' own precision).
 // /platform is behind org sign-in, so this is recorded locally and is NOT listed on
 // the PR's `Walkthrough steps:` line (CI has no session; the module throws there).
 const THREE = ['Boston Celtics', 'Los Angeles Lakers', 'Golden State Warriors'];
 const MORE = ['Chicago Bulls', 'Miami Heat', 'New York Knicks'];
 const SEVENTH = 'Denver Nuggets';
 const CHART = 'svg[aria-label="Rebounds Per Game by season"]';
+// polars on cfb_team_summaries_weekly_2025.parquet (release asset as of 2026-09-28):
+// pl.read_parquet(f).filter(pl.col('through_week') == 16)['EPAplay_off'].mean(), n = 136.
+// A republish of the 2025 file moves it: re-derive, never loosen the 1e-9.
+const EPA_WEEK16_MEAN = 0.06580872766029501;
 
 const trendsV2 = async (page, base) => {
   // /platform needs an org-member session: a cookie minted per memory
@@ -36,6 +47,13 @@ const trendsV2 = async (page, base) => {
     const got = await loc.count();
     if (got !== n) throw new Error(`${what}: expected ${n}, got ${got}`);
   };
+  /** The league mean line's [x, mean] pairs, at full precision. */
+  const means = async (chart) =>
+    (await page.locator(`${chart} [data-testid="trends-mean"]`).getAttribute('data-mean'))
+      .split(' ')
+      .map((p) => p.split(':').map(Number));
+  const readoutX = async () => (await legend.innerText()).split('\n')[0];
+  const ranks = () => page.getByTestId('trends-rank').allInnerTexts();
   /** team → its line's computed stroke colour. */
   const strokes = () =>
     page.evaluate((sel) => {
@@ -62,6 +80,9 @@ const trendsV2 = async (page, base) => {
   await idle();
   for (const t of THREE) await has(legend, t);
   await count(page.getByTestId('trends-end-label'), 3, 'end labels');
+  // Hoops: the league mean line, from the same season files.
+  if ((await means(CHART)).length < 2) throw new Error('the NBA chart has no league mean line');
+  await has(legend, 'League mean ± 1 SD');
   await page.waitForTimeout(1200);
 
   // Hover: the legend reads every team's value at the hovered season.
@@ -134,9 +155,16 @@ const trendsV2 = async (page, base) => {
   for (const t of WEEKLY) await has(legend, t);
   await has(legend, 'Through week '); // CFB's week W includes week W (NFL's is 'Entering week')
   await count(page.getByTestId('trends-end-label'), 2, 'weekly end labels');
+  // On a phone the chart sits below the fold: a pointer off the viewport hovers nothing.
+  await page.locator(WEEKLY_CHART).scrollIntoViewIfNeeded();
   const wbox = await page.locator(WEEKLY_CHART).boundingBox();
+  const latestWeek = await readoutX();
   await page.mouse.move(wbox.x + wbox.width * 0.3, wbox.y + wbox.height / 2, { steps: 8 });
   await page.waitForTimeout(1200);
+  if ((await readoutX()) === latestWeek) throw new Error(`the weekly hover left the readout at "${latestWeek}"`);
+  // adj_net has a producer rank (net_rank): each team's hover value reads "#N of M".
+  const hovered = await ranks();
+  if (hovered.length !== 2 || !hovered.every((r) => /^#\d+ of \d+$/.test(r))) throw new Error(`adj_net ranks: ${hovered}`);
   await page.mouse.move(0, 0);
 
   // ...and another season re-charts the same teams: wait on the URL, then the load.
@@ -148,6 +176,87 @@ const trendsV2 = async (page, base) => {
   await idle();
   await has(page.getByTestId('trends-chart-title'), '2024');
   await count(page.getByTestId('trends-end-label'), 2, 'weekly end labels after a season switch');
+  await page.waitForTimeout(1500);
+
+  // A rating with no producer rank (fei_net) reads no rank at all.
+  await page.goto(`${base}/platform/trends?sport=cfb_ratings_weekly&season=2025&${wq}&stat=fei_net`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await page.locator('svg[aria-label="fei_net by week"]').waitFor({ timeout: 120_000 });
+  await idle();
+  await has(legend, 'League mean ± 1 SD');
+  await count(page.getByTestId('trends-rank'), 0, 'ranks on fei_net');
+  await page.waitForTimeout(1200);
+
+  // CFB team summaries: the band and its legend entry; its week-16 mean is the parquet's.
+  const SUMMARY = ['Ohio State', 'Indiana'];
+  const SUMMARY_CHART = 'svg[aria-label="EPAplay_off by week"]';
+  const sq = SUMMARY.map((t) => `team=${encodeURIComponent(t)}`).join('&');
+  await page.goto(`${base}/platform/trends?sport=cfb_team_summaries_weekly&season=2025&${sq}&stat=EPAplay_off`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await page.locator(SUMMARY_CHART).waitFor({ timeout: 120_000 });
+  await idle();
+  const band = page.locator(`${SUMMARY_CHART} [data-testid="trends-band"] polygon`);
+  if ((await band.count()) < 1) throw new Error('the CFB summaries chart has no league band');
+  await has(legend, 'League mean ± 1 SD');
+  await has(legend, '(n = 136)');
+  const [lastX, lastMean] = (await means(SUMMARY_CHART)).at(-1);
+  if (lastX !== 16 || Math.abs(lastMean - EPA_WEEK16_MEAN) > 1e-9) {
+    throw new Error(`week ${lastX} league mean ${lastMean}, parquet says week 16 ${EPA_WEEK16_MEAN}`);
+  }
+  // EPAplay_off_rank is in the same row: both teams read "#N of 136".
+  const latestRanks = await ranks();
+  if (latestRanks.length !== 2 || !latestRanks.every((r) => / of 136$/.test(r))) throw new Error(`EPAplay_off ranks: ${latestRanks}`);
+  // The band takes no pointer events: hovering on it still moves the readout off week 16.
+  await band.first().scrollIntoViewIfNeeded();
+  const bb = await band.first().boundingBox();
+  const before = await readoutX();
+  await page.mouse.move(bb.x + bb.width * 0.4, bb.y + bb.height / 2, { steps: 8 });
+  await page.waitForTimeout(800);
+  if ((await readoutX()) === before) throw new Error(`hovering the band left the readout at "${before}"`);
+  await page.waitForTimeout(1200);
+  await page.mouse.move(0, 0);
+
+  /** Chart a 2025 CFB summaries stat for two teams; its band must draw. */
+  const summaries = async (teams, stat) => {
+    const tq = teams.map((t) => `team=${encodeURIComponent(t)}`).join('&');
+    await page.goto(`${base}/platform/trends?sport=cfb_team_summaries_weekly&season=2025&${tq}&stat=${stat}`, {
+      waitUntil: 'domcontentloaded',
+    });
+    const chart = `svg[aria-label="${stat} by week"]`;
+    await page.locator(chart).waitFor({ timeout: 120_000 });
+    await idle();
+    if ((await page.locator(`${chart} [data-testid="trends-band"] polygon`).count()) < 1) throw new Error(`${stat}: no league band`);
+    return chart;
+  };
+
+  // An inf in the file (Miami (OH), weeks 1-3) is left out of the band, not fatal to the chart.
+  await summaries(['Miami (OH)', 'Ohio State'], 'available_yards_pct_off');
+  await count(page.getByTestId('trends-end-label'), 2, 'available_yards_pct_off end labels');
+  await page.waitForTimeout(1200);
+
+  // Week 1 of red_zone_success_off_pass: 83 teams have a value (the producer ranks 93),
+  // Georgia's 5.5 is a two-way tie for 5th.
+  const rz = await summaries(['Georgia', 'Texas'], 'red_zone_success_off_pass');
+  await page.locator(rz).scrollIntoViewIfNeeded();
+  const rzBox = await page.locator(rz).boundingBox();
+  await page.mouse.move(rzBox.x + 49, rzBox.y + rzBox.height / 2, { steps: 6 }); // the plot's left edge: week 1
+  await page.waitForTimeout(800);
+  if ((await readoutX()) !== 'Through week 1') throw new Error(`expected week 1, read "${await readoutX()}"`);
+  const wk1 = await ranks();
+  if (wk1.join('|') !== '#T-5 of 83|#50 of 83') throw new Error(`week 1 ranks: ${wk1}`);
+  await page.waitForTimeout(1200);
+  await page.mouse.move(0, 0);
+
+  // MBB: the band is D-I only (~365 teams; the file lists ~730), at the teams' one decimal.
+  await page.goto(`${base}/platform/trends?sport=mbb&team=Duke%20Blue%20Devils&team=Kansas%20Jayhawks&stat=avgPoints`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await page.locator('svg[aria-label="Points Per Game by season"]').waitFor({ timeout: 120_000 });
+  await idle();
+  const d1 = /D-I mean ± 1 SD (\d+\.\d) \(n = (\d+)\)/.exec(await legend.innerText());
+  if (!d1 || +d1[2] < 300 || +d1[2] > 400) throw new Error(`MBB band is not D-I: ${await legend.innerText()}`);
   await page.waitForTimeout(1500);
 };
 export default trendsV2;

@@ -1,7 +1,8 @@
 /**
  * Pure logic for /platform/trends: the multi-team overlay's picks, the
- * end-label layout, and the wide (CFB/NFL weekly) sources' series, stat list
- * and team-name join. Relative `.ts` imports so `node --test` loads it.
+ * end-label layout, the wide (CFB/NFL weekly) sources' series, stat list
+ * and team-name join, and the league band and rank context. Relative `.ts`
+ * imports so `node --test` loads it.
  */
 import { CATEGORICAL, categoricalSlot, type CategoricalSlot } from "./chartTokens.ts";
 import type { TeamNames, TrendSport } from "../../content/trends.ts";
@@ -104,18 +105,20 @@ export function lastPlayedWeek(pairs: readonly { week: number; gamesTotal: numbe
 }
 
 type Row = Record<string, unknown>;
-export type WidePoint = { x: number; value: number };
+export type WidePoint = { x: number; value: number; rank?: number | null };
 
 /**
  * Wide rows (one column per stat) → one series per team, points ordered by
  * x; series in order of first appearance. A null (or non-numeric) stat is
- * dropped, never charted as 0.
+ * dropped, never charted as 0. With `rankCol`, each point carries that row's
+ * own rank (null stays null).
  */
 export function wideToSeries(
   rows: readonly Row[],
   xCol: string,
   teamCol: string,
-  stat: string
+  stat: string,
+  rankCol?: string | null
 ): { team: string; points: WidePoint[] }[] {
   const byTeam = new Map<string, WidePoint[]>();
   for (const r of rows) {
@@ -125,7 +128,9 @@ export function wideToSeries(
     if (!Number.isFinite(value)) continue;
     const team = String(r[teamCol]);
     const points = byTeam.get(team) ?? [];
-    points.push({ x: Number(r[xCol]), value });
+    const point: WidePoint = { x: Number(r[xCol]), value };
+    if (rankCol) point.rank = r[rankCol] == null ? null : Number(r[rankCol]);
+    points.push(point);
     byTeam.set(team, points);
   }
   return [...byTeam].map(([team, points]) => ({ team, points: points.sort((a, b) => a.x - b.x) }));
@@ -206,4 +211,129 @@ export function teamNameLookup(
     out.set(id, unique);
   }
   return out;
+}
+
+/** One x of the league aggregate, as queried: every team in the file at that
+ *  x, not just the picks. `sd` is null below 2 teams (DuckDB stddev_samp). */
+export type BandRow = { x: number; mean: number; sd: number | null; n: number };
+export type BandPoint = { x: number; mean: number; lo: number | null; hi: number | null; n: number };
+
+/**
+ * The league mean ± 1 sd per x, sorted by x: an aggregate over the same file
+ * the lines come from, not a percentile. With no sd, or fewer than 2 teams,
+ * the band is the mean alone (lo = hi = null). A mean that is not a number
+ * throws, never charted.
+ */
+export function leagueBand(rows: readonly BandRow[]): BandPoint[] {
+  return [...rows]
+    .sort((a, b) => a.x - b.x)
+    .map(({ x, mean, sd, n }) => {
+      if (!Number.isFinite(mean)) throw new Error(`${x}: league mean is not a number`);
+      const spread = sd !== null && n >= 2;
+      return { x, mean, lo: spread ? mean - sd : null, hi: spread ? mean + sd : null, n };
+    });
+}
+
+/** The band kept to the lines' x span (`xs`, the charted points' x): it never
+ *  runs past a trimmed week or into a season no line has, and it shrinks when
+ *  a removal shortens the lines. No lines, no band. */
+export function bandWithin(band: readonly BandPoint[], xs: readonly number[]): BandPoint[] {
+  const [first, last] = [Math.min(...xs), Math.max(...xs)];
+  return band.filter((b) => b.x >= first && b.x <= last);
+}
+
+/**
+ * The band's drawable stretches: runs of 2+ points, the fill (`filled`) or
+ * the mean line. A charted x (`xs`) with no league value between two points
+ * breaks a run rather than being bridged (a season with no D-I list has no
+ * band); so does a point without a spread, for the fill (its mean is still on
+ * the mean line).
+ */
+export function bandRuns(band: readonly BandPoint[], xs: readonly number[], filled = true): BandPoint[][] {
+  const runs: BandPoint[][] = [];
+  let last: BandPoint | null = null;
+  for (const b of band) {
+    if (filled && (b.lo === null || b.hi === null)) {
+      last = null;
+      continue;
+    }
+    const prev = last;
+    if (prev && !xs.some((x) => x > prev.x && x < b.x)) runs[runs.length - 1].push(b);
+    else runs.push([b]);
+    last = b;
+  }
+  return runs.filter((r) => r.length > 1);
+}
+
+/** The league query's rows, the teams with a value per x (a rank's "of"), and
+ *  the seasons a D-I source's groups file lists. */
+export type LeagueRows = { rows: BandRow[]; of: Map<number, number>; seasons?: number[] };
+export type League = { band: BandPoint[]; of: Map<number, number>; seasons?: number[]; failed?: string };
+
+/** The league layer is auxiliary: a query that fails (DuckDB's stddev_samp is
+ *  "out of range" on an inf) or a mean that is not a number leaves the chart
+ *  with no band and no rank count, never without its lines. */
+export async function loadLeague(query: () => Promise<LeagueRows>): Promise<League> {
+  try {
+    const { rows, of, seasons } = await query();
+    return { band: leagueBand(rows), of, seasons };
+  } catch (e) {
+    return { band: [], of: new Map(), failed: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+const INTEGER = /^U?(TINYINT|SMALLINT|INTEGER|BIGINT)$/;
+
+/** The D-I semi-join matches a release's integer ESPN team id, cast to text,
+ *  to the groups file's text id, season to season. A float id would cast to
+ *  "103.0" and match nothing, so any other key type throws before the join. */
+export function assertGroupsJoin(t: { fileTeam: string; fileSeason: string; groupsTeam: string; groupsSeason: string }): void {
+  if (!INTEGER.test(t.fileTeam) || t.groupsTeam !== "VARCHAR") {
+    throw new Error(`D-I join: release team_id is ${t.fileTeam}, groups team_id is ${t.groupsTeam}; want an integer and VARCHAR`);
+  }
+  if (!INTEGER.test(t.fileSeason) || !INTEGER.test(t.groupsSeason)) {
+    throw new Error(`D-I join: release season is ${t.fileSeason}, groups season is ${t.groupsSeason}; want integers`);
+  }
+}
+
+/** "#12 of 136": a producer rank among the teams with a value at that x. A .5
+ *  rank is a two-way average tie (the CFB summaries rank like R rank()) and
+ *  reads "#T-7", anything else as an integer: GOP's formatRank
+ *  (game-on-paper-app astro/src/utils/misc.ts), formatting the producer's
+ *  value, never recomputing it. No rank, or no count, no label. */
+export function rankLabel(rank: number | null | undefined, of: number | undefined): string | null {
+  if (rank == null || !Number.isFinite(rank) || !of) return null;
+  return `#${String(rank).includes(".5") ? `T-${Math.floor(rank)}` : Math.floor(rank)} of ${of}`;
+}
+
+const upTo3 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 });
+
+/** A value as charted: at most 3 decimals, or exactly `decimals` to match a
+ *  source's own display strings. One that rounds to zero reads 0, never -0
+ *  (Intl's signDisplay "negative" does this too, but throws a RangeError on
+ *  Firefox 111-115, ESR 115 among them). */
+export function formatValue(v: number, decimals?: number): string {
+  const nf =
+    decimals === undefined
+      ? upTo3
+      : new Intl.NumberFormat("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  const s = nf.format(v);
+  return /^-0(\.0*)?$/.test(s) ? s.slice(1) : s;
+}
+
+/** The decimals a source's display strings use ("46.9" → 1, "3,421" → 0), so
+ *  a league mean reads at the teams' own precision. */
+export function displayDecimals(displays: readonly string[]): number {
+  return Math.max(0, ...displays.map((d) => /\.(\d+)/.exec(d)?.[1].length ?? 0));
+}
+
+/** The rank column for a stat in the same row, only when the file has it: the
+ *  source's explicit map, else `<stat>_rank`. Never computed or guessed. */
+export function rankColumn(
+  stat: string,
+  columns: readonly string[],
+  ranks?: Readonly<Record<string, string>>
+): string | null {
+  const col = ranks?.[stat] ?? `${stat}_rank`;
+  return columns.includes(col) ? col : null;
 }

@@ -38,13 +38,27 @@ export type TrendSport = {
   /** Group a long stat list into picker sections (lib `statGroups`). */
   groupStats?: boolean;
   names?: TeamNames;
+  /** Stat → its producer rank column, where the rank is not `<stat>_rank`. */
+  ranks?: Readonly<Record<string, string>>;
+  /** Limit the league band to one division: a team-group-seasons release
+   *  (`season` INTEGER, `team_id` VARCHAR ESPN id, one row per D-I team per
+   *  season, keyed by the ending year like the ESPN files). The ESPN hoops
+   *  files' `team_id` is INTEGER: the join casts it to text. */
+  groups?: { tag: string; asset: string };
 };
+
+// The ratings frames' producer ranks, verified in sdv-py (dense ranks; def
+// ascending, lower allowed EPA is better): sportsdataverse/cfb/cfb_ratings.py
+// L689-691 and sportsdataverse/nfl/nfl_ratings.py L177-179 (`_add_ranks`).
+const RATING_RANKS = { adj_off_epa: "off_rank", adj_def_epa: "def_rank", adj_net: "net_rank" } as const;
 
 const HOOPS_COLS = { team: "team_display_name", season: "season", stat: "stat_name" };
 
 export const TREND_SPORTS: TrendSport[] = [
-  { key: "mbb", label: "MBB", tag: "espn_mens_college_basketball_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS },
-  { key: "wbb", label: "WBB", tag: "espn_womens_college_basketball_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS },
+  // The college files list non-D-I opponents too (MBB 2026: 727 teams, 365
+  // D-I), so their band is D-I only.
+  { key: "mbb", label: "MBB", tag: "espn_mens_college_basketball_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS, groups: { tag: "mbb_groups", asset: "mbb_team_group_seasons.parquet" } },
+  { key: "wbb", label: "WBB", tag: "espn_womens_college_basketball_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS, groups: { tag: "wbb_groups", asset: "wbb_team_group_seasons.parquet" } },
   { key: "nba", label: "NBA", tag: "espn_nba_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS },
   { key: "wnba", label: "WNBA", tag: "espn_wnba_team_season_stats", assetPrefix: "team_season_stats_", format: "long", xAxis: "season", cols: HOOPS_COLS },
   // Weekly frames. Columns from DESCRIBE on each release's newest file
@@ -80,6 +94,7 @@ export const TREND_SPORTS: TrendSport[] = [
     cols: { team: "team_id", season: "season", week: "through_week", games: "games" },
     weekLabel: "Through week",
     names: { schema: "cfb", table: "team_info", key: "team_id", name: "school", keyType: "number" },
+    ranks: RATING_RANKS,
   },
   // team_id VARCHAR abbreviation (ARI, KC, LA…), season BIGINT, as_of_week
   // INTEGER (W = the rating entering week W); stats adj_off_epa, adj_def_epa, adj_st_epa, adj_net, games,
@@ -95,5 +110,6 @@ export const TREND_SPORTS: TrendSport[] = [
     cols: { team: "team_id", season: "season", week: "as_of_week", games: "games" },
     weekLabel: "Entering week",
     names: { schema: "nfl", table: "teams", key: "team_abbr", name: "team_name", keyType: "string" },
+    ranks: RATING_RANKS,
   },
 ];
