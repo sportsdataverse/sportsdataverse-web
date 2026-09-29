@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { Shuffle, Table2, X } from "lucide-react";
+import useSWRImmutable from "swr/immutable";
+import { Download, Shuffle, Table2, X } from "lucide-react";
+import { Button } from "@components/ui/button";
 import { SCATTER_SOURCES, sourceKey, type ScatterSource } from "@content/scatter";
 import { scatterViewParams, type ScatterView } from "@lib/platform/viewState";
 import { API_MAX_ROWS, loadSequencer } from "@lib/platform/wp";
@@ -10,6 +12,7 @@ import { apiRows } from "@lib/platform/queryRun";
 import { addTeam, formatValue, pickSlots, removeTeam, teamNameLookup, type TrendPicks } from "@lib/platform/trends";
 import { ALL_PAIRS_CAP, chartVar } from "@lib/platform/chartTokens";
 import {
+  exportFilename,
   filledColumns,
   highlightOptions,
   highlightSlots,
@@ -18,17 +21,19 @@ import {
   numericColumns,
   pickRandomAxes,
   scatterAxes,
+  scatterExportText,
   scatterPoints,
   suggest,
 } from "@lib/platform/viz/scatterMath";
-import ScatterCanvas from "@components/platform/viz/ScatterCanvas";
+import ScatterCanvas, { type ScatterExport } from "@components/platform/viz/ScatterCanvas";
 import useUrlMirror from "@hooks/useUrlMirror";
 
 /**
  * Scatter anything: any two numeric columns of a curated Data API table
  * (content/scatter.ts), one mark per player or team for one season, on a
  * canvas with a median crosshair. One `/api/platform/query/run` read per
- * (source, season), plus a team-name read where the source has only ids.
+ * (source, season), plus a team-name read where the source has only ids, and
+ * one read of the Data API's freshness per session for the PNG export.
  */
 
 type Row = Record<string, unknown>;
@@ -42,6 +47,13 @@ type Loaded = {
   unnamed: number;
   left: number;
   unlisted: boolean;
+};
+
+/** `/v1/meta`'s `datasets`: when each "schema.table" last changed. */
+const metaFetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return ((await res.json()) as { datasets?: Record<string, string> }).datasets ?? {};
 };
 
 const catalogFetcher = async (url: string) => {
@@ -97,6 +109,12 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
 
   const { data: catalog, error: catalogError } = useSWR(`/api/platform/query/tables?schema=${src.schema}`, catalogFetcher);
   const { data: seasons, error: seasonsError } = useSWR(["scatter-seasons", key], () => seasonList(src));
+  // The export's "data as of": held from the first render, so an export never waits on it.
+  // ponytail: read once per session, so a tab left open across a nightly ingest
+  // can stamp a "data as of" older than the rows it plotted; revalidate on a
+  // season (or source) switch if that matters.
+  const { data: changed } = useSWRImmutable("/api/platform/query/meta", metaFetcher);
+  const chart = useRef<ScatterExport>(null);
   const activeSeason = seasons?.length ? (seasons.includes(season) ? season : seasons[0]) : "";
   const loadKey = `${key}|${activeSeason}`;
   const shown = loaded?.key === loadKey ? loaded : null;
@@ -160,7 +178,9 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
     [showTable, plotted]
   );
 
-  useUrlMirror(scatterViewParams({ schema: src.schema, table: src.table, season: activeSeason || season, x: ax.x, y: ax.y, hl }));
+  const view = { schema: src.schema, table: src.table, season: activeSeason || season, x: ax.x, y: ax.y, hl };
+  const viewParams = scatterViewParams(view);
+  useUrlMirror(viewParams);
 
   const q = filter.trim().toLowerCase();
   const rail = byLetter(axes.filter((c) => c.toLowerCase().includes(q)));
@@ -217,6 +237,24 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
       ].filter(Boolean)
     : [];
   const failure = error ?? catalogError?.message ?? seasonsError?.message ?? null;
+
+  /** The chart as it stands, titled like the page, with the view's link and
+   *  its data's freshness, from what the page already holds: no request. */
+  async function exportPng() {
+    const c = chart.current;
+    if (!c || !points.length) return;
+    try {
+      const text = scatterExportText(view, { label: src.label, query: viewParams.toString(), asOf: changed?.[key], zoomed: c.zoomed() });
+      const url = URL.createObjectURL(await c.png(text));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = exportFilename(view);
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(`PNG export failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
 
   return (
     <>
@@ -306,6 +344,11 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
         >
           <Shuffle className="h-4 w-4" aria-hidden="true" /> Random axes
         </button>
+        {/* no marks while a read is in flight (`shown` is keyed to it) or with no plot */}
+        <Button variant="outline" size="sm" className="ml-auto" onClick={exportPng} disabled={!points.length}>
+          <Download />
+          Export PNG
+        </Button>
       </div>
 
       <p data-testid="scatter-note" role="status" className="mb-3 min-h-5 font-inter text-sm text-muted-foreground">
@@ -358,7 +401,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
                   </li>
                 </ul>
               ) : null}
-              <ScatterCanvas points={points} xLabel={ax.x} yLabel={ax.y} slots={slots} />
+              <ScatterCanvas ref={chart} points={points} xLabel={ax.x} yLabel={ax.y} slots={slots} />
               <p className="text-right font-inter text-xs text-muted-foreground" aria-hidden="true">
                 {ax.x} →
               </p>

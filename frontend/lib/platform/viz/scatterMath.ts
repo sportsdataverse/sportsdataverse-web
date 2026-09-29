@@ -1,9 +1,11 @@
 /**
  * Pure pieces of /platform/scatter: the medians, the padded axis domain, the
  * hover hit test, Data API rows → plotted points, the highlight chips, the
- * zoom and pan transform, and RANDOM's axis pick.
+ * zoom and pan transform, RANDOM's axis pick, and the PNG export's text.
  */
 import type { ScatterSource } from "../../../content/scatter.ts";
+import { chartVar } from "../chartTokens.ts";
+import { pickSlots } from "../trends.ts";
 
 type Row = Record<string, unknown>;
 
@@ -238,6 +240,21 @@ export function zoomView(v: ZoomView, base: ZoomView, fx: number, fy: number, fa
   return { k, x: axis(v.x, base.x, fx), y: axis(v.y, base.y, fy) };
 }
 
+/**
+ * Whether `v` shows the base view: `base` itself, or a view back at it after
+ * zooming in and out (zoomView returns a new object every time, and its
+ * arithmetic lands within ~1e-16 of a span). `eps` is relative to each axis's
+ * base span, since columns differ by orders of magnitude.
+ */
+export function isBaseView(v: ZoomView, base: ZoomView, eps = 1e-9): boolean {
+  if (v === base) return true;
+  const near = (a: [number, number], b: [number, number]) => {
+    const tol = eps * Math.abs(b[1] - b[0]);
+    return Math.abs(a[0] - b[0]) <= tol && Math.abs(a[1] - b[1]) <= tol;
+  };
+  return Math.abs(v.k - base.k) <= eps && near(v.x, base.x) && near(v.y, base.y);
+}
+
 /** Slide the visible domains by fractions of their span (a drag right by a
  *  tenth of the plot is dfx = 0.1, and shows lower x values). */
 export function panView(v: ZoomView, dfx: number, dfy: number): ZoomView {
@@ -270,4 +287,51 @@ export function pickRandomAxes(
   const a = Math.floor(p / (n - 1));
   const r = p % (n - 1);
   return { x: columns[a], y: columns[r >= a ? r + 1 : r] };
+}
+
+// --- Export ----------------------------------------------------------------------
+
+/** `{schema}_{table}_{y}_vs_{x}_{season}.png`: lower case, every other
+ *  character outside [a-z0-9_] an underscore, runs of them one, none at
+ *  either end. The season keeps two seasons of one pair apart. */
+export function exportFilename(v: { schema: string; table: string; season: string; x: string; y: string }): string {
+  const stem = [v.schema, v.table, v.y, "vs", v.x, v.season]
+    .join("_")
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+  return `${stem}.png`; // never empty: "vs" is always there
+}
+
+/** An ISO timestamp as "2026-08-02 06:49 UTC"; "" when missing or not a date. */
+export function utcMinute(iso?: string | null): string {
+  const d = new Date(iso ?? "");
+  return iso && !Number.isNaN(d.getTime()) ? `${d.toISOString().slice(0, 16).replace("T", " ")} UTC` : "";
+}
+
+/**
+ * The PNG export's text: the page's title; a subtitle of the source, the
+ * season, each highlight chip in its slot's colour (a removed chip's gap is
+ * skipped and the others keep their slots, as on the page) and "zoomed" off
+ * the base view; a footer linking the view (`query`, the page's URL state)
+ * and, when known, when the data last changed.
+ */
+export function scatterExportText(
+  v: { season: string; x: string; y: string; hl: readonly (string | null)[] },
+  o: { label: string; query: string; asOf?: string | null; zoomed: boolean }
+): { title: string; subtitle: { text: string; color?: string }[]; footer: string } {
+  const asOf = utcMinute(o.asOf);
+  return {
+    title: `${v.y} vs ${v.x} · ${v.season}`,
+    subtitle: [
+      { text: o.label },
+      { text: v.season },
+      ...pickSlots(v.hl).map(({ team, slot }) => ({ text: team, color: chartVar(slot) })),
+      ...(o.zoomed ? [{ text: "zoomed" }] : []),
+    ],
+    footer: [`sportsdataverse.org/platform/scatter${o.query ? `?${o.query}` : ""}`, asOf ? `data as of ${asOf}` : ""]
+      .filter(Boolean)
+      .join(" · "),
+  };
 }
