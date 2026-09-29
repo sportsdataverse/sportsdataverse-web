@@ -14,7 +14,7 @@ import {
   type Domain,
   type TintMode,
 } from "@lib/platform/scales";
-import { EMPTY_GRID, gridByIndex, gridByName, type GridView } from "@lib/platform/viewState";
+import { compareCells, EMPTY_GRID, gridByIndex, gridByName, type GridView } from "@lib/platform/viewState";
 
 /**
  * Keyboard-first results grid for the platform data surfaces.
@@ -68,17 +68,6 @@ type Sort = { col: number; dir: "asc" | "desc" } | null;
 
 const PAGE = 20;
 const DENSITY = ["py-0.5", "py-1", "py-2"] as const;
-
-function compare(a: string | null, b: string | null): number {
-  if (a === null) return b === null ? 0 : 1; // nulls sink, both directions
-  if (b === null) return -1;
-  const na = Number(a);
-  const nb = Number(b);
-  if (!Number.isNaN(na) && !Number.isNaN(nb) && a.trim() !== "" && b.trim() !== "") {
-    return na - nb;
-  }
-  return a.localeCompare(b);
-}
 
 export default function ResultsGrid({
   columns,
@@ -157,10 +146,7 @@ export default function ResultsGrid({
       );
     }
     if (sort) {
-      out = [...out].sort(
-        (a, b) =>
-          compare(a.cells[sort.col], b.cells[sort.col]) * (sort.dir === "asc" ? 1 : -1)
-      );
+      out = [...out].sort((a, b) => compareCells(a.cells[sort.col], b.cells[sort.col], sort.dir));
     }
     return out;
   }, [rows, filters, sort]);
