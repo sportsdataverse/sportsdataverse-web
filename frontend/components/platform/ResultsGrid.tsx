@@ -108,6 +108,8 @@ export default function ResultsGrid({
   const [viewport, setViewport] = useState(512);
   const scrollFrame = useRef(0);
   const focusPending = useRef(false);
+  /** A body cell has focus, or had it until its row unmounted (tbody onFocus/onBlur). */
+  const ownsFocus = useRef(false);
   const bodyRef = useRef<HTMLTableSectionElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const filterInputRef = useRef<HTMLInputElement>(null);
@@ -150,9 +152,15 @@ export default function ResultsGrid({
   /** The longest cell per column over the whole result, for the windowed grid's sizer row. */
   const widest = useMemo(() => {
     if (rows.length <= WINDOW_MIN) return null;
+    const digits = (v: string) => v.replace(/\D/g, "").length;
     return cols.map((_, c) => {
       let w = "";
-      for (const r of rows) if ((r[c] ?? "∅").length > w.length) w = r[c] ?? "∅";
+      for (const r of rows) {
+        const v = r[c] ?? "∅";
+        // ponytail: character count, not measured width; a tie goes to more digits (10.25 over -0.25).
+        // Measure with a canvas if a proportional face ever makes the shorter string the wider one.
+        if (v.length > w.length || (v.length === w.length && digits(v) > digits(w))) w = v;
+      }
       return w;
     });
   }, [cols, rows]);
@@ -188,8 +196,15 @@ export default function ResultsGrid({
   const rowH = ROW_H[density];
   const windowed = view.length > WINDOW_MIN;
   const win = visibleRange({ scrollTop, viewport, rowHeight: rowH, total: view.length, overscan: OVERSCAN });
-  // The roving tab stop, kept on a rendered row so Tab can always enter the grid.
-  const tabRow = Math.min(Math.max(focus.r, win.start), win.end - 1);
+  // The focused row (clamped: a filter can shrink the view under it) stays mounted outside the
+  // window, between split spacers, so wheeling it out of view never drops focus; it also holds the
+  // roving tab stop, so Tab can always enter the grid.
+  const focusRow = Math.min(focus.r, view.length - 1);
+  const shown: number[] = [];
+  if (focusRow >= 0 && focusRow < win.start) shown.push(focusRow);
+  for (let r = win.start; r < win.end; r++) shown.push(r);
+  if (focusRow >= win.end) shown.push(focusRow);
+  const tail = view.length - (shown.at(-1) ?? -1) - 1; // rows below the last one rendered
 
   /** Read the scroller into state. The sticky header covers the top of the box,
    *  so rows show in what's left of it; and it covers exactly the rows scrolled
@@ -200,19 +215,29 @@ export default function ResultsGrid({
     setScrollTop(el.scrollTop);
     setViewport(el.clientHeight - (el.querySelector("thead")?.offsetHeight ?? 0));
   }
-  // Becoming windowed (a filter cleared) moves no scrollbar, so no scroll event says where we are.
+  // Becoming windowed (a filter cleared) moves no scrollbar, so no scroll event says where we are;
+  // and a resize (a grid mounted hidden, then shown; a filter box opening in the header) changes
+  // the room for rows without one either.
   useLayoutEffect(() => {
-    if (windowed) syncScroll();
+    const el = scrollerRef.current;
+    if (!windowed || !el) return;
+    syncScroll();
+    const ro = new ResizeObserver(syncScroll);
+    ro.observe(el);
+    const head = el.querySelector("thead");
+    if (head) ro.observe(head);
+    return () => ro.disconnect();
   }, [windowed]);
 
   // Externally-driven highlight (chart hover): bring the row into view in the
-  // grid's own scroller, never the page; its scroll event renders its window.
-  useEffect(() => {
+  // grid's own scroller, never the page, and render its window before paint.
+  useLayoutEffect(() => {
     if (highlightIndex == null) return;
     const vi = viewIndexByOrig.get(highlightIndex);
     if (vi == null || !scrollerRef.current || !bodyRef.current) return;
     revealRow(scrollerRef.current, bodyRef.current, vi, rowH);
-  }, [highlightIndex, viewIndexByOrig, rowH]);
+    if (windowed) syncScroll();
+  }, [highlightIndex, viewIndexByOrig, rowH, windowed]);
 
   // Focus lands after the render that put its row in the window (see focusCell).
   useEffect(() => {
@@ -231,6 +256,14 @@ export default function ResultsGrid({
     focusPending.current = true;
     setFocus({ r: nr, c: nc });
   }
+
+  // New rows or row heights (a sort, a filter, a density step) while a cell has focus: keep the
+  // focused POSITION focused and in view. Rows are keyed by original index, so the focused row
+  // itself moves, and out of the window it unmounts, which drops focus to <body>.
+  useLayoutEffect(() => {
+    if (ownsFocus.current && view.length) focusCell(focus.r, focus.c);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- on a change of rows or height only, never a focus move
+  }, [view, rowH]);
 
   function selectRow(viewRow: number | null) {
     const orig = viewRow == null ? null : (view[viewRow]?.orig ?? null);
@@ -440,14 +473,28 @@ export default function ResultsGrid({
               })}
             </tr>
           </thead>
-          <tbody ref={bodyRef}>
-            {win.padTop ? (
-              <tr aria-hidden style={{ height: win.padTop }}>
-                <td colSpan={colOrder.length + 1} />
-              </tr>
-            ) : null}
-            {view.slice(win.start, win.end).map(({ cells, orig }, i) => {
-              const r = win.start + i;
+          <tbody
+            ref={bodyRef}
+            onFocus={() => (ownsFocus.current = true)}
+            onBlur={(e) => {
+              const from = e.target;
+              if (e.relatedTarget) {
+                // the filter box counts as leaving: its keystrokes change the rows
+                if (!e.currentTarget.contains(e.relatedTarget)) ownsFocus.current = false;
+              } else {
+                // Focus went nowhere: a click on the page, another window; or the cell's row
+                // unmounted, which the restore effect has handled by the time this runs.
+                queueMicrotask(() => {
+                  if (from.isConnected) ownsFocus.current = false;
+                });
+              }
+            }}
+          >
+            {/* flatMap: one flat list keyed by original index (a nested array is keyed by its
+                position, which remounts every row on each scroll and drops focus) */}
+            {shown.flatMap((r, i) => {
+              const { cells, orig } = view[r];
+              const gap = r - (i ? shown[i - 1] + 1 : 0);
               const isSelected = selectedRow === orig;
               const isLinked = highlightIndex === orig;
               const rowBg = isSelected
@@ -455,7 +502,15 @@ export default function ResultsGrid({
                 : isLinked
                   ? "bg-score/15"
                   : "";
-              return (
+              return [
+                // Keyed by place, not by the row after it: the only gaps are the leading one and the
+                // one beside a pinned row. A leading spacer re-keyed by a sort was deleted mid-commit,
+                // and the content it held up collapsed long enough to clamp scrollTop.
+                gap ? (
+                  <tr key={i ? "gap-pin" : "gap-head"} aria-hidden style={{ height: gap * rowH }}>
+                    <td colSpan={colOrder.length + 1} />
+                  </tr>
+                ) : null,
                 <tr
                   key={orig}
                   data-row={r}
@@ -487,7 +542,7 @@ export default function ResultsGrid({
                       <td
                         key={ci}
                         data-cell={`${r}-${c}`}
-                        tabIndex={tabRow === r && focus.c === c ? 0 : -1}
+                        tabIndex={focusRow === r && focus.c === c ? 0 : -1}
                         onKeyDown={(e) => onCellKeyDown(e, r, c)}
                         onFocus={() => setFocus({ r, c })}
                         onClick={() => selectRow(isSelected ? null : r)}
@@ -507,11 +562,11 @@ export default function ResultsGrid({
                       </td>
                     );
                   })}
-                </tr>
-              );
+                </tr>,
+              ];
             })}
-            {win.padBottom ? (
-              <tr aria-hidden style={{ height: win.padBottom }}>
+            {tail ? (
+              <tr aria-hidden style={{ height: tail * rowH }}>
                 <td colSpan={colOrder.length + 1} />
               </tr>
             ) : null}
