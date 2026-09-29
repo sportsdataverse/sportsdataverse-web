@@ -255,6 +255,8 @@ export default function ResultsGrid({
     [cols, rows]
   );
   /** The longest cell per column as shown (formatCell) over the whole result, for the windowed grid's sizer row. */
+  // ponytail: formats every cell once per result (~75 ms at 10k x 20, ~1.9 s at 50k x 61). If big
+  // pulls stall, size by the raw decimal cut to 3 places (never narrower than what formatCell shows).
   const widest = useMemo(() => {
     if (rows.length <= WINDOW_MIN) return null;
     const digits = (v: string) => v.replace(/\D/g, "").length;
