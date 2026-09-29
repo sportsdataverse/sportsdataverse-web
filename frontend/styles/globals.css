@@ -232,13 +232,14 @@
   :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
   hr { @apply !mx-auto !w-1/2 h-px !bg-border border-0 !rounded-full; }
 
-  /* MDX / legacy tables */
-  table { @apply !border-collapse text-left; }
-  table thead tr > th,
-  table tbody tr > td { @apply !p-2 border border-border align-middle; }
-  table thead tr > th { @apply text-foreground font-bold; }
-  table thead tr { @apply align-text-top; }
-  table a { @apply !text-accent; }
+  /* MDX / legacy tables. Not the platform's ResultsGrid (role="grid"): these
+     !important rules beat its own utilities (border-separate, density padding). */
+  table:not([role="grid"]) { @apply !border-collapse text-left; }
+  table:not([role="grid"]) thead tr > th,
+  table:not([role="grid"]) tbody tr > td { @apply !p-2 border border-border align-middle; }
+  table:not([role="grid"]) thead tr > th { @apply text-foreground font-bold; }
+  table:not([role="grid"]) thead tr { @apply align-text-top; }
+  table:not([role="grid"]) a { @apply !text-accent; }
 
   strong { @apply !font-bold; }
 

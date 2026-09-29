@@ -307,7 +307,7 @@ export default function ResultsGrid({
         <table role="grid" className="w-max min-w-full border-separate border-spacing-0 text-left text-xs">
           <thead className="sticky top-0 z-20">
             <tr>
-              <th className="sticky left-0 z-30 border-b border-border/60 bg-muted px-2 py-2 text-right font-mono uppercase text-muted-foreground">
+              <th className="sticky left-0 z-30 border-b border-r border-border/60 bg-muted px-2 py-2 text-right font-mono uppercase text-muted-foreground">
                 #
               </th>
               {colOrder.map((ci) => {
@@ -323,7 +323,8 @@ export default function ResultsGrid({
                     onDrop={() => dropOn(ci)}
                     onDragEnd={() => setDragCol(null)}
                     className={cn(
-                      "whitespace-nowrap border-b border-border/60 p-0 align-top",
+                      // bold was the global th rule's (and the UA th default); say it here
+                      "whitespace-nowrap border-b border-r border-border/60 p-0 align-top font-bold",
                       // opaque: a translucent tint on this sticky th let scrolled rows show through
                       sort?.col === ci ? "bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-muted))]" : "bg-muted",
                       dragCol === ci && "opacity-40"
@@ -393,7 +394,7 @@ export default function ResultsGrid({
                 >
                   <td
                     className={cn(
-                      "sticky left-0 z-10 w-10 border-b border-border/40 px-2 text-right font-mono text-muted-foreground",
+                      "sticky left-0 z-10 w-10 border-b border-r border-border/40 px-2 text-right font-mono text-muted-foreground",
                       pad,
                       // opaque, like the sorted header: a translucent tint on this sticky cell let
                       // horizontally scrolled cells show through
@@ -421,7 +422,7 @@ export default function ResultsGrid({
                         title={raw ?? ""}
                         style={shade && !rowBg ? { backgroundColor: shade } : undefined}
                         className={cn(
-                          "max-w-64 truncate whitespace-nowrap border-b border-border/40 px-3 outline-none",
+                          "max-w-64 truncate whitespace-nowrap border-b border-r border-border/40 px-3 outline-none",
                           pad,
                           numeric
                             ? "font-display text-right text-[13px] tabular-nums"
