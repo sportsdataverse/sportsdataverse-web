@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gridViewParams, parseGridView, gridByIndex, gridByName, queryViewParams, parseQueryView, compareCells, EMPTY_GRID, type GridView, type SortDir } from '../lib/platform/viewState.ts';
+import { gridViewParams, parseGridView, gridByIndex, gridByName, queryViewParams, parseQueryView, compareCells, formatCell, EMPTY_GRID, type GridView, type SortDir } from '../lib/platform/viewState.ts';
 
 const sp = (qs: string) => new URLSearchParams(qs);
 
@@ -128,4 +128,33 @@ test('a malformed grid.pin is ignored, never thrown on', () => {
   }
   // a bad value drops out alone; so does one past 200 chars (cut short, it would name another row)
   assert.deepEqual(parseGridView(sp(`grid.pin=player_id:1,a b,2,<x>,${'9'.repeat(201)}`)).pin, { col: 'player_id', values: ['1', '2'] });
+});
+
+test('formatCell: a fractional number shows at most 3 decimals, ungrouped, never -0', () => {
+  assert.equal(formatCell('8.001583416190357'), '8.002');
+  assert.equal(formatCell('3300.5'), '3300.5'); // ungrouped, like the integer columns beside it
+  assert.equal(formatCell('12345.67891'), '12345.679');
+  assert.equal(formatCell('0.0000'), '0');
+  assert.equal(formatCell('-0.0'), '0');
+  assert.equal(formatCell('-0.25'), '-0.25');
+  assert.equal(formatCell('2.5e3'), '2500');
+});
+
+test('formatCell: integers, ids, years, text, non-finite values and nulls stay verbatim', () => {
+  for (const v of ['2025', '5084180', '-3', '0', '0022400061', '12345678901234567890', 'UConn', 'NaN', 'Infinity', '-Infinity', '1e999', '', ' 1.5', '1.2.3', '2025-09-01']) {
+    assert.equal(formatCell(v), v, v);
+  }
+  assert.equal(formatCell(null), null);
+  // past 2^53 a double can't hold the integer digits: Number('9007199254740993.0') is ...992
+  for (const v of ['9007199254740993.0', '-9007199254740993.5', '1.2e20']) assert.equal(formatCell(v), v, v);
+});
+
+test('formatCell: a non-zero value that rounds to 0 at 3 decimals shows 3 significant digits', () => {
+  assert.equal(formatCell('-0.0001'), '-0.0001');
+  assert.equal(formatCell('0.000123456'), '0.000123');
+  for (const v of ['-0.0004', '0.0004999', '1e-7', '-1.695692197767329e-16']) {
+    const shown = formatCell(v)!;
+    assert.ok(Number(shown) !== 0 && Math.sign(Number(shown)) === Math.sign(Number(v)), `${v} -> ${shown}`);
+  }
+  assert.equal(formatCell('0.0005'), '0.001'); // rounds away from 0: the 3-decimal branch
 });
