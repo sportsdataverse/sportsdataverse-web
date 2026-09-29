@@ -3,17 +3,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { mutate as swrMutate } from "swr";
 import { Bookmark, Download, Play, Plus, X } from "lucide-react";
+import ResultsGrid from "@components/platform/ResultsGrid";
 import { timeAgo } from "@components/platform/widgets";
 import { Button } from "@components/ui/button";
 import type { QueryResult } from "@lib/platform/duckdb";
 import type { BookmarkDoc } from "@lib/platform/schemas";
 import { buildSql, type Filter } from "@lib/platform/exploreSql";
 import {
+  EMPTY_GRID,
   exploreLinkMoved,
   exploreViewParams,
+  gridViewParams,
   SQL_OP_BY_SUFFIX,
   SUFFIX_BY_SQL_OP,
   type ExploreView,
+  type GridView,
 } from "@lib/platform/viewState";
 import useUrlMirror from "@hooks/useUrlMirror";
 import { releaseAssetsFetcher } from "@lib/platform/queryRun";
@@ -46,11 +50,13 @@ type ExploreProps = {
   error: string | null;
   /** View state parsed from the URL (a shared link). */
   initial: ExploreView;
+  /** The preview grid's sort / column filters / tint, from the URL's grid.* keys. */
+  initialGrid: GridView;
 };
 
 const OPS = ["=", "!=", ">", ">=", "<", "<=", "contains"] as const;
 
-export default function ExploreClient({ datasets, error, initial }: ExploreProps) {
+export default function ExploreClient({ datasets, error, initial, initialGrid }: ExploreProps) {
   const initialFilters: Filter[] = initial.filters.map((f) => ({
     column: f.column,
     op: SQL_OP_BY_SUFFIX[f.op],
@@ -70,6 +76,7 @@ export default function ExploreClient({ datasets, error, initial }: ExploreProps
   const [busy, setBusy] = useState<string | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
   const [result, setResult] = useState<QueryResult | null>(null);
+  const [gridView, setGridView] = useState<GridView>(initialGrid);
 
   const { data: assets, error: assetsError, isLoading: assetsLoading } = useSWR(
     tag
@@ -236,22 +243,25 @@ export default function ExploreClient({ datasets, error, initial }: ExploreProps
     setSql("");
   }, [selectedAsset, pendingBookmark, effectiveStem, effectivePartition, initial]);
 
-  useUrlMirror(
-    exploreViewParams({
-      tag,
-      // what is on screen once the pickers resolve; the link's own values
-      // while the release list is still loading
-      table: effectiveStem || stem,
-      season: effectivePartition || partition,
-      filters: sqlMode
-        ? []
-        : filters
-            .filter((f) => f.column && f.value !== "")
-            .map((f) => ({ column: f.column, op: SUFFIX_BY_SQL_OP[f.op] ?? "", value: f.value })),
-      limit,
-      sql: sqlMode ? sql : "",
-    })
-  );
+  const pageParams = exploreViewParams({
+    tag,
+    // what is on screen once the pickers resolve; the link's own values
+    // while the release list is still loading
+    table: effectiveStem || stem,
+    season: effectivePartition || partition,
+    filters: sqlMode
+      ? []
+      : filters
+          .filter((f) => f.column && f.value !== "")
+          .map((f) => ({ column: f.column, op: SUFFIX_BY_SQL_OP[f.op] ?? "", value: f.value })),
+    limit,
+    sql: sqlMode ? sql : "",
+  });
+  gridViewParams(gridView, pageParams); // the preview grid's own keys, after the view's
+  useUrlMirror(pageParams);
+
+  /** A linked-in sort/filter belongs to the table it came with; the tint is the reader's. */
+  const resetGrid = () => setGridView((g) => ({ ...EMPTY_GRID, tint: g.tint }));
 
   function selectTag(next: string) {
     pending.current = null;
@@ -264,6 +274,7 @@ export default function ExploreClient({ datasets, error, initial }: ExploreProps
     setResult(null);
     setSql("");
     setQueryError(null);
+    resetGrid();
   }
 
   async function withEngine<T>(label: string, fn: () => Promise<T>): Promise<T | null> {
@@ -428,6 +439,7 @@ export default function ExploreClient({ datasets, error, initial }: ExploreProps
                       pending.current = null;
                       setStem(e.target.value);
                       setPartition(effectivePartition);
+                      resetGrid();
                     }}
                     className="rounded-md border border-input bg-card px-2 py-1.5 font-mono text-sm text-foreground"
                   >
@@ -593,30 +605,13 @@ export default function ExploreClient({ datasets, error, initial }: ExploreProps
                   ? ` (showing first ${result.rows.length})`
                   : ""}
               </p>
-              <div className="max-h-[32rem] overflow-auto rounded-lg border border-border">
-                <table className="w-full text-left font-mono text-xs">
-                  <thead className="sticky top-0 bg-muted uppercase text-muted-foreground">
-                    <tr>
-                      {result.columns.map((c) => (
-                        <th key={c} className="whitespace-nowrap px-3 py-2">
-                          {c}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.rows.map((row, i) => (
-                      <tr key={i} className="border-t border-border">
-                        {row.map((cell, j) => (
-                          <td key={j} className="max-w-[16rem] truncate whitespace-nowrap px-3 py-1" title={cell ?? ""}>
-                            {cell ?? ""}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ResultsGrid
+                columns={result.columns}
+                rows={result.rows}
+                types={Object.fromEntries(columns.map((c) => [c.name, c.type]))}
+                initialView={gridView}
+                onViewChange={setGridView}
+              />
             </div>
           ) : null}
         </>
