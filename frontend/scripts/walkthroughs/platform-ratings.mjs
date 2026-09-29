@@ -1,8 +1,9 @@
 // /platform/ratings (P10): (a) the NBA link lists player_impact, regular season only (one row per
 // player), ordered by rapm, possessions shown; (b) MBB names its teams and keeps to D-I, with the
 // note; (c) CFB names its schools; (d) NFL reads the newest release file at its newest as_of_week,
-// names the teams and states the week in the span line; (f) 390 px scrolls nothing sideways (the
-// grid may scroll inside itself). Every expected row set is the Data API's own, read in the page
+// names the teams and states the week in the span line, with no "Chart this" (no Scatter source);
+// (e) NBA "Chart this" opens Scatter on o_rapm vs d_rapm, one mark per listed player; (f) 390 px
+// scrolls nothing sideways (the grid may scroll inside itself). Every expected row set is the Data API's own, read in the page
 // through the same member proxy, so a later write moves both sides together.
 // /platform is behind org sign-in, so this is recorded locally and is NOT listed on the PR's
 // `Walkthrough steps:` line (CI has no session; the module throws there).
@@ -99,7 +100,21 @@ const ratings = async (page, base) => {
   const nflTeams = new Set((await apiRows({ schema: 'nfl', table: 'teams', select: 'team_name', limit: '50000' })).map((r) => r.team_name));
   const abbrs = col(nfl, 'team').filter((t) => !nflTeams.has(t));
   if (abbrs.length) fail(`NFL teams not named from nfl.teams: ${abbrs}`);
+  if (await page.getByTestId('ratings-chart').count()) fail('NFL shows "Chart this", but its release file is no Scatter source');
   console.log(`ratings (d): NFL ${newest}, week ${week}, top ${col(nfl, 'team').slice(0, 3).join(', ')}; ${nflSpan}`);
+  await page.waitForTimeout(1200);
+
+  // (e) NBA "Chart this": the same table and season in Scatter, O-RAPM on x, D-RAPM on y.
+  await board('season=2026', 'sorted by rapm');
+  await page.getByTestId('ratings-chart').click();
+  await page.waitForURL(/\/platform\/scatter\?/, { timeout: 60_000 });
+  const scatterUrl = new URL(page.url());
+  if (scatterUrl.search !== '?season=2026&x=o_rapm&y=d_rapm') fail(`Chart this opened ${scatterUrl.search}`);
+  await page.getByTestId('scatter-title').filter({ hasText: 'd_rapm vs o_rapm · 2026' }).waitFor({ timeout: 120_000 });
+  await page.waitForTimeout(400);
+  const marks = Number(await page.getByTestId('scatter-canvas').getAttribute('data-marks'));
+  if (!(marks > 0) || marks !== players) fail(`Scatter drew ${marks} marks for ${players} listed players`);
+  console.log(`ratings (e): Chart this -> ${scatterUrl.pathname}${scatterUrl.search}, ${marks} marks`);
   await page.waitForTimeout(1200);
 
   // (f) 390 px: the grid scrolls inside itself; the page never does.

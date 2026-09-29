@@ -2,9 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RATINGS, TEAM_COL } from '../content/ratings.ts';
 import { SCATTER_SOURCES, type ScatterNames } from '../content/scatter.ts';
-import { joinNames } from '../lib/platform/viz/scatterMath.ts';
+import { joinNames, numericColumns } from '../lib/platform/viz/scatterMath.ts';
 import { polarity } from '../lib/platform/scales.ts';
-import { parseRatingsView, ratingsViewParams } from '../lib/platform/viewState.ts';
+import { parseRatingsView, parseScatterView, ratingsChartHref, ratingsViewParams } from '../lib/platform/viewState.ts';
 
 const sp = (qs: string) => new URLSearchParams(qs);
 
@@ -90,4 +90,37 @@ test('RatingsView: an unknown league falls back to NBA, a bad season to the newe
   assert.deepEqual(parseRatingsView(sp('league=nhl&season=2026')), { league: 'nba', season: '2026' });
   assert.deepEqual(parseRatingsView(sp('league=__proto__&season=20261')), { league: 'nba', season: '' });
   assert.deepEqual(parseRatingsView(sp('league=cfb&season=abcd&grid.sort=-adj_net&x=1')), { league: 'cfb', season: '' });
+});
+
+test('every chart pair is two Scatter axes of its own table: the Scatter source exists, and x, y pass its axis rule', () => {
+  const charted = Object.entries(RATINGS).filter(([, r]) => r.chart);
+  assert.deepEqual(charted.map(([l]) => l), ['nba', 'wnba', 'mbb', 'cfb']);
+  for (const [league, r] of charted) {
+    assert.equal(r.source, 'api', league);
+    if (r.source !== 'api' || !r.chart) continue;
+    assert.ok(SCATTER_SOURCES.some((s) => s.schema === r.schema && s.table === r.table), `${league}: no Scatter source`);
+    // numericColumns is Scatter's own rule over the same live catalog (content/ratings.ts `columns`)
+    const axes = numericColumns(r.columns);
+    assert.ok(axes.includes(r.chart.x) && axes.includes(r.chart.y) && r.chart.x !== r.chart.y, `${league}: ${r.chart.x} / ${r.chart.y}`);
+  }
+});
+
+test('Chart this emits exactly the ScatterView keys, and Scatter parses it back to the same view', () => {
+  assert.equal(ratingsChartHref(RATINGS.nba, '2026'), '/platform/scatter?season=2026&x=o_rapm&y=d_rapm');
+  for (const r of Object.values(RATINGS)) {
+    const href = ratingsChartHref(r, '2019');
+    if (!href || r.source !== 'api' || !r.chart) continue;
+    const url = new URL(href, 'https://x');
+    assert.equal(url.pathname, '/platform/scatter');
+    for (const k of url.searchParams.keys()) assert.ok(['schema', 'table', 'season', 'x', 'y'].includes(k), `${r.schema}.${r.table}: stray key ${k}`);
+    assert.deepEqual(parseScatterView(url.searchParams), { schema: r.schema, table: r.table, season: '2019', x: r.chart.x, y: r.chart.y, hl: [] });
+  }
+  assert.equal(ratingsChartHref(RATINGS.cfb, '2025'), '/platform/scatter?schema=cfb&table=ratings&season=2025&x=adj_off_epa&y=adj_def_epa');
+});
+
+test('no Scatter source, no button: WBB ratings and the NFL release file, even given a pair', () => {
+  assert.equal(ratingsChartHref(RATINGS.wbb, '2026'), null);
+  assert.equal(ratingsChartHref(RATINGS.nfl, '2026'), null);
+  assert.equal(ratingsChartHref({ ...RATINGS.wbb, chart: { x: 'adj_o', y: 'adj_d' } }, '2026'), null);
+  assert.equal(ratingsChartHref({ ...RATINGS.nfl, chart: { x: 'adj_off_epa', y: 'adj_def_epa' } }, '2026'), null);
 });

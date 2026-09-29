@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import useSWR from "swr";
+import { ChartScatter } from "lucide-react";
 import ResultsGrid from "@components/platform/ResultsGrid";
 import { RATINGS, TEAM_COL, type RatingSource } from "@content/ratings";
 import type { ReleaseAssetSummary } from "@lib/platform/github";
 import { apiRows, seasonRange, teamNameRows } from "@lib/platform/queryRun";
 import { joinNames } from "@lib/platform/viz/scatterMath";
-import { ratingsViewParams, type GridView, type RatingsView } from "@lib/platform/viewState";
+import { ratingsChartHref, ratingsViewParams, type GridView, type RatingsView } from "@lib/platform/viewState";
 import { API_MAX_ROWS, loadSequencer } from "@lib/platform/wp";
 import useUrlMirror from "@hooks/useUrlMirror";
 
@@ -157,6 +159,7 @@ export default function RatingsClient({ initial }: { initial: RatingsView }) {
       ].filter(Boolean)
     : [];
   const failure = error ?? seasonsError?.message ?? null;
+  const chartHref = activeSeason ? ratingsChartHref(src, activeSeason) : null;
 
   return (
     <>
@@ -193,6 +196,18 @@ export default function RatingsClient({ initial }: { initial: RatingsView }) {
             <option key={y}>{y}</option>
           ))}
         </select>
+        {chartHref && src.chart ? (
+          <Link
+            href={chartHref}
+            data-testid="ratings-chart"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-inter text-sm hover:bg-muted"
+          >
+            <ChartScatter className="h-4 w-4" aria-hidden="true" /> Chart this
+            <span className="sr-only">
+              : {src.chart.y} vs {src.chart.x} in Scatter
+            </span>
+          </Link>
+        ) : null}
       </div>
 
       <p data-testid="ratings-span" className="mb-1 min-h-4 font-mono text-xs text-muted-foreground">

@@ -54,6 +54,11 @@ export type RatingSource = From & {
   sample: string;
   /** A team id column named from a Data API team table. */
   names?: ScatterNames;
+  /** "Chart this": two numeric columns to open in Scatter, on the same table
+   *  and season. Only for a table content/scatter.ts lists: offence on x,
+   *  defence on y. WBB ratings and the NFL release file have no Scatter
+   *  source, so no button. */
+  chart?: { x: string; y: string };
 };
 
 /** The name column a team source's grid starts with. */
@@ -107,6 +112,7 @@ const impact = (schema: "nba" | "wnba", label: string): RatingSource => ({
   order: "-rapm",
   scope: "regular season",
   sample: "possessions (off_poss, def_poss) shown",
+  chart: { x: "o_rapm", y: "d_rapm" },
 });
 
 // Adjusted efficiency margin (adj_o - adj_d, exactly, on 2026 rows): the
@@ -133,7 +139,7 @@ const FOOTBALL_SELECT = [TEAM_COL, "net_rank", "adj_net", "adj_off_epa", "off_ra
 export const RATINGS: Readonly<Record<string, RatingSource>> = {
   nba: impact("nba", "NBA"),
   wnba: impact("wnba", "WNBA"),
-  mbb: hoops("mbb", "MBB"),
+  mbb: { ...hoops("mbb", "MBB"), chart: { x: "adj_o", y: "adj_d" } },
   wbb: hoops("wbb", "WBB"),
   cfb: {
     source: "api",
@@ -147,6 +153,7 @@ export const RATINGS: Readonly<Record<string, RatingSource>> = {
     rank: "net_rank",
     sample: "games shown",
     names: { schema: "cfb", table: "team_info", key: "team_id", name: "school", keyType: "number", col: "team_id" },
+    chart: { x: "adj_off_epa", y: "adj_def_epa" },
   },
   nfl: {
     source: "release",

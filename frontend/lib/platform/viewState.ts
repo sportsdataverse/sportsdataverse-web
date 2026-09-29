@@ -15,7 +15,7 @@ import { TREND_SPORTS } from "../../content/trends.ts";
 import { LOOKUP_SPORTS } from "../../content/lookups.ts";
 import { ROLLING } from "../../content/rolling.ts";
 import { SCATTER_SOURCES } from "../../content/scatter.ts";
-import { RATINGS } from "../../content/ratings.ts";
+import { RATINGS, type RatingSource } from "../../content/ratings.ts";
 import { scatterAxes } from "./viz/scatterMath.ts";
 import { ROLLING_CARDS, ROLLING_TABS, type RollingCard, type RollingTab } from "./rolling.ts";
 import { MAX_TRENDS_TEAMS, trimGaps, type TrendPicks } from "./trends.ts";
@@ -365,6 +365,15 @@ export function ratingsViewParams(v: RatingsView): URLSearchParams {
   if (v.league !== RATING_LEAGUES[0]) p.set("league", v.league);
   if (v.season) p.set("season", v.season);
   return p;
+}
+
+/** "Chart this": a board's `chart` pair as a Scatter link on the same table
+ *  and season, through Scatter's own codec; null (no button) when the table
+ *  is not a Scatter source. */
+export function ratingsChartHref(src: RatingSource, season: string): string | null {
+  if (!src.chart || src.source !== "api" || !SCATTER_SOURCES.some((s) => s.schema === src.schema && s.table === src.table)) return null;
+  const qs = scatterViewParams({ schema: src.schema, table: src.table, season, x: src.chart.x, y: src.chart.y, hl: [] }).toString();
+  return `/platform/scatter?${qs}`;
 }
 
 // --- ResultsGrid (sort / column filters / tint), keyed by column NAME --------
