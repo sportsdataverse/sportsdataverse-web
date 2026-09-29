@@ -323,8 +323,9 @@ export default function ResultsGrid({
                     onDrop={() => dropOn(ci)}
                     onDragEnd={() => setDragCol(null)}
                     className={cn(
-                      "whitespace-nowrap border-b border-border/60 bg-muted p-0 align-top",
-                      sort?.col === ci && "bg-primary/10",
+                      "whitespace-nowrap border-b border-border/60 p-0 align-top",
+                      // opaque: a translucent tint on this sticky th let scrolled rows show through
+                      sort?.col === ci ? "bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-muted))]" : "bg-muted",
                       dragCol === ci && "opacity-40"
                     )}
                   >
