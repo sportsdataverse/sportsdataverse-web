@@ -107,6 +107,7 @@ export default function ResultsGrid({
   const [scrollTop, setScrollTop] = useState(0);
   const [viewport, setViewport] = useState(512);
   const scrollFrame = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(scrollFrame.current), []);
   const focusPending = useRef(false);
   /** A body cell has focus, or had it until its row unmounted (tbody onFocus/onBlur). */
   const ownsFocus = useRef(false);
