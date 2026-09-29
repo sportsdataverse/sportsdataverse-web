@@ -378,6 +378,8 @@ export default function ResultsGrid({
       if (e.ctrlKey) selectRow(toRow);
       return;
     }
+    // The letter keys are bare: Ctrl/Cmd+C copies, +P prints, +F finds, +Z undoes.
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const key = e.key.toLowerCase();
     if (key === "f") {
       e.preventDefault();
