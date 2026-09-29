@@ -59,6 +59,11 @@ const steps = async (page, base) => {
     if (s.tray.join('|') !== names.join('|')) fail(`${where}: tray ${s.tray}, not ${names}`);
   };
   const wide = page.viewportSize().width >= 1280;
+  /** The rail names `name` within 5 s (it updates a render after the hover or focus). */
+  const railShows = (name, why) =>
+    page
+      .waitForFunction((n) => document.querySelector('aside[aria-label="Row detail"] p')?.textContent === n, name, { timeout: 5_000 })
+      .catch(async () => fail(`rail shows ${await rail.locator('p').first().innerText()}, not ${why} ${name}`));
 
   // --- Ratings: p pins rows 0, 2, 3 --------------------------------------------------------------
   await open(base + LINK);
@@ -119,12 +124,13 @@ const steps = async (page, base) => {
   // the rail (from 1280 px) follows the pointer, then the keyboard focus
   if (wide) {
     await grid.locator('tr[data-row="6"]').hover();
-    await page.waitForTimeout(200);
-    if ((await rail.locator('p').first().innerText()) !== name6) fail(`rail shows ${await rail.locator('p').first().innerText()}, not hovered ${name6}`);
+    await railShows(name6, 'hovered');
+    // the keyboard half with the pointer off the grid: focus() may scroll the page, and a row that
+    // moves under a resting pointer is hovered, which the rail rightly follows too
+    await page.mouse.move(2, 2);
     await grid.locator('td[data-cell="3-0"]').focus(); // back to the pinned cell, without a click
     await key('ArrowDown');
-    const focused = await nameAt(4);
-    if ((await rail.locator('p').first().innerText()) !== focused) fail(`rail shows ${await rail.locator('p').first().innerText()}, not focused ${focused}`);
+    await railShows(await nameAt(4), 'focused');
     await page.waitForTimeout(600);
   } else if (await rail.isVisible()) fail('the rail shows below 1280 px');
 
