@@ -1,4 +1,5 @@
 import { MDXRemote } from "next-mdx-remote/rsc";
+import remarkGfm from "remark-gfm";
 import rehypeSlug from "rehype-slug";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import rehypePrettyCode from "rehype-pretty-code";
@@ -8,7 +9,8 @@ import MDXComponents from "@components/MDXComponents";
  * Server-side MDX renderer for the App Router. Same rehype chain as the old
  * `MDXContent.getPostFromSlug` serialize path (slug anchors, autolinked
  * headings, shiki one-dark-pro highlighting), but compiled in the RSC pass —
- * no client hydration cost for static prose.
+ * no client hydration cost for static prose. remark-gfm adds GitHub-flavored
+ * Markdown (pipe tables, strikethrough, task lists, footnotes, bare-URL links).
  */
 export function MdxRenderer({ source }: { source: string }) {
   return (
@@ -17,6 +19,7 @@ export function MdxRenderer({ source }: { source: string }) {
       components={MDXComponents}
       options={{
         mdxOptions: {
+          remarkPlugins: [remarkGfm],
           rehypePlugins: [
             rehypeSlug,
             [rehypeAutolinkHeadings, { behaviour: "wrap" }],
