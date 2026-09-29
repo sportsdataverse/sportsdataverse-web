@@ -14,7 +14,7 @@ import {
   type Domain,
   type TintMode,
 } from "@lib/platform/scales";
-import { EMPTY_GRID, gridByIndex, gridByName, type GridView } from "@lib/platform/viewState";
+import { compareCells, EMPTY_GRID, gridByIndex, gridByName, type GridView } from "@lib/platform/viewState";
 
 /**
  * Keyboard-first results grid for the platform data surfaces.
@@ -68,17 +68,6 @@ type Sort = { col: number; dir: "asc" | "desc" } | null;
 
 const PAGE = 20;
 const DENSITY = ["py-0.5", "py-1", "py-2"] as const;
-
-function compare(a: string | null, b: string | null): number {
-  if (a === null) return b === null ? 0 : 1; // nulls sink, both directions
-  if (b === null) return -1;
-  const na = Number(a);
-  const nb = Number(b);
-  if (!Number.isNaN(na) && !Number.isNaN(nb) && a.trim() !== "" && b.trim() !== "") {
-    return na - nb;
-  }
-  return a.localeCompare(b);
-}
 
 export default function ResultsGrid({
   columns,
@@ -157,10 +146,7 @@ export default function ResultsGrid({
       );
     }
     if (sort) {
-      out = [...out].sort(
-        (a, b) =>
-          compare(a.cells[sort.col], b.cells[sort.col]) * (sort.dir === "asc" ? 1 : -1)
-      );
+      out = [...out].sort((a, b) => compareCells(a.cells[sort.col], b.cells[sort.col], sort.dir));
     }
     return out;
   }, [rows, filters, sort]);
@@ -337,8 +323,9 @@ export default function ResultsGrid({
                     onDrop={() => dropOn(ci)}
                     onDragEnd={() => setDragCol(null)}
                     className={cn(
-                      "whitespace-nowrap border-b border-border/60 bg-muted p-0 align-top",
-                      sort?.col === ci && "bg-primary/10",
+                      "whitespace-nowrap border-b border-border/60 p-0 align-top",
+                      // opaque: a translucent tint on this sticky th let scrolled rows show through
+                      sort?.col === ci ? "bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-muted))]" : "bg-muted",
                       dragCol === ci && "opacity-40"
                     )}
                   >
@@ -408,7 +395,13 @@ export default function ResultsGrid({
                     className={cn(
                       "sticky left-0 z-10 w-10 border-b border-border/40 px-2 text-right font-mono text-muted-foreground",
                       pad,
-                      isSelected ? "bg-primary/15" : isLinked ? "bg-score/15" : "bg-card"
+                      // opaque, like the sorted header: a translucent tint on this sticky cell let
+                      // horizontally scrolled cells show through
+                      isSelected
+                        ? "bg-[color-mix(in_oklab,var(--color-primary)_15%,var(--color-card))]"
+                        : isLinked
+                          ? "bg-[color-mix(in_oklab,var(--color-score)_15%,var(--color-card))]"
+                          : "bg-card"
                     )}
                   >
                     {orig + 1}

@@ -406,6 +406,24 @@ export function gridViewParams(v: GridView, p: URLSearchParams): void {
   for (const [col, text] of Object.entries(v.filters)) if (text) p.set(`grid.f.${col}`, text);
 }
 
+/** `String()` of a non-finite double, as DuckDB cells arrive. */
+const NON_FINITE = /^[+-]?(Infinity|NaN)$/;
+
+/** ResultsGrid's sort order for two cells. Nulls and blanks (`""` is missing,
+ *  as in scales.ts) sort last and non-finite numbers just before them in BOTH
+ *  directions (the Data API's NULLS LAST), so `dir` orders only the rest:
+ *  numbers numerically and ahead of text, text by localeCompare. A tie is 0,
+ *  so a stable sort keeps the original order. */
+export function compareCells(a: string | null, b: string | null, dir: SortDir): number {
+  const sink = (v: string | null) => (v === null || v.trim() === "" ? 2 : NON_FINITE.test(v.trim()) ? 1 : 0);
+  const [sa, sb] = [sink(a), sink(b)];
+  if (sa || sb) return sa - sb;
+  const num = (v: string) => (Number.isFinite(Number(v)) ? Number(v) : null);
+  const [na, nb] = [num(a!), num(b!)];
+  const byValue = na !== null && nb !== null ? na - nb : na !== null ? -1 : nb !== null ? 1 : a!.localeCompare(b!);
+  return dir === "asc" ? byValue : -byValue;
+}
+
 export function gridByIndex(v: GridView, columns: string[]): GridIndexState {
   const idx = (name: string) => columns.indexOf(name);
   const filters: Record<number, string> = {};
