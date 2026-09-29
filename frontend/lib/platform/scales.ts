@@ -134,10 +134,11 @@ export type Domain = {
  * table. Names are matched against the vocabulary the warehouse actually uses.
  */
 const LOWER_IS_BETTER =
-  /(^|_)(def|defensive|allowed|against|opp|opponent)(_|$)|(^|_)(turnovers?|tov|interceptions?|ints?|fumbles?|sacks_allowed|penalt(y|ies)|losses|errors?|era|whip|rank)(_|$)/i;
+  /(^|_)(def|defensive|allowed|against|opp|opponent)(_|$)|(^|_)(turnovers?|tov|interceptions?|ints?|fumbles?|sacks_allowed|penalt(y|ies)|losses|errors?|era|whip|rank|adj_d|raw_d)(_|$)/i;
 
-/** Metrics whose name contains a "good" noun that would otherwise match above. */
-const OVERRIDE_HIGHER_IS_BETTER = /(^|_)(havoc|takeaways?|forced|def_epa_added|stops)(_|$)/i;
+/** Metrics whose name contains a "good" noun that would otherwise match above,
+ *  and counts that are no one's good or bad (def_poss reads like off_poss). */
+const OVERRIDE_HIGHER_IS_BETTER = /(^|_)(havoc|takeaways?|forced|def_epa_added|stops|poss)(_|$)/i;
 
 export function polarity(name?: string): 1 | -1 {
   if (!name) return 1;

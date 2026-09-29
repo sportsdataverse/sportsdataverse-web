@@ -5,18 +5,18 @@ import useSWR from "swr";
 import useSWRImmutable from "swr/immutable";
 import { Download, Shuffle, Table2, X } from "lucide-react";
 import { Button } from "@components/ui/button";
-import { SCATTER_SOURCES, sourceKey, type ScatterSource } from "@content/scatter";
+import { SCATTER_SOURCES, sourceKey } from "@content/scatter";
 import { scatterViewParams, type ScatterView } from "@lib/platform/viewState";
 import { API_MAX_ROWS, loadSequencer } from "@lib/platform/wp";
-import { apiRows } from "@lib/platform/queryRun";
-import { addTeam, formatValue, pickSlots, removeTeam, teamNameLookup, type TrendPicks } from "@lib/platform/trends";
+import { apiRows, seasonRange, teamNameRows } from "@lib/platform/queryRun";
+import { addTeam, formatValue, pickSlots, removeTeam, type TrendPicks } from "@lib/platform/trends";
 import { ALL_PAIRS_CAP, chartVar } from "@lib/platform/chartTokens";
 import {
   exportFilename,
   filledColumns,
   highlightOptions,
   highlightSlots,
-  keepListed,
+  joinNames,
   missingNote,
   numericColumns,
   pickRandomAxes,
@@ -63,17 +63,6 @@ const catalogFetcher = async (url: string) => {
   return (body as { tables: Record<string, Record<string, string>> }).tables;
 };
 
-/** Every season from the source's first to its latest (under its fixed
- *  filters), newest first: two one-row reads. */
-async function seasonList(src: ScatterSource): Promise<string[]> {
-  const edge = (order: string) =>
-    apiRows({ ...src.filter, schema: src.schema, table: src.table, select: src.seasonCol, order, limit: "1" });
-  const [first, last] = await Promise.all([edge(src.seasonCol), edge(`-${src.seasonCol}`)]);
-  const [a, b] = [Number(first[0]?.[src.seasonCol]), Number(last[0]?.[src.seasonCol])];
-  if (!Number.isInteger(a) || !Number.isInteger(b)) return [];
-  return Array.from({ length: b - a + 1 }, (_, i) => String(b - i));
-}
-
 /** Rail rows grouped by first letter, A–Z (no metric registry yet), then
  *  every `_rank` column under "Ranks" (numericColumns sorts them last). */
 function byLetter(cols: readonly string[]): [string, string[]][] {
@@ -108,7 +97,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
   const [runs] = useState(loadSequencer);
 
   const { data: catalog, error: catalogError } = useSWR(`/api/platform/query/tables?schema=${src.schema}`, catalogFetcher);
-  const { data: seasons, error: seasonsError } = useSWR(["scatter-seasons", key], () => seasonList(src));
+  const { data: seasons, error: seasonsError } = useSWR(["scatter-seasons", key], () => seasonRange(src, src.seasonCol));
   // The export's "data as of": held from the first render, so an export never waits on it.
   // ponytail: read once per session, so a tab left open across a nightly ingest
   // can stamp a "data as of" older than the rows it plotted; revalidate on a
@@ -132,30 +121,12 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
         const [rows, nameRows] = await Promise.all([
           // the fixed filter first, so it can never override the scoped keys
           apiRows({ ...src.filter, schema: src.schema, table: src.table, [src.seasonCol]: activeSeason, limit: API_MAX_ROWS }),
-          names
-            ? apiRows({
-                schema: names.schema,
-                table: names.table,
-                select: `${names.key},${names.name}`,
-                ...(names.bySeason ? { season: activeSeason } : {}),
-                limit: API_MAX_ROWS,
-              })
-            : null,
+          names ? teamNameRows(names, activeSeason) : null,
         ]);
         if (!runs.isLatest(ticket)) return;
-        let nameOf: Map<number | string, string> | undefined;
-        let [kept, unnamed, left, unlisted] = [rows, 0, 0, false];
-        if (names && nameRows) {
-          // teamNameLookup asserts both key types before anything is matched.
-          nameOf = teamNameLookup([...new Set(rows.map((r) => r[names.col]).filter((v) => v != null))], nameRows, names);
-          const known = new Set(nameRows.map((r) => r[names.key]));
-          if (names.only) {
-            const d1 = keepListed(rows, names.col, known);
-            [kept, left, unlisted] = [d1.rows, d1.left, !d1.listed];
-          }
-          unnamed = new Set(kept.map((r) => r[names.col]).filter((v) => v != null && !known.has(v))).size;
-        }
-        setLoaded({ key: loadKey, rows: kept, nameOf, unnamed, left, unlisted });
+        // joinNames asserts both key types before anything is matched.
+        const joined = names && nameRows ? joinNames(rows, nameRows, names) : { rows, unnamed: 0, left: 0, unlisted: false };
+        setLoaded({ key: loadKey, ...joined });
       } catch (e) {
         if (runs.isLatest(ticket)) setError(e instanceof Error ? e.message : String(e));
       } finally {

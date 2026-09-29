@@ -87,7 +87,8 @@ const player = (
   filter,
 });
 
-const hoopsNames = (league: "mbb" | "wbb", col: string): ScatterNames => ({
+/** A college hoops team id named from the season's D-I list (also /platform/ratings). */
+export const hoopsNames = (league: "mbb" | "wbb", col: string): ScatterNames => ({
   schema: league,
   table: "team_group_seasons",
   key: "team_id",

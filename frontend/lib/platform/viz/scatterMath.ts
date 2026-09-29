@@ -3,9 +3,9 @@
  * hover hit test, Data API rows → plotted points, the highlight chips, the
  * zoom and pan transform, RANDOM's axis pick, and the PNG export's text.
  */
-import type { ScatterSource } from "../../../content/scatter.ts";
+import type { ScatterNames, ScatterSource } from "../../../content/scatter.ts";
 import { chartVar } from "../chartTokens.ts";
-import { pickSlots } from "../trends.ts";
+import { pickSlots, teamNameLookup } from "../trends.ts";
 
 type Row = Record<string, unknown>;
 
@@ -92,6 +92,25 @@ export function keepListed<R extends Row>(
   if (!listed.size) return { rows: [...rows], left: 0, listed: false };
   const kept = rows.filter((r) => listed.has(r[col]));
   return { rows: kept, left: rows.length - kept.length, listed: true };
+}
+
+/**
+ * Rows with a team-id column (`names.col`) and that id's team table
+ * (`nameRows`), as Scatter and Ratings show them: every id named
+ * (teamNameLookup, which throws unless both sides' keys are `names.keyType`;
+ * an id the table lacks is named by itself), rows outside `names.only` left
+ * out (keepListed), and `unnamed`, how many kept ids the table lacks.
+ */
+export function joinNames<R extends Row>(
+  rows: readonly R[],
+  nameRows: readonly Row[],
+  names: ScatterNames
+): { rows: R[]; nameOf: Map<number | string, string>; unnamed: number; left: number; unlisted: boolean } {
+  const nameOf = teamNameLookup([...new Set(rows.map((r) => r[names.col]).filter((v) => v != null))], nameRows, names);
+  const known = new Set(nameRows.map((r) => r[names.key]));
+  const d1 = names.only ? keepListed(rows, names.col, known) : { rows: [...rows], left: 0, listed: true };
+  const unnamed = new Set(d1.rows.map((r) => r[names.col]).filter((v) => v != null && !known.has(v))).size;
+  return { rows: d1.rows, nameOf, unnamed, left: d1.left, unlisted: !d1.listed };
 }
 
 /** A kept x/y: a numeric column of the source, else the first two columns

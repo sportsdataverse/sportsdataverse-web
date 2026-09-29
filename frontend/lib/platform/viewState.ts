@@ -15,6 +15,7 @@ import { TREND_SPORTS } from "../../content/trends.ts";
 import { LOOKUP_SPORTS } from "../../content/lookups.ts";
 import { ROLLING } from "../../content/rolling.ts";
 import { SCATTER_SOURCES } from "../../content/scatter.ts";
+import { RATINGS } from "../../content/ratings.ts";
 import { scatterAxes } from "./viz/scatterMath.ts";
 import { ROLLING_CARDS, ROLLING_TABS, type RollingCard, type RollingTab } from "./rolling.ts";
 import { MAX_TRENDS_TEAMS, trimGaps, type TrendPicks } from "./trends.ts";
@@ -345,6 +346,25 @@ export function rollingViewParams(v: RollingView): URLSearchParams {
 export function rollingHref(v: RollingView): string {
   const qs = rollingViewParams(v).toString();
   return qs ? `/platform/rolling?${qs}` : "/platform/rolling";
+}
+
+// --- Ratings -------------------------------------------------------------------
+
+/** One league (content/ratings.ts) and one season; blank means the newest the
+ *  league has. An unknown league falls back to the first. */
+export type RatingsView = { league: string; season: string };
+const RATING_LEAGUES = Object.keys(RATINGS);
+
+export function parseRatingsView(sp: URLSearchParams): RatingsView {
+  const season = sp.get("season") ?? "";
+  return { league: pick(sp.get("league"), RATING_LEAGUES, RATING_LEAGUES[0]), season: /^\d{4}$/.test(season) ? season : "" };
+}
+
+export function ratingsViewParams(v: RatingsView): URLSearchParams {
+  const p = new URLSearchParams();
+  if (v.league !== RATING_LEAGUES[0]) p.set("league", v.league);
+  if (v.season) p.set("season", v.season);
+  return p;
 }
 
 // --- ResultsGrid (sort / column filters / tint), keyed by column NAME --------
