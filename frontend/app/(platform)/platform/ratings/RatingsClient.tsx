@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { ChartScatter } from "lucide-react";
@@ -8,7 +8,15 @@ import ResultsGrid from "@components/platform/ResultsGrid";
 import { RATINGS, TEAM_COL, type RatingSource } from "@content/ratings";
 import { apiRows, fetchReleaseAssets, seasonRange, teamNameRows } from "@lib/platform/queryRun";
 import { joinNames } from "@lib/platform/viz/scatterMath";
-import { ratingsChartHref, ratingsViewParams, type GridView, type RatingsView } from "@lib/platform/viewState";
+import {
+  EMPTY_GRID,
+  gridViewParams,
+  ratingsChartHref,
+  ratingsViewParams,
+  type GridPin,
+  type GridView,
+  type RatingsView,
+} from "@lib/platform/viewState";
 import { API_MAX_ROWS, loadSequencer } from "@lib/platform/wp";
 import useUrlMirror from "@hooks/useUrlMirror";
 
@@ -73,8 +81,11 @@ async function readRows(src: RatingSource, season: string): Promise<{ rows: Row[
 
 const selectClass = "rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm";
 
-export default function RatingsClient({ initial }: { initial: RatingsView }) {
+export default function RatingsClient({ initial, initialPin }: { initial: RatingsView; initialPin: GridPin | null }) {
   const [league, setLeague] = useState(initial.league);
+  // The grid's pins are the only grid.* key the page keeps: the board always opens on its own order.
+  const [pin, setPin] = useState(initialPin);
+  const onGridView = useCallback((v: GridView) => setPin(v.pin), []);
   const [season, setSeason] = useState(initial.season);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [busy, setBusy] = useState(false);
@@ -89,7 +100,9 @@ export default function RatingsClient({ initial }: { initial: RatingsView }) {
   const activeSeason = seasons?.length ? (seasons.includes(season) ? season : seasons[0]) : "";
   const loadKey = `${league}|${activeSeason}`;
   const shown = loaded?.key === loadKey ? loaded : null;
-  useUrlMirror(ratingsViewParams({ league, season: activeSeason || season }));
+  const pageParams = ratingsViewParams({ league, season: activeSeason || season });
+  gridViewParams({ ...EMPTY_GRID, pin }, pageParams);
+  useUrlMirror(pageParams);
 
   useEffect(() => {
     const ticket = runs.next();
@@ -130,7 +143,8 @@ export default function RatingsClient({ initial }: { initial: RatingsView }) {
   }, [shown, src]);
   const types = useMemo(() => ({ ...src.columns, ...(src.names ? { [TEAM_COL]: "text" } : {}) }), [src]);
   // The grid opens on the board's order (the rows already arrive in it), so its header says so.
-  const initialGrid: GridView = { sort: { col: orderCol, dir: desc ? "desc" : "asc" }, filters: {}, tint: "delta" };
+  // A season switch keeps the pins (the grid drops any id the new season lacks).
+  const initialGrid: GridView = { sort: { col: orderCol, dir: desc ? "desc" : "asc" }, filters: {}, tint: "delta", pin };
 
   const one = src.noun.replace(/s$/, "");
   const d1 = src.names?.only && shown && !shown.unlisted ? `${src.names.only} ` : "";
@@ -171,7 +185,10 @@ export default function RatingsClient({ initial }: { initial: RatingsView }) {
         {Object.entries(RATINGS).map(([key, s]) => (
           <button
             key={key}
-            onClick={() => setLeague(key)}
+            onClick={() => {
+              setLeague(key);
+              if (key !== league) setPin(null); // another league's ids
+            }}
             aria-pressed={key === league}
             className={`rounded-full px-3 py-1 font-inter text-sm font-medium transition-colors ${
               key === league ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary hover:bg-primary/20"
@@ -221,7 +238,7 @@ export default function RatingsClient({ initial }: { initial: RatingsView }) {
 
       {shown && shown.rows.length ? (
         // Mounted per read (`shown` is keyed to it), so each opens on the board's order.
-        <ResultsGrid columns={[...src.select]} rows={gridRows} types={types} initialView={initialGrid} />
+        <ResultsGrid columns={[...src.select]} rows={gridRows} types={types} initialView={initialGrid} onViewChange={onGridView} />
       ) : null}
     </>
   );

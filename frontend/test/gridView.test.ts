@@ -5,7 +5,7 @@ import { gridViewParams, parseGridView, gridByIndex, gridByName, queryViewParams
 const sp = (qs: string) => new URLSearchParams(qs);
 
 test('grid view round-trips sort (by name, - for desc), column filters and tint', () => {
-  const v = { sort: { col: 'EPAplay', dir: 'desc' as const }, filters: { team: 'Ohio' }, tint: 'pct' as const };
+  const v = { sort: { col: 'EPAplay', dir: 'desc' as const }, filters: { team: 'Ohio' }, tint: 'pct' as const, pin: null };
   const p = new URLSearchParams('schema=cfb');
   gridViewParams(v, p);
   assert.equal(p.toString(), 'schema=cfb&grid.sort=-EPAplay&grid.tint=pct&grid.f.team=Ohio');
@@ -14,22 +14,23 @@ test('grid view round-trips sort (by name, - for desc), column filters and tint'
 
 test('grid defaults are omitted and junk is ignored', () => {
   const p = new URLSearchParams();
-  gridViewParams({ sort: null, filters: {}, tint: 'delta' }, p);
+  gridViewParams({ sort: null, filters: {}, tint: 'delta', pin: null }, p);
   assert.equal(p.toString(), '');
-  assert.deepEqual(parseGridView(sp('grid.tint=rainbow&grid.sort=-')), { sort: null, filters: {}, tint: 'delta' });
+  assert.deepEqual(parseGridView(sp('grid.tint=rainbow&grid.sort=-&grid.pin=nope')), EMPTY_GRID);
 });
 
 test('names map onto the current columns and back; missing columns drop out', () => {
   const cols = ['athlete_id', 'team', 'EPAplay'];
-  const byIdx = gridByIndex({ sort: { col: 'EPAplay', dir: 'asc' }, filters: { team: 'Ohio', gone: 'x' }, tint: 'off' }, cols);
-  assert.deepEqual(byIdx, { sort: { col: 2, dir: 'asc' }, filters: { 1: 'Ohio' }, tint: 'off' });
-  assert.deepEqual(gridByName(byIdx, cols), { sort: { col: 'EPAplay', dir: 'asc' }, filters: { team: 'Ohio' }, tint: 'off' });
-  assert.equal(gridByIndex({ sort: { col: 'gone', dir: 'asc' }, filters: {}, tint: 'delta' }, cols).sort, null);
+  const pin = { col: 'athlete_id', values: ['7'] };
+  const byIdx = gridByIndex({ sort: { col: 'EPAplay', dir: 'asc' }, filters: { team: 'Ohio', gone: 'x' }, tint: 'off', pin }, cols);
+  assert.deepEqual(byIdx, { sort: { col: 2, dir: 'asc' }, filters: { 1: 'Ohio' }, tint: 'off', pin }); // pins stay by name and value
+  assert.deepEqual(gridByName(byIdx, cols), { sort: { col: 'EPAplay', dir: 'asc' }, filters: { team: 'Ohio' }, tint: 'off', pin });
+  assert.equal(gridByIndex({ ...EMPTY_GRID, sort: { col: 'gone', dir: 'asc' } }, cols).sort, null);
 });
 
 test('a Query URL carries the grid alongside the API request without polluting it', () => {
   const p = queryViewParams({ schema: 'cfb', table: 'passing', filters: [], select: [], order: '', limit: 100 });
-  gridViewParams({ sort: { col: 'EPAplay', dir: 'desc' }, filters: {}, tint: 'pct' }, p);
+  gridViewParams({ sort: { col: 'EPAplay', dir: 'desc' }, filters: {}, tint: 'pct', pin: { col: 'player_id', values: ['1'] } }, p);
   assert.deepEqual(parseQueryView(p, ['cfb']).filters, []); // grid.* never becomes an API filter
 });
 
@@ -42,8 +43,8 @@ test('grid sort column, filter names and filter values are capped at 200 chars',
 
 test('valid views round-trip; empty filters, non-column names and stale column indices drop out', () => {
   const views: GridView[] = [
-    { sort: { col: 'clock.displayValue', dir: 'asc' }, filters: { team: 'Ohio State', 'clock.displayValue': '1:00', _x: '-5' }, tint: 'off' },
-    { sort: null, filters: { a: 'x&y=z #1' }, tint: 'pct' },
+    { sort: { col: 'clock.displayValue', dir: 'asc' }, filters: { team: 'Ohio State', 'clock.displayValue': '1:00', _x: '-5' }, tint: 'off', pin: null },
+    { sort: null, filters: { a: 'x&y=z #1' }, tint: 'pct', pin: { col: 'team_id', values: ['KC', '2426', 'a.b-c_d'] } },
     EMPTY_GRID,
   ];
   for (const v of views) {
@@ -52,10 +53,10 @@ test('valid views round-trip; empty filters, non-column names and stale column i
     assert.deepEqual(parseGridView(p), v);
   }
   const p = new URLSearchParams();
-  gridViewParams({ sort: null, filters: { team: '' }, tint: 'delta' }, p);
+  gridViewParams({ sort: null, filters: { team: '' }, tint: 'delta', pin: null }, p);
   assert.equal(p.toString(), '');
   assert.deepEqual(parseGridView(sp('grid.f.team=&grid.f.x%22y=1&grid.f.1st=1&grid.f.=1')).filters, {});
-  assert.deepEqual(gridByName({ sort: { col: 9, dir: 'asc' }, filters: { 9: 'x' }, tint: 'delta' }, ['team']), EMPTY_GRID);
+  assert.deepEqual(gridByName({ sort: { col: 9, dir: 'asc' }, filters: { 9: 'x' }, tint: 'delta', pin: null }, ['team']), EMPTY_GRID);
 });
 
 /** The cells in the grid's sort order (Array.prototype.sort is stable). */
@@ -99,4 +100,32 @@ test('ties keep their original order in both directions', () => {
       assert.ok(compareCells(a, b, dir) === 0, `${a} vs ${b} ${dir}`);
     }
   }
+});
+
+test('grid.pin round-trips an id column and its values, in pin order', () => {
+  const v: GridView = { ...EMPTY_GRID, pin: { col: 'player_id', values: ['4432577', '4361741'] } };
+  const p = new URLSearchParams();
+  gridViewParams(v, p);
+  assert.equal(p.get('grid.pin'), 'player_id:4432577,4361741');
+  assert.deepEqual(parseGridView(p), v);
+  assert.deepEqual(parseGridView(sp('grid.pin=player_id:4432577,4361741')).pin, v.pin); // unencoded, as typed
+  assert.deepEqual(parseGridView(sp('grid.pin=team_id:KC,BUF')).pin, { col: 'team_id', values: ['KC', 'BUF'] });
+  const none = new URLSearchParams();
+  gridViewParams({ ...EMPTY_GRID, pin: { col: 'player_id', values: [] } }, none);
+  assert.equal(none.toString(), ''); // no values, no key
+});
+
+test('grid.pin keeps at most 8 values and drops repeats before counting', () => {
+  const ids = Array.from({ length: 12 }, (_, i) => String(100 + i));
+  assert.deepEqual(parseGridView(sp(`grid.pin=player_id:${ids.join(',')}`)).pin?.values, ids.slice(0, 8));
+  const dup = parseGridView(sp('grid.pin=player_id:1,2,1,2,3,1,4,5,6,7,8,9'));
+  assert.deepEqual(dup.pin?.values, ['1', '2', '3', '4', '5', '6', '7', '8']);
+});
+
+test('a malformed grid.pin is ignored, never thrown on', () => {
+  for (const qs of ['grid.pin=', 'grid.pin=player_id', 'grid.pin=player_id:', 'grid.pin=:1,2', 'grid.pin=1st:1', 'grid.pin=x%22y:1', 'grid.pin=player_id:,,', 'grid.pin=player_id:%00']) {
+    assert.equal(parseGridView(sp(qs)).pin, null, qs);
+  }
+  // a bad value drops out alone; so does one past 200 chars (cut short, it would name another row)
+  assert.deepEqual(parseGridView(sp(`grid.pin=player_id:1,a b,2,<x>,${'9'.repeat(201)}`)).pin, { col: 'player_id', values: ['1', '2'] });
 });
