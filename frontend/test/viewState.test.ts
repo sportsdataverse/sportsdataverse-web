@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   toSearchParams, parseExploreView, exploreViewParams, parseQueryView, queryViewParams,
   exploreLinkMoved, parseWpView, wpViewParams, parseTrendsView, trendsViewParams, parseLookupsView, lookupsViewParams,
-  parseScatterView, scatterViewParams,
+  parseScatterView, scatterViewParams, parseGridView, gridViewParams, EMPTY_GRID,
   SQL_OP_BY_SUFFIX, SUFFIX_BY_SQL_OP,
 } from '../lib/platform/viewState.ts';
 
@@ -39,6 +39,37 @@ test('a quote in a filter key never becomes a column: COLUMN forbids it', () => 
 test('Explore SQL ops and URL suffixes are inverse maps', () => {
   for (const [suffix, op] of Object.entries(SQL_OP_BY_SUFFIX)) assert.equal(SUFFIX_BY_SQL_OP[op], suffix);
   assert.equal(SQL_OP_BY_SUFFIX.__like, 'contains');
+});
+
+/** Explore's address bar: its own view, then the preview grid's grid.* keys. */
+const explorePage = (qs: string) => {
+  const p = exploreViewParams(parseExploreView(sp(qs)));
+  gridViewParams(parseGridView(sp(qs)), p);
+  return p.toString();
+};
+
+test('Explore carries the preview grid after its own keys: a descending sort is grid.sort=-col', () => {
+  const p = exploreViewParams({ tag: 'espn_cfb_pbp', table: 'play_by_play', season: '2024', filters: [{ column: 'week', op: '', value: '1' }], limit: 50, sql: '' });
+  gridViewParams({ ...EMPTY_GRID, sort: { col: 'EPA', dir: 'desc' } }, p);
+  assert.equal(p.toString(), 'tag=espn_cfb_pbp&table=play_by_play&season=2024&w.week=1&limit=50&grid.sort=-EPA');
+  assert.equal(explorePage(p.toString()), p.toString()); // and a copied link restores it
+});
+
+test('Explore ignores grid.* keys: they are never filters, and the grid reads only its own', () => {
+  const qs = 'tag=espn_cfb_pbp&table=play_by_play&grid.sort=-EPA&grid.f.team=Ohio&grid.tint=pct';
+  const v = parseExploreView(sp(qs));
+  assert.deepEqual(v.filters, []);
+  assert.equal(exploreViewParams(v).toString(), 'tag=espn_cfb_pbp&table=play_by_play');
+  assert.deepEqual(parseGridView(sp(qs)), { sort: { col: 'EPA', dir: 'desc' }, filters: { team: 'Ohio' }, tint: 'pct' });
+});
+
+test('an Explore link from before the grid (no grid.*) round-trips unchanged', () => {
+  for (const qs of [
+    'tag=espn_cfb_pbp&table=play_by_play&season=2024&w.week=1&limit=50',
+    'tag=espn_cfb_pbp&table=play_by_play&season=2024&w.week__gte=3&w.clock.displayValue=0%3A00&limit=250',
+    'tag=espn_cfb_pbp&sql=SELECT+1',
+    '',
+  ]) assert.equal(explorePage(qs), qs);
 });
 
 test('Query URL is the Data API request: same keys, same suffixes', () => {

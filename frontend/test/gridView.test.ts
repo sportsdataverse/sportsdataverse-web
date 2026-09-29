@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gridViewParams, parseGridView, gridByIndex, gridByName, queryViewParams, parseQueryView, EMPTY_GRID, type GridView } from '../lib/platform/viewState.ts';
+import { gridViewParams, parseGridView, gridByIndex, gridByName, queryViewParams, parseQueryView, compareCells, EMPTY_GRID, type GridView, type SortDir } from '../lib/platform/viewState.ts';
 
 const sp = (qs: string) => new URLSearchParams(qs);
 
@@ -56,4 +56,47 @@ test('valid views round-trip; empty filters, non-column names and stale column i
   assert.equal(p.toString(), '');
   assert.deepEqual(parseGridView(sp('grid.f.team=&grid.f.x%22y=1&grid.f.1st=1&grid.f.=1')).filters, {});
   assert.deepEqual(gridByName({ sort: { col: 9, dir: 'asc' }, filters: { 9: 'x' }, tint: 'delta' }, ['team']), EMPTY_GRID);
+});
+
+/** The cells in the grid's sort order (Array.prototype.sort is stable). */
+const sortCells = (cells: (string | null)[], dir: SortDir) => [...cells].sort((a, b) => compareCells(a, b, dir));
+
+test('nulls sort last in both directions (the Data API NULLS LAST); numbers compare numerically', () => {
+  const cells = [null, '10', '-2.5', null, '9', '0'];
+  assert.deepEqual(sortCells(cells, 'asc'), ['-2.5', '0', '9', '10', null, null]);
+  assert.deepEqual(sortCells(cells, 'desc'), ['10', '9', '0', '-2.5', null, null]);
+});
+
+test('non-finite numbers sort after the finite ones and before nulls, in both directions', () => {
+  const cells = ['NaN', null, '3', 'Infinity', '-Infinity', '1'];
+  assert.deepEqual(sortCells(cells, 'asc'), ['1', '3', 'NaN', 'Infinity', '-Infinity', null]);
+  assert.deepEqual(sortCells(cells, 'desc'), ['3', '1', 'NaN', 'Infinity', '-Infinity', null]);
+});
+
+test('mixed columns: numbers ahead of text, text by localeCompare, a blank sinks with the nulls; the order is transitive', () => {
+  const cells = ['b', '10', '1a', null, '2', '', 'A'];
+  assert.deepEqual(sortCells(cells, 'asc'), ['2', '10', '1a', 'A', 'b', null, '']);
+  assert.deepEqual(sortCells(cells, 'desc'), ['b', 'A', '1a', '10', '2', null, '']);
+  // every input order gives the same result, which a non-transitive comparator does not
+  for (const perm of [['1a', '2', '10'], ['10', '1a', '2'], ['2', '10', '1a']]) {
+    assert.deepEqual(sortCells(perm, 'asc'), ['2', '10', '1a']);
+  }
+});
+
+test('a numeric column with blanks keeps them last in both directions: a blank is missing, not text', () => {
+  const cells = ['3', '', '10', ' ', null, '-1'];
+  assert.deepEqual(sortCells(cells, 'desc'), ['10', '3', '-1', '', ' ', null]);
+  assert.deepEqual(sortCells(cells, 'asc'), ['-1', '3', '10', '', ' ', null]);
+});
+
+test('ties keep their original order in both directions', () => {
+  const rows = [['x', '1'], ['y', null], ['z', '1'], ['w', null], ['v', '1.0']];
+  for (const dir of ['asc', 'desc'] as const) {
+    const ids = [...rows].sort((a, b) => compareCells(a[1], b[1], dir)).map((r) => r[0]);
+    assert.deepEqual(ids, ['x', 'z', 'v', 'y', 'w']);
+    // a tie is exactly 0 (=== so a -0 counts); V8's sort alone hides a comparator that returns 1 for one
+    for (const [a, b] of [['1', '1.0'], [null, null], ['', null], [' ', ''], ['NaN', '-Infinity'], ['x', 'x']]) {
+      assert.ok(compareCells(a, b, dir) === 0, `${a} vs ${b} ${dir}`);
+    }
+  }
 });
