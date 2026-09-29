@@ -6,7 +6,7 @@ import { cn } from "@lib/utils";
 import { columnTip } from "@lib/platform/glossary";
 import { revealInScroller } from "@lib/platform/scroll";
 import { visibleRange, WINDOW_MIN } from "@lib/platform/gridVirtual";
-import { identityColumn, labelColumn, pinIdentity, transposePinned } from "@lib/platform/gridCompare";
+import { labelColumn, pinIdentity, transposePinned } from "@lib/platform/gridCompare";
 import {
   asPercentile,
   columnDomain,
@@ -19,7 +19,15 @@ import {
   type PctSource,
   type TintMode,
 } from "@lib/platform/scales";
-import { compareCells, EMPTY_GRID, gridByIndex, gridByName, MAX_PINS, type GridPin, type GridView } from "@lib/platform/viewState";
+import {
+  compareCells,
+  EMPTY_GRID,
+  gridByIndex,
+  gridByName,
+  MAX_PINS,
+  type GridPin,
+  type GridView,
+} from "@lib/platform/viewState";
 
 /**
  * Keyboard-first results grid for the platform data surfaces.
@@ -74,11 +82,14 @@ export type GridProps = {
   onRowHover?: (index: number | null) => void;
   /** Fires when a row is selected via click/keyboard. */
   onRowSelect?: (index: number | null) => void;
-  /** Sort / column filters / tint to start from (e.g. parsed from the URL); read on mount. */
+  /** Sort / column filters / tint / pins to start from (e.g. parsed from the URL); read on
+   *  mount. Pins apply when their column is the result's pinIdentity; the ids the result
+   *  lacks are dropped, and the status bar says how many. */
   initialView?: GridView;
   /** Fires with the view, keyed by column NAME, on mount and whenever sort /
-   *  filters / tint change. An effect dependency: pass a stable function
-   *  (a state setter), or every render re-fires it. */
+   *  filters / tint / pins change. `pin` is null while pins are session-only (row
+   *  indices). An effect dependency: pass a stable function (a state setter), or
+   *  every render re-fires it. */
   onViewChange?: (view: GridView) => void;
 };
 
@@ -96,6 +107,14 @@ function keepPins(p: Pins, columns: string[], rows: (string | null)[][]): Pins {
   const present = new Set(rows.map((r) => r[id]));
   return { col, keys: p.keys.filter((k) => present.has(k)) };
 }
+
+/** Says how many id pins a new result lost (a shared link's, a re-run's), rather than dropping them unseen. */
+function missingNote(from: Pins, kept: Pins): string {
+  const n = from.col === null ? 0 : from.keys.length - (kept.col === from.col ? kept.keys.length : 0);
+  return n ? `${n} pinned ${n === 1 ? "row isn't" : "rows aren't"} in this result` : "";
+}
+
+const pinsOf = (v: GridView | undefined): Pins => ({ col: v?.pin?.col ?? null, keys: v?.pin?.values ?? [] });
 
 const PAGE = 20;
 const DENSITY = ["py-0.5", "py-1", "py-2"] as const;
@@ -141,13 +160,10 @@ export default function ResultsGrid({
   const bodyRef = useRef<HTMLTableSectionElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const filterInputRef = useRef<HTMLInputElement>(null);
-  const [pins, setPins] = useState<Pins>(() =>
-    keepPins({ col: initialView?.pin?.col ?? null, keys: initialView?.pin?.values ?? [] }, columns, rows)
-  );
+  const [pins, setPins] = useState<Pins>(() => keepPins(pinsOf(initialView), columns, rows));
   const [pinnedOnly, setPinnedOnly] = useState(false);
-  const [notice, setNotice] = useState("");
-  /** The row under the pointer (`c`), by original index. */
-  const hoverRow = useRef<number | null>(null);
+  /** The status bar's live message: a pin, an unpin, a refusal, pins a result lacks. */
+  const [notice, setNotice] = useState(() => missingNote(pinsOf(initialView), pins));
   /** A row the next view change keeps focused wherever it lands (`z`), by original index. */
   const followRow = useRef<number | null>(null);
   const showInRail = useRef<(orig: number | null) => void>(null);
@@ -167,7 +183,9 @@ export default function ResultsGrid({
     setFilters(next.filters);
     setSort(next.sort);
     setSelectedRow(null);
-    setPins(keepPins(pins, columns, rows));
+    const kept = keepPins(pins, columns, rows);
+    setPins(kept);
+    setNotice(missingNote(pins, kept));
   }
   // A rerun with the same columns keeps sort and filters, but the selected index
   // would point at a different row. Both row sources are stable per result.
@@ -175,7 +193,9 @@ export default function ResultsGrid({
   if (lastRows !== rows) {
     setLastRows(rows);
     setSelectedRow(null);
-    setPins(keepPins(pins, columns, rows));
+    const kept = keepPins(pins, columns, rows);
+    setPins(kept);
+    setNotice(missingNote(pins, kept));
   }
 
   // Only ids reach the URL; row-index pins are this session's.
@@ -203,16 +223,26 @@ export default function ResultsGrid({
   const onlyPinned = pinnedOnly && pinned.length > 0;
   const keepOnly = onlyPinned ? pinnedSet : null;
 
+  const labelCol = labelColumn(cols);
+  /** A row as the tray, the rail and the status bar name it. */
+  const nameOf = (orig: number) => rowName(rows[orig], labelCol, idCol) ?? `Row ${orig + 1}`;
+  /** The same with its row number, for a button's accessible name: "Ann, row 3" or "row 3". */
+  const whoOf = (orig: number) => {
+    const name = rowName(rows[orig], labelCol, idCol);
+    return name == null ? `row ${orig + 1}` : `${name}, row ${orig + 1}`;
+  };
+
   function togglePin(orig: number) {
     const key = idCol < 0 ? String(orig) : rows[orig][idCol]!;
+    const n = pins.keys.length;
     if (pins.keys.includes(key)) {
       setPins({ ...pins, keys: pins.keys.filter((k) => k !== key) });
-      setNotice("");
-    } else if (pins.keys.length >= MAX_PINS) {
+      setNotice(`Unpinned ${nameOf(orig)}, ${n - 1} of ${MAX_PINS}`);
+    } else if (n >= MAX_PINS) {
       setNotice(`${MAX_PINS} rows pinned, the most: unpin one first`);
     } else {
       setPins({ ...pins, keys: [...pins.keys, key] });
-      setNotice("");
+      setNotice(`Pinned ${nameOf(orig)}, ${n + 1} of ${MAX_PINS}`);
     }
   }
 
@@ -404,9 +434,11 @@ export default function ResultsGrid({
     }
     if (key === "p" || key === "c") {
       e.preventDefault();
-      const orig = key === "p" ? view[r]?.orig : hoverRow.current;
+      // c: the row under the pointer now (a scroll moves rows under a still pointer)
+      const under = key === "c" ? bodyRef.current?.querySelector<HTMLElement>("tr[data-row]:hover") : null;
+      const orig = key === "p" ? view[r]?.orig : under ? view[Number(under.dataset.row)]?.orig : undefined;
       if (orig == null) {
-        setNotice("c pins the row under the pointer");
+        setNotice("c pins the row under the pointer: none is");
         return;
       }
       // pinned-only: an unpin drops the row, so keep the focused row if it stays
@@ -467,7 +499,6 @@ export default function ResultsGrid({
 
   const activeFilters = Object.entries(filters).filter(([, v]) => v !== "");
   const pad = DENSITY[density];
-  const names = { label: labelColumn(cols), id: identityColumn(cols) };
 
   return (
     // From xl the rail's column is always there, so the grid's width never moves when it fills.
@@ -496,10 +527,7 @@ export default function ResultsGrid({
         <div
           ref={scrollerRef}
           className="scrollbar-visible max-h-[32rem] max-w-full rounded-t-lg border border-border/60 [overflow-anchor:none]"
-          onMouseLeave={() => {
-            hoverRow.current = null;
-            onRowHover?.(null);
-          }}
+          onMouseLeave={() => onRowHover?.(null)}
           onScroll={() => {
             if (!windowed || scrollFrame.current) return;
             scrollFrame.current = requestAnimationFrame(() => {
@@ -614,10 +642,11 @@ export default function ResultsGrid({
                     : "";
                 return [
                   // Keyed by place, not by the row after it: the only gaps are the leading one and the
-                  // one beside a pinned row. A leading spacer re-keyed by a sort was deleted mid-commit,
-                  // and the content it held up collapsed long enough to clamp scrollTop.
+                  // one beside the focused row kept mounted out of the window. A leading spacer re-keyed
+                  // by a sort was deleted mid-commit, and the content it held up collapsed long enough
+                  // to clamp scrollTop.
                   gap ? (
-                    <tr key={i ? "gap-pin" : "gap-head"} aria-hidden style={{ height: gap * rowH }}>
+                    <tr key={i ? "gap-focus" : "gap-head"} aria-hidden style={{ height: gap * rowH }}>
                       <td colSpan={colOrder.length + 1} />
                     </tr>
                   ) : null,
@@ -627,7 +656,6 @@ export default function ResultsGrid({
                     aria-rowindex={r + 2}
                     style={{ height: rowH }}
                     onMouseEnter={() => {
-                      hoverRow.current = orig;
                       showInRail.current?.(orig);
                       onRowHover?.(orig);
                     }}
@@ -653,13 +681,14 @@ export default function ResultsGrid({
                         <button
                           type="button"
                           tabIndex={-1} // the roving tab stop stays on the cells
-                          aria-label={`Pin row ${orig + 1}`}
+                          aria-label={`Pin ${whoOf(orig)}`}
                           aria-pressed={isPinned}
                           onMouseDown={(e) => e.preventDefault()} // and so does the focus
                           onClick={() => togglePin(orig)}
                           title={isPinned ? "Unpin (p)" : "Pin to compare (p)"}
                           className={cn(
-                            "rounded-sm hover:text-primary",
+                            // a 24px target around the 12px icon, drawn outside the row's layout
+                            "relative rounded-sm before:absolute before:-inset-1.5 hover:text-primary",
                             isPinned ? "text-primary" : "opacity-0 group-hover:opacity-100 pointer-coarse:opacity-40"
                           )}
                         >
@@ -753,7 +782,7 @@ export default function ResultsGrid({
               ) : null}
             </span>
           ) : null}
-          <span role="status" className="text-foreground empty:hidden">
+          <span role="status" className="text-foreground empty:sr-only">
             {notice}
           </span>
           <span className="hidden sm:inline">↑↓←→ move</span>
@@ -797,18 +826,21 @@ export default function ResultsGrid({
             rows={rows}
             pinned={pinned}
             pcts={pcts}
-            names={names}
+            colOrder={colOrder}
+            heads={[labelCol, idCol]}
+            nameOf={nameOf}
+            whoOf={whoOf}
             onUnpin={togglePin}
           />
         ) : null}
       </div>
-      <HoverRail ref={showInRail} columns={cols} rows={rows} pcts={pcts} label={names.label} id={names.id} />
+      <HoverRail ref={showInRail} columns={cols} colOrder={colOrder} rows={rows} pcts={pcts} label={labelCol} id={idCol} />
     </div>
   );
 }
 
-/** What heads a row in the tray and the rail: its label, else its id; null when it has neither
- *  (the row number, shown beside a name, then stands alone). */
+/** What heads a row in the tray and the rail: its label, else the id its pin is kept by
+ *  (never an id that repeats); null when it has neither, and "Row N" stands alone. */
 const rowName = (cells: (string | null)[], label: number, id: number) => cells[label] ?? cells[id] ?? null;
 
 /** 38 → "38th". */
@@ -828,19 +860,29 @@ function PinTray({
   rows,
   pinned,
   pcts,
-  names,
+  colOrder,
+  heads,
+  nameOf,
+  whoOf,
   onUnpin,
 }: {
   columns: string[];
   rows: (string | null)[][];
   pinned: number[];
   pcts: Map<number, PctSource>;
-  names: { label: number; id: number };
+  /** The grid's column order (dragged), which the metrics follow. */
+  colOrder: number[];
+  /** The label and pin-id columns: they head the tray, so they aren't metric rows. */
+  heads: [number, number];
+  nameOf: (orig: number) => string;
+  whoOf: (orig: number) => string;
   onUnpin: (orig: number) => void;
 }) {
-  // the label heads each column, so it isn't a row too
-  const metrics = transposePinned(columns, rows, pinned).filter((m) => m.metric !== columns[names.label]);
-  const head = (orig: number) => rowName(rows[orig], names.label, names.id);
+  const place = new Map(colOrder.map((ci, i) => [columns[ci], i]));
+  const metrics = transposePinned(columns, rows, pinned, heads).sort(
+    (a, b) => (place.get(a.metric) ?? 0) - (place.get(b.metric) ?? 0)
+  );
+  const named = (orig: number) => rowName(rows[orig], heads[0], heads[1]) != null;
   return (
     <section aria-label="Pinned rows" className="mt-3 min-w-0">
       <h3 className="mb-1.5 font-display text-sm font-bold uppercase text-muted-foreground">
@@ -857,14 +899,14 @@ function PinTray({
               {pinned.map((orig) => (
                 <th key={orig} scope="col" className="sticky top-0 z-10 whitespace-nowrap bg-muted text-right">
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="font-display text-[13px]">{head(orig) ?? `#${orig + 1}`}</span>
-                    {head(orig) != null ? (
+                    <span className="font-display text-[13px]">{nameOf(orig)}</span>
+                    {named(orig) ? (
                       <span className="font-mono text-[10px] font-normal text-muted-foreground">#{orig + 1}</span>
                     ) : null}
                     <button
                       type="button"
                       onClick={() => onUnpin(orig)}
-                      aria-label={`Unpin ${head(orig) ?? `row ${orig + 1}`}`}
+                      aria-label={`Unpin ${whoOf(orig)}`}
                       className="rounded-sm text-muted-foreground hover:text-foreground"
                     >
                       <X className="size-3" />
@@ -891,7 +933,7 @@ function PinTray({
                         key={pinned[j]}
                         style={src ? { backgroundColor: pctTint(pct, src.scale) } : undefined}
                         className="max-w-48 truncate whitespace-nowrap text-right font-display text-[13px] tabular-nums"
-                        title={v ?? ""}
+                        title={p != null ? `${v ?? "∅"} · ${ordinal(p)} percentile` : (v ?? "")}
                       >
                         {v ?? "∅"}
                         {p != null ? <span className="sr-only">, {ordinal(p)} percentile</span> : null}
@@ -917,6 +959,7 @@ function PinTray({
 const HoverRail = memo(function HoverRail({
   ref,
   columns,
+  colOrder,
   rows,
   pcts,
   label,
@@ -924,13 +967,18 @@ const HoverRail = memo(function HoverRail({
 }: {
   ref: React.Ref<(orig: number | null) => void>;
   columns: string[];
+  colOrder: number[];
   rows: (string | null)[][];
   pcts: Map<number, PctSource>;
   label: number;
   id: number;
 }) {
   const [orig, setOrig] = useState<number | null>(null);
-  useImperativeHandle(ref, () => setOrig, []);
+  const aside = useRef<HTMLElement>(null);
+  // below xl the rail is display:none (no offsetParent): a hover there re-renders nothing
+  useImperativeHandle(ref, () => (o: number | null) => {
+    if (aside.current?.offsetParent != null) setOrig(o);
+  }, []);
   // a re-run: the index names another row now
   const [seen, setSeen] = useState(rows);
   if (seen !== rows) {
@@ -940,6 +988,7 @@ const HoverRail = memo(function HoverRail({
   const cells = orig == null ? undefined : rows[orig];
   return (
     <aside
+      ref={aside}
       aria-label="Row detail"
       className="scrollbar-visible relative hidden max-h-[34rem] overflow-y-auto rounded-lg border border-border/60 bg-card p-3 xl:block"
     >
@@ -952,7 +1001,8 @@ const HoverRail = memo(function HoverRail({
             ) : null}
           </div>
           <dl className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1 text-xs">
-            {columns.map((name, c) => {
+            {colOrder.map((c) => {
+              const name = columns[c];
               const src = pcts.get(c);
               if (src?.col === c) return null; // an X_pct: drawn as its X's bar
               const raw = src ? cells[src.col] : null;
@@ -971,7 +1021,7 @@ const HoverRail = memo(function HoverRail({
                         {p != null ? (
                           <span
                             className={cn("absolute inset-y-0", p >= 50 ? "left-1/2 bg-chart-div-pos-3" : "right-1/2 bg-chart-div-neg-3")}
-                            style={{ width: `${Math.abs(p - 50)}%` }}
+                            style={{ width: `${Math.abs(Math.min(100, Math.max(0, p)) - 50)}%` }}
                           />
                         ) : null}
                         <span className="absolute -inset-y-0.5 left-1/2 w-px bg-muted-foreground/60" />
