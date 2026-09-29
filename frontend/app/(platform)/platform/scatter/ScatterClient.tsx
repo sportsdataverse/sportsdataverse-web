@@ -110,6 +110,9 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
   const { data: catalog, error: catalogError } = useSWR(`/api/platform/query/tables?schema=${src.schema}`, catalogFetcher);
   const { data: seasons, error: seasonsError } = useSWR(["scatter-seasons", key], () => seasonList(src));
   // The export's "data as of": held from the first render, so an export never waits on it.
+  // ponytail: read once per session, so a tab left open across a nightly ingest
+  // can stamp a "data as of" older than the rows it plotted; revalidate on a
+  // season (or source) switch if that matters.
   const { data: changed } = useSWRImmutable("/api/platform/query/meta", metaFetcher);
   const chart = useRef<ScatterExport>(null);
   const activeSeason = seasons?.length ? (seasons.includes(season) ? season : seasons[0]) : "";
