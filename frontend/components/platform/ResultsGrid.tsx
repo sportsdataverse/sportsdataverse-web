@@ -22,6 +22,7 @@ import {
 import {
   compareCells,
   EMPTY_GRID,
+  formatCell,
   gridByIndex,
   gridByName,
   MAX_PINS,
@@ -253,14 +254,14 @@ export default function ResultsGrid({
     () => cols.map((name, c) => columnDomain(rows.map((r) => r[c]), name)),
     [cols, rows]
   );
-  /** The longest cell per column over the whole result, for the windowed grid's sizer row. */
+  /** The longest cell per column as shown (formatCell) over the whole result, for the windowed grid's sizer row. */
   const widest = useMemo(() => {
     if (rows.length <= WINDOW_MIN) return null;
     const digits = (v: string) => v.replace(/\D/g, "").length;
     return cols.map((_, c) => {
       let w = "";
       for (const r of rows) {
-        const v = r[c] ?? "∅";
+        const v = formatCell(r[c]) ?? "∅";
         // ponytail: character count, not measured width; a tie goes to more digits (10.25 over -0.25).
         // Measure with a canvas if a proportional face ever makes the shorter string the wider one.
         if (v.length > w.length || (v.length === w.length && digits(v) > digits(w))) w = v;
@@ -279,6 +280,8 @@ export default function ResultsGrid({
     let out = rows.map((cells, orig) => ({ cells, orig }));
     if (keepOnly) out = out.filter(({ orig }) => keepOnly.has(orig));
     const active = Object.entries(filters).filter(([, v]) => v !== "");
+    // The raw cell, not the shown one: a grid.f link keeps its rows, and a shown
+    // value is the raw one's prefix unless its last digit rounded up.
     if (active.length) {
       out = out.filter(({ cells }) =>
         active.every(([c, v]) =>
@@ -724,7 +727,7 @@ export default function ResultsGrid({
                             "focus:ring-1 focus:ring-inset focus:ring-primary"
                           )}
                         >
-                          {raw === null ? "∅" : raw}
+                          {raw === null ? "∅" : formatCell(raw)}
                         </td>
                       );
                     })}
@@ -935,7 +938,7 @@ function PinTray({
                         className="max-w-48 truncate whitespace-nowrap text-right font-display text-[13px] tabular-nums"
                         title={p != null ? `${v ?? "∅"} · ${ordinal(p)} percentile` : (v ?? "")}
                       >
-                        {v ?? "∅"}
+                        {formatCell(v) ?? "∅"}
                         {p != null ? <span className="sr-only">, {ordinal(p)} percentile</span> : null}
                       </td>
                     );
@@ -1013,7 +1016,7 @@ const HoverRail = memo(function HoverRail({
                     {name}
                   </dt>
                   <dd className="truncate text-right font-display text-[13px] tabular-nums" title={cells[c] ?? ""}>
-                    {cells[c] ?? "∅"}
+                    {formatCell(cells[c]) ?? "∅"}
                   </dd>
                   {src ? (
                     <dd className="col-span-2 mb-1 flex items-center gap-2" title={`${columns[src.col]}: ${p == null ? "none" : ordinal(p)}`}>
