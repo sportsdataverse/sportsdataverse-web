@@ -21,6 +21,7 @@ import {
 } from "@lib/platform/viewState";
 import useUrlMirror from "@hooks/useUrlMirror";
 import { releaseAssetsFetcher } from "@lib/platform/queryRun";
+import { exploreSource } from "@lib/platform/gridQualifier";
 
 /**
  * CFBD-exporter-style data exploration: pick a dataset (release tag) → pick
@@ -612,6 +613,8 @@ export default function ExploreClient({ datasets, error, initial, initialGrid }:
                 types={Object.fromEntries(columns.map((c) => [c.name, c.type]))}
                 initialView={gridView}
                 onViewChange={setGridView}
+                // a SQL result is any shape: only the file's own rows carry its leaderboard's gate
+                source={sqlMode ? null : exploreSource(tag, effectiveStem)}
               />
             </div>
           ) : null}

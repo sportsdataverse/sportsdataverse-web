@@ -1,8 +1,12 @@
 "use client";
 
 import { Fragment, memo, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
 import { ArrowDown, ArrowUp, CircleMinus, CirclePlus, Flame, GripVertical, ListFilter, X } from "lucide-react";
 import { cn } from "@lib/utils";
+import { apiRows } from "@lib/platform/queryRun";
+import { belowNote, belowQualifier, categoryOf, nSiblings, QUALIFIER_VOLUME, qualifierMin } from "@lib/platform/gridQualifier";
+import { formatValue } from "@lib/platform/trends";
 import { columnTip } from "@lib/platform/glossary";
 import { revealInScroller } from "@lib/platform/scroll";
 import { visibleRange, WINDOW_MIN } from "@lib/platform/gridVirtual";
@@ -69,6 +73,15 @@ import {
  *   pins are row indices for this session only.
  * - From `xl`, a rail beside the grid shows every value of the hovered (or
  *   focused) row, each producer percentile as a bar.
+ *
+ * Sample sizes and the qualifier
+ * - An `X` with an `X_n` beside it marks its header `n`, and each cell's title
+ *   carries its n.
+ * - A CFB / NFL player leaderboard (`source`) gates its rows per team game
+ *   (gridQualifier.ts); a row below the qualifier reads faded, its identity and
+ *   label cells full-strength, and `q` shows only the qualified (`grid.q=1`).
+ *   Pinned rows always show. The gate is fetched for a single-season result
+ *   only, after the grid renders.
  */
 
 export type GridProps = {
@@ -92,6 +105,9 @@ export type GridProps = {
    *  indices). An effect dependency: pass a stable function (a state setter), or
    *  every render re-fires it. */
   onViewChange?: (view: GridView) => void;
+  /** The Data API table the rows are (Query's, or the one an Explore file mirrors): a CFB / NFL
+   *  player leaderboard fades the rows below its qualifier, which `q` hides. */
+  source?: { schema: string; table: string } | null;
 };
 
 type Sort = { col: number; dir: "asc" | "desc" } | null;
@@ -140,6 +156,7 @@ export default function ResultsGrid({
   onRowSelect,
   initialView,
   onViewChange,
+  source,
 }: GridProps) {
   const start = gridByIndex(initialView ?? EMPTY_GRID, columns);
   const [filters, setFilters] = useState<Record<number, string>>(start.filters);
@@ -150,6 +167,8 @@ export default function ResultsGrid({
   const [order, setOrder] = useState<number[]>(() => columns.map((_, i) => i));
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [tint, setTint] = useState<TintMode>(start.tint);
+  /** `q`'s intent, kept while the result has no gate (yet), like `tint`'s. */
+  const [qualified, setQualified] = useState(start.qualified);
   const [density, setDensity] = useState(1);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewport, setViewport] = useState(512);
@@ -178,7 +197,7 @@ export default function ResultsGrid({
   // for "reset state when a prop changes"), so there's no stale frame.
   const [cols, setCols] = useState(columns);
   if (cols.join("\u0001") !== columns.join("\u0001")) {
-    const next = gridByIndex(gridByName({ sort, filters, tint, pin: null }, cols), columns);
+    const next = gridByIndex(gridByName({ sort, filters, tint, pin: null, qualified }, cols), columns);
     setCols(columns);
     setOrder(columns.map((_, i) => i));
     setFilters(next.filters);
@@ -205,8 +224,8 @@ export default function ResultsGrid({
     [pins]
   );
   useEffect(() => {
-    onViewChange?.(gridByName({ sort, filters, tint, pin: urlPin }, cols));
-  }, [sort, filters, tint, urlPin, cols, onViewChange]);
+    onViewChange?.(gridByName({ sort, filters, tint, pin: urlPin, qualified }, cols));
+  }, [sort, filters, tint, urlPin, qualified, cols, onViewChange]);
 
   const idCol = pins.col === null ? -1 : cols.indexOf(pins.col);
   const origById = useMemo(() => new Map(idCol < 0 ? [] : rows.map((r, i) => [r[idCol], i])), [rows, idCol]);
@@ -275,12 +294,51 @@ export default function ResultsGrid({
   const pcts = useMemo(() => pctSources(cols, rows), [cols, rows]);
   const hasPct = pcts.size > 0;
   const shownTint = effectiveTint(tint, hasPct);
+  const nOf = useMemo(() => nSiblings(cols), [cols]);
+
+  // The leaderboard qualifier, a gate per team game (gridQualifier.ts) with its minimum read from
+  // league_averages for the result's one season: the grid renders first, the rows fade when it lands.
+  const board = source ? categoryOf(source.schema, source.table) : null;
+  const unit = board ? QUALIFIER_VOLUME[board.category] : "";
+  const volCol = cols.indexOf(unit);
+  const gamesCol = cols.indexOf("team_games");
+  const seasonCol = cols.indexOf("season");
+  const seasons = useMemo(() => new Set(seasonCol < 0 ? [] : rows.map((r) => r[seasonCol])), [rows, seasonCol]);
+  const gated = board !== null && volCol >= 0 && gamesCol >= 0;
+  const season = gated && seasons.size === 1 ? [...seasons][0] : null;
+  const { data: qmin, error: qminError } = useSWR(
+    season != null ? ["qualifier", source!.schema, board!.entity, board!.category, season] : null,
+    ([, schema, entity, category, s]: string[]) =>
+      apiRows({ schema, table: "league_averages", season: s, entity, category, select: "metric,qualifier_min,level", limit: "500" }).then(
+        (r) => qualifierMin(r, schema)
+      ),
+    { revalidateOnFocus: false }
+  );
+  /** Each row below the qualifier (true), at or above it (false), or unknown (null, never faded); null with no gate. */
+  const below = useMemo(
+    () => (qmin == null ? null : rows.map((r) => belowQualifier(r[volCol], r[gamesCol], qmin))),
+    [rows, volCol, gamesCol, qmin]
+  );
+  const onlyQualified = qualified && below !== null;
+  const perGame = qmin == null ? "" : `${formatValue(qmin, undefined, false)} ${unit} per team game`;
+  /** What `q` says when it has nothing to do. */
+  const qNote = !gated
+    ? "no qualifier for this table"
+    : season == null
+      ? "qualifier shown for single-season results"
+      : qminError
+        ? "qualifier unavailable"
+        : qmin === undefined
+          ? "qualifier still loading"
+          : `no qualifier for ${season}`;
 
   /** Filtered + sorted view; every row keeps its ORIGINAL index for numbering,
    *  selection identity, and external linking. */
   const view = useMemo(() => {
     let out = rows.map((cells, orig) => ({ cells, orig }));
     if (keepOnly) out = out.filter(({ orig }) => keepOnly.has(orig));
+    // q: the rows below the qualifier go; a pinned row always shows
+    if (onlyQualified) out = out.filter(({ orig }) => below![orig] !== true || pinnedSet.has(orig));
     const active = Object.entries(filters).filter(([, v]) => v !== "");
     // The raw cell, not the shown one: a grid.f link keeps its rows, and a shown
     // value is the raw one's prefix unless its last digit rounded up.
@@ -295,7 +353,7 @@ export default function ResultsGrid({
       out = [...out].sort((a, b) => compareCells(a.cells[sort.col], b.cells[sort.col], sort.dir));
     }
     return out;
-  }, [rows, filters, sort, keepOnly]);
+  }, [rows, filters, sort, keepOnly, onlyQualified, below, pinnedSet]);
 
   const viewIndexByOrig = useMemo(() => {
     const m = new Map<number, number>();
@@ -462,6 +520,17 @@ export default function ResultsGrid({
       setNotice("");
       return;
     }
+    if (key === "q") {
+      e.preventDefault();
+      if (below === null) {
+        setNotice(qNote);
+        return;
+      }
+      followRow.current = view[r]?.orig ?? null;
+      setQualified((v) => !v);
+      setNotice("");
+      return;
+    }
     if (key === "w" || key === "e") {
       e.preventDefault();
       setDensity((d) => Math.max(0, Math.min(DENSITY.length - 1, d + (key === "e" ? 1 : -1))));
@@ -580,6 +649,11 @@ export default function ResultsGrid({
                       >
                         <GripVertical className="size-3 opacity-30" />
                         {name}
+                        {nOf.has(ci) ? (
+                          <abbr title={`sample size in ${columns[nOf.get(ci)!]}`} className="text-[9px] font-normal normal-case no-underline opacity-60">
+                            n
+                          </abbr>
+                        ) : null}
                         {encoded ? (
                           <Flame className="size-2.5 opacity-40" aria-label="value-encoded" />
                         ) : null}
@@ -640,6 +714,7 @@ export default function ResultsGrid({
                 const isSelected = selectedRow === orig;
                 const isLinked = highlightIndex === orig;
                 const isPinned = pinnedSet.has(orig);
+                const faded = below?.[orig] === true;
                 const rowBg = isSelected
                   ? "bg-primary/15"
                   : isLinked
@@ -667,6 +742,7 @@ export default function ResultsGrid({
                     className={cn("group transition-colors", rowBg, !rowBg && "hover:bg-muted/60")}
                   >
                     <td
+                      title={faded ? belowNote(cells[volCol]!, cells[gamesCol]!, qmin!, unit) : undefined}
                       className={cn(
                         "sticky left-0 z-10 w-10 border-b border-r border-border/40 px-2 text-right font-mono text-muted-foreground",
                         pad,
@@ -706,6 +782,7 @@ export default function ResultsGrid({
                       const raw = cells[ci];
                       const numeric = domains[ci] !== null;
                       const shade = gridShade(shownTint, cells, ci, domains[ci], pcts.get(ci));
+                      const n = nOf.get(ci);
                       return (
                         <td
                           key={ci}
@@ -717,7 +794,7 @@ export default function ResultsGrid({
                             showInRail.current?.(orig);
                           }}
                           onClick={() => selectRow(isSelected ? null : r)}
-                          title={raw ?? ""}
+                          title={n === undefined ? (raw ?? "") : `${raw ?? "∅"} · n = ${cells[n] ?? "∅"}`}
                           style={shade && !rowBg ? { backgroundColor: shade } : undefined}
                           className={cn(
                             "max-w-64 truncate whitespace-nowrap border-b border-r border-border/40 px-3 outline-none",
@@ -726,6 +803,9 @@ export default function ResultsGrid({
                               ? "font-display text-right text-[13px] tabular-nums"
                               : "font-mono",
                             sort?.col === ci && !shade && !rowBg && "bg-muted/40",
+                            // below the qualifier: the metrics recede (ids, names and text stay); 60% keeps
+                            // the text at >= 4.5:1 on card in both themes, and the focused cell is whole
+                            faded && numeric && "opacity-60 focus:opacity-100",
                             "focus:ring-1 focus:ring-inset focus:ring-primary"
                           )}
                         >
@@ -787,6 +867,7 @@ export default function ResultsGrid({
               ) : null}
             </span>
           ) : null}
+          {onlyQualified ? <span className="text-foreground">qualified: ≥ {perGame}</span> : null}
           <span role="status" className="text-foreground empty:sr-only">
             {notice}
           </span>
@@ -823,6 +904,16 @@ export default function ResultsGrid({
             <Flame className="size-3" />{" "}
             {shownTint === "pct" ? "percentile" : shownTint === "delta" ? "heat" : "no tint"} <kbd>h</kbd>
           </button>
+          {below ? (
+            <button
+              onClick={() => setQualified((v) => !v)}
+              aria-pressed={qualified}
+              className={cn("uppercase hover:text-foreground", qualified && "text-primary")}
+              title={`Show only the rows at or above the qualifier, ${perGame}; pinned rows always show (q)`}
+            >
+              qualified only <kbd>q</kbd>
+            </button>
+          ) : null}
         </div>
 
         {pinned.length ? (

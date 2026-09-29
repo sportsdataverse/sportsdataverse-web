@@ -684,6 +684,8 @@ export default function QueryBuilder({
                 types={columnTypes}
                 initialView={gridView}
                 onViewChange={setGridView}
+                // the picked table's (the response names none); picking another clears the result
+                source={{ schema, table }}
               />
             )}
           </CardContent>

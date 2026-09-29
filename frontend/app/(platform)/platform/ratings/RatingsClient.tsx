@@ -144,7 +144,7 @@ export default function RatingsClient({ initial, initialPin }: { initial: Rating
   const types = useMemo(() => ({ ...src.columns, ...(src.names ? { [TEAM_COL]: "text" } : {}) }), [src]);
   // The grid opens on the board's order (the rows already arrive in it), so its header says so.
   // A season switch keeps the pins (the grid drops any id the new season lacks).
-  const initialGrid: GridView = { sort: { col: orderCol, dir: desc ? "desc" : "asc" }, filters: {}, tint: "delta", pin };
+  const initialGrid: GridView = { sort: { col: orderCol, dir: desc ? "desc" : "asc" }, filters: {}, tint: "delta", pin, qualified: false };
 
   const one = src.noun.replace(/s$/, "");
   const d1 = src.names?.only && shown && !shown.unlisted ? `${src.names.only} ` : "";
