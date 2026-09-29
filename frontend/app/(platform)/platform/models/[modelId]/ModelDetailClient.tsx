@@ -28,7 +28,7 @@ export default function ModelDetailClient({ modelId, runs }: ModelDetailProps) {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-display text-2xl font-bold tracking-tight">{modelId}</h1>
           {runs[0] ? <StatusBadge status={runs[0].status} /> : null}
-          <span className="font-inter text-sm text-muted-foreground">
+          <span className="font-inter text-sm text-muted-foreground" suppressHydrationWarning>
             {runs.length} run{runs.length === 1 ? "" : "s"}
             {runs[0] ? ` · latest ${timeAgo(runs[0].created_at)}` : ""}
           </span>
@@ -83,7 +83,7 @@ export default function ModelDetailClient({ modelId, runs }: ModelDetailProps) {
                       <th className="px-4 py-2">Gate</th>
                       {gateRuns.map((run) => (
                         <th key={run._id} className="px-2 py-2 text-center">
-                          <Link href={`/platform/runs/${run._id}`} className="hover:text-primary">
+                          <Link href={`/platform/runs/${run._id}`} className="hover:text-primary" suppressHydrationWarning>
                             {timeAgo(run.created_at)}
                           </Link>
                         </th>
@@ -141,7 +141,7 @@ export default function ModelDetailClient({ modelId, runs }: ModelDetailProps) {
                     </code>
                   ) : null}
                 </div>
-                <span className="font-inter text-xs text-muted-foreground">
+                <span className="font-inter text-xs text-muted-foreground" suppressHydrationWarning>
                   {timeAgo(run.created_at)} · by {run.created_by}
                 </span>
               </Link>

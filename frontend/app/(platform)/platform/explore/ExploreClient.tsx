@@ -407,7 +407,7 @@ export default function ExploreClient({ datasets, error, initial, initialGrid }:
         {grouped.map(([sport, options]) => (
           <optgroup key={sport} label={sport.toUpperCase()}>
             {options.map((d) => (
-              <option key={d.tag} value={d.tag}>
+              <option key={d.tag} value={d.tag} suppressHydrationWarning>
                 {d.tag} · updated {timeAgo(d.updated)}
               </option>
             ))}
@@ -432,7 +432,7 @@ export default function ExploreClient({ datasets, error, initial, initialGrid }:
           ) : (
             <div className="mb-6 flex flex-wrap items-end gap-3">
               {stems.length > 1 ? (
-                <label className="flex flex-col gap-1 font-inter text-xs text-muted-foreground">
+                <label className="flex max-w-full flex-col gap-1 font-inter text-xs text-muted-foreground">
                   Table
                   <select
                     value={effectiveStem}
@@ -475,7 +475,7 @@ export default function ExploreClient({ datasets, error, initial, initialGrid }:
                 </select>
               </label>
               {selectedAsset ? (
-                <span className="pb-1.5 font-mono text-xs text-muted-foreground">
+                <span className="break-all pb-1.5 font-mono text-xs text-muted-foreground">
                   {selectedAsset}
                 </span>
               ) : null}
@@ -530,7 +530,7 @@ export default function ExploreClient({ datasets, error, initial, initialGrid }:
                         onChange={(e) =>
                           setFilters(filters.map((x, j) => (j === i ? { ...x, column: e.target.value } : x)))
                         }
-                        className="rounded-md border border-input bg-card px-2 py-1 font-mono text-xs"
+                        className="max-w-full rounded-md border border-input bg-card px-2 py-1 font-mono text-xs"
                       >
                         <option value="">column…</option>
                         {columns.map((c) => (

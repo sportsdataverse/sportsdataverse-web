@@ -78,8 +78,8 @@ function ReleaseTable({ releases, grouped }: { releases: ReleaseSummary[]; group
                 ) : null}
                 <td className="px-4 py-2">{rel.asset_count}</td>
                 <td className="px-4 py-2">{formatBytes(rel.total_size)}</td>
-                <td className="px-4 py-2 text-muted-foreground">{timeAgo(rel.latest_asset_at)}</td>
-                <td className="px-4 py-2 text-muted-foreground">{timeAgo(rel.published_at)}</td>
+                <td className="px-4 py-2 text-muted-foreground" suppressHydrationWarning>{timeAgo(rel.latest_asset_at)}</td>
+                <td className="px-4 py-2 text-muted-foreground" suppressHydrationWarning>{timeAgo(rel.published_at)}</td>
                 {group ? (
                   <td className="px-4 py-2">
                     <ProducerLink producer={group.producer} />

@@ -93,7 +93,7 @@ export default function RunDetailView({
             </h1>
             <StatusBadge status={run?.state} />
           </div>
-          <p className="font-mono text-xs text-muted-foreground">
+          <p className="font-mono text-xs text-muted-foreground" suppressHydrationWarning>
             {run?.deployment ?? "run"} · started{" "}
             {run?.start_time ? timeAgo(run.start_time) : "—"} · duration{" "}
             {fmtDuration(run?.total_run_time)}
