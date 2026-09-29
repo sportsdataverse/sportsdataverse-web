@@ -321,7 +321,7 @@ export default function ResultsGrid({
         <table role="grid" className="w-max min-w-full border-separate border-spacing-0 text-left text-xs">
           <thead className="sticky top-0 z-20">
             <tr>
-              <th className="sticky left-0 z-30 border-b border-border/60 bg-muted px-2 py-2 text-right font-mono uppercase text-muted-foreground">
+              <th className="sticky left-0 z-30 border-b border-r border-border/60 bg-muted px-2 py-2 text-right font-mono uppercase text-muted-foreground">
                 #
               </th>
               {colOrder.map((ci) => {
@@ -337,7 +337,7 @@ export default function ResultsGrid({
                     onDrop={() => dropOn(ci)}
                     onDragEnd={() => setDragCol(null)}
                     className={cn(
-                      "whitespace-nowrap border-b border-border/60 bg-muted p-0 align-top",
+                      "whitespace-nowrap border-b border-r border-border/60 bg-muted p-0 align-top",
                       sort?.col === ci && "bg-primary/10",
                       dragCol === ci && "opacity-40"
                     )}
@@ -406,7 +406,7 @@ export default function ResultsGrid({
                 >
                   <td
                     className={cn(
-                      "sticky left-0 z-10 w-10 border-b border-border/40 px-2 text-right font-mono text-muted-foreground",
+                      "sticky left-0 z-10 w-10 border-b border-r border-border/40 px-2 text-right font-mono text-muted-foreground",
                       pad,
                       isSelected ? "bg-primary/15" : isLinked ? "bg-score/15" : "bg-card"
                     )}
@@ -428,7 +428,7 @@ export default function ResultsGrid({
                         title={raw ?? ""}
                         style={shade && !rowBg ? { backgroundColor: shade } : undefined}
                         className={cn(
-                          "max-w-64 truncate whitespace-nowrap border-b border-border/40 px-3 outline-none",
+                          "max-w-64 truncate whitespace-nowrap border-b border-r border-border/40 px-3 outline-none",
                           pad,
                           numeric
                             ? "font-display text-right text-[13px] tabular-nums"
