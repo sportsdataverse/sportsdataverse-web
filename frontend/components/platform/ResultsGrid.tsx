@@ -844,7 +844,8 @@ function PinTray({
       <h3 className="mb-1.5 font-display text-sm font-bold uppercase text-muted-foreground">
         Pinned {pinned.length} of {MAX_PINS}
       </h3>
-      <div className="scrollbar-visible max-h-[32rem] max-w-full overflow-auto rounded-lg">
+      {/* relative: the sr-only percentile text is absolute, and would escape the clip to widen the page */}
+      <div className="scrollbar-visible relative max-h-[32rem] max-w-full overflow-auto rounded-lg">
         <table className="w-max min-w-full text-xs">
           <thead>
             <tr>
@@ -938,7 +939,7 @@ const HoverRail = memo(function HoverRail({
   return (
     <aside
       aria-label="Row detail"
-      className="scrollbar-visible hidden max-h-[34rem] overflow-y-auto rounded-lg border border-border/60 bg-card p-3 xl:block"
+      className="scrollbar-visible relative hidden max-h-[34rem] overflow-y-auto rounded-lg border border-border/60 bg-card p-3 xl:block"
     >
       {cells && orig != null ? (
         <>

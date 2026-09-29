@@ -5,7 +5,8 @@
 // in the status bar. From 1280 px the rail beside the grid follows the hovered row and the focused
 // one; at 390 px there is no rail, the tray scrolls inside itself and the page never sideways.
 // Pinned rows keep the exact row height the windowed grid places rows by (platform-grid-virtual
-// checks the unpinned rows).
+// checks the unpinned rows). Then Query cfb.passing: pins by player_id, the tray shades a metric by
+// its producer percentile, and its screen-reader text never widens the page.
 // Keys go through page.keyboard (a locator.press refocuses its target first, which would hide a
 // lost focus).
 // /platform is behind org sign-in, so this is recorded locally (see the PR's Walkthrough clip)
@@ -131,6 +132,19 @@ const steps = async (page, base) => {
   if (!wide && tw <= tcw) fail(`8 pinned at ${cw} px fit without scrolling the tray (${tw} <= ${tcw})`);
   await tray.scrollIntoViewIfNeeded();
   if (!wide) await tray.locator('div').first().evaluate((el) => el.scrollBy({ left: 400, behavior: 'smooth' }));
+  await page.waitForTimeout(1200);
+
+  // Query cfb.passing: pins by player_id there too, and a metric with a producer percentile is
+  // shaded by it in the tray, its number in screen-reader text that must not widen the page
+  await open(base + '/platform/query?schema=cfb&table=passing&season=2025&order=-TEPA&limit=50');
+  await grid.locator('td[data-cell="0-0"]').click();
+  for (const k of ['p', 'ArrowDown', 'p', 'ArrowDown', 'p']) await key(k);
+  s = await state();
+  if (s.tray.length !== 3 || !/^player_id:\d+,\d+,\d+$/.test(s.pin ?? '')) fail(`Query pins: ${s.tray} / ${s.pin}`);
+  if (!(await tray.locator('td[style*="background-color"]').count())) fail('no tray cell is shaded by its percentile');
+  const [qsw, qcw] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
+  if (qsw > qcw) fail(`Query with pins: the page scrolls sideways (${qsw} > ${qcw})`);
+  await tray.scrollIntoViewIfNeeded();
   await page.waitForTimeout(1200);
 };
 export default steps;
