@@ -18,7 +18,7 @@ import { SCATTER_SOURCES } from "../../content/scatter.ts";
 import { RATINGS, type RatingSource } from "../../content/ratings.ts";
 import { scatterAxes } from "./viz/scatterMath.ts";
 import { ROLLING_CARDS, ROLLING_TABS, type RollingCard, type RollingTab } from "./rolling.ts";
-import { MAX_TRENDS_TEAMS, trimGaps, type TrendPicks } from "./trends.ts";
+import { MAX_TRENDS_TEAMS, formatValue, trimGaps, type TrendPicks } from "./trends.ts";
 import { ALL_PAIRS_CAP } from "./chartTokens.ts";
 import type { TintMode } from "./scales.ts";
 
@@ -442,6 +442,22 @@ export function compareCells(a: string | null, b: string | null, dir: SortDir): 
   const [na, nb] = [num(a!), num(b!)];
   const byValue = na !== null && nb !== null ? na - nb : na !== null ? -1 : nb !== null ? 1 : a!.localeCompare(b!);
   return dir === "asc" ? byValue : -byValue;
+}
+
+/** A decimal number as DuckDB and the Data API write one; a fraction or an exponent makes it non-integer. */
+const DECIMAL = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+
+/** A cell as ResultsGrid, its tray and its rail show it. A finite number written
+ *  with a fraction or an exponent reads at most 3 decimals, ungrouped (formatValue);
+ *  one that would round to 0 there keeps 3 significant digits, so it never reads 0.
+ *  Everything else is verbatim: integers (ids, years, a zero-padded game_id, an id
+ *  past 2^53), text, NaN/Infinity, null. Display only: sort, filter and CSV use the raw cell. */
+export function formatCell(v: string | null): string | null {
+  if (v === null || !DECIMAL.test(v) || !/[.eE]/.test(v)) return v;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return v;
+  if (n !== 0 && Math.abs(n) < 0.0005) return String(Number(n.toPrecision(3)));
+  return formatValue(n, undefined, false);
 }
 
 export function gridByIndex(v: GridView, columns: string[]): GridIndexState {

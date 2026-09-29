@@ -446,16 +446,20 @@ export function rankLabel(rank: number | null | undefined, of: number | undefine
 }
 
 const upTo3 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 });
+const upTo3Ungrouped = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3, useGrouping: false });
 
 /** A value as charted: at most 3 decimals, or exactly `decimals` to match a
  *  source's own display strings. One that rounds to zero reads 0, never -0
  *  (Intl's signDisplay "negative" does this too, but throws a RangeError on
- *  Firefox 111-115, ESR 115 among them). */
-export function formatValue(v: number, decimals?: number): string {
+ *  Firefox 111-115, ESR 115 among them). `useGrouping: false` drops the
+ *  thousands separators ("3300.5"), as a data grid's integer columns read. */
+export function formatValue(v: number, decimals?: number, useGrouping = true): string {
   const nf =
     decimals === undefined
-      ? upTo3
-      : new Intl.NumberFormat("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+      ? useGrouping
+        ? upTo3
+        : upTo3Ungrouped
+      : new Intl.NumberFormat("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals, useGrouping });
   const s = nf.format(v);
   return /^-0(\.0*)?$/.test(s) ? s.slice(1) : s;
 }
