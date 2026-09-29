@@ -12,11 +12,23 @@ const param = (page, key) => new URL(page.url()).searchParams.get(key);
 const waitParam = (page, key, value) =>
   page.waitForFunction(([k, v]) => new URL(location.href).searchParams.get(k) === v, [key, value], { timeout: 5_000 });
 
-/** The grid's column position (view order) of `name`, and that column's cells top to bottom. */
+/** The grid's column position (view order) of `name`, and that column's cells top to bottom. Over
+ *  200 rows the grid renders only a window of them, so this scrolls it through, collecting by row. */
 async function column(grid, name) {
   const c = await grid.locator('thead th').evaluateAll((ths, n) => ths.slice(1).findIndex((th) => th.textContent.trim() === n), name);
   if (c < 0) throw new Error(`no ${name} column`);
-  const cells = await grid.locator(`tbody td[data-cell$="-${c}"]`).allTextContents();
+  const cells = await grid.evaluate(async (t, c) => {
+    const box = t.parentElement, seen = new Map();
+    const settle = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 50))));
+    for (box.scrollTop = 0; ; box.scrollTop += box.clientHeight - t.tHead.offsetHeight) {
+      await settle();
+      for (const td of t.querySelectorAll(`tbody td[data-cell$="-${c}"]`)) seen.set(Number(td.dataset.cell.split('-')[0]), td.textContent);
+      if (box.scrollTop + box.clientHeight >= box.scrollHeight - 1) break;
+    }
+    box.scrollTop = 0;
+    await settle();
+    return [...seen.keys()].sort((a, b) => a - b).map((r) => seen.get(r));
+  }, c);
   return { c, cells };
 }
 

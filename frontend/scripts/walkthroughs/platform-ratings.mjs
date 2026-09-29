@@ -24,10 +24,19 @@ const ratings = async (page, base) => {
     await span.filter({ hasText: spanText }).waitFor({ timeout: 120_000 });
     await page.locator('table[role="grid"] tbody tr').first().waitFor();
     await page.waitForTimeout(400);
-    return page.evaluate(() => {
+    return page.evaluate(async () => {
       const t = document.querySelector('table[role="grid"]');
       const cols = [...t.querySelectorAll('thead th')].slice(1).map((th) => th.innerText.trim().toLowerCase());
-      const rows = [...t.querySelectorAll('tbody tr')].map((tr) => [...tr.querySelectorAll('td')].slice(1).map((td) => td.innerText));
+      // over 200 rows the grid renders only a window of them: scroll it through, collecting by row
+      const box = t.parentElement, seen = new Map();
+      const settle = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 50))));
+      for (box.scrollTop = 0; ; box.scrollTop += box.clientHeight - t.tHead.offsetHeight) {
+        await settle();
+        for (const tr of t.querySelectorAll('tbody tr[data-row]')) seen.set(Number(tr.dataset.row), [...tr.querySelectorAll('td')].slice(1).map((td) => td.innerText));
+        if (box.scrollTop + box.clientHeight >= box.scrollHeight - 1) break;
+      }
+      box.scrollTop = 0;
+      const rows = [...seen.keys()].sort((a, b) => a - b).map((r) => seen.get(r));
       return { cols, rows, url: location.search };
     });
   };
