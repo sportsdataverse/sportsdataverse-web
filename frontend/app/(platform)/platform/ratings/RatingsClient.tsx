@@ -130,7 +130,7 @@ export default function RatingsClient({ initial }: { initial: RatingsView }) {
   }, [shown, src]);
   const types = useMemo(() => ({ ...src.columns, ...(src.names ? { [TEAM_COL]: "text" } : {}) }), [src]);
   // The grid opens on the board's order (the rows already arrive in it), so its header says so.
-  const initialGrid: GridView = { sort: { col: orderCol, dir: desc ? "desc" : "asc" }, filters: {}, tint: "delta" };
+  const initialGrid: GridView = { sort: { col: orderCol, dir: desc ? "desc" : "asc" }, filters: {}, tint: "delta", pin: null };
 
   const one = src.noun.replace(/s$/, "");
   const d1 = src.names?.only && shown && !shown.unlisted ? `${src.names.only} ` : "";

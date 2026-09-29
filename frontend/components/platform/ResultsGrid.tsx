@@ -124,7 +124,7 @@ export default function ResultsGrid({
   // for "reset state when a prop changes"), so there's no stale frame.
   const [cols, setCols] = useState(columns);
   if (cols.join("\u0001") !== columns.join("\u0001")) {
-    const next = gridByIndex(gridByName({ sort, filters, tint }, cols), columns);
+    const next = gridByIndex(gridByName({ sort, filters, tint, pin: null }, cols), columns);
     setCols(columns);
     setOrder(columns.map((_, i) => i));
     setFilters(next.filters);
@@ -140,7 +140,7 @@ export default function ResultsGrid({
   }
 
   useEffect(() => {
-    onViewChange?.(gridByName({ sort, filters, tint }, cols));
+    onViewChange?.(gridByName({ sort, filters, tint, pin: null }, cols));
   }, [sort, filters, tint, cols, onViewChange]);
 
   const colOrder = order.length === columns.length ? order : columns.map((_, i) => i);

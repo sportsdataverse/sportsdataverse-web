@@ -20,6 +20,7 @@ import { scatterAxes } from "./viz/scatterMath.ts";
 import { ROLLING_CARDS, ROLLING_TABS, type RollingCard, type RollingTab } from "./rolling.ts";
 import { MAX_TRENDS_TEAMS, trimGaps, type TrendPicks } from "./trends.ts";
 import { ALL_PAIRS_CAP } from "./chartTokens.ts";
+import { MAX_PINS } from "./gridCompare.ts";
 import type { TintMode } from "./scales.ts";
 
 export function toSearchParams(record: Record<string, string | string[] | undefined>): URLSearchParams {
@@ -376,13 +377,27 @@ export function ratingsChartHref(src: RatingSource, season: string): string | nu
   return `/platform/scatter?${qs}`;
 }
 
-// --- ResultsGrid (sort / column filters / tint), keyed by column NAME --------
+// --- ResultsGrid (sort / column filters / tint / pins), keyed by column NAME --
 
 export type SortDir = "asc" | "desc";
-export type GridView = { sort: { col: string; dir: SortDir } | null; filters: Record<string, string>; tint: TintMode };
-/** ResultsGrid's internal shape: the same view keyed by column index. */
-export type GridIndexState = { sort: { col: number; dir: SortDir } | null; filters: Record<number, string>; tint: TintMode };
-export const EMPTY_GRID: GridView = { sort: null, filters: {}, tint: "delta" };
+/** Pinned rows by their identity column's value, in pin order (`grid.pin=player_id:1,2`).
+ *  A result without one pins by row index, for the session only, and writes none. */
+export type GridPin = { col: string; values: string[] };
+export type GridView = { sort: { col: string; dir: SortDir } | null; filters: Record<string, string>; tint: TintMode; pin: GridPin | null };
+/** ResultsGrid's internal shape: the same view keyed by column index (pins stay by name and value). */
+export type GridIndexState = { sort: { col: number; dir: SortDir } | null; filters: Record<number, string>; tint: TintMode; pin: GridPin | null };
+export const EMPTY_GRID: GridView = { sort: null, filters: {}, tint: "delta", pin: null };
+
+/** `col:v1,v2`: a COLUMN name, then up to MAX_PINS distinct id-like values; anything else is no pins. */
+function readPin(raw: string): GridPin | null {
+  const i = raw.indexOf(":");
+  const col = raw.slice(0, i);
+  if (i < 0 || !COLUMN.test(col) || col.length > MAX_LEN) return null;
+  const values = [...new Set(raw.slice(i + 1).split(","))]
+    .filter((v) => v.length <= MAX_LEN && TOKEN.test(v))
+    .slice(0, MAX_PINS);
+  return values.length ? { col, values } : null;
+}
 
 export function parseGridView(sp: URLSearchParams): GridView {
   const raw = sp.get("grid.sort") ?? "";
@@ -396,6 +411,7 @@ export function parseGridView(sp: URLSearchParams): GridView {
     sort: COLUMN.test(col) ? { col, dir: raw.startsWith("-") ? "desc" : "asc" } : null,
     filters,
     tint: pick(sp.get("grid.tint"), ["delta", "pct", "off"] as const, "delta"),
+    pin: readPin(sp.get("grid.pin") ?? ""),
   };
 }
 
@@ -404,6 +420,7 @@ export function gridViewParams(v: GridView, p: URLSearchParams): void {
   if (v.sort) p.set("grid.sort", `${v.sort.dir === "desc" ? "-" : ""}${v.sort.col}`);
   if (v.tint !== "delta") p.set("grid.tint", v.tint);
   for (const [col, text] of Object.entries(v.filters)) if (text) p.set(`grid.f.${col}`, text);
+  if (v.pin?.values.length) p.set("grid.pin", `${v.pin.col}:${v.pin.values.join(",")}`);
 }
 
 /** `String()` of a non-finite double, as DuckDB cells arrive. */
@@ -429,11 +446,11 @@ export function gridByIndex(v: GridView, columns: string[]): GridIndexState {
   const filters: Record<number, string> = {};
   for (const [name, text] of Object.entries(v.filters)) if (idx(name) >= 0) filters[idx(name)] = text;
   const sortCol = v.sort ? idx(v.sort.col) : -1;
-  return { sort: v.sort && sortCol >= 0 ? { col: sortCol, dir: v.sort.dir } : null, filters, tint: v.tint };
+  return { sort: v.sort && sortCol >= 0 ? { col: sortCol, dir: v.sort.dir } : null, filters, tint: v.tint, pin: v.pin };
 }
 
 export function gridByName(s: GridIndexState, columns: string[]): GridView {
   const filters: Record<string, string> = {};
   for (const [i, text] of Object.entries(s.filters)) if (text && columns[Number(i)]) filters[columns[Number(i)]] = text;
-  return { sort: s.sort && columns[s.sort.col] ? { col: columns[s.sort.col], dir: s.sort.dir } : null, filters, tint: s.tint };
+  return { sort: s.sort && columns[s.sort.col] ? { col: columns[s.sort.col], dir: s.sort.dir } : null, filters, tint: s.tint, pin: s.pin };
 }
