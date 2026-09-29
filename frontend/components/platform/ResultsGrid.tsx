@@ -805,9 +805,9 @@ export default function ResultsGrid({
   );
 }
 
-/** What heads a row in the tray and the rail: its label, else its id, else its number. */
-const rowName = (cells: (string | null)[], orig: number, label: number, id: number) =>
-  cells[label] ?? cells[id] ?? `#${orig + 1}`;
+/** What heads a row in the tray and the rail: its label, else its id; null when it has neither
+ *  (the row number, shown beside a name, then stands alone). */
+const rowName = (cells: (string | null)[], label: number, id: number) => cells[label] ?? cells[id] ?? null;
 
 /** 38 → "38th". */
 const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th")}`;
@@ -838,7 +838,7 @@ function PinTray({
 }) {
   // the label heads each column, so it isn't a row too
   const metrics = transposePinned(columns, rows, pinned).filter((m) => m.metric !== columns[names.label]);
-  const head = (orig: number) => rowName(rows[orig], orig, names.label, names.id);
+  const head = (orig: number) => rowName(rows[orig], names.label, names.id);
   return (
     <section aria-label="Pinned rows" className="mt-3 min-w-0">
       <h3 className="mb-1.5 font-display text-sm font-bold uppercase text-muted-foreground">
@@ -854,12 +854,14 @@ function PinTray({
               {pinned.map((orig) => (
                 <th key={orig} scope="col" className="sticky top-0 z-10 whitespace-nowrap bg-muted text-right">
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="font-display text-[13px]">{head(orig)}</span>
-                    <span className="font-mono text-[10px] font-normal text-muted-foreground">#{orig + 1}</span>
+                    <span className="font-display text-[13px]">{head(orig) ?? `#${orig + 1}`}</span>
+                    {head(orig) != null ? (
+                      <span className="font-mono text-[10px] font-normal text-muted-foreground">#{orig + 1}</span>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => onUnpin(orig)}
-                      aria-label={`Unpin ${head(orig)}`}
+                      aria-label={`Unpin ${head(orig) ?? `row ${orig + 1}`}`}
                       className="rounded-sm text-muted-foreground hover:text-foreground"
                     >
                       <X className="size-3" />
@@ -940,8 +942,12 @@ const HoverRail = memo(function HoverRail({
     >
       {cells && orig != null ? (
         <>
-          <p className="font-display text-base font-bold leading-tight">{rowName(cells, orig, label, id)}</p>
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">row {orig + 1}</p>
+          <div className="mb-2">
+            <p className="font-display text-base font-bold leading-tight">{rowName(cells, label, id) ?? `Row ${orig + 1}`}</p>
+            {rowName(cells, label, id) != null ? (
+              <p className="font-mono text-[10px] uppercase text-muted-foreground">row {orig + 1}</p>
+            ) : null}
+          </div>
           <dl className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1 text-xs">
             {columns.map((name, c) => {
               const src = pcts.get(c);
