@@ -1,0 +1,23 @@
+{
+ "tag": "base",
+ "gridMs": 15258,
+ "load": {
+  "n": 8,
+  "totalMs": 16920,
+  "maxMs": 9843
+ },
+ "scroll": {
+  "ms": 29841,
+  "frames": 66,
+  "trs": 10000,
+  "lastRowVisible": true,
+  "longtasks": 66,
+  "totalMs": 30380,
+  "maxMs": 681
+ },
+ "traceRunTasksOver50": {
+  "n": 68,
+  "totalMs": 31290,
+  "maxMs": 694
+ }
+}

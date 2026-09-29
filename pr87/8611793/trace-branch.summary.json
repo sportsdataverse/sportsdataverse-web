@@ -1,0 +1,23 @@
+{
+ "tag": "branch",
+ "gridMs": 2110,
+ "load": {
+  "n": 4,
+  "totalMs": 567,
+  "maxMs": 202
+ },
+ "scroll": {
+  "ms": 4312,
+  "frames": 70,
+  "trs": 30,
+  "lastRowVisible": true,
+  "longtasks": 6,
+  "totalMs": 391,
+  "maxMs": 77
+ },
+ "traceRunTasksOver50": {
+  "n": 7,
+  "totalMs": 590,
+  "maxMs": 198
+ }
+}
