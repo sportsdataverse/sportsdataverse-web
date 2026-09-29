@@ -1,4 +1,5 @@
 import type { ScatterNames } from "../../content/scatter.ts";
+import type { ReleaseAssetSummary } from "./github.ts";
 import { API_MAX_ROWS } from "./wp.ts";
 
 /** One `GET /v1/{schema}/{table}` through the member-gated /api/platform/query/run
@@ -10,6 +11,18 @@ export async function apiRows(params: Record<string, string>): Promise<Record<st
     throw new Error(body?.detail ?? body?.message ?? `HTTP ${res.status}`);
   }
   return ((await res.json()) as { data: Record<string, unknown>[] }).data;
+}
+
+/** A release's assets through the member-gated assets route. The body is read
+ *  tolerantly and after the status, so a non-JSON error page (a proxy 502)
+ *  still reports its HTTP status instead of a JSON parse error. */
+export async function fetchReleaseAssets(repo: string, tag: string): Promise<ReleaseAssetSummary[]> {
+  const res = await fetch(`/api/platform/datasets/assets?repo=${encodeURIComponent(repo)}&tag=${encodeURIComponent(tag)}`);
+  const data = (await res.json().catch(() => null)) as { success?: boolean; message?: unknown } | null;
+  if (!res.ok || !data?.success) {
+    throw new Error(typeof data?.message === "string" && data.message ? data.message : `Release assets failed (HTTP ${res.status})`);
+  }
+  return data.message as ReleaseAssetSummary[];
 }
 
 /** Every season from a table's first to its latest under its fixed filters,

@@ -4,6 +4,7 @@ import { RATINGS, TEAM_COL } from '../content/ratings.ts';
 import { SCATTER_SOURCES, type ScatterNames } from '../content/scatter.ts';
 import { joinNames, numericColumns } from '../lib/platform/viz/scatterMath.ts';
 import { polarity } from '../lib/platform/scales.ts';
+import { fetchReleaseAssets } from '../lib/platform/queryRun.ts';
 import { parseRatingsView, parseScatterView, ratingsChartHref, ratingsViewParams } from '../lib/platform/viewState.ts';
 
 const sp = (qs: string) => new URLSearchParams(qs);
@@ -125,4 +126,19 @@ test('no Scatter source, no button: WBB ratings and the NFL release file, even g
   assert.equal(ratingsChartHref(RATINGS.nfl, '2026'), null);
   assert.equal(ratingsChartHref({ ...RATINGS.wbb, chart: { x: 'adj_o', y: 'adj_d' } }, '2026'), null);
   assert.equal(ratingsChartHref({ ...RATINGS.nfl, chart: { x: 'adj_off_epa', y: 'adj_def_epa' } }, '2026'), null);
+});
+
+test('fetchReleaseAssets reports the HTTP status when an error page is not JSON', async () => {
+  const real = globalThis.fetch;
+  const reply = (body: string, status: number) => (async () => new Response(body, { status })) as typeof fetch;
+  try {
+    globalThis.fetch = reply('<html>Bad Gateway</html>', 502);
+    await assert.rejects(fetchReleaseAssets('o/r', 't'), /HTTP 502/);
+    globalThis.fetch = reply(JSON.stringify({ success: false, message: 'no such tag' }), 404);
+    await assert.rejects(fetchReleaseAssets('o/r', 't'), /no such tag/);
+    globalThis.fetch = reply(JSON.stringify({ success: true, message: [{ name: 'a_2026.parquet' }] }), 200);
+    assert.deepEqual(await fetchReleaseAssets('o/r', 't'), [{ name: 'a_2026.parquet' }]);
+  } finally {
+    globalThis.fetch = real;
+  }
 });

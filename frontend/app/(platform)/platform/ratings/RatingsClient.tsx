@@ -6,8 +6,7 @@ import useSWR from "swr";
 import { ChartScatter } from "lucide-react";
 import ResultsGrid from "@components/platform/ResultsGrid";
 import { RATINGS, TEAM_COL, type RatingSource } from "@content/ratings";
-import type { ReleaseAssetSummary } from "@lib/platform/github";
-import { apiRows, seasonRange, teamNameRows } from "@lib/platform/queryRun";
+import { apiRows, fetchReleaseAssets, seasonRange, teamNameRows } from "@lib/platform/queryRun";
 import { joinNames } from "@lib/platform/viz/scatterMath";
 import { ratingsChartHref, ratingsViewParams, type GridView, type RatingsView } from "@lib/platform/viewState";
 import { API_MAX_ROWS, loadSequencer } from "@lib/platform/wp";
@@ -41,10 +40,7 @@ const cell = (v: unknown): string | null => (v == null ? null : typeof v === "ob
 
 /** A release league's seasons, newest first, from its asset names. */
 async function releaseSeasons(tag: string, prefix: string): Promise<string[]> {
-  const res = await fetch(`/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(tag)}`);
-  const data = await res.json();
-  if (!res.ok || !data.success) throw new Error(data.message || "Request failed");
-  return (data.message as ReleaseAssetSummary[])
+  return (await fetchReleaseAssets(DATA_REPO, tag))
     .map((a) => (a.name.startsWith(prefix) && a.name.endsWith(".parquet") ? a.name.slice(prefix.length, -".parquet".length) : ""))
     .filter((y) => /^\d{4}$/.test(y))
     .sort()
