@@ -37,8 +37,8 @@ const ratings = async (page, base) => {
       }
       box.scrollTop = 0;
       const rows = [...seen.keys()].sort((a, b) => a - b).map((r) => seen.get(r));
-      return { cols, rows, url: location.search };
-    });
+      return { cols, rows, total: Number(t.getAttribute('aria-rowcount')) - 1, url: location.search };
+    }).then((g) => (g.rows.length === g.total ? g : fail(`${qs}: collected ${g.rows.length} of ${g.total} grid rows`)));
   };
   const col = (g, name) => g.rows.map((r) => r[g.cols.indexOf(name)]);
   const noSideScroll = async (what) => {

@@ -27,9 +27,10 @@ async function column(grid, name) {
     }
     box.scrollTop = 0;
     await settle();
-    return [...seen.keys()].sort((a, b) => a - b).map((r) => seen.get(r));
+    return { total: Number(t.getAttribute('aria-rowcount')) - 1, cells: [...seen.keys()].sort((a, b) => a - b).map((r) => seen.get(r)) };
   }, c);
-  return { c, cells };
+  if (cells.cells.length !== cells.total) throw new Error(`${name}: collected ${cells.cells.length} of ${cells.total} rows`);
+  return { c, cells: cells.cells };
 }
 
 /** Descending with every null after every value, and the values really descending. */
