@@ -7,9 +7,9 @@ import { Button } from "@components/ui/button";
 import { LOOKUP_SPORTS, newestSeasonAsset, lookupStatus } from "@content/lookups";
 import type { LookupSport } from "@content/lookups";
 import type { QueryResult } from "@lib/platform/duckdb";
-import type { ReleaseAssetSummary } from "@lib/platform/github";
 import { lookupsViewParams, type LookupsView } from "@lib/platform/viewState";
 import useUrlMirror from "@hooks/useUrlMirror";
+import { releaseAssetsFetcher } from "@lib/platform/queryRun";
 
 /**
  * CFBD-style lookups: player search and team directory per sport, backed by
@@ -22,13 +22,6 @@ const DATA_REPO = "sportsdataverse/sportsdataverse-data";
 function proxyUrl(sport: LookupSport, asset: string): string {
   return `${window.location.origin}/api/platform/datasets/file?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}&asset=${encodeURIComponent(asset)}`;
 }
-
-const assetsFetcher = async (url: string) => {
-  const res = await fetch(url);
-  const data = await res.json();
-  if (!res.ok || !data.success) throw new Error(data.message || "Request failed");
-  return data.message as ReleaseAssetSummary[];
-};
 
 export default function LookupsClient({ initial }: { initial: LookupsView }) {
   const [sportKey, setSportKey] = useState(initial.sport);
@@ -56,7 +49,7 @@ export default function LookupsClient({ initial }: { initial: LookupsView }) {
     isLoading: assetsLoading,
   } = useSWR(
     `/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}`,
-    assetsFetcher
+    releaseAssetsFetcher
   );
   const asset = useMemo(
     () => newestSeasonAsset((assets ?? []).map((a) => a.name), sport.assetPrefix),

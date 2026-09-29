@@ -16,8 +16,13 @@ export async function apiRows(params: Record<string, string>): Promise<Record<st
 /** A release's assets through the member-gated assets route. The body is read
  *  tolerantly and after the status, so a non-JSON error page (a proxy 502)
  *  still reports its HTTP status instead of a JSON parse error. */
-export async function fetchReleaseAssets(repo: string, tag: string): Promise<ReleaseAssetSummary[]> {
-  const res = await fetch(`/api/platform/datasets/assets?repo=${encodeURIComponent(repo)}&tag=${encodeURIComponent(tag)}`);
+export function fetchReleaseAssets(repo: string, tag: string): Promise<ReleaseAssetSummary[]> {
+  return releaseAssetsFetcher(`/api/platform/datasets/assets?repo=${encodeURIComponent(repo)}&tag=${encodeURIComponent(tag)}`);
+}
+
+/** The same read keyed by its URL, for SWR (the pages' cache keys are the URL). */
+export async function releaseAssetsFetcher(url: string): Promise<ReleaseAssetSummary[]> {
+  const res = await fetch(url);
   const data = (await res.json().catch(() => null)) as { success?: boolean; message?: unknown } | null;
   if (!res.ok || !data?.success) {
     throw new Error(typeof data?.message === "string" && data.message ? data.message : `Release assets failed (HTTP ${res.status})`);

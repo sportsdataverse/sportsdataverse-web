@@ -5,7 +5,6 @@ import useSWR, { mutate as swrMutate } from "swr";
 import { Bookmark, Download, Play, Plus, X } from "lucide-react";
 import { timeAgo } from "@components/platform/widgets";
 import { Button } from "@components/ui/button";
-import type { ReleaseAssetSummary } from "@lib/platform/github";
 import type { QueryResult } from "@lib/platform/duckdb";
 import type { BookmarkDoc } from "@lib/platform/schemas";
 import { buildSql, type Filter } from "@lib/platform/exploreSql";
@@ -17,6 +16,7 @@ import {
   type ExploreView,
 } from "@lib/platform/viewState";
 import useUrlMirror from "@hooks/useUrlMirror";
+import { releaseAssetsFetcher } from "@lib/platform/queryRun";
 
 /**
  * CFBD-exporter-style data exploration: pick a dataset (release tag) → pick
@@ -50,13 +50,6 @@ type ExploreProps = {
 
 const OPS = ["=", "!=", ">", ">=", "<", "<=", "contains"] as const;
 
-const fetcher = async (url: string) => {
-  const res = await fetch(url);
-  const data = await res.json();
-  if (!res.ok || !data.success) throw new Error(data.message || "Request failed");
-  return data.message as ReleaseAssetSummary[];
-};
-
 export default function ExploreClient({ datasets, error, initial }: ExploreProps) {
   const initialFilters: Filter[] = initial.filters.map((f) => ({
     column: f.column,
@@ -82,7 +75,7 @@ export default function ExploreClient({ datasets, error, initial }: ExploreProps
     tag
       ? `/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(tag)}`
       : null,
-    fetcher
+    releaseAssetsFetcher
   );
 
   const queryable = useMemo(() => (assets ?? []).filter((a) => QUERYABLE.test(a.name)), [assets]);
