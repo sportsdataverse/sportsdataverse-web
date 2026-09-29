@@ -5,10 +5,9 @@ import useSWR from "swr";
 import { Plus, TrendingUp, X } from "lucide-react";
 import { Button } from "@components/ui/button";
 import { TREND_SPORTS } from "@content/trends";
-import type { ReleaseAssetSummary } from "@lib/platform/github";
 import { trendsViewParams, type TrendsView } from "@lib/platform/viewState";
 import { loadSequencer } from "@lib/platform/wp";
-import { apiRows } from "@lib/platform/queryRun";
+import { apiRows, releaseAssetsFetcher } from "@lib/platform/queryRun";
 import { chartVar, type CategoricalSlot } from "@lib/platform/chartTokens";
 import { niceTicks } from "@lib/platform/scales";
 import {
@@ -90,13 +89,6 @@ function noteText(note: Note): string {
 function proxyUrl(release: { tag: string }, asset: string): string {
   return `${window.location.origin}/api/platform/datasets/file?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(release.tag)}&asset=${encodeURIComponent(asset)}`;
 }
-
-const assetsFetcher = async (url: string) => {
-  const res = await fetch(url);
-  const data = await res.json();
-  if (!res.ok || !data.success) throw new Error(data.message || "Request failed");
-  return data.message as ReleaseAssetSummary[];
-};
 
 const sq = (s: string) => `'${s.replace(/'/g, "''")}'`;
 const qi = (s: string) => `"${s.replace(/"/g, '""')}"`;
@@ -651,7 +643,7 @@ export default function TrendsClient({ initial }: { initial: TrendsView }) {
 
   const { data: assets } = useSWR(
     `/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}`,
-    assetsFetcher
+    releaseAssetsFetcher
   );
 
   const seasonAssets = useMemo(

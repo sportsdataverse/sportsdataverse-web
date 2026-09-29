@@ -8,13 +8,12 @@ import { Download, LineChart } from "lucide-react";
 import { Button } from "@components/ui/button";
 import { WP_SPORTS } from "@content/wp";
 import type { WpSport } from "@content/wp";
-import type { ReleaseAssetSummary } from "@lib/platform/github";
 import { wpViewParams, type WpView } from "@lib/platform/viewState";
 import type { TeamColors } from "@lib/platform/teamColor";
 import { resolvePendingGame } from "@lib/platform/pendingGame";
 import { revealInScroller } from "@lib/platform/scroll";
 import { svgToPng, type LegendItem } from "@lib/platform/svgExport";
-import { apiRows } from "@lib/platform/queryRun";
+import { apiRows, releaseAssetsFetcher } from "@lib/platform/queryRun";
 import {
   emptyWpMessage,
   fillSegments,
@@ -42,13 +41,6 @@ import useUrlMirror from "@hooks/useUrlMirror";
  */
 
 const DATA_REPO = "sportsdataverse/sportsdataverse-data";
-
-const assetsFetcher = async (url: string) => {
-  const res = await fetch(url);
-  const data = await res.json();
-  if (!res.ok || !data.success) throw new Error(data.message || "Request failed");
-  return data.message as ReleaseAssetSummary[];
-};
 
 /** One swatch + name per side: the page legend and the PNG export's. */
 function legendItems(home: string, away: string, colors: { home: string; away: string }): LegendItem[] {
@@ -269,7 +261,7 @@ export default function WpClient({ initial }: { initial: WpView }) {
 
   const { data: assets } = useSWR(
     `/api/platform/datasets/assets?repo=${encodeURIComponent(DATA_REPO)}&tag=${encodeURIComponent(sport.tag)}`,
-    assetsFetcher
+    releaseAssetsFetcher
   );
 
   const seasons = useMemo(
