@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Flame, GripVertical, ListFilter, X } from "lucide-react";
 import { cn } from "@lib/utils";
 import { columnTip } from "@lib/platform/glossary";
 import { revealInScroller } from "@lib/platform/scroll";
+import { visibleRange, WINDOW_MIN } from "@lib/platform/gridVirtual";
 import {
   columnDomain,
   gridShade,
@@ -37,6 +38,9 @@ import { compareCells, EMPTY_GRID, gridByIndex, gridByName, type GridView } from
  * - `f` filters the focused column, `s` cycles its sort, `a`/`d` scroll
  *   horizontally by a viewport, `w`/`e` change row density, `h` cycles shading.
  *   The sticky status bar carries the legend so none of it is hidden knowledge.
+ * - Above 200 filtered rows only the rows in view (plus overscan) are in the
+ *   DOM, between two spacer rows; every row is exactly its density's height,
+ *   which is what makes a row's place computable without rendering it.
  *
  * Linking
  * - `highlightIndex`/`onRowHover`/`onRowSelect` connect the grid to external
@@ -68,6 +72,17 @@ type Sort = { col: number; dir: "asc" | "desc" } | null;
 
 const PAGE = 20;
 const DENSITY = ["py-0.5", "py-1", "py-2"] as const;
+/** Exact row height (px) per density; the tallest content + padding + border fits in each. */
+const ROW_H = [24, 28, 36] as const;
+const OVERSCAN = 10;
+
+/** Scroll `box` just enough to show view row `r`, rendered or not: every row is
+ *  `rowH` tall and the top spacer keeps the tbody's top at row 0's, so the tbody
+ *  (which sits below the header) places any row. */
+function revealRow(box: HTMLElement, body: HTMLElement, r: number, rowH: number) {
+  const top = body.getBoundingClientRect().top + r * rowH;
+  revealInScroller(box, { getBoundingClientRect: () => ({ top, bottom: top + rowH }) });
+}
 
 export default function ResultsGrid({
   columns,
@@ -89,6 +104,13 @@ export default function ResultsGrid({
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [tint, setTint] = useState<TintMode>(start.tint);
   const [density, setDensity] = useState(1);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewport, setViewport] = useState(512);
+  const scrollFrame = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(scrollFrame.current), []);
+  const focusPending = useRef(false);
+  /** A body cell has focus, or had it until its row unmounted (tbody onFocus/onBlur). */
+  const ownsFocus = useRef(false);
   const bodyRef = useRef<HTMLTableSectionElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const filterInputRef = useRef<HTMLInputElement>(null);
@@ -128,6 +150,21 @@ export default function ResultsGrid({
     () => cols.map((name, c) => columnDomain(rows.map((r) => r[c]), name)),
     [cols, rows]
   );
+  /** The longest cell per column over the whole result, for the windowed grid's sizer row. */
+  const widest = useMemo(() => {
+    if (rows.length <= WINDOW_MIN) return null;
+    const digits = (v: string) => v.replace(/\D/g, "").length;
+    return cols.map((_, c) => {
+      let w = "";
+      for (const r of rows) {
+        const v = r[c] ?? "∅";
+        // ponytail: character count, not measured width; a tie goes to more digits (10.25 over -0.25).
+        // Measure with a canvas if a proportional face ever makes the shorter string the wider one.
+        if (v.length > w.length || (v.length === w.length && digits(v) > digits(w))) w = v;
+      }
+      return w;
+    });
+  }, [cols, rows]);
   /** Column → the producer percentile column that shades it, with its scale. */
   const pcts = useMemo(() => pctSources(cols, rows), [cols, rows]);
   const hasPct = pcts.size > 0;
@@ -157,24 +194,77 @@ export default function ResultsGrid({
     return m;
   }, [view]);
 
+  const rowH = ROW_H[density];
+  const windowed = view.length > WINDOW_MIN;
+  const win = visibleRange({ scrollTop, viewport, rowHeight: rowH, total: view.length, overscan: OVERSCAN });
+  // The focused row (clamped: a filter can shrink the view under it) stays mounted outside the
+  // window, between split spacers, so wheeling it out of view never drops focus; it also holds the
+  // roving tab stop, so Tab can always enter the grid.
+  const focusRow = Math.min(focus.r, view.length - 1);
+  const shown: number[] = [];
+  if (focusRow >= 0 && focusRow < win.start) shown.push(focusRow);
+  for (let r = win.start; r < win.end; r++) shown.push(r);
+  if (focusRow >= win.end) shown.push(focusRow);
+  const tail = view.length - (shown.at(-1) ?? -1) - 1; // rows below the last one rendered
+
+  /** Read the scroller into state. The sticky header covers the top of the box,
+   *  so rows show in what's left of it; and it covers exactly the rows scrolled
+   *  past, so the first row in view is still scrollTop / rowH. */
+  function syncScroll() {
+    const el = scrollerRef.current;
+    if (!el) return;
+    setScrollTop(el.scrollTop);
+    setViewport(el.clientHeight - (el.querySelector("thead")?.offsetHeight ?? 0));
+  }
+  // Becoming windowed (a filter cleared) moves no scrollbar, so no scroll event says where we are;
+  // and a resize (a grid mounted hidden, then shown; a filter box opening in the header) changes
+  // the room for rows without one either.
+  useLayoutEffect(() => {
+    const el = scrollerRef.current;
+    if (!windowed || !el) return;
+    syncScroll();
+    const ro = new ResizeObserver(syncScroll);
+    ro.observe(el);
+    const head = el.querySelector("thead");
+    if (head) ro.observe(head);
+    return () => ro.disconnect();
+  }, [windowed]);
+
   // Externally-driven highlight (chart hover): bring the row into view in the
-  // grid's own scroller, never the page.
-  useEffect(() => {
+  // grid's own scroller, never the page, and render its window before paint.
+  useLayoutEffect(() => {
     if (highlightIndex == null) return;
     const vi = viewIndexByOrig.get(highlightIndex);
-    if (vi == null) return;
-    const row = bodyRef.current?.querySelector<HTMLElement>(`[data-row="${vi}"]`);
-    if (row && scrollerRef.current) revealInScroller(scrollerRef.current, row);
-  }, [highlightIndex, viewIndexByOrig]);
+    if (vi == null || !scrollerRef.current || !bodyRef.current) return;
+    revealRow(scrollerRef.current, bodyRef.current, vi, rowH);
+    if (windowed) syncScroll();
+  }, [highlightIndex, viewIndexByOrig, rowH, windowed]);
+
+  // Focus lands after the render that put its row in the window (see focusCell).
+  useEffect(() => {
+    if (!focusPending.current) return;
+    focusPending.current = false;
+    bodyRef.current?.querySelector<HTMLElement>(`[data-cell="${focus.r}-${focus.c}"]`)?.focus();
+  }, [focus]);
 
   function focusCell(r: number, c: number) {
     const nr = Math.max(0, Math.min(view.length - 1, r));
     const nc = Math.max(0, Math.min(colOrder.length - 1, c));
+    // Scroll first, even to a row that isn't rendered, and render that window
+    // in the same pass as the focus change, so the cell exists when focused.
+    if (scrollerRef.current && bodyRef.current) revealRow(scrollerRef.current, bodyRef.current, nr, rowH);
+    if (windowed) syncScroll();
+    focusPending.current = true;
     setFocus({ r: nr, c: nc });
-    requestAnimationFrame(() => {
-      bodyRef.current?.querySelector<HTMLElement>(`[data-cell="${nr}-${nc}"]`)?.focus();
-    });
   }
+
+  // New rows or row heights (a sort, a filter, a density step) while a cell has focus: keep the
+  // focused POSITION focused and in view. Rows are keyed by original index, so the focused row
+  // itself moves, and out of the window it unmounts, which drops focus to <body>.
+  useLayoutEffect(() => {
+    if (ownsFocus.current && view.length) focusCell(focus.r, focus.c);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- on a change of rows or height only, never a focus move
+  }, [view, rowH]);
 
   function selectRow(viewRow: number | null) {
     const orig = viewRow == null ? null : (view[viewRow]?.orig ?? null);
@@ -297,16 +387,24 @@ export default function ResultsGrid({
         </div>
       ) : null}
 
+      {/* No scroll anchoring: it chased a sorted row's old DOM node, moving the view on a sort. */}
       <div
         ref={scrollerRef}
-        className="scrollbar-visible max-h-[32rem] max-w-full rounded-t-lg border border-border/60"
+        className="scrollbar-visible max-h-[32rem] max-w-full rounded-t-lg border border-border/60 [overflow-anchor:none]"
         onMouseLeave={() => onRowHover?.(null)}
+        onScroll={() => {
+          if (!windowed || scrollFrame.current) return;
+          scrollFrame.current = requestAnimationFrame(() => {
+            scrollFrame.current = 0;
+            syncScroll();
+          });
+        }}
       >
         {/* border-separate keeps cell borders painted under sticky headers,
             which border-collapse drops. */}
-        <table role="grid" className="w-max min-w-full border-separate border-spacing-0 text-left text-xs">
+        <table role="grid" aria-rowcount={view.length + 1} className="w-max min-w-full border-separate border-spacing-0 text-left text-xs">
           <thead className="sticky top-0 z-20">
-            <tr>
+            <tr aria-rowindex={1}>
               <th className="sticky left-0 z-30 border-b border-r border-border/60 bg-muted px-2 py-2 text-right font-mono uppercase text-muted-foreground">
                 #
               </th>
@@ -376,8 +474,28 @@ export default function ResultsGrid({
               })}
             </tr>
           </thead>
-          <tbody ref={bodyRef}>
-            {view.map(({ cells, orig }, r) => {
+          <tbody
+            ref={bodyRef}
+            onFocus={() => (ownsFocus.current = true)}
+            onBlur={(e) => {
+              const from = e.target;
+              if (e.relatedTarget) {
+                // the filter box counts as leaving: its keystrokes change the rows
+                if (!e.currentTarget.contains(e.relatedTarget)) ownsFocus.current = false;
+              } else {
+                // Focus went nowhere: a click on the page, another window; or the cell's row
+                // unmounted, which the restore effect has handled by the time this runs.
+                queueMicrotask(() => {
+                  if (from.isConnected) ownsFocus.current = false;
+                });
+              }
+            }}
+          >
+            {/* flatMap: one flat list keyed by original index (a nested array is keyed by its
+                position, which remounts every row on each scroll and drops focus) */}
+            {shown.flatMap((r, i) => {
+              const { cells, orig } = view[r];
+              const gap = r - (i ? shown[i - 1] + 1 : 0);
               const isSelected = selectedRow === orig;
               const isLinked = highlightIndex === orig;
               const rowBg = isSelected
@@ -385,10 +503,20 @@ export default function ResultsGrid({
                 : isLinked
                   ? "bg-score/15"
                   : "";
-              return (
+              return [
+                // Keyed by place, not by the row after it: the only gaps are the leading one and the
+                // one beside a pinned row. A leading spacer re-keyed by a sort was deleted mid-commit,
+                // and the content it held up collapsed long enough to clamp scrollTop.
+                gap ? (
+                  <tr key={i ? "gap-pin" : "gap-head"} aria-hidden style={{ height: gap * rowH }}>
+                    <td colSpan={colOrder.length + 1} />
+                  </tr>
+                ) : null,
                 <tr
                   key={orig}
                   data-row={r}
+                  aria-rowindex={r + 2}
+                  style={{ height: rowH }}
                   onMouseEnter={() => onRowHover?.(orig)}
                   className={cn("transition-colors", rowBg, !rowBg && "hover:bg-muted/60")}
                 >
@@ -415,7 +543,7 @@ export default function ResultsGrid({
                       <td
                         key={ci}
                         data-cell={`${r}-${c}`}
-                        tabIndex={focus.r === r && focus.c === c ? 0 : -1}
+                        tabIndex={focusRow === r && focus.c === c ? 0 : -1}
                         onKeyDown={(e) => onCellKeyDown(e, r, c)}
                         onFocus={() => setFocus({ r, c })}
                         onClick={() => selectRow(isSelected ? null : r)}
@@ -435,9 +563,33 @@ export default function ResultsGrid({
                       </td>
                     );
                   })}
-                </tr>
-              );
+                </tr>,
+              ];
             })}
+            {tail ? (
+              <tr aria-hidden style={{ height: tail * rowH }}>
+                <td colSpan={colOrder.length + 1} />
+              </tr>
+            ) : null}
+            {/* Sizer: a table sizes its columns to the rows it has, so without the result's
+                widest cells (here, zero-height and invisible) columns resize as the window moves.
+                Every cell clips: glyphs overflowing a zero line-height would add scroll height. */}
+            {windowed && widest ? (
+              <tr aria-hidden className="invisible leading-[0]">
+                <td className="w-10 overflow-hidden border-r px-2 font-mono">{rows.length}</td>
+                {colOrder.map((ci) => (
+                  <td
+                    key={ci}
+                    className={cn(
+                      "max-w-64 truncate whitespace-nowrap border-r px-3",
+                      domains[ci] !== null ? "font-display text-[13px] tabular-nums" : "font-mono"
+                    )}
+                  >
+                    {widest[ci]}
+                  </td>
+                ))}
+              </tr>
+            ) : null}
           </tbody>
         </table>
         {view.length === 0 ? (
