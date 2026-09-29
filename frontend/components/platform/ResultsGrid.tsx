@@ -395,7 +395,13 @@ export default function ResultsGrid({
                     className={cn(
                       "sticky left-0 z-10 w-10 border-b border-border/40 px-2 text-right font-mono text-muted-foreground",
                       pad,
-                      isSelected ? "bg-primary/15" : isLinked ? "bg-score/15" : "bg-card"
+                      // opaque, like the sorted header: a translucent tint on this sticky cell let
+                      // horizontally scrolled cells show through
+                      isSelected
+                        ? "bg-[color-mix(in_oklab,var(--color-primary)_15%,var(--color-card))]"
+                        : isLinked
+                          ? "bg-[color-mix(in_oklab,var(--color-score)_15%,var(--color-card))]"
+                          : "bg-card"
                     )}
                   >
                     {orig + 1}
