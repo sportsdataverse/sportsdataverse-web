@@ -42,7 +42,8 @@ export type RatingSource = From & {
   noun: "players" | "teams";
   /** The live catalog: column → type (the grid's header tooltip). */
   columns: Readonly<Record<string, string>>;
-  /** The grid's columns, in order; a team source's name column comes first. */
+  /** The grid's columns, in order; a team source's name column comes first. The
+   *  id column comes last: it is what a pinned row is kept by (`grid.pin`). */
   select: readonly string[];
   /** Data API order: the rating the board ranks by, `-` for highest first. */
   order: string;
@@ -108,7 +109,7 @@ const impact = (schema: "nba" | "wnba", label: string): RatingSource => ({
   label,
   noun: "players",
   columns: PLAYER_IMPACT,
-  select: ["player_name", "team_abbreviation", "gp", "min", "off_poss", "def_poss", "rapm", "o_rapm", "d_rapm", "spm", "bpm", "war", "darko_projected_rating"],
+  select: ["player_name", "team_abbreviation", "gp", "min", "off_poss", "def_poss", "rapm", "o_rapm", "d_rapm", "spm", "bpm", "war", "darko_projected_rating", "player_id"],
   order: "-rapm",
   scope: "regular season",
   sample: "possessions (off_poss, def_poss) shown",
@@ -124,7 +125,7 @@ const hoops = (schema: "mbb" | "wbb", label: string): RatingSource => ({
   label,
   noun: "teams",
   columns: HOOPS_RATINGS,
-  select: [TEAM_COL, "rank", "adj_em", "adj_o", "adj_d", "adj_tempo", "adj_em_z", "games"],
+  select: [TEAM_COL, "rank", "adj_em", "adj_o", "adj_d", "adj_tempo", "adj_em_z", "games", "team_id"],
   order: "-adj_em",
   rank: "rank",
   sample: "games shown",
@@ -134,7 +135,7 @@ const hoops = (schema: "mbb" | "wbb", label: string): RatingSource => ({
 // Net adjusted EPA per play (adj_off_epa - adj_def_epa, exactly, on 2026
 // rows; special teams sit beside it): the rating `net_rank` ranks. net_z is
 // the same order, standardised.
-const FOOTBALL_SELECT = [TEAM_COL, "net_rank", "adj_net", "adj_off_epa", "off_rank", "adj_def_epa", "def_rank", "adj_st_epa", "net_z", "games"];
+const FOOTBALL_SELECT = [TEAM_COL, "net_rank", "adj_net", "adj_off_epa", "off_rank", "adj_def_epa", "def_rank", "adj_st_epa", "net_z", "games", "team_id"];
 
 export const RATINGS: Readonly<Record<string, RatingSource>> = {
   nba: impact("nba", "NBA"),

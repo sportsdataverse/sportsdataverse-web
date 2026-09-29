@@ -5,7 +5,8 @@ import { SCATTER_SOURCES, type ScatterNames } from '../content/scatter.ts';
 import { joinNames, numericColumns } from '../lib/platform/viz/scatterMath.ts';
 import { polarity } from '../lib/platform/scales.ts';
 import { fetchReleaseAssets } from '../lib/platform/queryRun.ts';
-import { parseRatingsView, parseScatterView, ratingsChartHref, ratingsViewParams } from '../lib/platform/viewState.ts';
+import { EMPTY_GRID, gridViewParams, parseGridView, parseRatingsView, parseScatterView, ratingsChartHref, ratingsViewParams } from '../lib/platform/viewState.ts';
+import { identityColumn } from '../lib/platform/gridCompare.ts';
 
 const sp = (qs: string) => new URLSearchParams(qs);
 
@@ -141,4 +142,16 @@ test('fetchReleaseAssets reports the HTTP status when an error page is not JSON'
   } finally {
     globalThis.fetch = real;
   }
+});
+
+test('every board shows an id column, so its pinned rows ride in the URL as grid.pin', () => {
+  for (const [league, r] of Object.entries(RATINGS)) {
+    const id = identityColumn([...r.select]);
+    assert.ok(id >= 0 && r.select[id] in r.columns, `${league}: no id column in ${r.select}`);
+    if (r.names) assert.equal(r.select[id], r.names.col, `${league}: pins by ${r.select[id]}, names by ${r.names.col}`);
+  }
+  const p = ratingsViewParams({ league: 'mbb', season: '2026' });
+  gridViewParams({ ...EMPTY_GRID, pin: { col: 'team_id', values: ['150', '2509'] } }, p);
+  assert.deepEqual(parseRatingsView(p), { league: 'mbb', season: '2026' });
+  assert.deepEqual(parseGridView(p).pin, { col: 'team_id', values: ['150', '2509'] });
 });
