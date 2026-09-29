@@ -407,7 +407,7 @@ export default function ExploreClient({ datasets, error, initial, initialGrid }:
         {grouped.map(([sport, options]) => (
           <optgroup key={sport} label={sport.toUpperCase()}>
             {options.map((d) => (
-              <option key={d.tag} value={d.tag}>
+              <option key={d.tag} value={d.tag} suppressHydrationWarning>
                 {d.tag} · updated {timeAgo(d.updated)}
               </option>
             ))}

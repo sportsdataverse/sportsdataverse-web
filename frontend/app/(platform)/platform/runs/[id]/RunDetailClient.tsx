@@ -95,7 +95,7 @@ export default function RunDetailClient({ run }: { run: ModelRunDoc | null }) {
         </div>
       ) : null}
 
-      <p className="mb-6 font-inter text-sm text-muted-foreground">
+      <p className="mb-6 font-inter text-sm text-muted-foreground" suppressHydrationWarning>
         {run.sport} · recorded {timeAgo(run.created_at)} by {run.created_by}
         {run.started_at ? ` · started ${timeAgo(run.started_at)}` : ""}
         {run.finished_at ? ` · finished ${timeAgo(run.finished_at)}` : ""}

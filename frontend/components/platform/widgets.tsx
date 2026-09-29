@@ -149,6 +149,11 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / 2 ** (10 * i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
+/**
+ * Reads the clock, so server and client can disagree ("3h ago" vs "4h ago"). Where the value
+ * is server-rendered (server props, SWR fallbackData), put `suppressHydrationWarning` on the
+ * element whose direct text it is, or React throws #418 and re-renders the subtree.
+ */
 export function timeAgo(iso: string | null | undefined): string {
   if (!iso) return "never";
   const then = Date.parse(iso);

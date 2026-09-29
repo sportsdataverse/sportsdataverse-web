@@ -45,7 +45,7 @@ export default function ModelsClient({ models }: { models: ModelSummary[] }) {
                   </td>
                   <td className="px-4 py-2">{model.sport}</td>
                   <td className="px-4 py-2">{model.run_count}</td>
-                  <td className="px-4 py-2 text-muted-foreground">
+                  <td className="px-4 py-2 text-muted-foreground" suppressHydrationWarning>
                     {timeAgo(model.latest_run_at)}
                   </td>
                   <td className="px-4 py-2">

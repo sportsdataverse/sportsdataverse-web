@@ -39,7 +39,7 @@ export default function DatabaseClient({ statuses }: { statuses: DbStatusDoc[] }
                   {status.host_label ?? status.source}
                 </h2>
                 <StatusBadge status={statusOf(status)} />
-                <span className="font-inter text-xs text-muted-foreground">
+                <span className="font-inter text-xs text-muted-foreground" suppressHydrationWarning>
                   heartbeat {timeAgo(status.collected_at)} · received {timeAgo(status.received_at)}
                 </span>
               </div>
@@ -101,7 +101,7 @@ export default function DatabaseClient({ statuses }: { statuses: DbStatusDoc[] }
                           <td className="px-4 py-2">
                             {dataset.rows != null ? dataset.rows.toLocaleString("en-US") : "–"}
                           </td>
-                          <td className="px-4 py-2 text-muted-foreground">
+                          <td className="px-4 py-2 text-muted-foreground" suppressHydrationWarning>
                             {timeAgo(dataset.last_updated)}
                           </td>
                           <td

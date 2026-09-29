@@ -112,7 +112,7 @@ export default function OverviewClient({ models, recentRuns, dbStatuses }: Overv
               <card.icon className="h-5 w-5 text-primary" />
               <span className="font-barlow text-lg font-semibold">{card.title}</span>
             </div>
-            <p className="font-inter text-sm text-muted-foreground">{card.body}</p>
+            <p className="font-inter text-sm text-muted-foreground" suppressHydrationWarning>{card.body}</p>
           </Link>
         ))}
       </div>
@@ -145,7 +145,7 @@ export default function OverviewClient({ models, recentRuns, dbStatuses }: Overv
                   {run.run_name ?? run.sport}
                 </span>
               </div>
-              <span className="font-inter text-xs text-muted-foreground">
+              <span className="font-inter text-xs text-muted-foreground" suppressHydrationWarning>
                 {timeAgo(run.created_at)} · by {run.created_by}
               </span>
             </Link>
