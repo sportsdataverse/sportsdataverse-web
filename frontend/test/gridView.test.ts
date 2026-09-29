@@ -145,6 +145,8 @@ test('formatCell: integers, ids, years, text, non-finite values and nulls stay v
     assert.equal(formatCell(v), v, v);
   }
   assert.equal(formatCell(null), null);
+  // past 2^53 a double can't hold the integer digits: Number('9007199254740993.0') is ...992
+  for (const v of ['9007199254740993.0', '-9007199254740993.5', '1.2e20']) assert.equal(formatCell(v), v, v);
 });
 
 test('formatCell: a non-zero value that rounds to 0 at 3 decimals shows 3 significant digits', () => {

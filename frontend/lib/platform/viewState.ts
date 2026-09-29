@@ -455,7 +455,8 @@ const DECIMAL = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
 export function formatCell(v: string | null): string | null {
   if (v === null || !DECIMAL.test(v) || !/[.eE]/.test(v)) return v;
   const n = Number(v);
-  if (!Number.isFinite(n)) return v;
+  // past 2^53 a double can't hold the integer digits, so the source string is the only exact copy
+  if (!Number.isFinite(n) || Math.abs(n) > Number.MAX_SAFE_INTEGER) return v;
   if (n !== 0 && Math.abs(n) < 0.0005) return String(Number(n.toPrecision(3)));
   return formatValue(n, undefined, false);
 }
