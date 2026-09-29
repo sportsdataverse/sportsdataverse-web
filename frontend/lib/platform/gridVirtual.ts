@@ -22,7 +22,7 @@ export function visibleRange({
   overscan: number;
 }): { start: number; end: number; padTop: number; padBottom: number } {
   if (total <= WINDOW_MIN) return { start: 0, end: total, padTop: 0, padBottom: 0 };
-  const inView = Math.ceil(viewport / rowHeight);
+  const inView = Math.max(1, Math.ceil(viewport / rowHeight));
   const first = Math.min(Math.max(0, Math.floor(scrollTop / rowHeight)), Math.max(0, total - inView));
   const start = Math.max(0, first - overscan);
   const end = Math.min(total, first + inView + overscan);

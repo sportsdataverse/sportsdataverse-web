@@ -26,6 +26,16 @@ test('visibleRange clamps a scrollTop past the content (a filter just shrank the
   assert.deepEqual(visibleRange({ ...base, scrollTop: -40 }), visibleRange(base));
 });
 
+test('visibleRange with no room (a grid measured while hidden): still one row, never a negative window', () => {
+  for (const viewport of [0, -50]) {
+    for (const overscan of [0, 10]) {
+      const { start, end, padTop, padBottom } = visibleRange({ ...base, viewport, overscan, scrollTop: 28000 });
+      assert.ok(end > start, `viewport ${viewport}, overscan ${overscan}: ${start}..${end}`);
+      assert.equal(padTop + (end - start) * 28 + padBottom, 10000 * 28);
+    }
+  }
+});
+
 test('visibleRange with no rows', () => {
   assert.deepEqual(visibleRange({ ...base, total: 0 }), { start: 0, end: 0, padTop: 0, padBottom: 0 });
 });
