@@ -240,6 +240,21 @@ export function zoomView(v: ZoomView, base: ZoomView, fx: number, fy: number, fa
   return { k, x: axis(v.x, base.x, fx), y: axis(v.y, base.y, fy) };
 }
 
+/**
+ * Whether `v` shows the base view: `base` itself, or a view back at it after
+ * zooming in and out (zoomView returns a new object every time, and its
+ * arithmetic lands within ~1e-16 of a span). `eps` is relative to each axis's
+ * base span, since columns differ by orders of magnitude.
+ */
+export function isBaseView(v: ZoomView, base: ZoomView, eps = 1e-9): boolean {
+  if (v === base) return true;
+  const near = (a: [number, number], b: [number, number]) => {
+    const tol = eps * Math.abs(b[1] - b[0]);
+    return Math.abs(a[0] - b[0]) <= tol && Math.abs(a[1] - b[1]) <= tol;
+  };
+  return Math.abs(v.k - base.k) <= eps && near(v.x, base.x) && near(v.y, base.y);
+}
+
 /** Slide the visible domains by fractions of their span (a drag right by a
  *  tenth of the plot is dfx = 0.1, and shows lower x values). */
 export function panView(v: ZoomView, dfx: number, dfy: number): ZoomView {

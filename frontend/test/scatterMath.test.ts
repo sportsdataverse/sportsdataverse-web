@@ -9,6 +9,7 @@ import {
   filledColumns,
   highlightOptions,
   highlightSlots,
+  isBaseView,
   keepListed,
   median,
   missingNote,
@@ -380,4 +381,40 @@ test('scatterExportText: the footer links the view and says when its data last c
     assert.equal(scatterExportText(v, { ...TEXT, asOf }).footer, 'sportsdataverse.org/platform/scatter?season=2026&x=o_rapm&y=d_rapm');
   assert.equal(scatterExportText(v, { ...TEXT, query: '' }).footer, 'sportsdataverse.org/platform/scatter');
   assert.equal(utcMinute('2026-09-28T15:14:07Z'), '2026-09-28 15:14 UTC');
+});
+
+test('isBaseView: zoomed in and back out (buttons or wheel) is the base view again, whatever the scale', () => {
+  // an NBA-like domain, a counting stat, a column in the millions, one in the billions and one
+  // of tiny rates: the tolerance follows each span (an absolute one misjudges the last two)
+  const DOMAINS = [
+    [[-4.9, 5.4], [-3.9, 5.3]],
+    [[0, 5234], [12, 97]],
+    [[0.1, 0.73], [1e6, 1.6e6]],
+    [[3.1e9, 7.9e9], [0.2, 0.9]],
+    [[1e-9, 4e-8], [2e-9, 9e-9]],
+  ];
+  for (const [xs, ys] of DOMAINS) {
+    const b = baseView(paddedDomain(xs), paddedDomain(ys));
+    assert.ok(isBaseView(b, b));
+    const inOut = zoomView(zoomView(b, b, 0.5, 0.5, 2), b, 0.5, 0.5, 0.5);
+    const outIn = zoomView(zoomView(b, b, 0.5, 0.5, 0.5), b, 0.5, 0.5, 2);
+    const wheel = zoomView(zoomView(b, b, 0.37, 0.61, Math.exp(0.24)), b, 0.37, 0.61, Math.exp(-0.24));
+    for (const v of [inOut, outIn, wheel]) {
+      assert.notEqual(v, b); // a new object: identity alone would call it zoomed
+      assert.ok(isBaseView(v, b), JSON.stringify(v));
+    }
+    // off the base view: zoomed 2x, or panned at k = 1 by a thousandth of the plot
+    assert.ok(!isBaseView(zoomView(b, b, 0.5, 0.5, 2), b));
+    assert.ok(!isBaseView(panView(b, 0.001, 0), b));
+    assert.ok(!isBaseView(panView(b, 0, -0.001), b));
+    assert.ok(!isBaseView(zoomView(b, b, 0.5, 0.5, 1.001), b));
+    // the zoom factor is part of the view, even over the base domain
+    assert.ok(!isBaseView({ ...b, k: 2 }, b));
+  }
+  // in the billions a round trip lands ~1e-6 off the base (and k a hair under 1): far past an
+  // absolute 1e-9, well within the span-relative one
+  const big = baseView(paddedDomain([3.1e9, 7.9e9]), paddedDomain([0.2, 0.9]));
+  const bigRt = zoomView(zoomView(big, big, 0.13, 0.61, 3.7), big, 0.13, 0.61, 1 / 3.7);
+  assert.ok(Math.abs(bigRt.x[1] - big.x[1]) > 1e-9);
+  assert.ok(isBaseView(bigRt, big));
 });

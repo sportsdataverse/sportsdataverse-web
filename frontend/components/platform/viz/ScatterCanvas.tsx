@@ -4,7 +4,7 @@ import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, 
 import { formatValue } from "@lib/platform/trends";
 import { resolveColor, sizeCanvas } from "@lib/platform/viz/canvas";
 import { labelIndices } from "@lib/platform/viz/labels";
-import { nearest, panView, zoomView, type ScatterPoint, type ZoomView } from "@lib/platform/viz/scatterMath";
+import { isBaseView, nearest, panView, zoomView, type ScatterPoint, type ZoomView } from "@lib/platform/viz/scatterMath";
 import {
   drawScatter,
   drawScatterExport,
@@ -54,7 +54,8 @@ const EXPORT_SCALE = 2;
 
 /** The page's hold on the chart, for the PNG export. */
 export type ScatterExport = {
-  /** Whether the view on screen is off its base view (zoomed or panned). */
+  /** Whether the view on screen is off its base view (zoomed or panned);
+   *  zoomed in and back out, it is the base view again. */
   zoomed: () => boolean;
   /** The chart as it stands (view, highlight, labels, theme), redrawn at
    *  EXPORT_BOX × EXPORT_SCALE between the given header and footer. What the
@@ -203,7 +204,7 @@ export default function ScatterCanvas({
   useImperativeHandle(
     ref,
     () => ({
-      zoomed: () => view() !== domain.base,
+      zoomed: () => !isBaseView(view(), domain.base),
       png: async (text) => {
         const host = box.current;
         if (!host) throw new Error("The chart is not on the page");

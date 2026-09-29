@@ -3,8 +3,9 @@
 // title, a subtitle (source, season, the highlight chips in their colours, "zoomed" off the base
 // view), the plot, and a footer linking the view with when its data last changed (/v1/meta). The
 // button waits for the plot. The PNG is decoded in the page and sampled: the title and footer
-// bands carry ink, the background is the card, the plot holds mark-coloured pixels, and with a
-// BOS highlight zoomed 2x a BOS mark sits, in chart-cat-1, where the zoomed domain puts it.
+// bands carry ink, the background is the card, the plot holds mark-coloured pixels; zoomed in
+// and back out it is not "zoomed"; and with a BOS highlight zoomed 2x a BOS mark sits, in
+// chart-cat-1, where the zoomed domain puts it.
 // The PNGs are kept beside the clips as evidence.
 // /platform is behind org sign-in, so this is recorded locally and is NOT listed on the PR's
 // `Walkthrough steps:` line (CI has no session; the module throws there).
@@ -138,6 +139,14 @@ const scatterExport = async (page, base) => {
   await page.goto(`${base}${INDEX}&hl=BOS`, { waitUntil: 'domcontentloaded' });
   await page.getByTestId('scatter-legend').waitFor({ timeout: 120_000 });
   await page.waitForTimeout(600);
+  // Zoomed in and back out (+ then -) is the base view again: the export does not say "zoomed".
+  await page.getByRole('button', { name: 'Zoom in' }).click();
+  await page.waitForTimeout(300);
+  await page.getByRole('button', { name: 'Zoom out' }).click();
+  await page.waitForTimeout(300);
+  if (JSON.parse(await chart.getAttribute('data-plot')).k !== 1) fail('+ then - did not come back to k 1');
+  const back = (await exportNow('in-out')).meta;
+  if (back.subtitle.map((r) => r.text).join('|') !== 'NBA player impact|2026|BOS') fail(`after + then - the subtitle reads ${back.subtitle.map((r) => r.text).join('|')}`);
   await page.getByRole('button', { name: 'Zoom in' }).click();
   await page.waitForTimeout(400);
   const onScreen = JSON.parse(await chart.getAttribute('data-plot'));
