@@ -38,6 +38,8 @@ test('a board on a Scatter table reads the same rows as Scatter: same fixed filt
 test('the grid shades each board column the right way round: a low adj_d or allowed EPA is good, possessions are no one\'s good', () => {
   for (const c of ['adj_d', 'raw_d', 'adj_def_epa', 'def_rank', 'rank', 'net_rank', 'off_rank']) assert.equal(polarity(c), -1, c);
   for (const c of ['adj_o', 'adj_em', 'adj_net', 'adj_off_epa', 'o_rapm', 'd_rapm', 'rapm', 'off_poss', 'def_poss', 'games']) assert.equal(polarity(c), 1, c);
+  // the possession override is the bare counts only; a per-possession rate keeps its sense
+  for (const c of ['tov_per_poss', 'pts_allowed_per_poss', 'opp_pts_per_poss']) assert.equal(polarity(c), -1, c);
 });
 
 const hoops: ScatterNames = { schema: 'mbb', table: 'team_group_seasons', key: 'team_id', name: 'team_name', keyType: 'string', col: 'team_id', bySeason: true, only: 'D-I' };

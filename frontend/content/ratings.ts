@@ -147,6 +147,8 @@ export const RATINGS: Readonly<Record<string, RatingSource>> = {
     table: "ratings",
     label: "CFB",
     noun: "teams",
+    // cfb.ratings is FBS-only: every 2026 id is classification fbs in cfb.team_info.
+    scope: "FBS",
     columns: CFB_RATINGS,
     select: FOOTBALL_SELECT,
     order: "-adj_net",
