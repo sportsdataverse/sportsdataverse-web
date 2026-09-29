@@ -73,14 +73,20 @@ test('non-finite numbers sort after the finite ones and before nulls, in both di
   assert.deepEqual(sortCells(cells, 'desc'), ['3', '1', 'NaN', 'Infinity', '-Infinity', null]);
 });
 
-test('mixed columns: numbers ahead of text, text by localeCompare, a blank is text; the order is transitive', () => {
+test('mixed columns: numbers ahead of text, text by localeCompare, a blank sinks with the nulls; the order is transitive', () => {
   const cells = ['b', '10', '1a', null, '2', '', 'A'];
-  assert.deepEqual(sortCells(cells, 'asc'), ['2', '10', '', '1a', 'A', 'b', null]);
-  assert.deepEqual(sortCells(cells, 'desc'), ['b', 'A', '1a', '', '10', '2', null]);
+  assert.deepEqual(sortCells(cells, 'asc'), ['2', '10', '1a', 'A', 'b', null, '']);
+  assert.deepEqual(sortCells(cells, 'desc'), ['b', 'A', '1a', '10', '2', null, '']);
   // every input order gives the same result, which a non-transitive comparator does not
   for (const perm of [['1a', '2', '10'], ['10', '1a', '2'], ['2', '10', '1a']]) {
     assert.deepEqual(sortCells(perm, 'asc'), ['2', '10', '1a']);
   }
+});
+
+test('a numeric column with blanks keeps them last in both directions: a blank is missing, not text', () => {
+  const cells = ['3', '', '10', ' ', null, '-1'];
+  assert.deepEqual(sortCells(cells, 'desc'), ['10', '3', '-1', '', ' ', null]);
+  assert.deepEqual(sortCells(cells, 'asc'), ['-1', '3', '10', '', ' ', null]);
 });
 
 test('ties keep their original order in both directions', () => {
@@ -89,7 +95,7 @@ test('ties keep their original order in both directions', () => {
     const ids = [...rows].sort((a, b) => compareCells(a[1], b[1], dir)).map((r) => r[0]);
     assert.deepEqual(ids, ['x', 'z', 'v', 'y', 'w']);
     // a tie is exactly 0 (=== so a -0 counts); V8's sort alone hides a comparator that returns 1 for one
-    for (const [a, b] of [['1', '1.0'], [null, null], ['NaN', '-Infinity'], ['x', 'x']]) {
+    for (const [a, b] of [['1', '1.0'], [null, null], ['', null], [' ', ''], ['NaN', '-Infinity'], ['x', 'x']]) {
       assert.ok(compareCells(a, b, dir) === 0, `${a} vs ${b} ${dir}`);
     }
   }
