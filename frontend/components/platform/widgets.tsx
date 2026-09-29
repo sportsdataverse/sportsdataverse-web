@@ -20,6 +20,7 @@ import {
   Gauge, Users,
   Flame,
   ChartScatter,
+  ListOrdered,
 } from "lucide-react";
 
 export type PlatformNavItem = {
@@ -68,6 +69,7 @@ export const PLATFORM_NAV: { title: string | null; items: PlatformNavItem[] }[] 
       { href: "/platform/trends", label: "Trends", icon: TrendingUp },
       { href: "/platform/scatter", label: "Scatter", icon: ChartScatter },
       { href: "/platform/rolling", label: "Rolling form", icon: Flame },
+      { href: "/platform/ratings", label: "Ratings", icon: ListOrdered },
     ],
   },
   {
