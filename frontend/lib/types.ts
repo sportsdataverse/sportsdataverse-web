@@ -85,6 +85,8 @@ export type PostType = {
 export type TableOfContents = {
   level: number;
   heading: string;
+  /** the id rehype-slug gives the heading */
+  slug: string;
 };
 
 export type SupportMe = {

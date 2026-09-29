@@ -4,20 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import AnimatedHeading from "./FramerMotion/AnimatedHeading";
 import { FadeContainer, opacityVariant } from "@content/FramerMotionVariants";
 import Link from "next/link";
-import { stringToSlug } from "@lib/toc";
 import useWindowSize from "@hooks/useWindowSize";
 import AnimatedDiv from "./FramerMotion/AnimatedDiv";
 import { CgSearch } from "react-icons/cg";
+import type { TableOfContents as TableOfContentsEntry } from "@lib/types";
 
 export default function TableOfContents({
   tableOfContents,
   setIsTOCActive,
   isTOCActive,
 }: {
-  tableOfContents: {
-    level: number;
-    heading: string;
-  }[];
+  tableOfContents: TableOfContentsEntry[];
   setIsTOCActive: (val: boolean) => void;
   isTOCActive: boolean;
 }) {
@@ -79,8 +76,8 @@ export default function TableOfContents({
               {toc.map((content) => {
                 return (
                   <Link
-                    key={content.heading}
-                    href={`#${stringToSlug(content.heading)}`}
+                    key={content.slug}
+                    href={`#${content.slug}`}
                     className="relative overflow-hidden hover:bg-secondary px-2 py-0.5 md:py-1 rounded-tr-md rounded-br-md md:line-clamp-1 text-muted-foreground hover:text-foreground font-medium border-l-2 border-border hover:border-primary"
                     style={{ marginLeft: `${content.level * 15}px` }}
                     onClick={() => {

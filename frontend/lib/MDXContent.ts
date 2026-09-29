@@ -7,6 +7,7 @@ import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import readTime from "reading-time";
 import rehypePrettyCode from "rehype-pretty-code";
 import { FrontMatter } from "./types";
+import { getTableOfContents } from "./toc";
 
 // Cache the parsed, date-sorted post list per content folder so repeated
 // getAllPosts()/getAdjacentPosts() calls during a build don't re-read every MDX
@@ -73,7 +74,7 @@ export default class MDXContent {
     return {
       post: {
         source: mdxSource,
-        tableOfContents: this.getTableOfContents(content),
+        tableOfContents: getTableOfContents(content),
         meta: frontMatter,
       },
     };
@@ -94,7 +95,7 @@ export default class MDXContent {
     return {
       content,
       meta,
-      tableOfContents: this.getTableOfContents(content) ?? [],
+      tableOfContents: getTableOfContents(content),
     };
   }
 
@@ -134,18 +135,5 @@ export default class MDXContent {
       prev: toLink(all[index + 1]), // older post
       next: toLink(all[index - 1]), // newer post
     };
-  }
-
-  getTableOfContents(markdown: string) {
-    const regXHeader = /#{2,6}.+/g;
-    const headingArray = markdown.match(regXHeader)
-      ? markdown.match(regXHeader)
-      : [];
-    return headingArray?.map((heading) => {
-      return {
-        level: heading.split("#").length - 1 - 2, // we starts from the 2nd heading that's why we subtract 2 and 1 is extra heading text
-        heading: heading.replace(/#{2,6}/, "").trim(),
-      };
-    });
   }
 }
