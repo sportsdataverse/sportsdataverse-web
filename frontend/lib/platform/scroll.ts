@@ -8,8 +8,14 @@
  * (below a sticky `thead`) clipped to `[0, window.innerHeight]`. A log that
  * runs past the fold would otherwise take the row to its own bottom edge,
  * off screen. A `box` wholly off screen falls back to its own view.
+ *
+ * `el` only has to report where it is, so a row a windowed grid has not
+ * rendered can pass its computed rect.
  */
-export function revealInScroller(box: HTMLElement, el: HTMLElement): void {
+export function revealInScroller(
+  box: HTMLElement,
+  el: { getBoundingClientRect(): { top: number; bottom: number } }
+): void {
   const b = box.getBoundingClientRect();
   const r = el.getBoundingClientRect();
   let top = b.top + box.clientTop + (box.querySelector("thead")?.offsetHeight ?? 0);
