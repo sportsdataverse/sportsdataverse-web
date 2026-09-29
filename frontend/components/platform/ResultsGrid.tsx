@@ -6,7 +6,7 @@ import { cn } from "@lib/utils";
 import { columnTip } from "@lib/platform/glossary";
 import { revealInScroller } from "@lib/platform/scroll";
 import { visibleRange, WINDOW_MIN } from "@lib/platform/gridVirtual";
-import { identityColumn, labelColumn, MAX_PINS, pinIdentity, transposePinned } from "@lib/platform/gridCompare";
+import { identityColumn, labelColumn, pinIdentity, transposePinned } from "@lib/platform/gridCompare";
 import {
   asPercentile,
   columnDomain,
@@ -19,7 +19,7 @@ import {
   type PctSource,
   type TintMode,
 } from "@lib/platform/scales";
-import { compareCells, EMPTY_GRID, gridByIndex, gridByName, type GridPin, type GridView } from "@lib/platform/viewState";
+import { compareCells, EMPTY_GRID, gridByIndex, gridByName, MAX_PINS, type GridPin, type GridView } from "@lib/platform/viewState";
 
 /**
  * Keyboard-first results grid for the platform data surfaces.

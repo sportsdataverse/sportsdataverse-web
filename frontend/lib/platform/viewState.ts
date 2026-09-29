@@ -20,7 +20,6 @@ import { scatterAxes } from "./viz/scatterMath.ts";
 import { ROLLING_CARDS, ROLLING_TABS, type RollingCard, type RollingTab } from "./rolling.ts";
 import { MAX_TRENDS_TEAMS, trimGaps, type TrendPicks } from "./trends.ts";
 import { ALL_PAIRS_CAP } from "./chartTokens.ts";
-import { MAX_PINS } from "./gridCompare.ts";
 import type { TintMode } from "./scales.ts";
 
 export function toSearchParams(record: Record<string, string | string[] | undefined>): URLSearchParams {
@@ -45,7 +44,8 @@ export const SUFFIX_BY_SQL_OP: Record<string, Suffix> = Object.fromEntries(
 
 const COLUMN = /^[A-Za-z_][\w.]*$/; // warehouse columns include dots (clock.displayValue)
 const TABLE = /^[a-z_][a-z0-9_]*$/;
-const TOKEN = /^[\w.-]+$/;
+/** A value a URL list may carry as is: `grid.pin` splits on commas. */
+export const TOKEN = /^[\w.-]+$/;
 
 const clamp = (n: number, lo: number, hi: number, dflt: number) =>
   Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.trunc(n))) : dflt;
@@ -58,7 +58,7 @@ function splitKey(key: string): { column: string; op: Suffix } | null {
   return COLUMN.test(column) && SUFFIXES.includes(op) ? { column, op } : null;
 }
 
-const MAX_LEN = 200; // uniform cap for every parsed token/value; sql keeps its own 10k cap
+export const MAX_LEN = 200; // uniform cap for every parsed token/value; sql keeps its own 10k cap
 
 function readFilters(sp: URLSearchParams, keep: (key: string) => string | null): ApiFilter[] {
   const out: ApiFilter[] = [];
@@ -387,6 +387,9 @@ export type GridView = { sort: { col: string; dir: SortDir } | null; filters: Re
 /** ResultsGrid's internal shape: the same view keyed by column index (pins stay by name and value). */
 export type GridIndexState = { sort: { col: number; dir: SortDir } | null; filters: Record<number, string>; tint: TintMode; pin: GridPin | null };
 export const EMPTY_GRID: GridView = { sort: null, filters: {}, tint: "delta", pin: null };
+
+/** The most rows a grid pins at once (the tray's columns; `grid.pin`'s values). */
+export const MAX_PINS = 8;
 
 /** `col:v1,v2`: a COLUMN name, then up to MAX_PINS distinct id-like values; anything else is no pins. */
 function readPin(raw: string): GridPin | null {

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { identityColumn, labelColumn, pinIdentity, transposePinned } from '../lib/platform/gridCompare.ts';
+import { gridViewParams, parseGridView, EMPTY_GRID } from '../lib/platform/viewState.ts';
 
 test('the identity column is the first present of athlete_id, player_id, person_id, team_id, game_id, in that priority', () => {
   assert.equal(identityColumn(['season', 'player_id', 'team_id']), 1);
@@ -23,6 +24,34 @@ test('pins key on the identity column only when it names every row once', () => 
   assert.equal(pinIdentity(cols, [['2025', '', 'a']]), -1);
   assert.equal(pinIdentity(['season', 'name'], [['2025', 'a']]), -1);
   assert.equal(pinIdentity(cols, []), 1); // nothing to collide
+});
+
+test('pins key on the first id column, in priority order, that names every row once', () => {
+  // a box score: game_id repeats per team, team_id names each row of one game once
+  assert.equal(pinIdentity(['game_id', 'team_id', 'pts'], [['9', '1', '80'], ['9', '2', '77']]), 1);
+  // the higher-priority id wins when it is unique too
+  assert.equal(pinIdentity(['team_id', 'player_id'], [['1', '10'], ['1', '11']]), 1);
+  // a team's game log: team_id outranks game_id but repeats, so game_id keys the pins
+  assert.equal(pinIdentity(['game_id', 'team_id'], [['401', '5'], ['402', '5']]), 0);
+  assert.equal(pinIdentity(['game_id', 'team_id'], [['9', '1'], ['9', '1']]), -1);
+});
+
+test('pins key on an id only when every value survives the grid.pin round trip', () => {
+  const round = (col: string, values: string[]) => {
+    const p = new URLSearchParams();
+    gridViewParams({ ...EMPTY_GRID, pin: { col, values } }, p);
+    return parseGridView(p).pin?.values;
+  };
+  const ok = [['KC'], ['2426'], ['a.b-c_d']];
+  assert.equal(pinIdentity(['team_id'], ok), 0);
+  assert.deepEqual(round('team_id', ok.map((r) => r[0])), ok.map((r) => r[0]));
+  // a comma splits into two other pins; a space is dropped: neither may key a pin
+  for (const bad of ['a,b', 'Ohio St', '9'.repeat(201), 'x<y']) {
+    assert.notDeepEqual(round('team_id', [bad]), [bad], bad);
+    assert.equal(pinIdentity(['team_id'], [['1'], [bad]]), -1, bad);
+  }
+  // ... and the next id column that does round-trip keys it instead
+  assert.equal(pinIdentity(['team_id', 'game_id'], [['Ohio St', '1'], ['Iowa St', '2']]), 1);
 });
 
 test('the label column is the first *name column, or a bare team', () => {
@@ -49,6 +78,14 @@ test('transposePinned: one entry per column in column order, values in PIN order
     { metric: 'name', values: [] },
     { metric: 'EPAplay', values: [] },
   ]);
+});
+
+test('transposePinned leaves out the columns the tray is headed by, when given', () => {
+  const rows = [['1', 'Ann', '0.3'], ['2', 'Bea', '-0.1']];
+  const cols = ['game_id', 'name', 'EPA'];
+  // session pins (no id keys them): the tray is headed by the label, so game_id is a metric row
+  assert.deepEqual(transposePinned(cols, rows, [1], [1]).map((m) => m.metric), ['game_id', 'EPA']);
+  assert.deepEqual(transposePinned(cols, rows, [1], [1, 0]).map((m) => m.metric), ['EPA']);
 });
 
 test('transposePinned leaves out the identity column and each X_pct that shades its X; _rank, _n and plain rates stay', () => {

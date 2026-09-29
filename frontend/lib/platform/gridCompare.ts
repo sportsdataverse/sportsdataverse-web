@@ -3,9 +3,7 @@
  * turned on their side for the comparison tray.
  */
 import { pctSiblings } from "./scales.ts";
-
-/** The most rows a grid pins at once (the tray's columns; the URL's `grid.pin`). */
-export const MAX_PINS = 8;
+import { MAX_LEN, TOKEN } from "./viewState.ts";
 
 const IDS = ["athlete_id", "player_id", "person_id", "team_id", "game_id"];
 
@@ -19,19 +17,25 @@ export function identityColumn(columns: string[]): number {
   return -1;
 }
 
-/** The identity column when it names every row once (no blank, no repeat), so a
- *  pin can be its value; else -1, and pins fall back to row indices. A result
- *  spanning seasons repeats a player's id. */
+/** The first id column, in identityColumn's priority, that names every row once
+ *  with a value `grid.pin` carries back unchanged (TOKEN, at most MAX_LEN), so a
+ *  pin can be its value; else -1, and pins are row indices for the session. A
+ *  result spanning seasons repeats a player's id; a team's game log repeats
+ *  team_id but not game_id. */
 export function pinIdentity(columns: string[], rows: (string | null)[][]): number {
-  const i = identityColumn(columns);
-  if (i < 0) return -1;
-  const seen = new Set<string>();
-  for (const r of rows) {
-    const v = r[i];
-    if (v == null || v === "" || seen.has(v)) return -1;
-    seen.add(v);
+  for (const id of IDS) {
+    const i = columns.indexOf(id);
+    if (i < 0) continue;
+    const seen = new Set<string>();
+    const unique = rows.every((r) => {
+      const v = r[i];
+      if (v == null || v.length > MAX_LEN || !TOKEN.test(v) || seen.has(v)) return false;
+      seen.add(v);
+      return true;
+    });
+    if (unique) return i;
   }
-  return i;
+  return -1;
 }
 
 /** The column that names a row to a reader: the first `*name` column (player_name,
@@ -42,20 +46,20 @@ export function labelColumn(columns: string[]): number {
 
 /**
  * The pinned rows (ORIGINAL indices, in pin order) turned on their side: one
- * entry per column in column order, its values in pin order. The identity
- * column is left out (it heads the tray, or the label does), and so is each
- * producer `X_pct`, which only shades its `X`. `X_rank` and `X_n` stay, as
- * their own rows: each is one more number to compare, and the tray shows one
- * number per cell.
+ * entry per column in column order, its values in pin order. The columns that
+ * head the tray are left out (`heads`: by default the identity column), and so
+ * is each producer `X_pct`, which only shades its `X`. `X_rank` and `X_n` stay,
+ * as their own rows: each is one more number to compare, and the tray shows
+ * one number per cell.
  */
 export function transposePinned(
   columns: string[],
   rows: (string | null)[][],
-  pinned: number[]
+  pinned: number[],
+  heads: number[] = [identityColumn(columns)]
 ): { metric: string; values: (string | null)[] }[] {
-  const id = identityColumn(columns);
   const pct = pctSiblings(columns);
   return columns.flatMap((metric, c) =>
-    c === id || pct.get(c) === c ? [] : [{ metric, values: pinned.map((r) => rows[r][c]) }]
+    heads.includes(c) || pct.get(c) === c ? [] : [{ metric, values: pinned.map((r) => rows[r][c]) }]
   );
 }
