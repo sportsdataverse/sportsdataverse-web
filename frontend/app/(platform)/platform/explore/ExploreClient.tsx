@@ -56,6 +56,9 @@ type ExploreProps = {
 
 const OPS = ["=", "!=", ">", ">=", "<", "<=", "contains"] as const;
 
+/** A linked-in sort/filter belongs to the table it came with; the tint is the reader's. */
+const clearGrid = (g: GridView): GridView => ({ ...EMPTY_GRID, tint: g.tint });
+
 export default function ExploreClient({ datasets, error, initial, initialGrid }: ExploreProps) {
   const initialFilters: Filter[] = initial.filters.map((f) => ({
     column: f.column,
@@ -231,6 +234,7 @@ export default function ExploreClient({ datasets, error, initial, initialGrid }:
     // that named neither (single-stem or unpartitioned release) keeps them.
     if (pending.current && exploreLinkMoved(initial, effectiveStem, effectivePartition)) {
       pending.current = null;
+      setGridView(clearGrid); // its grid.* too: a same-named column on the fallback must not be sorted
     }
     if (pending.current?.sql) {
       // A shared SQL-mode link: restore the statement; Run executes it.
@@ -260,9 +264,6 @@ export default function ExploreClient({ datasets, error, initial, initialGrid }:
   gridViewParams(gridView, pageParams); // the preview grid's own keys, after the view's
   useUrlMirror(pageParams);
 
-  /** A linked-in sort/filter belongs to the table it came with; the tint is the reader's. */
-  const resetGrid = () => setGridView((g) => ({ ...EMPTY_GRID, tint: g.tint }));
-
   function selectTag(next: string) {
     pending.current = null;
     setTag(next);
@@ -274,7 +275,7 @@ export default function ExploreClient({ datasets, error, initial, initialGrid }:
     setResult(null);
     setSql("");
     setQueryError(null);
-    resetGrid();
+    setGridView(clearGrid);
   }
 
   async function withEngine<T>(label: string, fn: () => Promise<T>): Promise<T | null> {
@@ -439,7 +440,7 @@ export default function ExploreClient({ datasets, error, initial, initialGrid }:
                       pending.current = null;
                       setStem(e.target.value);
                       setPartition(effectivePartition);
-                      resetGrid();
+                      setGridView(clearGrid);
                     }}
                     className="rounded-md border border-input bg-card px-2 py-1.5 font-mono text-sm text-foreground"
                   >

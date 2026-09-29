@@ -1,6 +1,7 @@
 // /platform/explore preview grid: the preview is the shared ResultsGrid, its f/s/h keys write the
-// URL's grid.* keys beside Explore's own, a copied link restores the sort, a descending sort keeps
-// nulls last (here and on Query), and at 390 px only the grid scrolls sideways, never the page.
+// URL's grid.* keys beside Explore's own, a copied link restores the sort (another dataset or a
+// moved link drops it), a descending sort keeps nulls last (here and on Query), and at 390 px only
+// the grid scrolls sideways, never the page.
 // Needs SDV_TRIGGER_KEY = a personal read-scope key on the local server (the Query check).
 // /platform is behind org sign-in, so this is recorded locally (see the PR's Walkthrough clip)
 // and is NOT listed on the PR's `Walkthrough steps:` line.
@@ -92,6 +93,11 @@ const steps = async (page, base) => {
   await datasets.selectOption(other);
   await waitParam(page, 'tag', other);
   if (param(page, 'grid.sort') !== null) throw new Error(`another dataset kept the sort: ${page.url()}`);
+
+  // A link naming a table the release lacks falls back to another; its sort goes with its filters
+  await page.goto(base + '/platform/explore?tag=espn_cfb_pbp&table=nope&season=2024&grid.sort=-yds_rushed', { waitUntil: 'domcontentloaded' });
+  await waitParam(page, 'grid.sort', null);
+  if (['nope', null].includes(param(page, 'table'))) throw new Error(`the pickers never fell back: ${page.url()}`);
 
   // (d) Query: the same grid, a descending sort keeps the non-qualifiers' null percentiles last
   await page.goto(base + '/platform/query?schema=cfb&table=passing&season=2025&limit=500', { waitUntil: 'domcontentloaded' });
