@@ -323,7 +323,8 @@ export default function ResultsGrid({
                     onDrop={() => dropOn(ci)}
                     onDragEnd={() => setDragCol(null)}
                     className={cn(
-                      "whitespace-nowrap border-b border-r border-border/60 p-0 align-top",
+                      // bold was the global th rule's (and the UA th default); say it here
+                      "whitespace-nowrap border-b border-r border-border/60 p-0 align-top font-bold",
                       // opaque: a translucent tint on this sticky th let scrolled rows show through
                       sort?.col === ci ? "bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-muted))]" : "bg-muted",
                       dragCol === ci && "opacity-40"
