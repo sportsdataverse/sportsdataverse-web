@@ -282,6 +282,10 @@ test('loader: unreachable, non-200 and bad JSON are null; a good body normalises
 
 test('loader: a stalled upstream is abandoned at the deadline and reads as null', async () => {
   const realFetch = globalThis.fetch;
+  // AbortSignal.timeout() uses an unref'd timer, so on its own it does not keep the event loop
+  // alive: with nothing else pending the loop drains, and node:test cancels this test and every
+  // test after it in the file ("cancelledByParent"). Hold the loop open for the wait.
+  const keepAlive = setTimeout(() => {}, 5000);
   try {
     let signal: AbortSignal | null | undefined;
     // Never answers on its own: settles only when the caller's signal aborts.
@@ -299,6 +303,7 @@ test('loader: a stalled upstream is abandoned at the deadline and reads as null'
     assert.ok(waited < 2000, `gave up at the 50ms deadline, not the runtime's (waited ${waited}ms)`);
     assert.ok(SUMMARY_FETCH_TIMEOUT_MS <= 10_000, 'the production deadline stays short');
   } finally {
+    clearTimeout(keepAlive);
     globalThis.fetch = realFetch;
   }
 });
