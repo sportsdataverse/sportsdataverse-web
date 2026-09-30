@@ -10,6 +10,8 @@ type Params = { params: Promise<{ id: string }> };
 const getRunCached = cache((id: string) => getRun(id).catch(() => null));
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  // the title names the model: a signed-out request for a valid run id must not learn it
+  if (!(await requireOrgMember())) return { title: "Run" };
   const { id } = await params;
   const run = await getRunCached(id);
   return { title: run ? `${run.model_id} run` : "Run not found" };
