@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { auth } from "@lib/auth";
-import SignInGate from "@components/platform/SignInGate";
+import { requireOrgMember } from "@lib/platform/auth";
+import NonMemberGate from "@components/platform/NonMemberGate";
 import PlatformSidebar from "@components/platform/PlatformSidebar";
 import PlatformTopbar from "@components/platform/PlatformTopbar";
 import CommandMenu from "@components/platform/CommandMenu";
@@ -19,10 +19,8 @@ export default async function PlatformLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-  if (!session?.isOrgMember) {
-    return <SignInGate signedIn={Boolean(session)} />;
-  }
+  const session = await requireOrgMember();
+  if (!session) return <NonMemberGate />;
 
   const isAdmin = session.role === "admin";
   return (
