@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { connectToDatabase } from "@lib/mongodb";
 import { PUBLIC_PACKAGE_FILTER, PUBLIC_PACKAGE_PROJECTION } from "@lib/packageVisibility";
 import pageMeta from "@content/meta";
+import { packageOrder } from "@lib/packageOrder";
 import PackagesClient from "./PackagesClient";
 
 export const metadata: Metadata = {
@@ -36,24 +37,18 @@ export default async function PackagesPage() {
     pkgs = [];
   }
 
-  // Flagship sportsdataverse-* packages lead each language section (the R
-  // section already renders its flagship separately via rversePackages).
-  const flagshipFirst = (a: any, b: any) => {
-    const flag = (p: any) => (String(p.title ?? "").toLowerCase().startsWith("sportsdataverse") ? 0 : 1);
-    return flag(a) - flag(b) || String(a.title ?? "").localeCompare(String(b.title ?? ""));
-  };
   const pyPackages = pkgs
     .filter((pkg: any) => pkg.repoType == "Python")
-    .sort(flagshipFirst);
+    .sort(packageOrder);
   const rPackages = pkgs
     .filter((pkg: any) => pkg.repoType == "R" && pkg.title != "sportsdataverse")
-    .sort(flagshipFirst);
+    .sort(packageOrder);
   const rversePackages = pkgs.filter(
     (pkg: any) => pkg.repoType == "R" && pkg.title == "sportsdataverse"
   );
   const jsPackages = pkgs
     .filter((pkg: any) => pkg.repoType == "Node.js")
-    .sort(flagshipFirst);
+    .sort(packageOrder);
 
   return (
     <PackagesClient
