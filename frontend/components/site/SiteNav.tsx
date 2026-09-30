@@ -22,13 +22,14 @@ const LINKS = [
   { href: "/blog", label: "Blog" },
   { href: "/about", label: "About" },
   { href: "/stats", label: "Stats" },
+  { href: "/status", label: "Status" },
 ];
 
 /**
- * The reference material, grouped rather than added as a seventh flat link.
+ * The reference material, grouped rather than added as flat links.
  * Snippets moves in here from the top level, and `/resources` — a page that
  * existed but was reachable from nothing in the nav — is surfaced alongside
- * it, so the bar keeps six slots while gaining two destinations.
+ * it, so the bar gains two destinations without two more slots.
  */
 const LEARN_LINKS = [
   {
@@ -123,7 +124,9 @@ export default function SiteNav() {
             SportsDataverse
           </span>
         </Link>
-        <nav className="hidden items-center md:flex">
+        {/* Flat links from lg: at md the six links + Learn + sign-in overran the
+            bar (theme toggle pushed off-screen at 768px); tablets get the sheet. */}
+        <nav className="hidden items-center lg:flex">
           {LINKS.map((l) => {
             const active = pathname?.startsWith(l.href);
             return (
@@ -147,7 +150,7 @@ export default function SiteNav() {
           <MemberAction />
           <ThemeToggle />
           <Sheet>
-            <SheetTrigger asChild className="md:hidden">
+            <SheetTrigger asChild className="lg:hidden">
               <Button variant="ghost" size="icon" aria-label="Open menu">
                 <Menu className="size-5" />
               </Button>

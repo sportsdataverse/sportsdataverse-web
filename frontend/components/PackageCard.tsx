@@ -3,14 +3,55 @@ import Link from "next/link";
 import { Github, FileText, Database, FileDown } from "lucide-react";
 import { Card } from "@components/ui/card";
 import { Button } from "@components/ui/button";
+import ShieldBadge from "@components/site/ShieldBadge";
 import { cheatsheetHref } from "@lib/cheatsheets";
+import { badgeUrl, stateLabel, type PipelineLink } from "@lib/ecosystemStatus";
 import { cranDoi, cranHref } from "@lib/packageOrder";
 import type { PackageDoc } from "@lib/packageSchema";
 
 const outlinePill =
   "rounded-full border border-primary/40 px-2 py-0.5 text-xs font-semibold tracking-wide text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 
-export default function PackageCard({ pkg }: { pkg: PackageDoc }) {
+// ponytail: a flat cap keeps a many-producer card (the py/js metapackages read ~17) short; the rest are on /status
+const MAX_PIPELINES = 4;
+
+/**
+ * The `pipeline` shield of each producer whose releases this package reads,
+ * linked to its /status row. Every shield says "pipeline", so each one is
+ * captioned with its producer's label (hoopR reads four basketball producers).
+ */
+function Pipelines({ pipelines }: { pipelines: PipelineLink[] }) {
+  return (
+    <ul className="flex w-full flex-col items-center gap-1">
+      {pipelines.slice(0, MAX_PIPELINES).map((p) => (
+        <li key={p.repo} className="flex flex-wrap items-center justify-center gap-x-1.5 text-center">
+          <span className="text-xs text-muted-foreground">{p.label}</span>
+          <ShieldBadge
+            src={badgeUrl(p.repo, "status")}
+            alt={`${p.label} data pipeline: ${stateLabel(p.state)}`}
+            href={`/status#${p.anchor}`}
+          />
+        </li>
+      ))}
+      {pipelines.length > MAX_PIPELINES ? (
+        <li>
+          <Link href="/status#producers" className="text-xs text-accent underline-offset-4 hover:underline">
+            +{pipelines.length - MAX_PIPELINES} more data pipelines
+          </Link>
+        </li>
+      ) : null}
+    </ul>
+  );
+}
+
+export default function PackageCard({
+  pkg,
+  pipelines,
+}: {
+  pkg: PackageDoc;
+  /** Producers whose releases this package's loaders read (from the /status snapshot). */
+  pipelines?: PipelineLink[];
+}) {
   const cheatsheet = cheatsheetHref(pkg.title, pkg.repoType);
   const cran = cranHref(pkg);
   const doi = cranDoi(pkg);
@@ -66,6 +107,7 @@ export default function PackageCard({ pkg }: { pkg: PackageDoc }) {
             ) : null}
           </div>
         ) : null}
+        {pipelines?.length ? <Pipelines pipelines={pipelines} /> : null}
         {pkg.content ? (
           <p className="font-inter text-center text-sm text-muted-foreground">
             {pkg.content}

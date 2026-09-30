@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import pageMeta from "@content/meta";
 import PageHeader from "@components/site/PageHeader";
 import { connectToDatabase } from "@lib/mongodb";
@@ -89,6 +90,13 @@ export default async function StatsPage() {
             />
           ))}
         </div>
+        <p className="text-sm text-muted-foreground">
+          How fresh is it?{" "}
+          <Link href="/status" className="text-accent underline-offset-4 hover:underline">
+            Release freshness and pipeline status
+          </Link>
+          , from a nightly snapshot.
+        </p>
       </section>
 
       <StatsClient />

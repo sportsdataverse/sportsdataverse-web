@@ -7,6 +7,7 @@ import sdvBlue from "@public/images/sdv-blue-banner.png";
 import PackageCard from "@components/PackageCard";
 import PageHeader from "@components/site/PageHeader";
 import { Input } from "@components/ui/input";
+import { pipelinesForPackage, type PipelineLink } from "@lib/ecosystemStatus";
 import type { PackageDoc } from "@lib/packageSchema";
 
 /**
@@ -20,6 +21,8 @@ type Props = {
   rversePackages: PackageDoc[];
   pyPackages: PackageDoc[];
   jsPackages: PackageDoc[];
+  /** Lower-cased loader repo name → its producers, loaded once on the server. */
+  pipelines: Record<string, PipelineLink[]>;
 };
 
 const isFlagship = (pkg: PackageDoc) =>
@@ -40,12 +43,14 @@ function Section({
   flagship,
   rest,
   query,
+  pipelines,
 }: {
   title: string;
   note: string;
   flagship: PackageDoc[];
   rest: PackageDoc[];
   query: string;
+  pipelines: Props["pipelines"];
 }) {
   const shownFlagship = flagship.filter((p) => matches(p, query));
   const shownRest = rest.filter((p) => matches(p, query));
@@ -71,14 +76,14 @@ function Section({
           {shownFlagship.length > 0 ? (
             <div className="mt-4 grid grid-cols-1 gap-2">
               {shownFlagship.map((pkg) => (
-                <PackageCard pkg={pkg} key={pkg._id} />
+                <PackageCard pkg={pkg} key={pkg._id} pipelines={pipelinesForPackage(pipelines, pkg)} />
               ))}
             </div>
           ) : null}
           {shownRest.length > 0 ? (
             <div className="mt-2 grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {shownRest.map((pkg) => (
-                <PackageCard pkg={pkg} key={pkg._id} />
+                <PackageCard pkg={pkg} key={pkg._id} pipelines={pipelinesForPackage(pipelines, pkg)} />
               ))}
             </div>
           ) : null}
@@ -93,6 +98,7 @@ export default function PackagesClient({
   rversePackages,
   pyPackages,
   jsPackages,
+  pipelines,
 }: Props) {
   const [query, setQuery] = useState("");
 
@@ -147,7 +153,7 @@ export default function PackagesClient({
       </div>
 
       {sections.map((s) => (
-        <Section key={s.title} {...s} query={query} />
+        <Section key={s.title} {...s} query={query} pipelines={pipelines} />
       ))}
     </div>
   );

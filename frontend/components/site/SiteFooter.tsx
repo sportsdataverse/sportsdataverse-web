@@ -15,6 +15,7 @@ const GROUPS: {
       { href: "/blog", label: "Blog" },
       { href: "/about", label: "About" },
       { href: "/stats", label: "Stats" },
+      { href: "/status", label: "Status" },
       { href: "/snippets", label: "Snippets" },
       { href: "/resources", label: "Resources" },
     ],
