@@ -101,10 +101,14 @@ function External({ href, children }: { href: string; children: React.ReactNode 
   );
 }
 
-function SectionHead({ title, note }: { title: string; note?: string }) {
+/** A keyboard-reachable scroll container (tables that overflow must scroll without a mouse). */
+const scrollRegion =
+  "rounded-md border border-border bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
+
+function SectionHead({ id, title, note }: { id?: string; title: string; note?: string }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border pb-2">
-      <h2 className="font-display text-3xl font-bold uppercase tracking-wide">{title}</h2>
+      <h2 id={id} className="font-display text-3xl font-bold uppercase tracking-wide">{title}</h2>
       {note ? <p className="font-mono text-xs text-muted-foreground">{note}</p> : null}
     </div>
   );
@@ -155,6 +159,7 @@ function ReleaseFreshness({ summary, now }: { summary: EcosystemSummary; now: nu
   return (
     <section id="release-freshness" className="mt-12 scroll-mt-24">
       <SectionHead
+        id="release-freshness-heading"
         title="Release freshness"
         note={rows.length ? `${rows.length} tags${unmapped ? ` · ${unmapped} unmapped` : ""} · stalest first` : undefined}
       />
@@ -167,8 +172,17 @@ function ReleaseFreshness({ summary, now }: { summary: EcosystemSummary; now: nu
       ) : (
         <>
           <ReleaseTagFilter tableId="release-tags" producers={producers} hasUnmapped={unmapped > 0} total={rows.length} />
-          <div className="mt-3 max-h-[32rem] overflow-auto rounded-md border border-border bg-card">
-            <table id="release-tags" className="w-full min-w-[42rem] text-left text-sm">
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label="Release freshness table, scrollable"
+            className={`mt-3 max-h-[32rem] overflow-auto ${scrollRegion}`}
+          >
+            <table
+              id="release-tags"
+              aria-labelledby="release-freshness-heading"
+              className="w-full min-w-[42rem] text-left text-sm"
+            >
               <thead>
                 <tr className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
                   {["Tag", "Producer", "Assets", "Newest asset", "Through"].map((h) => (
@@ -211,7 +225,11 @@ function ReleaseFreshness({ summary, now }: { summary: EcosystemSummary; now: nu
                     </td>
                     <td className="px-3 py-1.5 text-right font-mono tabular-nums">{r.assets.toLocaleString("en-US")}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 font-mono text-xs">
-                      <When value={r.newest_asset_at} now={now} />
+                      {r.assets === 0 ? (
+                        <span className="text-muted-foreground">empty</span>
+                      ) : (
+                        <When value={r.newest_asset_at} now={now} />
+                      )}
                     </td>
                     <td className="px-3 py-1.5 font-mono text-xs">
                       {r.max_season ?? <span className="text-muted-foreground">—</span>}
@@ -326,15 +344,24 @@ function RedWorkflows({ summary, now }: { summary: EcosystemSummary; now: number
   const rows = summary.red_workflows;
   return (
     <section id="red-workflows" className="mt-14 scroll-mt-24">
-      <SectionHead title="Red workflows" note={rows.length ? `${rows.length} latest runs not passing` : undefined} />
+      <SectionHead
+        id="red-workflows-heading"
+        title="Red workflows"
+        note={rows.length ? `${rows.length} latest runs not passing` : undefined}
+      />
       {rows.length === 0 ? (
         <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
           <Chip tone="success">none</Chip>
           Every tracked workflow&rsquo;s latest run passed.
         </p>
       ) : (
-        <div className="mt-4 overflow-x-auto rounded-md border border-border bg-card">
-          <table className="w-full min-w-[36rem] text-left text-sm">
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Red workflows table, scrollable"
+          className={`mt-4 overflow-x-auto ${scrollRegion}`}
+        >
+          <table aria-labelledby="red-workflows-heading" className="w-full min-w-[36rem] text-left text-sm">
             <thead>
               <tr className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
                 {["Repo", "Workflow", "Conclusion", "Date", "Run"].map((h) => (
