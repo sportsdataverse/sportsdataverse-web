@@ -16,9 +16,14 @@ type Listed = { title?: unknown; repoType?: unknown };
 
 const onCran = (p: Listed) => p.repoType === "R" && CRAN_PACKAGES.has(String(p.title ?? ""));
 
-/** CRAN's DOI for a package on CRAN (it resolves to the CRAN page), else null. */
-export function cranDoiHref(p: Listed): string | null {
-  return onCran(p) ? `https://doi.org/10.32614/CRAN.package.${String(p.title)}` : null;
+/** CRAN's canonical package URL for a package on CRAN, else null. */
+export function cranHref(p: Listed): string | null {
+  return onCran(p) ? `https://CRAN.R-project.org/package=${String(p.title)}` : null;
+}
+
+/** The DOI CRAN mints for a package on CRAN, else null. */
+export function cranDoi(p: Listed): string | null {
+  return onCran(p) ? `10.32614/CRAN.package.${String(p.title)}` : null;
 }
 
 /**
