@@ -53,15 +53,16 @@ export default function PackageCard({ pkg }: { pkg: PackageDoc }) {
                 {pkg.sports} &middot; {pkg.repoType}
               </span>
             ) : null}
-            {cran ? (
-              <a href={cran} aria-label={`${pkg.title} on CRAN`} className={outlinePill}>
-                CRAN
-              </a>
-            ) : null}
-            {doi ? (
-              <a href={`https://doi.org/${doi}`} title={`DOI ${doi}`} aria-label={`DOI ${doi}`} className={outlinePill}>
-                DOI
-              </a>
+            {cran && doi ? (
+              // one unit, so a long category pill wraps CRAN and DOI together
+              <span className="inline-flex gap-1.5">
+                <a href={cran} aria-label={`${pkg.title} on CRAN`} className={outlinePill}>
+                  CRAN
+                </a>
+                <a href={`https://doi.org/${doi}`} title={`DOI ${doi}`} aria-label={`DOI ${doi}`} className={outlinePill}>
+                  DOI
+                </a>
+              </span>
             ) : null}
           </div>
         ) : null}
