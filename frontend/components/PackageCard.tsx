@@ -4,10 +4,12 @@ import { Github, FileText, Database, FileDown } from "lucide-react";
 import { Card } from "@components/ui/card";
 import { Button } from "@components/ui/button";
 import { cheatsheetHref } from "@lib/cheatsheets";
+import { cranDoiHref } from "@lib/packageOrder";
 import type { PackageDoc } from "@lib/packageSchema";
 
 export default function PackageCard({ pkg }: { pkg: PackageDoc }) {
   const cheatsheet = cheatsheetHref(pkg.title, pkg.repoType);
+  const cranDoi = cranDoiHref(pkg);
   return (
     <Card className="group relative h-full overflow-hidden border-transparent bg-card/90 shadow-sm backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl">
       {/* SDV-blue accent bar */}
@@ -40,10 +42,24 @@ export default function PackageCard({ pkg }: { pkg: PackageDoc }) {
             />
           )
         ) : null}
-        {pkg.repoType ? (
-          <span className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
-            {pkg.sports} &middot; {pkg.repoType}
-          </span>
+        {pkg.repoType || cranDoi ? (
+          <div className="flex flex-wrap items-center justify-center gap-1.5">
+            {pkg.repoType ? (
+              <span className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                {pkg.sports} &middot; {pkg.repoType}
+              </span>
+            ) : null}
+            {cranDoi ? (
+              <a
+                href={cranDoi}
+                title={cranDoi.replace("https://doi.org/", "DOI ")}
+                aria-label={`${pkg.title} on CRAN (DOI)`}
+                className="rounded-full border border-primary/40 px-2 py-0.5 text-xs font-semibold tracking-wide text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                CRAN
+              </a>
+            ) : null}
+          </div>
         ) : null}
         {pkg.content ? (
           <p className="font-inter text-center text-sm text-muted-foreground">

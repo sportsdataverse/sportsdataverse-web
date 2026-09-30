@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { packageOrder } from '../lib/packageOrder.ts';
+import { cranDoiHref, packageOrder } from '../lib/packageOrder.ts';
 
 const r = (title: string) => ({ title, repoType: 'R' });
 
@@ -16,4 +16,10 @@ test('CRAN tier is R-only: a same-named package in another ecosystem stays alpha
     .sort(packageOrder)
     .map((p) => p.title);
   assert.deepEqual(titles, ['aaa', 'hoopR']);
+});
+
+test('CRAN badge links the CRAN DOI for R packages on CRAN only', () => {
+  assert.equal(cranDoiHref(r('hoopR')), 'https://doi.org/10.32614/CRAN.package.hoopR');
+  assert.equal(cranDoiHref(r('sdvplotR')), null);
+  assert.equal(cranDoiHref({ title: 'hoopR', repoType: 'Python' }), null);
 });
