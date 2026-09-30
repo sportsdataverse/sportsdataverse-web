@@ -1,8 +1,15 @@
 import type { Metadata } from "next";
+import { ogMetadata } from "@lib/ogSummary";
 import { parseTrendsView, toSearchParams } from "@lib/platform/viewState";
 import TrendsClient from "./TrendsClient";
 
-export const metadata: Metadata = { title: "Trends" };
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  return ogMetadata("trends", toSearchParams(await searchParams));
+}
 
 export default async function PlatformTrendsPage({
   searchParams,

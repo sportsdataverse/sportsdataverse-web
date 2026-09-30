@@ -1,8 +1,15 @@
 import type { Metadata } from "next";
+import { ogMetadata } from "@lib/ogSummary";
 import { parseWpView, toSearchParams } from "@lib/platform/viewState";
 import WpClient from "./WpClient";
 
-export const metadata: Metadata = { title: "Win probability" };
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  return ogMetadata("wp", toSearchParams(await searchParams));
+}
 
 export default async function PlatformWpPage({
   searchParams,

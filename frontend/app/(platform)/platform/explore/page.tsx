@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
+import { ogMetadata } from "@lib/ogSummary";
 import { classifyReleaseTag } from "@content/platform";
 import { listRepoReleases } from "@lib/platform/github";
 import { parseExploreView, parseGridView, toSearchParams } from "@lib/platform/viewState";
 import ExploreClient from "./ExploreClient";
 import type { DatasetOption } from "./ExploreClient";
 
-export const metadata: Metadata = { title: "Explore" };
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  return ogMetadata("explore", toSearchParams(await searchParams));
+}
 
 const DATA_REPO = "sportsdataverse/sportsdataverse-data";
 

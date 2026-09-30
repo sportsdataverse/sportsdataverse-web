@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
+import { ogMetadata } from "@lib/ogSummary";
 import { dataApi } from "@lib/platform/orch";
 import { parseGridView, parseQueryView, toSearchParams } from "@lib/platform/viewState";
 import QueryBuilder from "@components/platform/QueryBuilder";
 
-export const metadata: Metadata = { title: "Query" };
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  return ogMetadata("query", toSearchParams(await searchParams));
+}
 
 export default async function QueryPage({
   searchParams,
