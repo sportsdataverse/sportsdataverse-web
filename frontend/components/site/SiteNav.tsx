@@ -22,13 +22,14 @@ const LINKS = [
   { href: "/blog", label: "Blog" },
   { href: "/about", label: "About" },
   { href: "/stats", label: "Stats" },
+  { href: "/status", label: "Status" },
 ];
 
 /**
- * The reference material, grouped rather than added as a seventh flat link.
+ * The reference material, grouped rather than added as flat links.
  * Snippets moves in here from the top level, and `/resources` — a page that
  * existed but was reachable from nothing in the nav — is surfaced alongside
- * it, so the bar keeps six slots while gaining two destinations.
+ * it, so the bar gains two destinations without two more slots.
  */
 const LEARN_LINKS = [
   {
