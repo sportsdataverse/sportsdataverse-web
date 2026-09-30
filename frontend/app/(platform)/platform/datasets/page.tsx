@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { requireOrgMember } from "@lib/platform/auth";
 import { PLATFORM_REPOS } from "@content/platform";
 import { listRepoReleases, settlePool } from "@lib/platform/github";
 import DatasetsClient from "./DatasetsClient";
@@ -10,6 +11,7 @@ export const metadata: Metadata = { title: "Datasets" };
 const DATA_MONOREPO = "sportsdataverse/sportsdataverse-data";
 
 export default async function PlatformDatasetsPage() {
+  if (!(await requireOrgMember())) return null;
   const tracked = PLATFORM_REPOS.filter((r) => r.hasReleases);
   const settled = await settlePool(tracked, (r) => listRepoReleases(r.repo));
   const repos: RepoReleases[] = tracked.map((entry, i) => {
