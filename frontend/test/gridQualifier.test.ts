@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  belowNote, belowQualifier, categoryOf, exploreSource, nSiblings, QUALIFIER_VOLUME, qualifierMin,
+  belowNote, belowQualifier, categoryOf, exploreSource, metricColumns, nSiblings, QUALIFIER_VOLUME, qualifierMin,
 } from '../lib/platform/gridQualifier.ts';
+import { columnDomain } from '../lib/platform/scales.ts';
 
 test('nSiblings maps X to X_n, and ignores an X_n without its X', () => {
   assert.deepEqual(nSiblings(['EPAplay', 'EPAplay_n', 'fg_n']), new Map([[0, 1]]));
@@ -99,4 +100,38 @@ test('qualifierMin reads the NFL’s league level; none (null) for a team catego
 test('the # cell explains a faded row in the gate’s own terms', () => {
   assert.equal(belowNote('40', '5', 14, 'dropbacks'), '40 dropbacks in 5 team games, below the qualifier (14 per team game = 70)');
   assert.equal(belowNote('9', '12', 1.875, 'plays'), '9 plays in 12 team games, below the qualifier (1.875 per team game = 22.5)');
+});
+
+test('metric columns come from the column type and name, never from the values’ spread', () => {
+  const cols = ['player_id', 'passer_player_name', 'season', 'team_games', 'dropbacks', 'EPAplay'];
+  // the Data API's types (Postgres) and Explore's (DuckDB)
+  const pg = { player_id: 'bigint', passer_player_name: 'text', season: 'bigint', team_games: 'bigint', dropbacks: 'bigint', EPAplay: 'double precision' };
+  const duck = { player_id: 'BIGINT', passer_player_name: 'VARCHAR', season: 'INTEGER', team_games: 'HUGEINT', dropbacks: 'DECIMAL(18,3)', EPAplay: 'DOUBLE' };
+  const rows = [
+    ['1', 'Ann', '2025', '12', '40', '0.31'], // below: 40 < 14 x 12
+    ['2', 'Bo', '2025', '12', '200', '0.12'],
+  ];
+  for (const types of [pg, duck]) {
+    const metric = metricColumns(cols, rows, types);
+    assert.deepEqual([...metric].sort(), [3, 4, 5]);
+    // a 2-row result: the below row fades its metric cells, which a spread-based rule would not (too few values)
+    const below = rows.map((r) => belowQualifier(r[4], r[3], 14));
+    assert.deepEqual(below, [true, false]);
+    const faded = rows.flatMap((_, i) => (below[i] ? cols.map((c, ci) => (metric.has(ci) ? c : null)).filter(Boolean) : []));
+    assert.deepEqual(faded, ['team_games', 'dropbacks', 'EPAplay']);
+    assert.equal(columnDomain(rows.map((r) => r[4]), 'dropbacks'), null);
+  }
+  // one team: a constant team_games is still a metric
+  assert.ok(metricColumns(['team_games'], [['12'], ['12'], ['12'], ['12'], ['12']], { team_games: 'bigint' }).has(0));
+  // real, integer, smallint, numeric, UBIGINT, int8, FLOAT
+  const more = { a: 'real', b: 'integer', c: 'smallint', d: 'numeric', e: 'UBIGINT', f: 'int8', g: 'FLOAT' };
+  assert.deepEqual([...metricColumns(Object.keys(more), [], more)], [0, 1, 2, 3, 4, 5, 6]);
+  // an interval or a timestamp starts like a number type and is not one
+  assert.deepEqual([...metricColumns(['i', 'ts'], [], { i: 'INTERVAL', ts: 'timestamp without time zone' })], []);
+  // not a metric: text, booleans, dates, ids and keys (the heat tint's own rule), whatever their type
+  assert.deepEqual([...metricColumns(['t', 'b', 'd', 'team_id', 'week', 'game_id', 'year'], [], {
+    t: 'text', b: 'boolean', d: 'date', team_id: 'bigint', week: 'integer', game_id: 'bigint', year: 'integer',
+  })], []);
+  // no type known (a result before its table's types load): every value a finite number
+  assert.deepEqual([...metricColumns(['n', 'x', 'e', 'none'], [['1.5', 'a', null, null], ['', 'b', null, null]], {})], [0]);
 });

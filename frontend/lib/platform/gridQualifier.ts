@@ -7,6 +7,7 @@
  * non-qualifier's `X_pct` is null; the grid fades that row and `q` hides it.
  */
 import { formatValue } from "./trends.ts";
+import { KEY_COLUMN } from "./scales.ts";
 
 /** `X`'s column index → its `X_n` sample-size column's; an `X_n` without its `X` is ignored. */
 export function nSiblings(columns: string[]): Map<number, number> {
@@ -17,6 +18,25 @@ export function nSiblings(columns: string[]): Map<number, number> {
     if (base !== undefined) out.set(base, i);
   });
   return out;
+}
+
+/** A numeric type as the Data API (Postgres) and DuckDB name one. */
+const NUMERIC_TYPE = /^((tiny|small|big|huge|u(tiny|small|big|huge)?)?int(eger)?\d*|double|float\d*|real|numeric|decimal)\b/i;
+
+/** The columns a row below the qualifier fades: a numeric type (or, with no type known, every value a
+ *  finite number) and not a key (KEY_COLUMN). Never the values' spread, so a 2-row lookup or a constant
+ *  team_games fades like any other. */
+export function metricColumns(columns: string[], rows: (string | null)[][], types?: Record<string, string>): Set<number> {
+  const numericValues = (c: number) => {
+    const vals = rows.map((r) => r[c]).filter((v): v is string => v != null && v.trim() !== "");
+    return vals.length > 0 && vals.every((v) => Number.isFinite(Number(v)));
+  };
+  return new Set(
+    columns.flatMap((name, c) => {
+      const type = types?.[name];
+      return !KEY_COLUMN.test(name) && (type ? NUMERIC_TYPE.test(type) : numericValues(c)) ? [c] : [];
+    })
+  );
 }
 
 /** Each category's volume column. The source of truth is cfb-data

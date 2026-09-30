@@ -81,6 +81,13 @@ them; Tailwind classes `fill-chart-*` / `stroke-chart-*` / `bg-chart-*`).
 - A highlighted scatter (Scatter's chips) draws every non-matching mark in
   `muted-foreground` at 15% opacity with no ring; the matches take their
   chip's slot (`chart-cat-1`–`3`) at full opacity with the surface ring.
+- A leaderboard row below its qualifier (ResultsGrid) draws its metric cells
+  at 60% opacity with no heat tint; its ids, names and text stay whole, and a
+  selected or chart-linked row and the focused cell read whole (their tints
+  would take the faded text under 4.5:1). Faded `foreground` measures 4.75:1
+  light / 6.05:1 dark on `card`, and at worst 4.57 / 5.84:1 on a hovered row in
+  the sorted column (`muted` at 60% and 40% under it). Don't go lower: 50%
+  computes to about 3.4:1 light on `card`.
 
 Amber discipline: the scoreboard amber appears in at most three places per
 view (ticker, one active marker, one underline). It is never body text on
