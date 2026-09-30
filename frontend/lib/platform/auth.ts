@@ -61,8 +61,9 @@ export async function requireMember(
  * Router renders a layout and its page in parallel and ships the page's output
  * in the RSC payload even when the layout never displays it. So every async
  * page starts with `if (!(await requireOrgMember())) return null;`, before any
- * read (test/platformPageGuard.test.ts). `generateMetadata` is left unguarded
- * so link unfurls keep their titles.
+ * read (test/platformPageGuard.test.ts). `generateMetadata` may use only route
+ * params; one that reads data is guarded too and returns a generic title signed
+ * out (runs/[id]), since link unfurls are always signed out.
  */
 export async function requireOrgMember(): Promise<Session | null> {
   const session = await auth();
