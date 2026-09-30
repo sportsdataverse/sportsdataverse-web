@@ -3,6 +3,7 @@ import { connectToDatabase } from "@lib/mongodb";
 import { PUBLIC_PACKAGE_FILTER, PUBLIC_PACKAGE_PROJECTION } from "@lib/packageVisibility";
 import pageMeta from "@content/meta";
 import { packageOrder } from "@lib/packageOrder";
+import { loadEcosystemSummary, pipelinesByPackage } from "@lib/ecosystemStatus";
 import PackagesClient from "./PackagesClient";
 
 export const metadata: Metadata = {
@@ -16,6 +17,9 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function PackagesPage() {
+  // The public status snapshot (fetch-cached for an hour; null → no badges),
+  // read once here and handed down as a plain map — never per card, never from the client.
+  const summary = loadEcosystemSummary();
   // Same hardening as the old gSSP: a failed query renders empty sections
   // rather than a 500.
   let pkgs: any[] = [];
@@ -56,6 +60,7 @@ export default async function PackagesPage() {
       rversePackages={rversePackages}
       pyPackages={pyPackages}
       jsPackages={jsPackages}
+      pipelines={pipelinesByPackage(await summary)}
     />
   );
 }

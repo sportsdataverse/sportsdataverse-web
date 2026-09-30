@@ -149,8 +149,8 @@ test('producers by state', () => {
 test('package → producer lookup is case-insensitive and keeps snapshot order', () => {
   const map = pipelinesByPackage(normalizeSummary(fixture));
   assert.deepEqual(map.wehoop, [
-    { repo: 'sportsdataverse/wehoop-wnba-data', anchor: 'wehoop-wnba-data', state: 'fresh' },
-    { repo: 'sportsdataverse/wehoop-wbb-data', anchor: 'wehoop-wbb-data', state: 'idle' },
+    { repo: 'sportsdataverse/wehoop-wnba-data', anchor: 'wehoop-wnba-data', sport: 'WNBA', state: 'fresh' },
+    { repo: 'sportsdataverse/wehoop-wbb-data', anchor: 'wehoop-wbb-data', sport: 'WBB', state: 'idle' },
   ]);
   assert.deepEqual(map.hoopr.map((p) => p.anchor), ['hoopR-nba-data']);
   assert.equal(map.sportsdataverse.length, 5);

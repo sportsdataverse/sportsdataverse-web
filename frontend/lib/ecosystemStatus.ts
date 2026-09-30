@@ -309,7 +309,7 @@ export function trackedTagCount(summary: EcosystemSummary): number {
   );
 }
 
-export type PipelineLink = { repo: string; anchor: string; state: ProducerState };
+export type PipelineLink = { repo: string; anchor: string; sport: string; state: ProducerState };
 
 /**
  * Package title (lower-cased) → the producers whose `packages[]` name it, in
@@ -322,7 +322,12 @@ export function pipelinesByPackage(
   for (const p of summary?.producers ?? []) {
     for (const name of p.packages) {
       const key = name.toLowerCase();
-      (out[key] ??= []).push({ repo: p.repo, anchor: producerAnchor(p.repo), state: p.state });
+      (out[key] ??= []).push({
+        repo: p.repo,
+        anchor: producerAnchor(p.repo),
+        sport: p.sport,
+        state: p.state,
+      });
     }
   }
   return out;
