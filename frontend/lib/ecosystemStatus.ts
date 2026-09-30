@@ -312,8 +312,9 @@ export function trackedTagCount(summary: EcosystemSummary): number {
 export type PipelineLink = { repo: string; anchor: string; sport: string; state: ProducerState };
 
 /**
- * Package title (lower-cased) → the producers whose `packages[]` name it, in
- * snapshot order. A plain object so a server page can hand it to client cards.
+ * Loader repo name (lower-cased; `producers[].packages[]` holds GitHub repo
+ * names such as `hoopR` or `sportsdataverse-py`) → the producers that name it,
+ * in snapshot order. A plain object so a server page can hand it to client cards.
  */
 export function pipelinesByPackage(
   summary: EcosystemSummary | null
@@ -331,6 +332,36 @@ export function pipelinesByPackage(
     }
   }
   return out;
+}
+
+/** Shared by the R, Python and Node flagship cards, so never a lookup key on its own. */
+const SHARED_TITLE = "sportsdataverse";
+
+/**
+ * A package card's key into `pipelinesByPackage`: the repo name at the end of
+ * its `sourceHref` (`…/sportsdataverse-py/` → `sportsdataverse-py`; the owner
+ * is ignored, e.g. BillPetti/baseballr). Only without a usable `sourceHref`
+ * does it fall back to the title, and never to the shared flagship title.
+ */
+export function packageKey(pkg: { sourceHref?: unknown; title?: unknown }): string | null {
+  try {
+    const seg = new URL(String(pkg.sourceHref)).pathname.split("/").filter(Boolean).pop();
+    const name = seg?.replace(/\.git$/i, "").toLowerCase();
+    if (name) return name;
+  } catch {
+    // no usable sourceHref: fall through to the title
+  }
+  const title = typeof pkg.title === "string" ? pkg.title.trim().toLowerCase() : "";
+  return title && title !== SHARED_TITLE ? title : null;
+}
+
+/** The producers behind one package card, or undefined when it reads none. */
+export function pipelinesForPackage(
+  pipelines: Record<string, PipelineLink[]>,
+  pkg: { sourceHref?: unknown; title?: unknown }
+): PipelineLink[] | undefined {
+  const key = packageKey(pkg);
+  return key !== null && Object.hasOwn(pipelines, key) ? pipelines[key] : undefined;
 }
 
 /** The release-freshness filter: free text over tag + producer, plus an exact producer pick. */

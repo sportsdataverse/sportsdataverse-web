@@ -12,7 +12,7 @@
     {
       "repo": "sportsdataverse/cfbfastR-cfb-data",
       "sport": "CFB",
-      "packages": ["cfbfastR", "sportsdataverse"],
+      "packages": ["cfbfastR", "sportsdataverse-py", "sportsdataverse-R"],
       "state": "fresh",
       "in_season": true,
       "updated_at": "2026-09-29T10:11:04Z",
@@ -32,7 +32,7 @@
     {
       "repo": "sportsdataverse/wehoop-wnba-data",
       "sport": "WNBA",
-      "packages": ["wehoop", "sportsdataverse"],
+      "packages": ["wehoop", "sportsdataverse-py", "sportsdataverse-R"],
       "state": "fresh",
       "in_season": true,
       "updated_at": "2026-09-29T10:41:13Z",
@@ -52,7 +52,7 @@
     {
       "repo": "sportsdataverse/wehoop-wbb-data",
       "sport": "WBB",
-      "packages": ["wehoop", "sportsdataverse"],
+      "packages": ["wehoop", "sportsdataverse-py", "sportsdataverse-R", "sportsdataverse-js"],
       "state": "idle",
       "in_season": false,
       "updated_at": "2026-08-18T12:49:42Z",
@@ -80,7 +80,7 @@
     {
       "repo": "sportsdataverse/fastRhockey-nhl-data",
       "sport": "NHL",
-      "packages": ["fastRhockey", "sportsdataverse"],
+      "packages": ["fastRhockey", "sportsdataverse-py"],
       "state": "stale",
       "in_season": true,
       "updated_at": "2026-09-09T11:00:19Z",
@@ -100,7 +100,7 @@
     {
       "repo": "sportsdataverse/hoopR-nba-data",
       "sport": "NBA",
-      "packages": ["hoopR", "sportsdataverse"],
+      "packages": ["hoopR", "sportsdataverse-py", "sportsdataverse-R", "sportsdataverse-js"],
       "state": "failing",
       "in_season": false,
       "updated_at": "2026-09-15T07:57:43Z",
@@ -225,7 +225,6 @@
   ],
   "unmapped_tags": ["amf_tracking_parquet", "odds_lines_legacy"],
   "release_tags": [
-    { "tag": "espn_cfb_player_boxscores", "producer": "sportsdataverse/cfbfastR-cfb-data", "assets": 0, "newest_asset_at": null, "max_season": null },
     { "tag": "amf_tracking_parquet", "producer": null, "assets": 128, "newest_asset_at": "2024-11-18T08:20:06Z", "max_season": 2023 },
     { "tag": "odds_lines_legacy", "producer": null, "assets": 9, "newest_asset_at": "2025-02-03T17:44:10Z", "max_season": 2024 },
     { "tag": "pwhl_game_info", "producer": "sportsdataverse/fastRhockey-pwhl-data", "assets": 13, "newest_asset_at": "2026-07-22T21:39:34Z", "max_season": 2026 },
@@ -242,6 +241,7 @@
     { "tag": "espn_cfb_schedules", "producer": "sportsdataverse/cfbfastR-cfb-data", "assets": 95, "newest_asset_at": "2026-09-29T09:30:18Z", "max_season": 2026 },
     { "tag": "espn_cfb_adv_team", "producer": "sportsdataverse/cfbfastR-cfb-data", "assets": 73, "newest_asset_at": "2026-09-29T09:32:36Z", "max_season": 2026 },
     { "tag": "cfb_rolling_windows", "producer": "sportsdataverse/cfbfastR-cfb-data", "assets": 73, "newest_asset_at": "2026-09-29T10:11:04Z", "max_season": 2026 },
-    { "tag": "espn_wnba_rosters", "producer": "sportsdataverse/wehoop-wnba-data", "assets": 14, "newest_asset_at": "2026-09-29T10:41:13Z", "max_season": 2026 }
+    { "tag": "espn_wnba_rosters", "producer": "sportsdataverse/wehoop-wnba-data", "assets": 14, "newest_asset_at": "2026-09-29T10:41:13Z", "max_season": 2026 },
+    { "tag": "espn_cfb_player_boxscores", "producer": "sportsdataverse/cfbfastR-cfb-data", "assets": 0, "newest_asset_at": null, "max_season": null }
   ]
 }

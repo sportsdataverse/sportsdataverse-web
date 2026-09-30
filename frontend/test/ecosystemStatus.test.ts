@@ -9,7 +9,9 @@ import {
   loadEcosystemSummary,
   matchesReleaseFilter,
   normalizeSummary,
+  packageKey,
   pipelinesByPackage,
+  pipelinesForPackage,
   relativeAge,
   runLabel,
   stateCounts,
@@ -32,7 +34,8 @@ test('the fixture normalises in full', () => {
   assert.deepEqual(s.unmapped_tags, ['amf_tracking_parquet', 'odds_lines_legacy']);
   assert.equal(s.release_tags.length, 18);
   assert.equal(s.release_tags.filter((t) => t.producer === null).length, 2);
-  assert.equal(s.release_tags[0].newest_asset_at, null, 'stalest first: an empty tag leads');
+  assert.equal(s.release_tags[0].tag, 'amf_tracking_parquet', 'stalest first: the oldest dated tag leads');
+  assert.equal(s.release_tags.at(-1)?.assets, 0, 'empty tags sort last');
   assert.equal(s.totals.repos, 79);
   assert.equal(trackedTagCount(s), 18);
 });
@@ -146,16 +149,48 @@ test('producers by state', () => {
   assert.deepEqual(stateCounts(s.producers), { fresh: 2, idle: 1, stale: 1, failing: 1, unknown: 1 });
 });
 
-test('package → producer lookup is case-insensitive and keeps snapshot order', () => {
+test('producer map: keyed by loader repo name, lower-cased, in snapshot order', () => {
   const map = pipelinesByPackage(normalizeSummary(fixture));
   assert.deepEqual(map.wehoop, [
     { repo: 'sportsdataverse/wehoop-wnba-data', anchor: 'wehoop-wnba-data', sport: 'WNBA', state: 'fresh' },
     { repo: 'sportsdataverse/wehoop-wbb-data', anchor: 'wehoop-wbb-data', sport: 'WBB', state: 'idle' },
   ]);
-  assert.deepEqual(map.hoopr.map((p) => p.anchor), ['hoopR-nba-data']);
-  assert.equal(map.sportsdataverse.length, 5);
-  assert.equal(map.oddsapir, undefined, 'a package with no producer gets nothing');
+  assert.equal(map.sportsdataverse, undefined, 'no bucket for the shared flagship title');
   assert.deepEqual(pipelinesByPackage(null), {});
+});
+
+// Card shapes as /packages holds them (real sourceHrefs carry a trailing slash).
+const map = pipelinesByPackage(normalizeSummary(fixture));
+const anchors = (pkg: { sourceHref?: string; title?: string }) =>
+  (pipelinesForPackage(map, pkg) ?? []).map((p) => p.anchor);
+
+test('a card matches on the repo named by its sourceHref, not its title', () => {
+  const py = anchors({ title: 'sportsdataverse', sourceHref: 'https://github.com/sportsdataverse/sportsdataverse-py' });
+  assert.deepEqual(py, ['cfbfastR-cfb-data', 'wehoop-wnba-data', 'wehoop-wbb-data', 'fastRhockey-nhl-data', 'hoopR-nba-data']);
+  const js = anchors({ title: 'sportsdataverse', sourceHref: 'https://github.com/sportsdataverse/sportsdataverse-js/' });
+  assert.deepEqual(js, ['wehoop-wbb-data', 'hoopR-nba-data'], 'only producers listing sportsdataverse-js');
+});
+
+test('the R flagship card gets only producers listing sportsdataverse-R, none of the Python-only ones', () => {
+  const r = anchors({ title: 'sportsdataverse', sourceHref: 'https://github.com/sportsdataverse/sportsdataverse-R/' });
+  assert.deepEqual(r, ['cfbfastR-cfb-data', 'wehoop-wnba-data', 'wehoop-wbb-data', 'hoopR-nba-data']);
+  assert.ok(!r.includes('fastRhockey-nhl-data'), 'listed for sportsdataverse-py only');
+});
+
+test('no usable sourceHref: title fallback, but never for the shared title sportsdataverse', () => {
+  assert.deepEqual(anchors({ title: 'sportsdataverse' }), []);
+  assert.deepEqual(anchors({ title: 'sportsdataverse', sourceHref: 'not a url' }), []);
+  assert.deepEqual(anchors({ title: 'sportsdataverse', sourceHref: 'https://github.com/' }), []);
+  assert.deepEqual(anchors({ title: 'hoopR' }), ['hoopR-nba-data'], 'a distinct title still falls back');
+  assert.equal(packageKey({ title: 'sportsdataverse' }), null);
+});
+
+test('matching is case-insensitive and tolerates .git, trailing slashes and another owner', () => {
+  assert.deepEqual(anchors({ title: 'x', sourceHref: 'https://github.com/sportsdataverse/cfbfastr' }), ['cfbfastR-cfb-data']);
+  assert.equal(packageKey({ sourceHref: 'https://github.com/sportsdataverse/cfbfastR.git' }), 'cfbfastr');
+  assert.equal(packageKey({ sourceHref: 'https://github.com/BillPetti/baseballr/' }), 'baseballr');
+  assert.deepEqual(anchors({ title: 'oddsapiR', sourceHref: 'https://github.com/sportsdataverse/oddsapiR/' }), [], 'no producer, nothing');
+  assert.equal(pipelinesForPackage(map, { title: 'x', sourceHref: 'https://github.com/o/constructor' }), undefined, 'own keys only');
 });
 
 test('release-tag filter: text over tag + producer, and an exact producer pick', () => {
