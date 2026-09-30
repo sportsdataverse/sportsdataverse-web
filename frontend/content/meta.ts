@@ -22,6 +22,13 @@ const pageMeta: PageMeta = {
     image: "https://raw.githubusercontent.com/sportsdataverse/sportsdataverse-web/main/frontend/public/logo/cover.png",
     keywords: "stats, Statistics",
   },
+  status: {
+    title: "Status",
+    description:
+      "Data freshness and pipeline status for every public SportsDataverse producer, package and sportsdataverse-data release, from a nightly snapshot.",
+    image: "https://raw.githubusercontent.com/sportsdataverse/sportsdataverse-web/main/frontend/public/logo/cover.png",
+    keywords: "status, data freshness, pipelines, releases, sportsdataverse-data",
+  },
   blog: {
     title: "Blog",
     description:

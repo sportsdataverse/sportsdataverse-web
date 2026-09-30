@@ -123,6 +123,7 @@ export type PageMeta = {
   home: PageData;
   packages: PageData;
   stats: PageData;
+  status: PageData;
   blog: PageData;
   bookmark: PageData;
   projects: PageData;
