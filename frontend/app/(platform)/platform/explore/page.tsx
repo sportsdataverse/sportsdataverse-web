@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { requireOrgMember } from "@lib/platform/auth";
 import { classifyReleaseTag } from "@content/platform";
 import { listRepoReleases } from "@lib/platform/github";
 import { parseExploreView, parseGridView, toSearchParams } from "@lib/platform/viewState";
@@ -14,6 +15,7 @@ export default async function PlatformExplorePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  if (!(await requireOrgMember())) return null;
   const sp = toSearchParams(await searchParams);
   const initial = parseExploreView(sp);
   // JSX is constructed once, after the try/catch, so a render error here would

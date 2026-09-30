@@ -1,5 +1,6 @@
 import { cache } from "react";
 import type { Metadata } from "next";
+import { requireOrgMember } from "@lib/platform/auth";
 import { getRun } from "@lib/platform/runs";
 import RunDetailClient from "./RunDetailClient";
 
@@ -15,6 +16,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function PlatformRunDetailPage({ params }: Params) {
+  if (!(await requireOrgMember())) return null;
   const { id } = await params;
   const run = await getRunCached(id);
   return <RunDetailClient run={run} />;

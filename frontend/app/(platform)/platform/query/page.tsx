@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { requireOrgMember } from "@lib/platform/auth";
 import { dataApi } from "@lib/platform/orch";
 import { parseGridView, parseQueryView, toSearchParams } from "@lib/platform/viewState";
 import QueryBuilder from "@components/platform/QueryBuilder";
@@ -10,6 +11,7 @@ export default async function QueryPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  if (!(await requireOrgMember())) return null;
   const res = await dataApi("/v1/schemas");
   const schemas: string[] = res.ok ? (await res.json()).schemas : [];
   const sp = toSearchParams(await searchParams);

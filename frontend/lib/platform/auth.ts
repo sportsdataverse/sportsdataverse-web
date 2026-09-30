@@ -54,6 +54,22 @@ export async function requireMember(
 }
 
 /**
+ * Server-component gate for /platform pages: the session when the viewer is an
+ * active org member (the platform layout's rule), else null.
+ *
+ * The layout's <SignInGate/> does not stop a page's own server reads: App
+ * Router renders a layout and its page in parallel and ships the page's output
+ * in the RSC payload even when the layout never displays it. So every async
+ * page starts with `if (!(await requireOrgMember())) return null;`, before any
+ * read (test/platformPageGuard.test.ts). `generateMetadata` is left unguarded
+ * so link unfurls keep their titles.
+ */
+export async function requireOrgMember(): Promise<Session | null> {
+  const session = await auth();
+  return session?.isOrgMember ? session : null;
+}
+
+/**
  * Route-handler gate: `const { session, deny } = await requireMemberApp();
  * if (deny) return deny;` — deny is a ready 401 JSON response.
  */
@@ -61,8 +77,8 @@ export async function requireMemberApp(): Promise<
   | { session: Session; deny: null }
   | { session: null; deny: NextResponse }
 > {
-  const session = await auth();
-  if (!session?.isOrgMember) {
+  const session = await requireOrgMember();
+  if (!session) {
     return {
       session: null,
       deny: NextResponse.json(
