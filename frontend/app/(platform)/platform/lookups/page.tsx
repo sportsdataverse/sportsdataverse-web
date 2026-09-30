@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
+import { ogMetadata } from "@lib/ogSummary";
 import { requireOrgMember } from "@lib/platform/auth";
 import { parseLookupsView, toSearchParams } from "@lib/platform/viewState";
 import LookupsClient from "./LookupsClient";
 
-export const metadata: Metadata = { title: "Lookups" };
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  return ogMetadata("lookups", toSearchParams(await searchParams));
+}
 
 export default async function PlatformLookupsPage({
   searchParams,
