@@ -21,6 +21,7 @@ import {
 } from "@lib/platform/viewState";
 import useUrlMirror from "@hooks/useUrlMirror";
 import { releaseAssetsFetcher } from "@lib/platform/queryRun";
+import { exploreSource } from "@lib/platform/gridQualifier";
 
 /**
  * CFBD-exporter-style data exploration: pick a dataset (release tag) → pick
@@ -78,7 +79,8 @@ export default function ExploreClient({ datasets, error, initial, initialGrid }:
   );
   const [busy, setBusy] = useState<string | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
-  const [result, setResult] = useState<QueryResult | null>(null);
+  /** `source`: the leaderboard a file's rows are, recorded when they land (a SQL result: none). */
+  const [result, setResult] = useState<(QueryResult & { source: { schema: string; table: string } | null }) | null>(null);
   const [gridView, setGridView] = useState<GridView>(initialGrid);
 
   const { data: assets, error: assetsError, isLoading: assetsLoading } = useSWR(
@@ -324,7 +326,7 @@ export default function ExploreClient({ datasets, error, initial, initialGrid }:
         pending.current = null;
         setFilters(seed.length ? seed : [{ column: "", op: "=", value: "" }]);
         const preview = await runQuery(buildSql(source, seed, limit), 500);
-        if (!cancelled) setResult(preview);
+        if (!cancelled) setResult({ ...preview, source: exploreSource(tag, effectiveStem) });
       });
     })();
     return () => {
@@ -338,7 +340,7 @@ export default function ExploreClient({ datasets, error, initial, initialGrid }:
     const statement = sqlMode ? sql : buildSql(sourceFor(pickedUrls), filters, limit);
     if (!sqlMode) setSql(statement);
     await withEngine("Querying…", async () => {
-      setResult(await runQuery(statement, 500));
+      setResult({ ...(await runQuery(statement, 500)), source: sqlMode ? null : exploreSource(tag, effectiveStem) });
     });
   }
 
@@ -612,6 +614,8 @@ export default function ExploreClient({ datasets, error, initial, initialGrid }:
                 types={Object.fromEntries(columns.map((c) => [c.name, c.type]))}
                 initialView={gridView}
                 onViewChange={setGridView}
+                // a SQL result is any shape: only the file's own rows carry its leaderboard's gate
+                source={result.source}
               />
             </div>
           ) : null}

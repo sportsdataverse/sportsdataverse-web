@@ -60,7 +60,7 @@ test('Explore ignores grid.* keys: they are never filters, and the grid reads on
   const v = parseExploreView(sp(qs));
   assert.deepEqual(v.filters, []);
   assert.equal(exploreViewParams(v).toString(), 'tag=espn_cfb_pbp&table=play_by_play');
-  assert.deepEqual(parseGridView(sp(qs)), { sort: { col: 'EPA', dir: 'desc' }, filters: { team: 'Ohio' }, tint: 'pct', pin: null });
+  assert.deepEqual(parseGridView(sp(qs)), { sort: { col: 'EPA', dir: 'desc' }, filters: { team: 'Ohio' }, tint: 'pct', pin: null, qualified: false });
 });
 
 test('an Explore link from before the grid (no grid.*) round-trips unchanged', () => {

@@ -176,13 +176,16 @@ export function percentileClass(pct: number | null, scale: 1 | 100 = 100): strin
   return "text-muted-foreground";
 }
 
+/** Identifier-ish columns (ids, seasons, years, weeks): numbers, but keys rather than measures. */
+export const KEY_COLUMN = /(^|_)(id|ids|season|year|week|game_id|play_id)$/i;
+
 /**
  * Derive a column's encoding domain from its visible values. Returns null for
  * non-numeric columns, constant columns, and identifier-ish columns (ids, years,
  * counts of one) where shading would be noise rather than signal.
  */
 export function columnDomain(values: (string | null)[], name?: string): Domain | null {
-  if (name && /(^|_)(id|ids|season|year|week|game_id|play_id)$/i.test(name)) return null;
+  if (name && KEY_COLUMN.test(name)) return null;
   const nums: number[] = [];
   for (const v of values) {
     if (v == null || v === "") continue;

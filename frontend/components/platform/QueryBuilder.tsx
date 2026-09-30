@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
 import {
@@ -115,6 +115,8 @@ export default function QueryBuilder({
   const [limit, setLimit] = useState(initial.limit);
   const [result, setResult] = useState<QueryResult | null>(null);
   const [running, setRunning] = useState(false);
+  /** The latest run's id: a response from an earlier run, or from before a schema/table switch, is dropped. */
+  const runId = useRef(0);
   const [copied, setCopied] = useState(false);
 
   // --- SQL-on-result (DuckDB over the fetched rows) ---
@@ -166,6 +168,8 @@ export default function QueryBuilder({
   // useEffect keyed on [schema, table] — same reset, no extra render cycle.
   // (That effect would also fire on mount and wipe a shared link's restored filters.)
   function resetQueryState() {
+    runId.current++; // a run still in flight is for the old table
+    setRunning(false);
     setFilters([]);
     setSelect([]);
     setOrder("");
@@ -199,6 +203,8 @@ export default function QueryBuilder({
 
   async function run() {
     if (!schema || !table) return;
+    // the names this run asked for: the response carries none, and the builder may move on before it lands
+    const asked = { id: ++runId.current, schema, table };
     setRunning(true);
     try {
       const res = await fetch(`/api/platform/query/run?${params}`);
@@ -206,14 +212,17 @@ export default function QueryBuilder({
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail ?? body?.message ?? `HTTP ${res.status}`);
       }
-      setResult((await res.json()) as QueryResult);
+      const body = (await res.json()) as QueryResult;
+      if (asked.id !== runId.current) return;
+      setResult({ ...body, schema_name: asked.schema, table: asked.table });
       setSqlResult(null);
     } catch (err) {
+      if (asked.id !== runId.current) return;
       toast.error("Query failed", {
         description: err instanceof Error ? err.message : String(err),
       });
     } finally {
-      setRunning(false);
+      if (asked.id === runId.current) setRunning(false);
     }
   }
 
@@ -684,6 +693,7 @@ export default function QueryBuilder({
                 types={columnTypes}
                 initialView={gridView}
                 onViewChange={setGridView}
+                source={{ schema: result.schema_name, table: result.table }}
               />
             )}
           </CardContent>
