@@ -226,13 +226,22 @@ export function normalizeSummary(raw: unknown): EcosystemSummary | null {
 /**
  * Fetch the snapshot, cached for an hour. `ECOSYSTEM_STATUS_URL` overrides the
  * source (a branch's raw URL, or a local fixture server). Any failure — network,
- * non-200, bad JSON, bad shape — is null, never a throw.
+ * non-200, bad JSON, bad shape, or an upstream that accepts the connection and
+ * then stalls — is null, never a throw. The deadline matters because `/packages`
+ * renders per request and awaits this: without it a stalled raw.githubusercontent
+ * would hold that page until the runtime's own timeout.
  */
+export const SUMMARY_FETCH_TIMEOUT_MS = 8000;
+
 export async function loadEcosystemSummary(
-  url: string = process.env.ECOSYSTEM_STATUS_URL || SUMMARY_URL
+  url: string = process.env.ECOSYSTEM_STATUS_URL || SUMMARY_URL,
+  timeoutMs: number = SUMMARY_FETCH_TIMEOUT_MS
 ): Promise<EcosystemSummary | null> {
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } });
+    const res = await fetch(url, {
+      next: { revalidate: 3600 },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
     if (!res.ok) return null;
     return normalizeSummary(await res.json());
   } catch {

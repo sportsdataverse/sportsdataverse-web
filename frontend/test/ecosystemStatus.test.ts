@@ -8,6 +8,7 @@ import {
   formatUtc,
   latestFileAt,
   loadEcosystemSummary,
+  SUMMARY_FETCH_TIMEOUT_MS,
   matchesReleaseFilter,
   normalizeSummary,
   packageKey,
@@ -274,6 +275,29 @@ test('loader: unreachable, non-200 and bad JSON are null; a good body normalises
     const s = await loadEcosystemSummary('https://example.test/s.json');
     assert.equal(seen, 'https://example.test/s.json');
     assert.equal(s?.producers.length, 6);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('loader: a stalled upstream is abandoned at the deadline and reads as null', async () => {
+  const realFetch = globalThis.fetch;
+  try {
+    let signal: AbortSignal | null | undefined;
+    // Never answers on its own: settles only when the caller's signal aborts.
+    globalThis.fetch = (_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        signal = init?.signal;
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+      });
+    const started = Date.now();
+    const result = await loadEcosystemSummary('https://example.test/stalled.json', 50);
+    assert.equal(result, null);
+    assert.ok(signal, 'the fetch is given an abort signal');
+    assert.ok(signal.aborted, 'the signal fired');
+    const waited = Date.now() - started;
+    assert.ok(waited < 2000, `gave up at the 50ms deadline, not the runtime's (waited ${waited}ms)`);
+    assert.ok(SUMMARY_FETCH_TIMEOUT_MS <= 10_000, 'the production deadline stays short');
   } finally {
     globalThis.fetch = realFetch;
   }
