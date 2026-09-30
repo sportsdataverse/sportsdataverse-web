@@ -82,7 +82,28 @@ test('metadata: og:url is the view path with its canonical params, og:image the 
   assert.equal(m.title, 'Win probability');
   const og = m.openGraph as { url: string; images: { url: string }[] };
   assert.equal(og.url, '/platform/wp?sport=nfl&season=2024&game=2024_01_BAL_KC');
-  assert.equal(og.images[0].url, '/api/og?view=wp&sport=nfl&season=2024&game=2024_01_BAL_KC');
+  assert.equal(og.images[0].url, '/api/og?card=wp&sport=nfl&season=2024&game=2024_01_BAL_KC');
   assert.deepEqual((m.twitter as { images: unknown[] }).images, og.images);
   assert.equal((ogMetadata('query', sp('')).openGraph as { url: string }).url, '/platform/query');
+});
+
+test('the card rendered from each image URL says what the page metadata says', () => {
+  // the image route reads its view from `card`; a view with its own `view` param (Trends) must survive
+  for (const [view, qs] of [
+    ['wp', 'sport=nfl&season=2024&game=2024_01_BAL_KC'],
+    ['trends', 'sport=nba&stat=avgPoints&season=2024&view=multiples'],
+    ['trends', 'sport=nba&stat=avgPoints&season=2024'],
+    ['explore', 'tag=espn_cfb_pbp&table=play_by_play&season=2024&sql=select+1'],
+    ['query', 'schema=cfb&table=passing'],
+    ['lookups', 'sport=cfb&mode=team'],
+    ['scatter', 'schema=nba&table=player_impact&season=2026&x=o_rapm&y=d_rapm'],
+    ['rolling', 'league=cfb&metric=epa&unit=play'],
+    ['ratings', 'league=nba&season=2026'],
+  ] as const) {
+    const m = ogMetadata(view, sp(qs));
+    const img = new URL((m.openGraph as { images: { url: string }[] }).images[0].url, 'https://x');
+    const card = ogCard(img.searchParams.get('card') ?? '', img.searchParams);
+    assert.deepEqual(card, ogCard(view, sp(qs)), `${view}?${qs}`);
+    assert.equal(img.searchParams.getAll('view').length, view === 'trends' && qs.includes('view=') ? 1 : 0, `${view}: one view param at most`);
+  }
 });

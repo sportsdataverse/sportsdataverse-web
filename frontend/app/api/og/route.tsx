@@ -17,7 +17,7 @@ const font = readFile(join(process.cwd(), "public/fonts/BarlowCondensed/BarlowCo
  *  session, and renders only a known view's name and `ogSummary`'s sanitized text. */
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
-  const { title, summary } = ogCard(sp.get("view") ?? "", sp);
+  const { title, summary } = ogCard(sp.get("card") ?? "", sp);
   return new ImageResponse(
     (
       <div

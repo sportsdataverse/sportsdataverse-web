@@ -174,7 +174,9 @@ export function ogMetadata(view: string, sp: URLSearchParams): Metadata {
   const qs = ogParams(view, sp);
   const images = [
     {
-      url: `/api/og?${new URLSearchParams([["view", view], ...qs])}`,
+      // `card`, not `view`: Trends has its own `view` (overlay | multiples), and a second
+      // `view` would be read first by the codec and drop it from the card
+      url: `/api/og?${new URLSearchParams([["card", view], ...qs])}`,
       width: 1200,
       height: 630,
       alt: summary ? `${title}: ${summary}` : title,
