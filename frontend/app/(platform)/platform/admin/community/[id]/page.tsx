@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireOrgMember } from "@lib/platform/auth";
+import { requireOrgAdmin } from "@lib/platform/auth";
 import { Suspense } from "react";
 import PersonClient from "./PersonClient";
 
@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Person" };
 
 // useSearchParams in the client (the "from" query it returns to) needs a Suspense boundary
 export default async function PlatformAdminCommunityPersonPage({ params }: { params: Promise<{ id: string }> }) {
-  if (!(await requireOrgMember())) return null;
+  if (!(await requireOrgAdmin())) return null;
   const { id } = await params;
   return (
     <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
