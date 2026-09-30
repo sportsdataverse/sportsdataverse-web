@@ -1,0 +1,247 @@
+{
+  "generated_at": "2026-09-30T09:34:12.289890+00:00",
+  "totals": {
+    "repos": 79,
+    "producers": 6,
+    "packages": 4,
+    "release_tags": 18,
+    "red_workflows": 2,
+    "unmapped_tags": 2
+  },
+  "producers": [
+    {
+      "repo": "sportsdataverse/cfbfastR-cfb-data",
+      "sport": "CFB",
+      "packages": ["cfbfastR", "sportsdataverse"],
+      "state": "fresh",
+      "in_season": true,
+      "updated_at": "2026-09-29T10:11:04Z",
+      "through_season": 2026,
+      "tags": 4,
+      "workflows": [
+        {
+          "name": "Update CFB Data",
+          "file": "daily_cfb.yml",
+          "conclusion": "success",
+          "created_at": "2026-09-29T08:25:25Z",
+          "event": "repository_dispatch",
+          "url": "https://github.com/sportsdataverse/cfbfastR-cfb-data/actions/runs/36542621691"
+        }
+      ]
+    },
+    {
+      "repo": "sportsdataverse/wehoop-wnba-data",
+      "sport": "WNBA",
+      "packages": ["wehoop", "sportsdataverse"],
+      "state": "fresh",
+      "in_season": true,
+      "updated_at": "2026-09-29T10:41:13Z",
+      "through_season": 2026,
+      "tags": 2,
+      "workflows": [
+        {
+          "name": "Update WNBA Data",
+          "file": ".github/workflows/daily_wnba.yml",
+          "conclusion": "success",
+          "created_at": "2026-09-29T10:02:51Z",
+          "event": "repository_dispatch",
+          "url": "https://github.com/sportsdataverse/wehoop-wnba-data/actions/runs/36548810220"
+        }
+      ]
+    },
+    {
+      "repo": "sportsdataverse/wehoop-wbb-data",
+      "sport": "WBB",
+      "packages": ["wehoop", "sportsdataverse"],
+      "state": "idle",
+      "in_season": false,
+      "updated_at": "2026-08-18T12:49:42Z",
+      "through_season": 2026,
+      "tags": 3,
+      "workflows": [
+        {
+          "name": "Update WBB Data",
+          "file": "daily_wbb.yml",
+          "conclusion": "success",
+          "created_at": "2026-09-09T05:21:38Z",
+          "event": "repository_dispatch",
+          "url": "https://github.com/sportsdataverse/wehoop-wbb-data/actions/runs/34314558299"
+        },
+        {
+          "name": "Weekly WBB Rosters Refresh",
+          "file": "weekly_rosters.yml",
+          "conclusion": "success",
+          "created_at": "2026-09-27T11:05:37Z",
+          "event": "schedule",
+          "url": "https://github.com/sportsdataverse/wehoop-wbb-data/actions/runs/36314620056"
+        }
+      ]
+    },
+    {
+      "repo": "sportsdataverse/fastRhockey-nhl-data",
+      "sport": "NHL",
+      "packages": ["fastRhockey", "sportsdataverse"],
+      "state": "stale",
+      "in_season": true,
+      "updated_at": "2026-09-09T11:00:19Z",
+      "through_season": 2026,
+      "tags": 2,
+      "workflows": [
+        {
+          "name": "Update NHL Data",
+          "file": "daily_nhl.yml",
+          "conclusion": "success",
+          "created_at": "2026-09-09T10:12:40Z",
+          "event": "schedule",
+          "url": "https://github.com/sportsdataverse/fastRhockey-nhl-data/actions/runs/34398761123"
+        }
+      ]
+    },
+    {
+      "repo": "sportsdataverse/hoopR-nba-data",
+      "sport": "NBA",
+      "packages": ["hoopR", "sportsdataverse"],
+      "state": "failing",
+      "in_season": false,
+      "updated_at": "2026-09-15T07:57:43Z",
+      "through_season": 2026,
+      "tags": 3,
+      "workflows": [
+        {
+          "name": "Update NBA Data",
+          "file": "daily_nba.yml",
+          "conclusion": "failure",
+          "created_at": "2026-09-15T07:45:37Z",
+          "event": "repository_dispatch",
+          "url": "https://github.com/sportsdataverse/hoopR-nba-data/actions/runs/34943349560"
+        }
+      ]
+    },
+    {
+      "repo": "sportsdataverse/fastRhockey-pwhl-data",
+      "sport": "PWHL",
+      "packages": ["fastRhockey"],
+      "state": "rebuilding",
+      "in_season": false,
+      "updated_at": "2026-07-22T21:39:58Z",
+      "through_season": 2026,
+      "tags": 2,
+      "workflows": []
+    }
+  ],
+  "packages": [
+    {
+      "repo": "sportsdataverse/cfbfastR",
+      "latest_release_tag": "v2.2.0",
+      "published_at": "2026-09-17T14:02:11Z",
+      "workflows": [
+        {
+          "name": "R-CMD-check",
+          "file": "R-CMD-check.yaml",
+          "conclusion": "success",
+          "created_at": "2026-09-27T21:17:30Z",
+          "event": "push",
+          "url": "https://github.com/sportsdataverse/cfbfastR/actions/runs/36351171002"
+        },
+        {
+          "name": "pkgdown",
+          "file": "pkgdown.yaml",
+          "conclusion": "success",
+          "created_at": "2026-09-27T21:17:30Z",
+          "event": "push",
+          "url": "https://github.com/sportsdataverse/cfbfastR/actions/runs/36351171010"
+        }
+      ]
+    },
+    {
+      "repo": "sportsdataverse/hoopR",
+      "latest_release_tag": "v3.1.0",
+      "published_at": "2026-09-12T18:40:03Z",
+      "workflows": [
+        {
+          "name": "R-CMD-check",
+          "file": "R-CMD-check.yaml",
+          "conclusion": "success",
+          "created_at": "2026-09-27T21:17:28Z",
+          "event": "push",
+          "url": "https://github.com/sportsdataverse/hoopR/actions/runs/36351168927"
+        },
+        {
+          "name": "pkgdown",
+          "file": "pkgdown.yaml",
+          "conclusion": "success",
+          "created_at": "2026-09-27T21:17:28Z",
+          "event": "push",
+          "url": "https://github.com/sportsdataverse/hoopR/actions/runs/36351168930"
+        }
+      ]
+    },
+    {
+      "repo": "sportsdataverse/wehoop",
+      "latest_release_tag": "v3.0.0",
+      "published_at": "2026-09-10T16:25:44Z",
+      "workflows": [
+        {
+          "name": "R-CMD-check",
+          "file": "R-CMD-check.yaml",
+          "conclusion": "success",
+          "created_at": "2026-09-27T21:17:32Z",
+          "event": "push",
+          "url": "https://github.com/sportsdataverse/wehoop/actions/runs/36351173549"
+        }
+      ]
+    },
+    {
+      "repo": "sportsdataverse/fastRhockey",
+      "latest_release_tag": null,
+      "published_at": null,
+      "workflows": [
+        {
+          "name": "R-CMD-check",
+          "file": "R-CMD-check.yaml",
+          "conclusion": "cancelled",
+          "created_at": "2026-09-21T03:10:55Z",
+          "event": "pull_request",
+          "url": "https://github.com/sportsdataverse/fastRhockey/actions/runs/35712007741"
+        }
+      ]
+    }
+  ],
+  "red_workflows": [
+    {
+      "repo": "sportsdataverse/hoopR-nba-data",
+      "name": "Update NBA Data",
+      "conclusion": "failure",
+      "created_at": "2026-09-15T07:45:37Z",
+      "url": "https://github.com/sportsdataverse/hoopR-nba-data/actions/runs/34943349560"
+    },
+    {
+      "repo": "sportsdataverse/wehoop-wbb-data",
+      "name": "tests",
+      "conclusion": "failure",
+      "created_at": "2026-09-26T14:08:19Z",
+      "url": "https://github.com/sportsdataverse/wehoop-wbb-data/actions/runs/36201877345"
+    }
+  ],
+  "unmapped_tags": ["amf_tracking_parquet", "odds_lines_legacy"],
+  "release_tags": [
+    { "tag": "espn_cfb_player_boxscores", "producer": "sportsdataverse/cfbfastR-cfb-data", "assets": 0, "newest_asset_at": null, "max_season": null },
+    { "tag": "amf_tracking_parquet", "producer": null, "assets": 128, "newest_asset_at": "2024-11-18T08:20:06Z", "max_season": 2023 },
+    { "tag": "odds_lines_legacy", "producer": null, "assets": 9, "newest_asset_at": "2025-02-03T17:44:10Z", "max_season": 2024 },
+    { "tag": "pwhl_game_info", "producer": "sportsdataverse/fastRhockey-pwhl-data", "assets": 13, "newest_asset_at": "2026-07-22T21:39:34Z", "max_season": 2026 },
+    { "tag": "pwhl_player_boxscores", "producer": "sportsdataverse/fastRhockey-pwhl-data", "assets": 13, "newest_asset_at": "2026-07-22T21:39:58Z", "max_season": 2026 },
+    { "tag": "nhl_player_boxscores", "producer": "sportsdataverse/fastRhockey-nhl-data", "assets": 55, "newest_asset_at": "2026-07-23T00:03:51Z", "max_season": 2026 },
+    { "tag": "ncaa_wbb_team_box", "producer": "sportsdataverse/wehoop-wbb-data", "assets": 51, "newest_asset_at": "2026-08-18T12:45:50Z", "max_season": 2026 },
+    { "tag": "ncaa_wbb_possessions", "producer": "sportsdataverse/wehoop-wbb-data", "assets": 51, "newest_asset_at": "2026-08-18T12:49:42Z", "max_season": 2026 },
+    { "tag": "espn_nba_team_boxscores", "producer": "sportsdataverse/hoopR-nba-data", "assets": 79, "newest_asset_at": "2026-09-09T05:17:17Z", "max_season": 2026 },
+    { "tag": "espn_nba_player_core", "producer": "sportsdataverse/hoopR-nba-data", "assets": 79, "newest_asset_at": "2026-09-09T05:18:03Z", "max_season": 2026 },
+    { "tag": "nhl_shootout", "producer": "sportsdataverse/fastRhockey-nhl-data", "assets": 55, "newest_asset_at": "2026-09-09T11:00:19Z", "max_season": 2026 },
+    { "tag": "espn_nba_draft", "producer": "sportsdataverse/hoopR-nba-data", "assets": 80, "newest_asset_at": "2026-09-15T07:57:43Z", "max_season": 2026 },
+    { "tag": "espn_wnba_injuries", "producer": "sportsdataverse/wehoop-wnba-data", "assets": 3, "newest_asset_at": "2026-09-28T20:09:49Z", "max_season": 2026 },
+    { "tag": "espn_wbb_rosters", "producer": "sportsdataverse/wehoop-wbb-data", "assets": 24, "newest_asset_at": "2026-09-27T11:31:02Z", "max_season": 2026 },
+    { "tag": "espn_cfb_schedules", "producer": "sportsdataverse/cfbfastR-cfb-data", "assets": 95, "newest_asset_at": "2026-09-29T09:30:18Z", "max_season": 2026 },
+    { "tag": "espn_cfb_adv_team", "producer": "sportsdataverse/cfbfastR-cfb-data", "assets": 73, "newest_asset_at": "2026-09-29T09:32:36Z", "max_season": 2026 },
+    { "tag": "cfb_rolling_windows", "producer": "sportsdataverse/cfbfastR-cfb-data", "assets": 73, "newest_asset_at": "2026-09-29T10:11:04Z", "max_season": 2026 },
+    { "tag": "espn_wnba_rosters", "producer": "sportsdataverse/wehoop-wnba-data", "assets": 14, "newest_asset_at": "2026-09-29T10:41:13Z", "max_season": 2026 }
+  ]
+}
