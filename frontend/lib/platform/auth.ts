@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "crypto";
+import { cache } from "react";
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { GetServerSidePropsContext } from "next";
 import { NextResponse } from "next/server";
@@ -54,21 +55,44 @@ export async function requireMember(
 }
 
 /**
- * Server-component gate for /platform pages: the session when the viewer is an
- * active org member (the platform layout's rule), else null.
- *
- * The layout's <SignInGate/> does not stop a page's own server reads: App
- * Router renders a layout and its page in parallel and ships the page's output
- * in the RSC payload even when the layout never displays it. So every async
- * page starts with `if (!(await requireOrgMember())) return null;`, before any
- * read (test/platformPageGuard.test.ts). `generateMetadata` may use only route
- * params; one that reads data is guarded too and returns a generic title signed
- * out (runs/[id]), since link unfurls are always signed out.
+ * The request's session, read once per request. A /platform render calls it
+ * from the layout, the page and `generateMetadata`; without `cache()` each call
+ * re-ran the jwt callback, and past MEMBERSHIP_TTL_MS each re-ran the GitHub
+ * membership fetch, since arg-less `auth()` can't write the refreshed cookie
+ * back from a server component. Outside a React render (route handlers, Pages
+ * API) `cache()` passes the call through.
  */
-export async function requireOrgMember(): Promise<Session | null> {
-  const session = await auth();
+export const platformSession = cache(() => auth());
+
+/**
+ * Server-component gate for /platform: the session when the viewer is an
+ * active org member, else null. Cached per request, like `platformSession`.
+ *
+ * The layout's gate does not stop a page's own server reads: App Router
+ * renders a layout and its page in parallel and ships the page's output in the
+ * RSC payload even when the layout never displays it. So every async function
+ * in a server file under app/(platform) (page, layout, `generateMetadata`,
+ * a child component) starts with `if (!(await requireOrgMember())) return
+ * null;` (or `requireOrgAdmin` under /platform/admin) before any read.
+ * `generateMetadata` may skip it only if it awaits nothing but its own
+ * params/searchParams, since link unfurls are always signed out; one that
+ * reads data is guarded and returns a generic title signed out (runs/[id]).
+ * test/platformPageGuard.test.ts checks all of this on the TypeScript AST.
+ */
+export const requireOrgMember = cache(async (): Promise<Session | null> => {
+  const session = await platformSession();
   return session?.isOrgMember ? session : null;
-}
+});
+
+/**
+ * `requireOrgMember` plus the org admin role: the rule of the admin layout and
+ * `requireAdminApp`. Every async server function under /platform/admin starts
+ * with `if (!(await requireOrgAdmin())) return null;`.
+ */
+export const requireOrgAdmin = cache(async (): Promise<Session | null> => {
+  const session = await requireOrgMember();
+  return session?.role === "admin" ? session : null;
+});
 
 /**
  * Route-handler gate: `const { session, deny } = await requireMemberApp();
