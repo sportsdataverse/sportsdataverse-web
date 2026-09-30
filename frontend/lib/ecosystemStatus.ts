@@ -26,6 +26,8 @@ export type WorkflowRun = {
   created_at: string | null;
   event: string | null;
   url: string | null;
+  /** GitHub's workflow state (`active`, `disabled_manually`, …); a disabled workflow reads "disabled", whatever its last conclusion. */
+  state?: string | null;
 };
 
 export type Producer = {
@@ -42,7 +44,10 @@ export type Producer = {
   packages: string[];
   state: ProducerState;
   in_season: boolean;
+  /** Newest asset among the producer's play-level tags: what freshness follows. */
   updated_at: string | null;
+  /** Newest asset across all its tags (schedules, rosters, models included). */
+  any_updated_at: string | null;
   through_season: number | null;
   tags: number;
   workflows: WorkflowRun[];
@@ -82,6 +87,8 @@ export type EcosystemSummary = {
   unmapped_tags: string[];
   /** One per sportsdataverse-data release tag, stalest first. */
   release_tags: ReleaseTag[];
+  /** Generator warnings about the snapshot itself; empty when it had none. */
+  warnings: string[];
 };
 
 // ---- normalisation: the snapshot is remote input, so nothing is trusted ----
@@ -118,6 +125,7 @@ function workflow(v: unknown): WorkflowRun | null {
     created_at: iso(v.created_at),
     event: str(v.event),
     url: https(v.url),
+    state: str(v.state),
   };
 }
 
@@ -136,6 +144,7 @@ function producer(v: unknown): Producer | null {
     state,
     in_season: v.in_season === true,
     updated_at: iso(v.updated_at),
+    any_updated_at: iso(v.any_updated_at),
     through_season: num(v.through_season),
     tags: num(v.tags) ?? 0,
     workflows: list(v.workflows, workflow),
@@ -210,6 +219,7 @@ export function normalizeSummary(raw: unknown): EcosystemSummary | null {
     red_workflows: list(raw.red_workflows, redWorkflow),
     unmapped_tags: list(raw.unmapped_tags, str),
     release_tags: list(raw.release_tags, releaseTag),
+    warnings: list(raw.warnings, str),
   };
 }
 
@@ -276,7 +286,9 @@ export function badgeUrl(repoFullName: string, key: string): string {
 }
 
 /** A run's conclusion in badge words: `passing`, `failing`, `cancelled`, … */
-export function runLabel(run: Pick<WorkflowRun, "conclusion" | "created_at">): string {
+export function runLabel(run: Pick<WorkflowRun, "conclusion" | "created_at" | "state">): string {
+  // A disabled workflow's last conclusion is history, not status (its shield says `disabled · date`).
+  if (run.state?.startsWith("disabled")) return "disabled";
   if (!run.created_at) return "no runs";
   switch (run.conclusion) {
     case "success":
@@ -303,6 +315,16 @@ export function workflowAlt(run: WorkflowRun): string {
 /** How a producer state reads in text (matches the `status.json` badge wording). */
 export function stateLabel(state: ProducerState): string {
   return state === "idle" ? "idle (off-season)" : state;
+}
+
+/**
+ * The producer's newest file of any kind, only when it landed on a later UTC
+ * day than its newest play-level asset (`updated_at`, which freshness follows);
+ * otherwise null, so the card doesn't repeat the same date.
+ */
+export function latestFileAt(p: Pick<Producer, "updated_at" | "any_updated_at">): string | null {
+  if (!p.any_updated_at) return null;
+  return !p.updated_at || formatDate(p.any_updated_at) > formatDate(p.updated_at) ? p.any_updated_at : null;
 }
 
 export function stateCounts(producers: Producer[]): Record<ProducerState, number> {

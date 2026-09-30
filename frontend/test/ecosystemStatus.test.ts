@@ -6,6 +6,7 @@ import {
   badgeUrl,
   formatDate,
   formatUtc,
+  latestFileAt,
   loadEcosystemSummary,
   matchesReleaseFilter,
   normalizeSummary,
@@ -37,6 +38,7 @@ test('the fixture normalises in full', () => {
   assert.equal(s.release_tags[0].tag, 'amf_tracking_parquet', 'stalest first: the oldest dated tag leads');
   assert.equal(s.release_tags.at(-1)?.assets, 0, 'empty tags sort last');
   assert.equal(s.totals.repos, 79);
+  assert.deepEqual(s.warnings, ["producers.json rule 'nba_legacy_' matched no release tag"]);
   assert.equal(trackedTagCount(s), 18);
 });
 
@@ -69,6 +71,7 @@ test('unknown state → unknown; missing optional fields get defaults', () => {
     state: 'unknown',
     in_season: false,
     updated_at: null,
+    any_updated_at: null,
     through_season: null,
     tags: 0,
     workflows: [],
@@ -145,6 +148,50 @@ test('run labels and badge alt text', () => {
   assert.equal(runLabel({ conclusion: 'action_required', created_at: run.created_at }), 'action required');
   assert.equal(runLabel({ conclusion: null, created_at: run.created_at }), 'in progress');
   assert.equal(workflowAlt({ ...run, created_at: null, conclusion: null }), 'Update WBB Data: no runs');
+});
+
+test('a disabled workflow reads "disabled", never its last conclusion', () => {
+  const run = {
+    name: 'Update NBA Stats Data',
+    file: '.github/workflows/daily_nba_stats.yml',
+    conclusion: 'success',
+    created_at: '2026-07-12T08:56:20Z',
+    event: 'schedule',
+    url: null,
+  };
+  assert.equal(runLabel({ ...run, state: 'disabled_manually' }), 'disabled');
+  assert.equal(runLabel({ ...run, state: 'disabled_inactivity' }), 'disabled');
+  assert.equal(runLabel({ ...run, conclusion: 'failure', state: 'disabled_manually' }), 'disabled');
+  assert.equal(runLabel({ ...run, created_at: null, state: 'disabled_manually' }), 'disabled');
+  assert.equal(workflowAlt({ ...run, state: 'disabled_manually' }), 'Update NBA Stats Data: disabled, last run 2026-07-12');
+  assert.equal(runLabel({ ...run, state: 'active' }), 'passing');
+  assert.equal(runLabel(run), 'passing', 'state is optional');
+  const s = normalizeSummary({
+    generated_at: '2026-09-30T00:00:00Z',
+    producers: [{ repo: 'sportsdataverse/hoopR-nba-stats-data', workflows: [{ ...run, state: 'disabled_manually' }, { ...run, file: 'x.yml' }] }],
+  });
+  assert.deepEqual(s?.producers[0].workflows.map((w) => w.state), ['disabled_manually', null]);
+});
+
+test('latest file: only when a non-play-level file landed on a later UTC day', () => {
+  assert.equal(latestFileAt({ updated_at: '2026-09-19T05:00:00Z', any_updated_at: '2026-09-30T08:00:00Z' }), '2026-09-30T08:00:00Z');
+  assert.equal(latestFileAt({ updated_at: '2026-09-30T01:00:00Z', any_updated_at: '2026-09-30T08:00:00Z' }), null, 'same day: no repeat');
+  assert.equal(latestFileAt({ updated_at: '2026-09-30T08:00:00Z', any_updated_at: '2026-09-29T08:00:00Z' }), null);
+  assert.equal(latestFileAt({ updated_at: null, any_updated_at: '2026-09-30T08:00:00Z' }), '2026-09-30T08:00:00Z');
+  assert.equal(latestFileAt({ updated_at: '2026-09-30T08:00:00Z', any_updated_at: null }), null);
+  const s = normalizeSummary({
+    generated_at: '2026-09-30T00:00:00Z',
+    producers: [{ repo: 'sportsdataverse/x-data', updated_at: '2026-09-19T05:00:00Z', any_updated_at: 'nope' }],
+  });
+  assert.equal(s?.producers[0].any_updated_at, null, 'unparseable dates are null');
+});
+
+test('warnings: kept as strings, empty when absent or empty', () => {
+  const base = { generated_at: '2026-09-30T00:00:00Z', producers: [{ repo: 'sportsdataverse/x-data' }] };
+  assert.deepEqual(normalizeSummary(base)?.warnings, []);
+  assert.deepEqual(normalizeSummary({ ...base, warnings: [] })?.warnings, []);
+  assert.deepEqual(normalizeSummary({ ...base, warnings: ['tag x unmapped', 7, '', null] })?.warnings, ['tag x unmapped']);
+  assert.deepEqual(normalizeSummary({ ...base, warnings: 'not a list' })?.warnings, []);
 });
 
 test('producers by state', () => {
@@ -233,7 +280,7 @@ test('loader: unreachable, non-200 and bad JSON are null; a good body normalises
 });
 
 // Conformance: the real status/summary.json Phase A generated (sportsdataverse/.github,
-// 2026-09-30T08:22:40Z), public data copied verbatim. Nothing may be dropped.
+// main, generated 2026-09-30T09:12:59Z), public data copied verbatim. Nothing may be dropped.
 const real = JSON.parse(
   readFileSync(new URL('./fixtures/ecosystem-summary.real.json', import.meta.url), 'utf8')
 );
@@ -247,8 +294,9 @@ test('conformance: the real snapshot normalises with nothing dropped', () => {
   assert.equal(s.producers.length, 17);
   assert.equal(s.packages.length, 16);
   assert.equal(s.release_tags.length, 367);
-  assert.equal(s.red_workflows.length, 14);
+  assert.equal(s.red_workflows.length, 13);
   assert.equal(s.unmapped_tags.length, 5);
+  assert.deepEqual(s.warnings, []);
   assert.equal(trackedTagCount(s), 367);
 });
 
@@ -314,4 +362,37 @@ test('release-tag filter matches the producer label too', () => {
   const row = { tag: 'nba_stats_rosters', producer: 'sportsdataverse/hoopR-nba-stats-data', label: 'NBA Stats API' };
   assert.ok(matchesReleaseFilter(row, 'stats api', ''));
   assert.ok(!matchesReleaseFilter({ ...row, label: null }, 'api', ''));
+});
+
+test('conformance: every badge URL the page derives is the file the generator wrote', () => {
+  const inner = (url: string) => decodeURIComponent(url.split('url=')[1]);
+  const base = 'https://raw.githubusercontent.com/sportsdataverse/.github/main/status/badges/';
+  let checked = 0;
+  for (const p of [...real.producers, ...real.packages]) {
+    for (const w of p.workflows) {
+      assert.equal(inner(badgeUrl(p.repo, `wf-${workflowStem(w.file)}`)), base + w.badge, `${p.repo} ${w.file}`);
+      checked += 1;
+    }
+  }
+  assert.ok(checked > 80);
+  for (const p of real.producers) {
+    // updated / through / status live in badge_dir; the page derives it from the repo name.
+    assert.equal(p.badge_dir, p.repo.split('/')[1]);
+  }
+});
+
+test('conformance: the disabled workflows read "disabled", and latest-file dates are later days', () => {
+  const s = normalizeSummary(real)!;
+  const runs = [...s.producers, ...s.packages].flatMap((p) => p.workflows);
+  const disabled = runs.filter((w) => w.state?.startsWith('disabled'));
+  assert.equal(disabled.length, real.producers.concat(real.packages)
+    .flatMap((p: { workflows: { state?: string }[] }) => p.workflows)
+    .filter((w: { state?: string }) => String(w.state).startsWith('disabled')).length);
+  assert.ok(disabled.length > 0);
+  assert.ok(disabled.every((w) => runLabel(w) === 'disabled'));
+  for (const p of s.producers) {
+    const latest = latestFileAt(p);
+    if (latest) assert.ok(formatDate(latest) > formatDate(p.updated_at), p.repo);
+  }
+  assert.ok(s.producers.some((p) => latestFileAt(p)), 'the live snapshot has producers with a newer non-play file');
 });

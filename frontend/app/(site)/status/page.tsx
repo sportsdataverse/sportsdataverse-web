@@ -12,6 +12,7 @@ import {
   loadEcosystemSummary,
   producerAnchor,
   relativeAge,
+  latestFileAt,
   runLabel,
   stateCounts,
   stateLabel,
@@ -287,6 +288,11 @@ function Producers({ summary, now }: { summary: EcosystemSummary; now: number })
                 <dt className="text-muted-foreground">Data updated</dt>
                 <dd className="font-mono text-xs leading-5">
                   <When value={p.updated_at} now={now} />
+                  {latestFileAt(p) ? (
+                    <span className="block text-muted-foreground">
+                      latest file <When value={latestFileAt(p)} now={now} />
+                    </span>
+                  ) : null}
                 </dd>
                 <dt className="text-muted-foreground">Through</dt>
                 <dd className="font-mono text-xs leading-5">
@@ -503,6 +509,12 @@ function HowToRead() {
         ))}
       </ul>
       <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+        Freshness follows play-by-play: &ldquo;Data updated&rdquo; is the newest play-level release
+        asset, so a schedule, roster or model file landing on its own does not make a producer look
+        fresh; when one is newer, the card shows it as &ldquo;latest file&rdquo;.
+      </p>
+      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+        A workflow switched off in GitHub reads &ldquo;disabled&rdquo;, whatever its last run said.
         The snapshot is rebuilt nightly from public GitHub data, and this page re-reads it at most
         once an hour, so a run that finished this morning may not show until tomorrow. The badges
         are the same shields the package READMEs use; the text beside them says the same thing.
@@ -530,6 +542,23 @@ export default async function StatusPage() {
             <time dateTime={summary.generated_at}>{formatUtc(summary.generated_at)}</time> ·{" "}
             <External href={SNAPSHOT_PAGE_URL}>raw snapshot</External>
           </p>
+
+          {summary.warnings.length ? (
+            <div
+              role="note"
+              aria-labelledby="snapshot-warnings"
+              className="mt-4 max-w-3xl rounded-md border border-status-running/40 bg-status-running/10 px-4 py-3"
+            >
+              <p id="snapshot-warnings" className="text-sm font-semibold text-status-running-ink dark:text-status-running">
+                Snapshot warnings
+              </p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-muted-foreground">
+                {summary.warnings.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           <nav aria-label="On this page" className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
             <span className="font-mono text-xs text-muted-foreground">On this page</span>

@@ -224,6 +224,7 @@
     }
   ],
   "unmapped_tags": ["amf_tracking_parquet", "odds_lines_legacy"],
+  "warnings": ["producers.json rule 'nba_legacy_' matched no release tag"],
   "release_tags": [
     { "tag": "amf_tracking_parquet", "producer": null, "assets": 128, "newest_asset_at": "2024-11-18T08:20:06Z", "max_season": 2023 },
     { "tag": "odds_lines_legacy", "producer": null, "assets": 9, "newest_asset_at": "2025-02-03T17:44:10Z", "max_season": 2024 },
