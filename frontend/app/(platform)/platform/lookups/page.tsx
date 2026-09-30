@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ogMetadata } from "@lib/ogSummary";
+import { requireOrgMember } from "@lib/platform/auth";
 import { parseLookupsView, toSearchParams } from "@lib/platform/viewState";
 import LookupsClient from "./LookupsClient";
 
@@ -16,5 +17,6 @@ export default async function PlatformLookupsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  if (!(await requireOrgMember())) return null;
   return <LookupsClient initial={parseLookupsView(toSearchParams(await searchParams))} />;
 }

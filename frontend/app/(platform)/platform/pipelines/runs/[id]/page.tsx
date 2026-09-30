@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { requireOrgMember } from "@lib/platform/auth";
 import { notFound } from "next/navigation";
 import { dataApi } from "@lib/platform/orch";
 import type { Pipeline, RunDetail } from "@lib/platform/orch-types";
@@ -12,6 +13,7 @@ export async function generateMetadata({ params }: Ctx): Promise<Metadata> {
 }
 
 export default async function PipelineRunPage({ params }: Ctx) {
+  if (!(await requireOrgMember())) return null;
   const { id } = await params;
   const [runRes, pipesRes] = await Promise.all([
     dataApi(`/v1/runs/${encodeURIComponent(id)}`),

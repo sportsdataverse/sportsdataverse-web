@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { requireOrgMember } from "@lib/platform/auth";
 import { listDbStatuses } from "@lib/platform/dbStatus";
 import { listModels, listRuns } from "@lib/platform/runs";
 import OverviewClient from "./OverviewClient";
@@ -6,6 +7,7 @@ import OverviewClient from "./OverviewClient";
 export const metadata: Metadata = { title: "Overview" };
 
 export default async function PlatformOverviewPage() {
+  if (!(await requireOrgMember())) return null;
   // Mongo-only reads (fast); GitHub calls stay on their own tabs.
   const [models, recentRuns, dbStatuses] = await Promise.all([
     listModels().catch(() => []),

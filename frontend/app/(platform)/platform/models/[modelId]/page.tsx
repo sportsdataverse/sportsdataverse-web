@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { requireOrgMember } from "@lib/platform/auth";
 import { listRuns } from "@lib/platform/runs";
 import ModelDetailClient from "./ModelDetailClient";
 
@@ -10,6 +11,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function PlatformModelDetailPage({ params }: Params) {
+  if (!(await requireOrgMember())) return null;
   const { modelId } = await params;
   const runs = await listRuns({ model_id: modelId, limit: 50 }).catch(() => []);
   return <ModelDetailClient modelId={modelId} runs={runs} />;
