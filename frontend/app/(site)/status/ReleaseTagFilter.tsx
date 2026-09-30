@@ -17,7 +17,8 @@ export default function ReleaseTagFilter({
   total,
 }: {
   tableId: string;
-  producers: string[];
+  /** Producer repo (option value) and its human label (option text). */
+  producers: { value: string; label: string }[];
   hasUnmapped: boolean;
   total: number;
 }) {
@@ -33,7 +34,7 @@ export default function ReleaseTagFilter({
       .querySelectorAll<HTMLTableRowElement>(`#${tableId} tbody tr[data-tag]`)
       .forEach((row) => {
         const hit = matchesReleaseFilter(
-          { tag: row.dataset.tag ?? "", producer: row.dataset.producer || null },
+          { tag: row.dataset.tag ?? "", producer: row.dataset.producer || null, label: row.dataset.label },
           nextQuery.trim(),
           nextProducer
         );
@@ -65,8 +66,8 @@ export default function ReleaseTagFilter({
       >
         <option value="">All producers</option>
         {producers.map((p) => (
-          <option key={p} value={p}>
-            {p.split("/").pop()}
+          <option key={p.value} value={p.value}>
+            {p.label}
           </option>
         ))}
         {hasUnmapped ? <option value={UNMAPPED}>Unmapped</option> : null}

@@ -154,7 +154,11 @@ function Tiles({ summary }: { summary: EcosystemSummary }) {
 
 function ReleaseFreshness({ summary, now }: { summary: EcosystemSummary; now: number }) {
   const rows = summary.release_tags;
-  const producers = [...new Set(rows.map((r) => r.producer).filter((p): p is string => p !== null))].sort();
+  const labels = new Map(summary.producers.map((p) => [p.repo, p.label]));
+  const labelOf = (repo: string) => labels.get(repo) ?? producerAnchor(repo);
+  const producers = [...new Set(rows.map((r) => r.producer).filter((p): p is string => p !== null))]
+    .map((repo) => ({ value: repo, label: labelOf(repo) }))
+    .sort((a, b) => a.label.localeCompare(b.label));
   const unmapped = rows.filter((r) => r.producer === null).length;
   return (
     <section id="release-freshness" className="mt-12 scroll-mt-24">
@@ -202,6 +206,7 @@ function ReleaseFreshness({ summary, now }: { summary: EcosystemSummary; now: nu
                     key={r.tag}
                     data-tag={r.tag}
                     data-producer={r.producer ?? ""}
+                    data-label={r.producer ? labelOf(r.producer) : ""}
                     className="border-t border-border/60 hover:bg-muted/40"
                   >
                     <td className="px-3 py-1.5 font-mono">
@@ -216,7 +221,7 @@ function ReleaseFreshness({ summary, now }: { summary: EcosystemSummary; now: nu
                     </td>
                     <td className="px-3 py-1.5">
                       {r.producer ? (
-                        <a href={`#${producerAnchor(r.producer)}`} className={link}>
+                        <a href={`#${producerAnchor(r.producer)}`} title={labelOf(r.producer)} className={link}>
                           {producerAnchor(r.producer)}
                         </a>
                       ) : (
@@ -256,11 +261,7 @@ function Producers({ summary, now }: { summary: EcosystemSummary; now: number })
           return (
             <article key={p.repo} id={anchor} className="scroll-mt-24 rounded-md border border-border bg-card p-4 shadow-sm">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="min-w-0 break-words font-mono text-base font-semibold">
-                  <a href={`${GH}/${p.repo}`} target="_blank" rel="noopener noreferrer" title={p.repo} className={link}>
-                    {anchor}
-                  </a>
-                </h3>
+                <h3 className="min-w-0 break-words text-base font-semibold">{p.label}</h3>
                 {p.sport ? (
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
                     {p.sport}
@@ -268,6 +269,19 @@ function Producers({ summary, now }: { summary: EcosystemSummary; now: number })
                 ) : null}
                 <Chip tone={tone}>{stateLabel(p.state)}</Chip>
               </div>
+              <p className="mt-0.5 break-words font-mono text-xs text-muted-foreground">
+                <a href={`${GH}/${p.repo}`} target="_blank" rel="noopener noreferrer" title={p.repo} className={link}>
+                  {anchor}
+                </a>
+                {p.raw_repo ? (
+                  <>
+                    {" · built from "}
+                    <a href={`${GH}/${p.raw_repo}`} target="_blank" rel="noopener noreferrer" title={p.raw_repo} className={link}>
+                      {producerAnchor(p.raw_repo)}
+                    </a>
+                  </>
+                ) : null}
+              </p>
 
               <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
                 <dt className="text-muted-foreground">Data updated</dt>
@@ -280,6 +294,12 @@ function Producers({ summary, now }: { summary: EcosystemSummary; now: number })
                 </dd>
                 <dt className="text-muted-foreground">Season</dt>
                 <dd className="text-xs leading-5">{p.in_season ? "in season" : "off-season"}</dd>
+                {p.schedule ? (
+                  <>
+                    <dt className="text-muted-foreground">Schedule</dt>
+                    <dd className="text-xs leading-5">{p.schedule}</dd>
+                  </>
+                ) : null}
                 <dt className="text-muted-foreground">Release tags</dt>
                 <dd className="font-mono text-xs leading-5">{p.tags}</dd>
                 <dt className="text-muted-foreground">Read by</dt>

@@ -12,34 +12,35 @@ import type { PackageDoc } from "@lib/packageSchema";
 const outlinePill =
   "rounded-full border border-primary/40 px-2 py-0.5 text-xs font-semibold tracking-wide text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 
-// ponytail: a flat cap keeps a many-producer card (the metapackage) to one row; the rest are on /status
+// ponytail: a flat cap keeps a many-producer card (the py/js metapackages read ~17) short; the rest are on /status
 const MAX_PIPELINES = 4;
 
-/** The `pipeline` shield of each producer whose releases this package reads, linked to its /status row. */
+/**
+ * The `pipeline` shield of each producer whose releases this package reads,
+ * linked to its /status row. Every shield says "pipeline", so each one is
+ * captioned with its producer's label (hoopR reads four basketball producers).
+ */
 function Pipelines({ pipelines }: { pipelines: PipelineLink[] }) {
-  const many = pipelines.length > 1;
   return (
-    <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+    <ul className="flex w-full flex-col items-center gap-1">
       {pipelines.slice(0, MAX_PIPELINES).map((p) => (
-        <span key={p.repo} className="inline-flex items-center gap-1">
-          {many && p.sport ? (
-            <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-              {p.sport}
-            </span>
-          ) : null}
+        <li key={p.repo} className="flex flex-wrap items-center justify-center gap-x-1.5 text-center">
+          <span className="text-xs text-muted-foreground">{p.label}</span>
           <ShieldBadge
             src={badgeUrl(p.repo, "status")}
-            alt={`${p.anchor} data pipeline: ${stateLabel(p.state)}`}
+            alt={`${p.label} data pipeline: ${stateLabel(p.state)}`}
             href={`/status#${p.anchor}`}
           />
-        </span>
+        </li>
       ))}
       {pipelines.length > MAX_PIPELINES ? (
-        <Link href="/status#producers" className="text-xs text-accent underline-offset-4 hover:underline">
-          +{pipelines.length - MAX_PIPELINES} more
-        </Link>
+        <li>
+          <Link href="/status#producers" className="text-xs text-accent underline-offset-4 hover:underline">
+            +{pipelines.length - MAX_PIPELINES} more data pipelines
+          </Link>
+        </li>
       ) : null}
-    </div>
+    </ul>
   );
 }
 

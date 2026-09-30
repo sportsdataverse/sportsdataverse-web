@@ -61,6 +61,9 @@ test('unknown state → unknown; missing optional fields get defaults', () => {
   assert.ok(s);
   assert.deepEqual(s.producers[0], {
     repo: 'sportsdataverse/hoopR-nba-data',
+    label: 'hoopR-nba-data',
+    raw_repo: null,
+    schedule: null,
     sport: '',
     packages: [],
     state: 'unknown',
@@ -152,8 +155,8 @@ test('producers by state', () => {
 test('producer map: keyed by loader repo name, lower-cased, in snapshot order', () => {
   const map = pipelinesByPackage(normalizeSummary(fixture));
   assert.deepEqual(map.wehoop, [
-    { repo: 'sportsdataverse/wehoop-wnba-data', anchor: 'wehoop-wnba-data', sport: 'WNBA', state: 'fresh' },
-    { repo: 'sportsdataverse/wehoop-wbb-data', anchor: 'wehoop-wbb-data', sport: 'WBB', state: 'idle' },
+    { repo: 'sportsdataverse/wehoop-wnba-data', anchor: 'wehoop-wnba-data', label: 'wehoop-wnba-data', state: 'fresh' },
+    { repo: 'sportsdataverse/wehoop-wbb-data', anchor: 'wehoop-wbb-data', label: 'wehoop-wbb-data', state: 'idle' },
   ]);
   assert.equal(map.sportsdataverse, undefined, 'no bucket for the shared flagship title');
   assert.deepEqual(pipelinesByPackage(null), {});
@@ -227,4 +230,88 @@ test('loader: unreachable, non-200 and bad JSON are null; a good body normalises
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+// Conformance: the real status/summary.json Phase A generated (sportsdataverse/.github,
+// 2026-09-30T08:22:40Z), public data copied verbatim. Nothing may be dropped.
+const real = JSON.parse(
+  readFileSync(new URL('./fixtures/ecosystem-summary.real.json', import.meta.url), 'utf8')
+);
+
+test('conformance: the real snapshot normalises with nothing dropped', () => {
+  const s = normalizeSummary(real);
+  assert.ok(s);
+  for (const k of ['producers', 'packages', 'release_tags', 'red_workflows', 'unmapped_tags'] as const) {
+    assert.equal(s[k].length, real[k].length, `${k} in vs out`);
+  }
+  assert.equal(s.producers.length, 17);
+  assert.equal(s.packages.length, 16);
+  assert.equal(s.release_tags.length, 367);
+  assert.equal(s.red_workflows.length, 14);
+  assert.equal(s.unmapped_tags.length, 5);
+  assert.equal(trackedTagCount(s), 367);
+});
+
+test('conformance: states, workflow files, labels and raw repos are all usable', () => {
+  const s = normalizeSummary(real)!;
+  assert.ok(s.producers.every((p) => ['fresh', 'idle', 'stale', 'failing', 'unknown'].includes(p.state)));
+  assert.deepEqual(
+    s.producers.map((p) => p.state),
+    real.producers.map((p: { state: string }) => p.state),
+    'no real state was folded into unknown'
+  );
+  const runs = [...s.producers, ...s.packages].flatMap((p) => p.workflows);
+  assert.ok(runs.length > 0);
+  assert.ok(runs.every((w) => w.file !== ''), 'every workflow has a file (it keys the wf-<stem> badge)');
+  assert.ok(runs.every((w) => w.url === null || w.url.startsWith('https://github.com/')));
+  assert.ok(s.producers.every((p) => p.label && p.label !== p.repo.split('/')[1]), 'every real producer has a label');
+  assert.equal(
+    s.producers.filter((p) => p.raw_repo).length,
+    real.producers.filter((p: { raw_repo?: string | null }) => p.raw_repo).length
+  );
+});
+
+test('conformance: empty release tags sort last', () => {
+  const tags = normalizeSummary(real)!.release_tags;
+  const firstEmpty = tags.findIndex((t) => t.assets === 0);
+  assert.ok(firstEmpty > 0, 'the real snapshot has empty tags, after dated ones');
+  assert.ok(tags.slice(firstEmpty).every((t) => t.assets === 0));
+  assert.ok(tags.slice(0, firstEmpty).every((t) => t.assets > 0));
+});
+
+// The public /packages cards whose loaders read a producer (title, sourceHref as stored
+// in the packages collection, 2026-09-30; note the trailing slashes and BillPetti/baseballr).
+const REAL_CARDS = [
+  { title: 'cfbfastR', sourceHref: 'https://github.com/sportsdataverse/cfbfastR/' },
+  { title: 'hoopR', sourceHref: 'https://github.com/sportsdataverse/hoopR/' },
+  { title: 'wehoop', sourceHref: 'https://github.com/sportsdataverse/wehoop/' },
+  { title: 'fastRhockey', sourceHref: 'https://github.com/sportsdataverse/fastRhockey/' },
+  { title: 'baseballr', sourceHref: 'https://github.com/BillPetti/baseballr/' },
+  { title: 'softballR', sourceHref: 'https://github.com/sportsdataverse/softballR' },
+  { title: 'sportsdataverse', sourceHref: 'https://github.com/sportsdataverse/sportsdataverse-py' },
+  { title: 'sportsdataverse', sourceHref: 'https://github.com/sportsdataverse/sportsdataverse-js/' },
+  { title: 'sportsdataverse', sourceHref: 'https://github.com/sportsdataverse/sportsdataverse-R/' },
+];
+
+test('conformance: every loader repo a real producer names is reached by a real /packages card', () => {
+  const m = pipelinesByPackage(normalizeSummary(real));
+  const reached = new Set(REAL_CARDS.map((c) => packageKey(c)));
+  assert.deepEqual(Object.keys(m).filter((k) => !reached.has(k)), [], 'no producer package without a card');
+  assert.deepEqual(
+    pipelinesForPackage(m, REAL_CARDS[1])?.map((p) => p.label),
+    [
+      "Men's college basketball (ESPN)",
+      "Men's college basketball (stats.ncaa.org)",
+      'NBA (ESPN)',
+      'NBA Stats API',
+      'Conference, division and ballpark reference',
+    ]
+  );
+  assert.equal(pipelinesForPackage(m, REAL_CARDS[8]), undefined, 'no producer lists sportsdataverse-R in this snapshot');
+});
+
+test('release-tag filter matches the producer label too', () => {
+  const row = { tag: 'nba_stats_rosters', producer: 'sportsdataverse/hoopR-nba-stats-data', label: 'NBA Stats API' };
+  assert.ok(matchesReleaseFilter(row, 'stats api', ''));
+  assert.ok(!matchesReleaseFilter({ ...row, label: null }, 'api', ''));
 });

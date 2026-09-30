@@ -31,8 +31,14 @@ export type WorkflowRun = {
 export type Producer = {
   /** `sportsdataverse/<name>` */
   repo: string;
+  /** Human name, e.g. `College football (ESPN)`; the repo name when the snapshot has none. */
+  label: string;
+  /** The `-raw` repo the producer builds from, when there is one. */
+  raw_repo: string | null;
+  /** When it runs, in words, e.g. `Daily, late Oct-mid Jul`. */
+  schedule: string | null;
   sport: string;
-  /** Loader packages that read this producer's releases, as /packages titles. */
+  /** Loader repo names that read this producer's releases (`hoopR`, `sportsdataverse-py`). */
   packages: string[];
   state: ProducerState;
   in_season: boolean;
@@ -68,6 +74,7 @@ export type ReleaseTag = {
 
 export type EcosystemSummary = {
   generated_at: string;
+  /** Top-level numeric counts only (nested ones such as `producers: {fresh, idle}` are dropped); the page derives its tiles from the arrays. */
   totals: Record<string, number>;
   producers: Producer[];
   packages: PackageRepo[];
@@ -121,6 +128,9 @@ function producer(v: unknown): Producer | null {
   const state = PRODUCER_STATES.find((s) => s === v.state) ?? "unknown";
   return {
     repo: r,
+    label: str(v.label) ?? producerAnchor(r),
+    raw_repo: repo(v.raw_repo),
+    schedule: str(v.schedule),
     sport: str(v.sport) ?? "",
     packages: list(v.packages, str),
     state,
@@ -309,7 +319,7 @@ export function trackedTagCount(summary: EcosystemSummary): number {
   );
 }
 
-export type PipelineLink = { repo: string; anchor: string; sport: string; state: ProducerState };
+export type PipelineLink = { repo: string; anchor: string; label: string; state: ProducerState };
 
 /**
  * Loader repo name (lower-cased; `producers[].packages[]` holds GitHub repo
@@ -326,7 +336,7 @@ export function pipelinesByPackage(
       (out[key] ??= []).push({
         repo: p.repo,
         anchor: producerAnchor(p.repo),
-        sport: p.sport,
+        label: p.label,
         state: p.state,
       });
     }
@@ -364,16 +374,16 @@ export function pipelinesForPackage(
   return key !== null && Object.hasOwn(pipelines, key) ? pipelines[key] : undefined;
 }
 
-/** The release-freshness filter: free text over tag + producer, plus an exact producer pick. */
+/** The release-freshness filter: free text over tag + producer (repo and label), plus an exact producer pick. */
 export const UNMAPPED = "__unmapped";
 export function matchesReleaseFilter(
-  row: { tag: string; producer: string | null },
+  row: { tag: string; producer: string | null; label?: string | null },
   query: string,
   producerPick: string
 ): boolean {
   if (producerPick === UNMAPPED ? row.producer !== null : producerPick && row.producer !== producerPick)
     return false;
-  const hay = `${row.tag} ${row.producer ?? "unmapped"}`.toLowerCase();
+  const hay = `${row.tag} ${row.producer ?? "unmapped"} ${row.label ?? ""}`.toLowerCase();
   return query
     .toLowerCase()
     .split(/\s+/)
