@@ -124,7 +124,9 @@ export default function SiteNav() {
             SportsDataverse
           </span>
         </Link>
-        <nav className="hidden items-center md:flex">
+        {/* Flat links from lg: at md the six links + Learn + sign-in overran the
+            bar (theme toggle pushed off-screen at 768px); tablets get the sheet. */}
+        <nav className="hidden items-center lg:flex">
           {LINKS.map((l) => {
             const active = pathname?.startsWith(l.href);
             return (
@@ -148,7 +150,7 @@ export default function SiteNav() {
           <MemberAction />
           <ThemeToggle />
           <Sheet>
-            <SheetTrigger asChild className="md:hidden">
+            <SheetTrigger asChild className="lg:hidden">
               <Button variant="ghost" size="icon" aria-label="Open menu">
                 <Menu className="size-5" />
               </Button>
