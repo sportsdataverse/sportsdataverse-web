@@ -24,8 +24,10 @@ const side = (s: BinStats, kind: MadeKind) => (s.n ? readoutText(s, kind) : "non
  * at that distance, or FG%, or goals − xG per shot). The hit rect per bin
  * is the same hovered distance as the map's band and the curve's column
  * (`hover`, `onHover`), with the same roving tabindex and arrow keys; each
- * rect's aria-label is its two sides. The totals line above sums the halves.
- * Marks: two bars and a rect per bin — under 150 for ≤ 50 bins.
+ * rect's aria-label is its two sides, and the hovered bin's two sides are
+ * written above the chart too (the readout), so a side's rate is never bar
+ * colour alone. The totals line above sums the halves. Marks: two bars and
+ * a rect per bin — under 150 for ≤ 50 bins.
  */
 export default function SideButterfly({ rows, step, kind, curve = null, hover, onHover }: {
   rows: readonly SideRow[];
@@ -58,12 +60,18 @@ export default function SideButterfly({ rows, step, kind, curve = null, hover, o
     return <rect x={x(lo) + 0.5} y={up ? MID - h : MID} width={Math.max(0, x(lo + step) - x(lo) - 1)} height={h} data-n={s.n} data-slot={slot ?? undefined} fill={slot ? chartVar(slot) : undefined} className={slot ? undefined : "fill-muted-foreground/40"} />;
   };
   const totals = (s: BinStats) => (s.n ? `${s.n.toLocaleString("en-US")} shots · ${kind === "FG" ? `${pct(s.made / s.n)} FG` : `${s.made} goals`}` : "no shots");
+  const ft = (r: SideRow) => (step === 1 ? `${r.lo} ft` : `${r.lo}–${r.lo + step} ft`);
+  const label = (r: SideRow) => `${ft(r)} · left ${side(r.left, kind)} · right ${side(r.right, kind)}`;
+  const at = hover === null ? undefined : rows.find((r) => r.lo === hover);
   return (
     <div data-testid="shots-butterfly">
       <p data-testid="shots-butterfly-totals" data-left={left.n} data-right={right.n} className="mb-1 flex flex-wrap items-center gap-x-3 font-inter text-xs text-muted-foreground">
         <span className="font-semibold text-foreground">Left vs right</span>
         <span>left {totals(left)}</span>
         <span>right {totals(right)}</span>
+      </p>
+      <p data-testid="shots-butterfly-readout" aria-live="polite" className="mb-1 min-h-5 font-inter text-xs tabular-nums text-foreground">
+        {at ? label(at) : <span className="text-muted-foreground">Hover a column</span>}
       </p>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Shots by distance, left side above the axis and right side below" data-marks={3 * rows.length} onPointerLeave={() => onHover(null)}>
         <line x1={L} x2={W - R} y1={MID} y2={MID} className="stroke-border" />
@@ -103,7 +111,7 @@ export default function SideButterfly({ rows, step, kind, curve = null, hover, o
               className={`focus:outline-none ${r.lo === hover ? "fill-foreground/10" : "fill-transparent"}`}
               tabIndex={r.lo === tabLo ? 0 : -1}
               role="img"
-              aria-label={`${step === 1 ? `${r.lo} ft` : `${r.lo}–${r.lo + step} ft`} · left ${side(r.left, kind)} · right ${side(r.right, kind)}`}
+              aria-label={label(r)}
               onPointerEnter={() => onHover(r.lo)}
               onFocus={() => onHover(r.lo)}
               onBlur={() => onHover(null)}

@@ -125,19 +125,22 @@ export default function ShotMap({ bins, all, surface, kind, curve = null, mode =
           return (
             <g key={key}>
               <path d={z.path} fillRule="evenodd" data-zone={z.zone} fillOpacity={0.75} {...shared} />
-              {/* lettered on the fill with a card-coloured halo, so it reads on the saturated ends of either ramp */}
-              <text
-                transform={`translate(${z.cx} ${z.cy})${z.rotate ? " rotate(-90)" : ""}`}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontSize={1.5}
-                paintOrder="stroke"
-                strokeWidth={0.4}
-                className="pointer-events-none select-none fill-foreground stroke-card font-inter font-semibold tabular-nums"
-                aria-hidden="true"
-              >
-                {zoneLabel(z, kind)}
-              </text>
+              {/* lettered on the fill with a card-coloured halo, so it reads on the saturated ends of either ramp; on both strips of a mirrored zone */}
+              {(z.mirror ? [z.cx, -z.cx] : [z.cx]).map((cx) => (
+                <text
+                  key={cx}
+                  transform={`translate(${cx} ${z.cy})${z.rotate ? " rotate(-90)" : ""}`}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={1.5}
+                  paintOrder="stroke"
+                  strokeWidth={0.4}
+                  className="pointer-events-none select-none fill-foreground stroke-card font-inter font-semibold tabular-nums"
+                  aria-hidden="true"
+                >
+                  {zoneLabel(z, kind)}
+                </text>
+              ))}
             </g>
           );
         }

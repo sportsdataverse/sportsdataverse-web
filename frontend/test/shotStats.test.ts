@@ -108,7 +108,10 @@ test('zoneOf (NBA): (0, 2) restricted; (−22, 3) corner 3; (0, 25) above the br
   assert.equal(zoneOf(-22, 3, nba), 'corner3');
   assert.equal(zoneOf(0, 25, nba), 'atb3');
   assert.equal(zoneOf(0, 8, nba), 'paint');
-  assert.equal(zoneOf(-7.9, 13.75, nba), 'paint', 'the lane\'s far corner at the FT line');
+  assert.equal(zoneOf(-7.9, 13.74, nba), 'paint', 'the lane\'s far corner, inside the FT line');
+  assert.equal(zoneOf(-7.9, 13.75, nba), 'mid', 'ON the FT line is mid-range: a boundary is the farther zone');
+  assert.equal(zoneOf(-8, 13, nba), 'mid', 'ON the lane line');
+  assert.equal(zoneOf(-7.99, 13, nba), 'paint');
   assert.equal(zoneOf(-8.1, 13, nba), 'mid', 'just outside the lane');
   assert.equal(zoneOf(0, 13.8, nba), 'mid', 'just past the FT line');
   assert.equal(zoneOf(0, 18, nba), 'mid');
@@ -131,12 +134,17 @@ test('zoneOf (NBA): (0, 2) restricted; (−22, 3) corner 3; (0, 25) above the br
   assert.deepEqual([...hit].sort(), [...COURT_ZONES].sort());
 });
 
-test('rinkZoneOf: the slot, high slot, point and perimeter from the rink\'s lines', () => {
+test('rinkZoneOf: the slot, high slot, point and perimeter from the rink\'s lines; a boundary is the farther zone, the goal line the slot', () => {
   assert.equal(rinkZoneOf(0, 10), 'slot');
-  assert.equal(rinkZoneOf(-22, 20), 'slot', 'the dots are the slot\'s corners');
-  assert.equal(rinkZoneOf(0, 0), 'slot', 'the goal line');
+  assert.equal(rinkZoneOf(-21.9, 19.9), 'slot', 'just inside the dot');
+  assert.equal(rinkZoneOf(-22, 10), 'perimeter', 'ON a dot\'s x is the perimeter');
+  assert.equal(rinkZoneOf(0, 0), 'slot', 'the goal line reads with the slot');
+  assert.equal(rinkZoneOf(0, -0.01), 'perimeter', 'behind it');
+  assert.equal(rinkZoneOf(0, 20), 'highSlot', 'ON the dots\' line is the high slot');
+  assert.equal(rinkZoneOf(0, 19.99), 'slot');
   assert.equal(rinkZoneOf(0, 20.1), 'highSlot');
-  assert.equal(rinkZoneOf(0, 35), 'highSlot', 'the circle tops');
+  assert.equal(rinkZoneOf(0, 35), 'point', 'ON the circle tops is the point');
+  assert.equal(rinkZoneOf(0, 34.99), 'highSlot');
   assert.equal(rinkZoneOf(0, 35.1), 'point');
   assert.equal(rinkZoneOf(-40, 60), 'point', 'the top of the zone, any width');
   assert.equal(rinkZoneOf(0, 80), 'point', 'the neutral zone reads with the point');
@@ -158,7 +166,9 @@ test('zoneStats: the fixture\'s shots land in every court zone, in draw order (o
   assert.ok(zones.find((z) => z.zone === 'atb3')!.sumDist / zones.find((z) => z.zone === 'atb3')!.n > 23.75);
   // the shapes: the evenodd holes are the enclosed zones, so a court's fills are 5 non-overlapping regions
   assert.equal(courtZones('nba').length, 5);
-  assert.equal(courtZones('nba').find((z) => z.zone === 'corner3')!.rotate, true);
+  const corner = courtZones('nba').find((z) => z.zone === 'corner3')!;
+  assert.deepEqual([corner.rotate, corner.mirror], [true, true], 'the corner label is turned along the strip and drawn on both strips');
+  assert.ok(courtZones('nba').filter((z) => z.mirror).length === 1 && !rinkZones().some((z) => z.mirror));
   assert.equal(rinkZones().length, 4);
   assert.deepEqual(zoneStats([], { kind: 'rink' }).map((z) => [z.zone, z.n]), [['perimeter', 0], ['point', 0], ['highSlot', 0], ['slot', 0]]);
   // an empty zone colours null (no NaN slot)

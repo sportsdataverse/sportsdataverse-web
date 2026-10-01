@@ -18,7 +18,9 @@
 // 500) both fall back to the plain FG% ramp with a "no league baseline for <league> <season>" note.
 // Then the modes and companions (P3 T4): Gobert's Smoothed view keeps every mark of the Raw view
 // (same lattice, same sizes, ≤ 300) with at least one recoloured (the kernel does something) and
-// says "smoothed" in the readout, legend and note; Zones draws the five court zones as fills
+// says "smoothed" in the readout, legend and note; a curve bin with no attempt in the kernel's
+// reach (Clint Capela's 17 ft) draws the league dot only, and each companion writes the hovered
+// bin's numbers above itself; Zones draws the five court zones as fills
 // whose shots sum to the drawn total, each lettered with its FG% and shots, the min-n range
 // idle; the NHL skater's Zones are four; each mode is mirrored as mode= in the URL and Raw drops
 // it. The companions share ONE hovered distance with the map: hovering the 24 ft bin on the
@@ -297,6 +299,34 @@ const shots = async (page, base) => {
   if ((await pressed()) !== 'Raw' || modeParam() !== null) fail(`initial mode: pressed "${await pressed()}", URL mode=${modeParam()}`);
   const rawGeom = await geometry();
   const rawSlots = await slotsOf();
+  // (j0) A curve bin with no attempt within the kernel's reach — Clint Capela 2026 shoots at the
+  // rim and the odd three, nothing at 17–18 ft: hovering it draws NO player dot (the line breaks
+  // there, so does the dot) while the league dot and both readouts stand; leaving clears them.
+  await page.goto(`${base}/platform/shots?league=nba_stats&season=2026&player=203991`, { waitUntil: 'domcontentloaded' });
+  await drawn();
+  await page.getByTestId('shots-title').filter({ hasText: 'Clint Capela · 2026' }).waitFor({ timeout: 60_000 });
+  const unsupported = page.locator('[data-testid="shots-curve-bins"] rect:not([data-supported])');
+  if ((await unsupported.count()) < 1) fail('Capela has no curve bin out of the kernel\'s reach: pick another player for this check');
+  const uLo = await unsupported.first().getAttribute('data-lo');
+  await unsupported.first().scrollIntoViewIfNeeded();
+  await unsupported.first().hover();
+  await page.waitForTimeout(300);
+  const curveDots = page.locator('[data-testid="shots-curve-dot"]');
+  const uDots = await curveDots.evaluateAll((els) => els.map((el) => el.getAttribute('fill')));
+  if (uDots.length !== 1 || uDots[0] !== 'var(--color-chart-cat-2)') fail(`unsupported ${uLo} ft bin drew dots ${JSON.stringify(uDots)} (want the league's only)`);
+  const uLabel = await unsupported.first().getAttribute('aria-label');
+  if ((await page.getByTestId('shots-curve-readout').innerText()) !== uLabel) fail(`curve readout "${await page.getByTestId('shots-curve-readout').innerText()}" ≠ the bin's "${uLabel}"`);
+  const uSide = await page.locator(`[data-testid="shots-butterfly-bins"] rect[data-lo="${uLo}"]`).getAttribute('aria-label');
+  if ((await page.getByTestId('shots-butterfly-readout').innerText()) !== uSide) fail(`butterfly readout "${await page.getByTestId('shots-butterfly-readout').innerText()}" ≠ "${uSide}"`);
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(200);
+  if ((await curveDots.count()) !== 0 || !/Hover a distance/.test(await page.getByTestId('shots-curve-readout').innerText()) || !/Hover a column/.test(await page.getByTestId('shots-butterfly-readout').innerText())) fail('the dots or readouts did not clear on leave');
+  console.log(`shots (j0) nba_stats 203991 (Capela) ${width}: unsupported ${uLo} ft bin → league dot only; readouts "${uLabel}" / "${uSide}"`);
+  await page.waitForTimeout(600);
+  // back to Gobert for the modes
+  await page.goto(`${base}/platform/shots?league=nba_stats&season=2026&player=203497`, { waitUntil: 'domcontentloaded' });
+  if ((await drawn()) !== jRaw) fail('Gobert did not redraw the same marks');
+  await page.getByTestId('shots-title').filter({ hasText: 'Rudy Gobert · 2026' }).waitFor({ timeout: 60_000 });
   await modeButton('Smoothed').click();
   await page.waitForTimeout(400);
   const jSmooth = await drawn();
@@ -331,6 +361,10 @@ const shots = async (page, base) => {
   if (zoneSum !== drawnTotal) fail(`the zones hold ${zoneSum} shots, the note ${drawnTotal}`);
   for (const z of zones) if (z.n && z.label !== `${Math.round((100 * z.made) / z.n)}% · ${z.n.toLocaleString('en-US')}`) fail(`zone ${z.zone} labelled "${z.label}" for ${z.made}/${z.n}`);
   if (zones.map((z) => z.zone).sort().join() !== 'atb3,corner3,mid,paint,restricted') fail(`zones: ${zones.map((z) => z.zone)}`);
+  // the two corners are one zone, lettered on both strips with the same label
+  const cornerLabels = await marks.locator('path[data-zone="corner3"]').evaluateAll((els) => [...els[0].parentElement.querySelectorAll('text')].map((t) => t.textContent));
+  if (cornerLabels.length !== 2 || cornerLabels[0] !== cornerLabels[1]) fail(`corner labels ${JSON.stringify(cornerLabels)}`);
+  if ((await marks.locator('text').count()) !== 6) fail(`${await marks.locator('text').count()} zone labels, want 6 (5 zones, the corner twice)`);
   if (!(await range.isDisabled())) fail('the min-n range is live in Zones');
   if (!/· 5 zones$/.test(await note.innerText())) fail(`zones note: "${await note.innerText()}"`);
   const ra = marks.locator('path[data-zone="restricted"]');
@@ -374,7 +408,13 @@ const shots = async (page, base) => {
   if ((await sideBin(24).getAttribute('data-hover')) === null || (await curveBin(24).getAttribute('data-hover')) === null) fail('hover 24 ft did not tint both companions');
   const kLabel = await curveBin(24).getAttribute('aria-label');
   if (!/^24 ft · \d+ shots \(\d+%\) · \d+% FG · league \d+%$/.test(kLabel)) fail(`24 ft label: "${kLabel}"`);
-  console.log(`shots (k) ${width}: hover 24 ft on the curve → band r=${band.r} width=${band.sw} (24–25 ft); "${kLabel}"; butterfly 24 ft tinted; curve ${cMarks} marks, butterfly ${bMarks}`);
+  // both dots (the bin has attempts in reach), and the two readouts spell the bin's numbers out
+  const kDots = await page.locator('[data-testid="shots-curve-dot"]').evaluateAll((els) => els.map((el) => el.getAttribute('fill')).sort());
+  if (kDots.join() !== 'var(--color-chart-cat-1),var(--color-chart-cat-2)') fail(`24 ft dots: ${JSON.stringify(kDots)}`);
+  if ((await page.getByTestId('shots-curve-readout').innerText()) !== kLabel) fail(`curve readout ≠ "${kLabel}"`);
+  const kSide = await sideBin(24).getAttribute('aria-label');
+  if ((await page.getByTestId('shots-butterfly-readout').innerText()) !== kSide || !/^24 ft · left \d+ shots · \d+% FG · \d+ ft · right \d+ shots · \d+% FG · \d+ ft$/.test(kSide)) fail(`butterfly readout "${await page.getByTestId('shots-butterfly-readout').innerText()}" vs "${kSide}"`);
+  console.log(`shots (k) ${width}: hover 24 ft on the curve → band r=${band.r} width=${band.sw} (24–25 ft); "${kLabel}"; both dots; butterfly 24 ft tinted, readout "${kSide}"; curve ${cMarks} marks, butterfly ${bMarks}`);
   await page.waitForTimeout(800);
   await page.mouse.move(0, 0);
   await page.waitForTimeout(200);

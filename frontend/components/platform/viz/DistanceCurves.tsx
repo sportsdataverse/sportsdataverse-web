@@ -37,7 +37,9 @@ export function curveLabel(r: DistRow, step: number, share: number, kind: MadeKi
  * rects carry a roving tabindex (the hovered bin, else the first with
  * shots), the arrow keys step a bin, Home/End to the ends, and each one's
  * aria-label is its numbers. Marks: two lines, a bar and a rect per bin, two
- * dots — under 110 for ≤ 50 bins.
+ * dots — under 110 for ≤ 50 bins. The hovered bin's numbers are also
+ * written above the chart (the readout), so a rate is never colour or
+ * hover-position alone.
  */
 export default function DistanceCurves({ rows, step, kind, curve = null, hover, onHover }: {
   rows: readonly DistRow[];
@@ -85,6 +87,9 @@ export default function DistanceCurves({ rows, step, kind, curve = null, hover, 
           </span>
         )}
       </p>
+      <p data-testid="shots-curve-readout" aria-live="polite" className="mb-1 min-h-5 font-inter text-xs tabular-nums text-foreground">
+        {at >= 0 ? curveLabel(rows[at], step, total ? rows[at].n / total : 0, kind, base[at]) : <span className="text-muted-foreground">Hover a distance</span>}
+      </p>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`${kind === "FG" ? "FG%" : "Shooting %"} and share of shots by distance`} data-marks={2 + 2 * rows.length + 2} onPointerLeave={() => onHover(null)}>
         {[0, 0.5, 1].map((t) => (
           <g key={t}>
@@ -110,12 +115,9 @@ export default function DistanceCurves({ rows, step, kind, curve = null, hover, 
         })}
         <path data-testid="shots-curve-player" d={line(player.map((v, i) => (supported[i] ? v : null)))} fill="none" stroke={chartVar("cat-1")} strokeWidth={1.5} />
         <path data-testid="shots-curve-base" d={line(base.map((v, i) => (kind === "FG" || supported[i] ? v : null)))} fill="none" stroke={chartVar("cat-2")} strokeWidth={1.5} strokeDasharray={kind === "FG" ? undefined : "3 2"} />
-        {at >= 0 ? (
-          <>
-            <circle cx={x(rows[at].lo + step / 2)} cy={yRate(player[at])} r={3} fill={chartVar("cat-1")} />
-            {base[at] === null ? null : <circle cx={x(rows[at].lo + step / 2)} cy={yRate(base[at])} r={3} fill={chartVar("cat-2")} />}
-          </>
-        ) : null}
+        {/* a dot only where its line is drawn: the player's where an attempt is in reach, the league's wherever it has a rate */}
+        {at >= 0 && supported[at] ? <circle data-testid="shots-curve-dot" cx={x(rows[at].lo + step / 2)} cy={yRate(player[at])} r={3} fill={chartVar("cat-1")} /> : null}
+        {at >= 0 && base[at] !== null && (kind === "FG" || supported[at]) ? <circle data-testid="shots-curve-dot" cx={x(rows[at].lo + step / 2)} cy={yRate(base[at])} r={3} fill={chartVar("cat-2")} /> : null}
         {/* the hit rects: one hovered distance for the map, this curve and the butterfly */}
         <g data-testid="shots-curve-bins">
           {rows.map((r, i) => (
@@ -131,6 +133,7 @@ export default function DistanceCurves({ rows, step, kind, curve = null, hover, 
               height={FREQ.top + FREQ.h - RATE.top}
               data-lo={r.lo}
               data-n={r.n}
+              data-supported={supported[i] ? "" : undefined}
               data-hover={r.lo === hover ? "" : undefined}
               className={`focus:outline-none ${r.lo === hover ? "fill-foreground/10" : "fill-transparent"}`}
               tabIndex={r.lo === tabLo ? 0 : -1}

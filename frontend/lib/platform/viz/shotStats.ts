@@ -91,7 +91,9 @@ export function smoothBins(bins: readonly HexBin[], sigma: number): HexBin[] {
  * of the three-point line), the corner three (beyond the straight corner
  * lines, below where they meet the arc — 8.95 ft above the hoop on an NBA
  * court) and above-the-break three (beyond the arc). A boundary belongs to
- * the farther zone: a shot ON the three-point line is a three.
+ * the farther zone, everywhere: ON the restricted arc is the paint, ON a
+ * lane line or the free-throw line is mid-range, ON the three-point line
+ * is a three. The two corners are one zone, lettered on both strips.
  */
 export const COURT_ZONES = ["restricted", "paint", "mid", "corner3", "atb3"] as const;
 export type CourtZone = (typeof COURT_ZONES)[number];
@@ -103,7 +105,11 @@ export type CourtZone = (typeof COURT_ZONES)[number];
  * same width from the dots up to the top of the circles (y ≤ 35); the point
  * — everything above the circle tops, to centre ice (shots from beyond the
  * blue line are rare and read with the point); the perimeter — the rest:
- * outside the dots below the circle tops, and behind the goal line.
+ * outside the dots below the circle tops, and behind the goal line. A
+ * boundary belongs to the farther zone, as on the court: ON the dots' line
+ * is the high slot, ON the circle tops is the point, ON a dot's x is the
+ * perimeter — except the goal line itself, which reads with the slot (the
+ * zone behind it is nearer, not farther).
  */
 export const RINK_ZONES = ["slot", "highSlot", "point", "perimeter"] as const;
 export type RinkZone = (typeof RINK_ZONES)[number];
@@ -126,20 +132,21 @@ export function zoneOf(x: number, y: number, c: Court): CourtZone {
   if (Math.hypot(x, y) < COURT.restricted) return "restricted";
   const corner = y <= arcCornerY(c);
   if (corner ? Math.abs(x) >= c.corner : Math.hypot(x, y) >= c.three) return corner ? "corner3" : "atb3";
-  return Math.abs(x) <= c.key / 2 && y <= COURT.ftLine ? "paint" : "mid";
+  return Math.abs(x) < c.key / 2 && y < COURT.ftLine ? "paint" : "mid";
 }
 
 export function rinkZoneOf(x: number, y: number): RinkZone {
-  if (y > RINK.dotY + RINK.circle) return "point";
-  if (Math.abs(x) <= RINK.dotX && y >= 0) return y <= RINK.dotY ? "slot" : "highSlot";
+  if (y >= RINK.dotY + RINK.circle) return "point";
+  if (Math.abs(x) < RINK.dotX && y >= 0) return y < RINK.dotY ? "slot" : "highSlot";
   return "perimeter";
 }
 
 /** A zone's fill as path data in feet (non-overlapping with `fillRule="evenodd"`:
  *  an outer boundary and the zones it encloses as holes), and its anchor —
  *  where its label sits and what the arrow keys walk between (as a hex's
- *  centre); `rotate` turns the label along a narrow corner strip. */
-export type ZoneShape = { zone: ZoneKey; path: string; cx: number; cy: number; rotate?: boolean };
+ *  centre); `rotate` turns the label along a narrow corner strip, `mirror`
+ *  letters it at (−cx, cy) as well — the corners are one zone, two strips. */
+export type ZoneShape = { zone: ZoneKey; path: string; cx: number; cy: number; rotate?: boolean; mirror?: boolean };
 
 export function courtZones(court: CourtKey): ZoneShape[] {
   const c = COURTS[court];
@@ -152,7 +159,7 @@ export function courtZones(court: CourtKey): ZoneShape[] {
   const corners = `${rect(-w2, -hoop, w2 - c.corner, hoop + yi)} ${rect(c.corner, -hoop, w2 - c.corner, hoop + yi)}`;
   return [
     { zone: "atb3", path: `${rect(-w2, -hoop, width, half)} ${inside} ${corners}`, cx: 0, cy: 30 },
-    { zone: "corner3", path: corners, cx: -(w2 + c.corner) / 2, cy: 2, rotate: true },
+    { zone: "corner3", path: corners, cx: -(w2 + c.corner) / 2, cy: 2, rotate: true, mirror: true },
     { zone: "mid", path: `${inside} ${lane}`, cx: 0, cy: 19 },
     { zone: "paint", path: `${lane} ${ra}`, cx: 0, cy: 9 },
     { zone: "restricted", path: ra, cx: 0, cy: 2 },
