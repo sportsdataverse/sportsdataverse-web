@@ -174,7 +174,18 @@ function sourcesFor(columns: string[], basis: string, resolve: Resolve) {
 export function rebase(columns: string[], rows: (string | null)[][], basis: string | null, resolve: Resolve = resolveMetric): Rebased {
   if (basis === null) return { columns, rows, blanked: new Set(), sourced: new Map() };
   const { src, blanked, sourced } = sourcesFor(columns, basis, resolve);
-  return { columns, rows: rows.map((r) => src.map((s) => (s < 0 ? null : r[s]))), blanked, sourced };
+  // only the columns that change hands: a row is copied once and patched at those, not rebuilt cell by cell
+  const moved = src.flatMap((s, i) => (s === i ? [] : [[i, s] as const]));
+  return {
+    columns,
+    rows: rows.map((r) => {
+      const out = r.slice();
+      for (const [i, s] of moved) out[i] = s < 0 ? null : r[s];
+      return out;
+    }),
+    blanked,
+    sourced,
+  };
 }
 
 /** The bases a result can serve, in registry order: those under which at least one column is sourced. */
