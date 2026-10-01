@@ -44,9 +44,9 @@ test('stats.nba: (0, 0) is the hoop; (-220, 50) is a corner three 22.6 ft out', 
   }
 });
 
-test('NBA arc meets the corner line 8.95 ft above the hoop; FIBA courts 4.66', () => {
+test('NBA arc meets the corner line 8.95 ft above the hoop; NCAA courts 4.66, the WNBA 2.54', () => {
   assert.ok(Math.abs(arcCornerY(COURTS.nba) - 8.95) < 0.01);
-  assert.ok(Math.abs(arcCornerY(COURTS.wnba) - 4.66) < 0.01);
+  assert.ok(Math.abs(arcCornerY(COURTS.wnba) - 2.54) < 0.01);
   assert.ok(courtPaths(COURTS.nba).some((d) => d.includes(`L -22 ${arcCornerY(COURTS.nba)} A 23.75 23.75`)));
   assert.equal(courtPaths(COURTS.mbb).length, courtPaths(COURTS.nba).length);
 });
