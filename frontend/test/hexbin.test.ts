@@ -117,7 +117,7 @@ test('leagueRateAt: the bucket holding the distance, x_lo inclusive and x_hi exc
   assert.equal(leagueRateAt([curve[1], curve[0]], 1), 0.62);
 });
 
-test('binSlot vs the league: FG% − leagueRateAt(mean distance) on the diverging ramp at ±3/6/9 pp; null curve → sequential', () => {
+test('binSlot vs the league: FG% − leagueRateAt(mean distance) on the diverging ramp at ±3/6/9 pp; null curve → sequential — a distance with no curve rate gives a null slot (null stays null)', () => {
   const curve: CurveRow[] = [{ x_lo: 0, x_hi: 3, rate: 0.62 }, { x_lo: 3, x_hi: 10, rate: 0.41 }];
   // a bin at 0.50 made / 4.2 ft against the league's 0.41 there: +9 pp, the third step (the 0.09 cut is inclusive)
   const at = (made: number, n: number, ft: number): HexBin => ({ cx: 0, cy: 0, n, made, sumDist: n * ft, sumXg: 0 });
