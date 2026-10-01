@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { applyPreset, familyOrder, groupStarts, headerLabel, headerLabels, presetsFor, validOrder } from '../lib/platform/gridRegistry.ts';
+import { applyPreset, bases, basesFor, familyOrder, groupStarts, headerLabel, headerLabels, nativeBasis, presetsFor, rebase, validOrder } from '../lib/platform/gridRegistry.ts';
+import { viewRows } from '../lib/platform/viewState.ts';
 import { METRICS, resolveMetric } from '../lib/platform/metricRegistry.ts';
 import { columnTip } from '../lib/platform/glossary.ts';
 
@@ -128,4 +129,140 @@ test('validOrder: non-empty, distinct, in-range indices, any length up to the co
   assert.equal(validOrder([0, -1], 3), false);
   assert.equal(validOrder([0, 1, 2, 3], 3), false); // longer than the result (the last result's order)
   assert.equal(validOrder([0.5], 3), false);
+});
+
+// --- a registry with variants: yards (V) total / per_play / per_game, plays (W) total / per_game, comp (W) none
+const VSTUB: Record<string, { family: string; short: string; label: string; variants: Record<string, string> }> = {
+  yards: { family: 'V', short: 'Yds', label: 'Yards', variants: { total: 'yards', per_play: 'yardsplay', per_game: 'yardsgame' } },
+  yardsplay: { family: 'V', short: 'Yds/Play', label: 'Yards per play', variants: { total: 'yards', per_play: 'yardsplay', per_game: 'yardsgame' } },
+  yardsgame: { family: 'V', short: 'Yds/Game', label: 'Yards per game', variants: { total: 'yards', per_play: 'yardsplay', per_game: 'yardsgame' } },
+  plays: { family: 'W', short: 'Plays', label: 'Plays', variants: { total: 'plays', per_game: 'playsgame' } },
+  playsgame: { family: 'W', short: 'Plays/Game', label: 'Plays per game', variants: { total: 'plays', per_game: 'playsgame' } },
+  comp: { family: 'W', short: 'Comp', label: 'Completions', variants: {} },
+};
+const vstub = (c: string) => {
+  const m = /^(\w+?)(?:_(off|def|margin))?(?:_(pct|rank|n))?$/.exec(c);
+  const e = m && VSTUB[m[1]];
+  if (!e) return null;
+  return { ...e, key: m[1], ...(m[2] ? { side: m[2] } : {}), ...(m[3] ? { suffix: `_${m[3]}` } : {}) };
+};
+const VBASES = ['total', 'per_play', 'per_game'];
+
+test('bases: the union of variant names in first-appearance order', () => {
+  assert.deepEqual(bases(), ['total', 'per_play', 'per_game', 'per_drive']);
+  assert.deepEqual(bases(VSTUB), VBASES);
+  assert.deepEqual(bases({ a: { variants: { per_game: 'ag', total: 'a' } }, b: { variants: { per_play: 'bp', total: 'b' } }, c: { variants: {} } }), ['per_game', 'total', 'per_play']);
+});
+
+test('nativeBasis: the basis an entry lists itself under; null without one, or unresolved', () => {
+  assert.equal(nativeBasis('EPAplay'), 'per_play');
+  assert.equal(nativeBasis('TEPA'), 'total');
+  assert.equal(nativeBasis('plays'), 'total');
+  assert.equal(nativeBasis('EPAdrive_off_pass'), 'per_drive');
+  assert.equal(nativeBasis('success'), null);
+  assert.equal(nativeBasis('team'), null);
+  assert.equal(nativeBasis('yardsgame_def', vstub), 'per_game');
+  assert.equal(nativeBasis('comp', vstub), null);
+});
+
+test('rebase: a sourced column keeps its name and place but shows its sibling; a native one is left alone', () => {
+  const cols = ['id', 'yards', 'yardsplay', 'plays', 'comp', 'yards_pct'];
+  const rows = [
+    ['a', '100', '5.5', '20', '7', '80'],
+    ['b', '30', '2.0', '15', '3', '20'],
+    ['c', null, '9.9', '1', null, null],
+  ];
+  const got = rebase(cols, rows, 'per_play', vstub);
+  assert.deepEqual(got.columns, cols);
+  assert.deepEqual(got.rows.map((r) => r[1]), rows.map((r) => r[2])); // yards shows yardsplay
+  assert.equal(got.sourced.get('yards'), 'yardsplay');
+  assert.deepEqual(got.rows.map((r) => r[2]), rows.map((r) => r[2])); // yardsplay is native per_play: untouched
+  assert.equal(got.sourced.has('yardsplay'), false);
+  assert.equal(got.blanked.has('yardsplay'), false);
+  // the ids and a suffixed column pass through untouched
+  assert.deepEqual(got.rows.map((r) => r[0]), ['a', 'b', 'c']);
+  assert.deepEqual(got.rows.map((r) => r[5]), ['80', '20', null]);
+  assert.equal(got.sourced.has('yards_pct'), false);
+  assert.equal(got.blanked.has('yards_pct'), false);
+  assert.deepEqual([...got.sourced.keys()], ['yards']);
+});
+
+test('rebase: no variant under the basis (comp), or the variant without its sibling (plays, per_play), blanks the column', () => {
+  const cols = ['id', 'yards', 'yardsplay', 'plays', 'comp'];
+  const rows = [['a', '100', '5.5', '20', '7'], ['b', '30', '2.0', '15', '3']];
+  const got = rebase(cols, rows, 'per_play', vstub);
+  assert.deepEqual(got.rows.map((r) => r[4]), [null, null]); // comp has no variants: never silently its total
+  assert.ok(got.blanked.has('comp'));
+  assert.deepEqual(got.rows.map((r) => r[3]), [null, null]); // plays has variants, not per_play
+  assert.ok(got.blanked.has('plays'));
+  assert.deepEqual([...got.blanked], ['plays', 'comp']);
+  // per_game: yards and yardsplay want yardsgame, which the result lacks; plays wants playsgame, also absent
+  const game = rebase(cols, rows, 'per_game', vstub);
+  assert.deepEqual([...game.blanked], ['yards', 'yardsplay', 'plays', 'comp']);
+  assert.equal(game.sourced.size, 0);
+  // with playsgame present, plays is sourced under per_game
+  const withGame = rebase([...cols, 'playsgame'], rows.map((r) => [...r, '9']), 'per_game', vstub);
+  assert.equal(withGame.sourced.get('plays'), 'playsgame');
+  assert.deepEqual(withGame.rows.map((r) => r[3]), ['9', '9']);
+});
+
+test('rebase over the real registry: a sided column takes its sided sibling and never the other side (or the unsided one)', () => {
+  const rows = [['A', '10', '0.2', '0.3', '0.25', '50'], ['B', '-4', '-0.1', '0.05', '0.0', '20']];
+  const sided = rebase(['team', 'TEPA_off', 'EPAplay_off', 'EPAplay_def', 'EPAplay', 'EPAplay_pct'], rows, 'per_play');
+  assert.equal(sided.sourced.get('TEPA_off'), 'EPAplay_off');
+  assert.deepEqual(sided.rows.map((r) => r[1]), ['0.2', '-0.1']);
+  assert.equal(sided.blanked.size, 0);
+  const unsided = rebase(['team', 'TEPA_off', 'EPAplay', 'EPAplay_def'], rows, 'per_play');
+  assert.ok(unsided.blanked.has('TEPA_off'), 'TEPA_off must not take EPAplay or EPAplay_def');
+  assert.equal(unsided.sourced.has('TEPA_off'), false);
+  assert.deepEqual(unsided.rows.map((r) => r[1]), [null, null]);
+  // the phased form too: TEPA_off_pass <- EPAplay_off_pass
+  assert.equal(rebase(['TEPA_off_pass', 'EPAplay_off_pass'], [], 'per_play').sourced.get('TEPA_off_pass'), 'EPAplay_off_pass');
+  assert.ok(rebase(['TEPA_off_pass', 'EPAplay_off'], [], 'per_play').blanked.has('TEPA_off_pass'));
+});
+
+test('rebase: a suffixed column (X_pct, X_rank, X_n) passes through under every basis', () => {
+  const cols = ['team', 'EPAplay_pct', 'TEPA_off_rank', 'EPAplay_off_n', 'EPAplay'];
+  const rows = [['A', '90', '3', '400', '0.2']];
+  for (const b of bases()) {
+    const got = rebase(cols, rows, b);
+    assert.deepEqual(got.rows[0].slice(1, 4), ['90', '3', '400'], b);
+    for (const c of cols.slice(1, 4)) {
+      assert.equal(got.sourced.has(c), false, `${c} under ${b}`);
+      assert.equal(got.blanked.has(c), false, `${c} under ${b}`);
+    }
+  }
+});
+
+test("rebase: the grid's view (viewRows) over the rebased rows sorts and filters by the displayed (sibling) values", () => {
+  const cols = ['id', 'yards', 'yardsplay'];
+  const rows = [['a', '300', '2.0'], ['b', '100', '9.0'], ['c', '200', '5.0']];
+  const shown = rebase(cols, rows, 'per_play', vstub).rows;
+  const byYards = viewRows(shown, { col: 1, dir: 'desc' }, {});
+  assert.deepEqual(byYards.map((r) => r.cells[0]), ['b', 'c', 'a']); // by yardsplay 9 > 5 > 2, not yards 300 > 200 > 100
+  assert.deepEqual(byYards.map((r) => r.orig), [1, 2, 0]); // each row keeps its original index
+  assert.deepEqual(viewRows(rows, { col: 1, dir: 'desc' }, {}).map((r) => r.cells[0]), ['a', 'c', 'b']);
+  // a filter on yards reads the displayed value too
+  assert.deepEqual(viewRows(shown, null, { 1: '9' }).map((r) => r.cells[0]), ['b']);
+  assert.deepEqual(viewRows(rows, null, { 1: '9' }).map((r) => r.cells[0]), []);
+});
+
+test('rebase: the native view (basis null) returns the input unchanged, same references', () => {
+  const cols = ['id', 'yards', 'yardsplay'];
+  const rows = [['a', '300', '2.0']];
+  const got = rebase(cols, rows, null, vstub);
+  assert.equal(got.rows, rows);
+  assert.equal(got.columns, cols);
+  assert.equal(got.sourced.size, 0);
+  assert.equal(got.blanked.size, 0);
+});
+
+test('basesFor: the bases under which at least one column is sourced, in registry order', () => {
+  assert.deepEqual(basesFor(['id', 'yards', 'yardsplay', 'plays', 'comp'], vstub, VBASES), ['total', 'per_play']);
+  assert.deepEqual(basesFor(['id', 'yardsgame', 'plays', 'playsgame'], vstub, VBASES), ['total', 'per_game']);
+  assert.deepEqual(basesFor(['id', 'yardsplay'], vstub, VBASES), []); // its only sibling-less column is native per_play
+  assert.deepEqual(basesFor(['id', 'name'], vstub, VBASES), []);
+  assert.deepEqual(basesFor(TEAM_SUMMARIES), ['total', 'per_play', 'per_game', 'per_drive']);
+  assert.deepEqual(basesFor(['TEPA', 'EPAplay', 'EPAplay_pct']), ['total', 'per_play']);
+  assert.deepEqual(basesFor(['season', 'level', 'entity', 'category', 'metric', 'mean', 'median', 'sd', 'n', 'qualifier_min']), []);
 });

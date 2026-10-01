@@ -85,18 +85,22 @@ export default function RatingsClient({
   initial,
   initialPin,
   initialPreset,
+  initialBasis,
 }: {
   initial: RatingsView;
   initialPin: GridPin | null;
   initialPreset: string | null;
+  initialBasis: string | null;
 }) {
   const [league, setLeague] = useState(initial.league);
-  // The grid's pins and its preset are the grid.* keys the page keeps: the board always opens on its own order.
+  // The grid's pins, its preset and its basis are the grid.* keys the page keeps: the board always opens on its own order.
   const [pin, setPin] = useState(initialPin);
   const [preset, setPreset] = useState(initialPreset);
+  const [basis, setBasis] = useState(initialBasis);
   const onGridView = useCallback((v: GridView) => {
     setPin(v.pin);
     setPreset(v.preset);
+    setBasis(v.basis);
   }, []);
   const [season, setSeason] = useState(initial.season);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -113,7 +117,7 @@ export default function RatingsClient({
   const loadKey = `${league}|${activeSeason}`;
   const shown = loaded?.key === loadKey ? loaded : null;
   const pageParams = ratingsViewParams({ league, season: activeSeason || season });
-  gridViewParams({ ...EMPTY_GRID, pin, preset }, pageParams);
+  gridViewParams({ ...EMPTY_GRID, pin, preset, basis }, pageParams);
   useUrlMirror(pageParams);
 
   useEffect(() => {
@@ -156,7 +160,7 @@ export default function RatingsClient({
   const types = useMemo(() => ({ ...src.columns, ...(src.names ? { [TEAM_COL]: "text" } : {}) }), [src]);
   // The grid opens on the board's order (the rows already arrive in it), so its header says so.
   // A season switch keeps the pins (the grid drops any id the new season lacks).
-  const initialGrid: GridView = { sort: { col: orderCol, dir: desc ? "desc" : "asc" }, filters: {}, tint: "delta", pin, qualified: false, preset };
+  const initialGrid: GridView = { sort: { col: orderCol, dir: desc ? "desc" : "asc" }, filters: {}, tint: "delta", pin, qualified: false, preset, basis };
 
   const one = src.noun.replace(/s$/, "");
   const d1 = src.names?.only && shown && !shown.unlisted ? `${src.names.only} ` : "";

@@ -1,15 +1,26 @@
 /**
  * The metric registry as ResultsGrid reads it: column presets by family, group
- * separators over the displayed order, and header labels that tell `_off` from
- * `_def`. Every helper takes the resolver (and the family order) as an argument
- * so a fixture registry can drive the tests; the defaults are the generated
- * metricRegistry.ts.
+ * separators over the displayed order, header labels that tell `_off` from
+ * `_def`, and the basis toggle (per game / per play / per drive / total) that
+ * shows a column's sibling variant in its place. Every helper takes the
+ * resolver (and the family order or the bases) as an argument so a fixture
+ * registry can drive the tests; the defaults are the generated metricRegistry.ts.
  */
 import { columnTip } from "./glossary.ts";
 import { METRICS, resolveMetric } from "./metricRegistry.ts";
 
-/** What a helper needs of a resolved column (ResolvedMetric is one). */
-export type Resolved = { family: string; short: string; label: string; side?: string; phase?: string; suffix?: string };
+/** What a helper needs of a resolved column (ResolvedMetric is one). `key` and `variants` are
+ *  what the basis helpers read; a resolver without them never sources a sibling. */
+export type Resolved = {
+  family: string;
+  short: string;
+  label: string;
+  side?: string;
+  phase?: string;
+  suffix?: string;
+  key?: string;
+  variants?: Record<string, string>;
+};
 export type Resolve = (column: string) => Resolved | null;
 
 export type Preset = { family: string; columns: string[] };
@@ -103,4 +114,81 @@ export function validOrder(order: number[], n: number): boolean {
 export function applyPreset(columns: string[], frozen: number, preset: { columns: string[] }): number[] {
   const idx = preset.columns.map((c) => columns.indexOf(c)).filter((i) => i >= 0 && i !== frozen);
   return frozen >= 0 ? [frozen, ...idx] : idx;
+}
+
+// --- Basis (per game / per play / per drive / total) ----------------------------------------
+
+/** The bases the registry knows, as the union of every entry's variant names in first-appearance
+ *  order (`total`, `per_play`, `per_game`, `per_drive`). */
+export function bases(metrics: Record<string, { variants: Record<string, string> }> = METRICS): string[] {
+  return [...new Set(Object.values(metrics).flatMap((m) => Object.keys(m.variants)))];
+}
+
+/** The basis a column's entry lists ITSELF under (`EPAplay` → per_play, `TEPA` → total); null for an
+ *  entry without variants (`success`) or an unresolved column. */
+export function nativeBasis(column: string, resolve: Resolve = resolveMetric): string | null {
+  const r = resolve(column);
+  if (!r?.key) return null;
+  return Object.entries(r.variants ?? {}).find(([, key]) => key === r.key)?.[0] ?? null;
+}
+
+export type Rebased = {
+  columns: string[];
+  rows: (string | null)[][];
+  /** The columns with no `basis` variant in the result: every cell null. */
+  blanked: Set<string>;
+  /** column → the sibling column whose cells it shows. */
+  sourced: Map<string, string>;
+};
+
+/** Per column, the index of the column whose cells it shows under `basis`: itself (an id, a name,
+ *  text, a suffixed `X_pct` / `X_rank` / `X_n`, or a column already on that basis), its sibling's
+ *  (the variant key re-decorated with the column's own side and phase: `TEPA_off` → `EPAplay_off`),
+ *  or -1 when the entry has no such variant or the sibling isn't in the result. The grid never
+ *  shows another basis's values as if they were this one's, so that column goes blank. */
+function sourcesFor(columns: string[], basis: string, resolve: Resolve) {
+  const at = new Map(columns.map((c, i) => [c, i]));
+  const blanked = new Set<string>();
+  const sourced = new Map<string, string>();
+  const src = columns.map((c, i) => {
+    const r = resolve(c);
+    if (!r?.key || r.suffix) return i;
+    const key = r.variants?.[basis];
+    if (key === r.key) return i;
+    const sibling = key === undefined ? undefined : `${key}${r.side ? `_${r.side}` : ""}${r.phase ? `_${r.phase}` : ""}`;
+    const j = sibling === undefined ? undefined : at.get(sibling);
+    if (sibling === undefined || j === undefined) {
+      blanked.add(c);
+      return -1;
+    }
+    sourced.set(c, sibling);
+    return j;
+  });
+  return { src, blanked, sourced };
+}
+
+/** The result on `basis`: the same columns in the same places, each sourced column's cells taken
+ *  from its sibling and each blanked column's cells null. The native view (`basis` null) is the
+ *  input itself, same references, so the grid pays nothing for it. O(rows × columns) otherwise:
+ *  memoize on [columns, rows, basis]. */
+export function rebase(columns: string[], rows: (string | null)[][], basis: string | null, resolve: Resolve = resolveMetric): Rebased {
+  if (basis === null) return { columns, rows, blanked: new Set(), sourced: new Map() };
+  const { src, blanked, sourced } = sourcesFor(columns, basis, resolve);
+  // only the columns that change hands: a row is copied once and patched at those, not rebuilt cell by cell
+  const moved = src.flatMap((s, i) => (s === i ? [] : [[i, s] as const]));
+  return {
+    columns,
+    rows: rows.map((r) => {
+      const out = r.slice();
+      for (const [i, s] of moved) out[i] = s < 0 ? null : r[s];
+      return out;
+    }),
+    blanked,
+    sourced,
+  };
+}
+
+/** The bases a result can serve, in registry order: those under which at least one column is sourced. */
+export function basesFor(columns: string[], resolve: Resolve = resolveMetric, all: string[] = bases()): string[] {
+  return all.filter((b) => sourcesFor(columns, b, resolve).sourced.size > 0);
 }
