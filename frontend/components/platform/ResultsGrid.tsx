@@ -10,7 +10,8 @@ import { formatValue } from "@lib/platform/trends";
 import { columnTip } from "@lib/platform/glossary";
 import { revealInScroller } from "@lib/platform/scroll";
 import { visibleRange, WINDOW_MIN } from "@lib/platform/gridVirtual";
-import { labelColumn, pinIdentity, transposePinned } from "@lib/platform/gridCompare";
+import { identityColumn, labelColumn, pinIdentity, transposePinned } from "@lib/platform/gridCompare";
+import { applyPreset, groupStarts, headerLabels, presetsFor, type Preset } from "@lib/platform/gridRegistry";
 import {
   asPercentile,
   columnDomain,
@@ -74,6 +75,16 @@ import {
  * - From `xl`, a rail beside the grid shows every value of the hovered (or
  *   focused) row, each producer percentile as a bar.
  *
+ * Presets, separators and the frozen column (gridRegistry.ts)
+ * - A pill per registry family with 2+ base columns in the result shows only
+ *   that family's columns (`grid.preset=efficiency`), behind the frozen column;
+ *   `All` restores every column. A 2px left border starts each family run in
+ *   the displayed order, and a header reads the registry's short label with its
+ *   side (`EPA/Play Off` / `EPA/Play Def`), the raw name in its tooltip.
+ * - The frozen column is the label (the name), else the identity column: it
+ *   sticks behind `#` through horizontal scroll whenever it is displayed first,
+ *   which a preset guarantees and a drag may undo.
+ *
  * Sample sizes and the qualifier
  * - An `X` with an `X_n` beside it marks its header `n`, and each cell's title
  *   carries its n.
@@ -97,9 +108,10 @@ export type GridProps = {
   onRowHover?: (index: number | null) => void;
   /** Fires when a row is selected via click/keyboard. */
   onRowSelect?: (index: number | null) => void;
-  /** Sort / column filters / tint / pins to start from (e.g. parsed from the URL); read on
-   *  mount. Pins apply when their column is the result's pinIdentity; the ids the result
-   *  lacks are dropped, and the status bar says how many. */
+  /** Sort / column filters / tint / pins / preset to start from (e.g. parsed from the URL); read
+   *  on mount. Pins apply when their column is the result's pinIdentity; the ids the result
+   *  lacks are dropped, and the status bar says how many. A preset the result lacks is dropped
+   *  the same way. */
   initialView?: GridView;
   /** Fires with the view, keyed by column NAME, on mount and whenever sort /
    *  filters / tint / pins change. `pin` is null while pins are session-only (row
@@ -134,6 +146,24 @@ function missingNote(from: Pins, kept: Pins): string {
 
 const pinsOf = (v: GridView | undefined): Pins => ({ col: v?.pin?.col ?? null, keys: v?.pin?.values ?? [] });
 
+/** The column that stays put through horizontal scroll: the label (the name a reader knows the
+ *  row by), else the identity column, else none (-1). A sticky player_id alone tells a reader
+ *  nothing, which is why the label comes first. */
+const frozenColumn = (columns: string[]) => {
+  const label = labelColumn(columns);
+  return label >= 0 ? label : identityColumn(columns);
+};
+/** `preset` when the result offers it, else null. */
+const keepPreset = (preset: string | null, presets: Preset[]) => (preset !== null && presets.some((p) => p.family === preset) ? preset : null);
+/** The grid's `order` under `preset`: its columns behind the frozen one; without one, every column. */
+function orderFor(columns: string[], presets: Preset[], preset: string | null): number[] {
+  const p = presets.find((x) => x.family === preset);
+  return p ? applyPreset(columns, frozenColumn(columns), p) : columns.map((_, i) => i);
+}
+/** Says a preset the result lacks (a link from another table) was dropped, rather than dropping it unseen. */
+const presetNote = (from: string | null, kept: string | null) => (from !== null && kept === null ? `no ${from} preset for this result` : "");
+const notes = (...parts: string[]) => parts.filter(Boolean).join(" · ");
+
 const PAGE = 20;
 const DENSITY = ["py-0.5", "py-1", "py-2"] as const;
 /** Exact row height (px) per density; the tallest content + padding + border fits in each. */
@@ -165,7 +195,8 @@ export default function ResultsGrid({
   const [sort, setSort] = useState<Sort>(start.sort);
   const [focus, setFocus] = useState<{ r: number; c: number }>({ r: 0, c: 0 });
   const [selectedRow, setSelectedRow] = useState<number | null>(null); // original index
-  const [order, setOrder] = useState<number[]>(() => columns.map((_, i) => i));
+  const [preset, setPreset] = useState<string | null>(() => keepPreset(start.preset, presetsFor(columns)));
+  const [order, setOrder] = useState<number[]>(() => orderFor(columns, presetsFor(columns), start.preset));
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [tint, setTint] = useState<TintMode>(start.tint);
   /** `q`'s intent, kept while the result has no gate (yet), like `tint`'s. */
@@ -184,7 +215,7 @@ export default function ResultsGrid({
   const [pins, setPins] = useState<Pins>(() => keepPins(pinsOf(initialView), columns, rows));
   const [pinnedOnly, setPinnedOnly] = useState(false);
   /** The status bar's live message: a pin, an unpin, a refusal, pins a result lacks. */
-  const [notice, setNotice] = useState(() => missingNote(pinsOf(initialView), pins));
+  const [notice, setNotice] = useState(() => notes(missingNote(pinsOf(initialView), pins), presetNote(start.preset, preset)));
   /** A row the next view change keeps focused wherever it lands (`z`), by original index. */
   const followRow = useRef<number | null>(null);
   /** The focused cell's row, by original index (for the gate's arrival under `q`). */
@@ -200,15 +231,18 @@ export default function ResultsGrid({
   // for "reset state when a prop changes"), so there's no stale frame.
   const [cols, setCols] = useState(columns);
   if (cols.join("\u0001") !== columns.join("\u0001")) {
-    const next = gridByIndex(gridByName({ sort, filters, tint, pin: null, qualified }, cols), columns);
+    const next = gridByIndex(gridByName({ sort, filters, tint, pin: null, qualified, preset }, cols), columns);
     setCols(columns);
-    setOrder(columns.map((_, i) => i));
+    const nextPresets = presetsFor(columns);
+    const keptPreset = keepPreset(preset, nextPresets);
+    setPreset(keptPreset);
+    setOrder(orderFor(columns, nextPresets, keptPreset));
     setFilters(next.filters);
     setSort(next.sort);
     setSelectedRow(null);
     const kept = keepPins(pins, columns, rows);
     setPins(kept);
-    setNotice(missingNote(pins, kept));
+    setNotice(notes(missingNote(pins, kept), presetNote(preset, keptPreset)));
   }
   // A rerun with the same columns keeps sort and filters, but the selected index
   // would point at a different row. Both row sources are stable per result.
@@ -227,8 +261,8 @@ export default function ResultsGrid({
     [pins]
   );
   useEffect(() => {
-    onViewChange?.(gridByName({ sort, filters, tint, pin: urlPin, qualified }, cols));
-  }, [sort, filters, tint, urlPin, qualified, cols, onViewChange]);
+    onViewChange?.(gridByName({ sort, filters, tint, pin: urlPin, qualified, preset }, cols));
+  }, [sort, filters, tint, urlPin, qualified, preset, cols, onViewChange]);
 
   const idCol = pins.col === null ? -1 : cols.indexOf(pins.col);
   const origById = useMemo(() => new Map(idCol < 0 ? [] : rows.map((r, i) => [r[idCol], i])), [rows, idCol]);
@@ -269,7 +303,41 @@ export default function ResultsGrid({
     }
   }
 
-  const colOrder = order.length === columns.length ? order : columns.map((_, i) => i);
+  /** The displayed columns by original index: every column (as dragged), or a preset's subset
+   *  behind the frozen one. A shorter order is fine; one naming a column twice or out of range
+   *  (the last result's, for one render) shows every column. */
+  const colOrder = useMemo(() => {
+    const valid =
+      order.length > 0 && order.length <= cols.length && new Set(order).size === order.length && order.every((i) => i >= 0 && i < cols.length);
+    return valid ? order : cols.map((_, i) => i);
+  }, [order, cols]);
+  const presets = useMemo(() => presetsFor(cols), [cols]);
+  const frozen = frozenColumn(cols);
+  /** The displayed names: separators and header labels follow the DISPLAYED order, not the result's. */
+  const displayed = useMemo(() => colOrder.map((ci) => cols[ci]), [colOrder, cols]);
+  const groups = useMemo(() => groupStarts(displayed), [displayed]);
+  const heads = useMemo(() => headerLabels(displayed), [displayed]);
+  // The # column's width, which the frozen column sticks behind: w-10 is its floor, not its width
+  // (the row number and the pin button grow it: 54 px at 100 rows, more at 10k).
+  const hashRef = useRef<HTMLTableCellElement>(null);
+  const [hashW, setHashW] = useState(40);
+  useLayoutEffect(() => {
+    const el = hashRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setHashW(el.offsetWidth));
+    ro.observe(el);
+    setHashW(el.offsetWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  function pickPreset(family: string | null) {
+    const next = orderFor(cols, presets, family);
+    setPreset(family);
+    setOrder(next);
+    // the focused column may be gone: the one tab stop must be a cell that exists
+    setFocus((f) => ({ ...f, c: Math.min(f.c, next.length - 1) }));
+    setNotice("");
+  }
 
   /** The longest cell per column as shown (formatCell) over the whole result, for the windowed grid's sizer row. */
   // ponytail: formats every cell once per result (~75 ms at 10k x 20, ~1.9 s at 50k x 61). If big
@@ -387,6 +455,7 @@ export default function ResultsGrid({
   // window, between split spacers, so wheeling it out of view never drops focus; it also holds the
   // roving tab stop, so Tab can always enter the grid.
   const focusRow = Math.min(focus.r, view.length - 1);
+  const focusCol = Math.min(focus.c, colOrder.length - 1);
   const shown: number[] = [];
   if (focusRow >= 0 && focusRow < win.start) shown.push(focusRow);
   for (let r = win.start; r < win.end; r++) shown.push(r);
@@ -586,6 +655,7 @@ export default function ResultsGrid({
 
   function dropOn(target: number) {
     if (dragCol == null || dragCol === target) return;
+    if (preset && (dragCol === frozen || target === frozen)) return; // a preset keeps the frozen column first
     setOrder((o) => {
       const src = o.indexOf(dragCol);
       const dst = o.indexOf(target);
@@ -605,8 +675,28 @@ export default function ResultsGrid({
     // From xl the rail's column is always there, so the grid's width never moves when it fills.
     <div className="min-w-0 xl:grid xl:grid-cols-[minmax(0,1fr)_16rem] xl:items-start xl:gap-4">
       <div className="flex min-w-0 flex-col">
-        {activeFilters.length ? (
+        {presets.length || activeFilters.length ? (
           <div className="mb-2 flex flex-wrap items-center gap-2 font-mono text-xs">
+            {presets.length ? (
+              <div role="group" aria-label="Column presets" className="flex flex-wrap items-center gap-1.5">
+                {[null, ...presets.map((p) => p.family)].map((family) => (
+                  <button
+                    key={family ?? "all"}
+                    type="button"
+                    aria-pressed={preset === family}
+                    onClick={() => pickPreset(family)}
+                    title={family === null ? "Every column, in the result's order" : `Only the ${family} columns, behind the name`}
+                    className={cn(
+                      "rounded-full px-2.5 py-0.5 text-[11px] uppercase tracking-wide transition-colors",
+                      // weight as well as fill: the chosen one reads without colour
+                      preset === family ? "bg-primary font-bold text-primary-foreground" : "bg-primary/10 text-primary hover:bg-primary/20"
+                    )}
+                  >
+                    {family ?? "All"}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             {activeFilters.map(([c, v]) => (
               <span
                 key={c}
@@ -642,40 +732,53 @@ export default function ResultsGrid({
           <table role="grid" aria-rowcount={view.length + 1} className="w-max min-w-full border-separate border-spacing-0 text-left text-xs">
             <thead className="sticky top-0 z-20">
               <tr aria-rowindex={1}>
-                <th className="sticky left-0 z-30 border-b border-r border-border/60 bg-muted px-2 py-2 text-right font-mono uppercase text-muted-foreground">
+                <th
+                  ref={hashRef}
+                  className="sticky left-0 z-30 border-b border-r border-border/60 bg-muted px-2 py-2 text-right font-mono uppercase text-muted-foreground"
+                >
                   #
                 </th>
-                {colOrder.map((ci) => {
+                {colOrder.map((ci, c) => {
                   const name = columns[ci];
                   const encoded =
                     shownTint === "delta" ? domains[ci] !== null : shownTint === "pct" && pcts.has(ci);
+                  // The frozen column sticks when it is displayed first: always under a preset (applyPreset
+                  // puts it there and dropOn keeps it); otherwise wherever the reader dragged it.
+                  const stuck = c === 0 && ci === frozen;
+                  const head = heads[c];
+                  // the registry label, then the glossary's dtype and description; an unresolved column is the glossary tip alone
+                  const tip = head.text === name ? columnTip(name, types?.[name]) : head.title + columnTip(name, types?.[name]).slice(name.length);
                   return (
                     <th
                       key={name}
-                      draggable
+                      data-col={name}
+                      draggable={!(preset && stuck)}
                       onDragStart={() => setDragCol(ci)}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={() => dropOn(ci)}
                       onDragEnd={() => setDragCol(null)}
+                      style={stuck ? { left: hashW } : undefined}
                       className={cn(
                         // bold was the global th rule's (and the UA th default); say it here
                         "whitespace-nowrap border-b border-r border-border/60 p-0 align-top font-bold",
                         // opaque: a translucent tint on this sticky th let scrolled rows show through
                         sort?.col === ci ? "bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-muted))]" : "bg-muted",
+                        groups.has(c) && "border-l-2 border-border",
+                        stuck && "sticky z-30",
                         dragCol === ci && "opacity-40"
                       )}
                     >
                       <button
                         type="button"
                         onClick={() => headerClick(ci)}
-                        title={columnTip(name, types?.[name])}
+                        title={tip}
                         className={cn(
                           "flex w-full cursor-grab items-center gap-1 px-3 py-2 font-mono uppercase text-muted-foreground hover:text-foreground active:cursor-grabbing",
                           (sort?.col === ci || filters[ci]) && "text-primary"
                         )}
                       >
                         <GripVertical className="size-3 opacity-30" />
-                        {name}
+                        {head.text}
                         {nOf.has(ci) ? (
                           <abbr title={`sample size in ${columns[nOf.get(ci)!]}`} className="text-[9px] font-normal normal-case no-underline">
                             n
@@ -748,6 +851,15 @@ export default function ResultsGrid({
                   : isLinked
                     ? "bg-score/15"
                     : "";
+                // opaque, like the sorted header: a translucent tint on a sticky cell lets horizontally
+                // scrolled cells show through. The # cell and the frozen cell share it.
+                const stickBg = isSelected
+                  ? "bg-[color-mix(in_oklab,var(--color-primary)_15%,var(--color-card))]"
+                  : isLinked
+                    ? "bg-[color-mix(in_oklab,var(--color-score)_15%,var(--color-card))]"
+                    : isPinned
+                      ? "bg-[color-mix(in_oklab,var(--color-primary)_8%,var(--color-card))]"
+                      : null;
                 return [
                   // Keyed by place, not by the row after it: the only gaps are the leading one and the
                   // one beside the focused row kept mounted out of the window. A leading spacer re-keyed
@@ -774,15 +886,7 @@ export default function ResultsGrid({
                       className={cn(
                         "sticky left-0 z-10 w-10 border-b border-r border-border/40 px-2 text-right font-mono text-muted-foreground",
                         pad,
-                        // opaque, like the sorted header: a translucent tint on this sticky cell let
-                        // horizontally scrolled cells show through
-                        isSelected
-                          ? "bg-[color-mix(in_oklab,var(--color-primary)_15%,var(--color-card))]"
-                          : isLinked
-                            ? "bg-[color-mix(in_oklab,var(--color-score)_15%,var(--color-card))]"
-                            : isPinned
-                              ? "bg-[color-mix(in_oklab,var(--color-primary)_8%,var(--color-card))]"
-                              : "bg-card"
+                        stickBg ?? "bg-card"
                       )}
                     >
                       {/* a 16px line at most, so the row keeps its exact height */}
@@ -814,11 +918,13 @@ export default function ResultsGrid({
                       const shade = faded ? undefined : gridShade(shownTint, cells, ci, domains[ci], pcts.get(ci));
                       const n = nOf.get(ci);
                       const fades = faded && metric.has(ci);
+                      // a name or an id, which columnDomain never shades: its only inline style is `left`
+                      const stuck = c === 0 && ci === frozen;
                       return (
                         <td
                           key={ci}
                           data-cell={`${r}-${c}`}
-                          tabIndex={focusRow === r && focus.c === c ? 0 : -1}
+                          tabIndex={focusRow === r && focusCol === c ? 0 : -1}
                           onKeyDown={(e) => onCellKeyDown(e, r, c)}
                           onFocus={() => {
                             focusedOrig.current = orig;
@@ -830,14 +936,18 @@ export default function ResultsGrid({
                             (n === undefined ? (raw ?? "") : `${raw ?? "∅"} · n = ${cells[n] ?? "∅"}`) +
                             (fades ? ` · below the qualifier (${qminText} per team game)` : "")
                           }
-                          style={shade && !rowBg ? { backgroundColor: shade } : undefined}
+                          style={stuck ? { left: hashW } : shade && !rowBg ? { backgroundColor: shade } : undefined}
                           className={cn(
                             "max-w-64 truncate whitespace-nowrap border-b border-r border-border/40 px-3 outline-none",
                             pad,
                             numeric
                               ? "font-display text-right text-[13px] tabular-nums"
                               : "font-mono",
-                            sort?.col === ci && !shade && !rowBg && "bg-muted/40",
+                            groups.has(c) && "border-l-2 border-border",
+                            // the frozen cell: sticky behind #, and opaque (sorted included) for the same reason as #
+                            stuck && "sticky z-10",
+                            stuck && (stickBg ?? (sort?.col === ci ? "bg-[color-mix(in_oklab,var(--color-muted)_40%,var(--color-card))]" : "bg-card")),
+                            !stuck && sort?.col === ci && !shade && !rowBg && "bg-muted/40",
                             // below the qualifier the metrics recede (ids, names and text stay), at 60%:
                             // DESIGN.md's measured contrast. A selected or linked row, and the focused
                             // cell, read whole: their tints would take the faded text under 4.5:1.
@@ -864,12 +974,13 @@ export default function ResultsGrid({
                 <tr aria-hidden className="invisible leading-[0]">
                   {/* pl-6: the pin button and its gap */}
                   <td className="w-10 overflow-hidden border-r pl-6 pr-2 font-mono">{rows.length}</td>
-                  {colOrder.map((ci) => (
+                  {colOrder.map((ci, c) => (
                     <td
                       key={ci}
                       className={cn(
                         "max-w-64 truncate whitespace-nowrap border-r px-3",
-                        domains[ci] !== null ? "font-display text-[13px] tabular-nums" : "font-mono"
+                        domains[ci] !== null ? "font-display text-[13px] tabular-nums" : "font-mono",
+                        groups.has(c) && "border-l-2 border-border" // the same 2 px, so the widths match
                       )}
                     >
                       {widest[ci]}
@@ -908,6 +1019,7 @@ export default function ResultsGrid({
             </span>
           ) : null}
           {onlyQualified ? <span className="text-foreground">qualified: ≥ {perGame}</span> : null}
+          {preset ? <span className="text-foreground">preset: {preset} · All shows every column</span> : null}
           <span role="status" className="text-foreground empty:sr-only">
             {notice}
           </span>
@@ -1015,8 +1127,9 @@ function PinTray({
   onUnpin: (orig: number) => void;
 }) {
   const place = new Map(colOrder.map((ci, i) => [columns[ci], i]));
+  // a column a preset hides keeps its row, after the displayed ones
   const metrics = transposePinned(columns, rows, pinned, heads).sort(
-    (a, b) => (place.get(a.metric) ?? 0) - (place.get(b.metric) ?? 0)
+    (a, b) => (place.get(a.metric) ?? Number.MAX_SAFE_INTEGER) - (place.get(b.metric) ?? Number.MAX_SAFE_INTEGER)
   );
   const named = (orig: number) => rowName(rows[orig], heads[0], heads[1]) != null;
   return (

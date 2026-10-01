@@ -67,7 +67,8 @@ const steps = async (page, base) => {
 
   // --- Ratings: p pins rows 0, 2, 3 --------------------------------------------------------------
   await open(base + LINK);
-  const cols = (await grid.locator('thead th').allInnerTexts()).map((c) => c.trim().toLowerCase());
+  // raw names ride on th[data-col]: the visible text is the registry's short label
+  const cols = await grid.locator('thead th').evaluateAll((ths) => ths.map((th) => (th.dataset.col ?? '#').toLowerCase()));
   if (cols[1] !== 'player_name') fail(`the first column is ${cols[1]}, not player_name`);
   const picked = [await nameAt(0), await nameAt(2), await nameAt(3)];
   await grid.locator('td[data-cell="0-0"]').click();
@@ -199,7 +200,7 @@ const steps = async (page, base) => {
 
   // --- Query cfb.passing: pins survive a re-sort and a filter; the tray shades by X_pct ----------
   await open(base + '/platform/query?schema=cfb&table=passing&season=2025&order=-TEPA&limit=50');
-  const qcols = (await grid.locator('thead th').allInnerTexts()).map((c) => c.trim().toLowerCase()); // CSS uppercases them
+  const qcols = await grid.locator('thead th').evaluateAll((ths) => ths.map((th) => (th.dataset.col ?? '#').toLowerCase()));
   const at = (name) => qcols.indexOf(name.toLowerCase()) - 1;
   await grid.locator('td[data-cell="0-0"]').click();
   for (const k of ['p', 'ArrowDown', 'p', 'ArrowDown', 'p']) await key(k);

@@ -39,9 +39,11 @@ export function pinIdentity(columns: string[], rows: (string | null)[][]): numbe
 }
 
 /** The column that names a row to a reader: the first `*name` column (player_name,
- *  passer_player_name), or a bare `team` (the ratings boards); -1 when there is none. */
+ *  passer_player_name), or a bare `team` (the ratings boards); failing both, `pos_team`
+ *  (the team tables: cfb.team_summaries names a team nowhere else); -1 when there is none. */
 export function labelColumn(columns: string[]): number {
-  return columns.findIndex((c) => /(^|_)name$/.test(c) || c === "team");
+  const named = columns.findIndex((c) => /(^|_)name$/.test(c) || c === "team");
+  return named >= 0 ? named : columns.indexOf("pos_team");
 }
 
 /**
