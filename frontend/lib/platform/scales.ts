@@ -19,6 +19,8 @@
  * diverging pair already in the tokens.
  */
 
+import { resolveMetric } from "./metricRegistry.ts";
+
 /** Percentile fields arrive as 0–1 from some producers and 0–100 from others.
  *  The scale belongs to the COLUMN (see pctScale): judged per value, the
  *  0–100 producer's worst qualifiers (0.66 of 150) would read as 66th. */
@@ -131,7 +133,10 @@ export type Domain = {
  * Readers decode color as good-vs-bad, not as positive-vs-negative, so a scale
  * keyed on sign lies about every metric where lower is better: a defense
  * allowing −0.37 EPA/play is elite and must not read as the reddest cell in the
- * table. Names are matched against the vocabulary the warehouse actually uses.
+ * table. A column the sdv-py metric registry knows (`metricRegistry.ts`, generated)
+ * takes its answer from there — the regexes below cannot tell that
+ * third_down_distance_off is a distance, not a rate. Unregistered names are
+ * matched against the vocabulary the warehouse actually uses.
  */
 const LOWER_IS_BETTER =
   /(^|_)(def|defensive|allowed|against|opp|opponent)(_|$)|(^|_)(turnovers?|tov|interceptions?|ints?|fumbles?|sacks_allowed|penalt(y|ies)|losses|errors?|era|whip|rank|adj_d|raw_d)(_|$)/i;
@@ -143,6 +148,8 @@ const OVERRIDE_HIGHER_IS_BETTER = /(^|_)(havoc|takeaways?|forced|def_epa_added|s
 
 export function polarity(name?: string): 1 | -1 {
   if (!name) return 1;
+  const registered = resolveMetric(name)?.polarity;
+  if (registered) return registered === "higher" ? 1 : -1;
   if (OVERRIDE_HIGHER_IS_BETTER.test(name)) return 1;
   return LOWER_IS_BETTER.test(name) ? -1 : 1;
 }
