@@ -14,6 +14,13 @@ test('packFrames keeps the first slot for a duplicate id', () => {
   assert.deepEqual(packFrames(['61', '61'], 64, 4), { 61: { x: 0, y: 0, w: 64, h: 64 } });
 });
 
+test('packFrames stores "__proto__" as an own frame, not as the prototype', () => {
+  const frames = packFrames(['__proto__', '61'], 64, 2);
+  assert.ok(Object.hasOwn(frames, '__proto__'));
+  assert.deepEqual(Object.keys(frames), ['__proto__', '61']);
+  assert.deepEqual(frames['61'], { x: 64, y: 0, w: 64, h: 64 });
+});
+
 test('packFrames refuses a grid narrower than one column', () => {
   assert.throws(() => packFrames(['61'], 64, 0), RangeError);
   assert.throws(() => packFrames(['61'], 64, Number.NaN), RangeError);

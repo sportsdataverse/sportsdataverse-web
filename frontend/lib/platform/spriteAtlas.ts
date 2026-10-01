@@ -41,7 +41,11 @@ export function packFrames(ids: string[], cell: number, cols: number): Record<st
   let i = 0;
   for (const id of ids) {
     if (Object.hasOwn(frames, id)) continue;
-    frames[id] = { x: (i % cols) * cell, y: Math.floor(i / cols) * cell, w: cell, h: cell };
+    // defineProperty: a plain `frames[id] =` with id "__proto__" would set the prototype, not a frame
+    Object.defineProperty(frames, id, {
+      value: { x: (i % cols) * cell, y: Math.floor(i / cols) * cell, w: cell, h: cell },
+      enumerable: true, writable: true, configurable: true,
+    });
     i++;
   }
   return frames;
