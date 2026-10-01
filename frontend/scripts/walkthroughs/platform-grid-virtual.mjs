@@ -73,7 +73,7 @@ const steps = async (page, base) => {
 
   // s on row 0 sorts; the row that had focus moves (usually out of the window, unmounting), and
   // focus stays on row 0 of the new order: asc, desc, then back to unsorted
-  const yards = await grid.locator('thead th').evaluateAll((ths) => ths.slice(1).findIndex((th) => th.textContent.trim() === 'yards'));
+  const yards = await grid.locator('thead th').evaluateAll((ths) => ths.slice(1).findIndex((th) => th.dataset.col === 'yards'));
   await grid.locator(`td[data-cell="0-${yards}"]`).click();
   for (const pass of ['asc', 'desc', 'off']) {
     const s = await key('s', 400);

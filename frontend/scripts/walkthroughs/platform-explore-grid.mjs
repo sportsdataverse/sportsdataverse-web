@@ -15,7 +15,7 @@ const waitParam = (page, key, value) =>
 /** The grid's column position (view order) of `name`, and that column's cells top to bottom. Over
  *  200 rows the grid renders only a window of them, so this scrolls it through, collecting by row. */
 async function column(grid, name) {
-  const c = await grid.locator('thead th').evaluateAll((ths, n) => ths.slice(1).findIndex((th) => th.textContent.trim() === n), name);
+  const c = await grid.locator('thead th').evaluateAll((ths, n) => ths.slice(1).findIndex((th) => th.dataset.col === n), name);
   if (c < 0) throw new Error(`no ${name} column`);
   const cells = await grid.evaluate(async (t, c) => {
     const box = t.parentElement, seen = new Map();

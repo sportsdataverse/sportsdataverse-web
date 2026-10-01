@@ -59,6 +59,9 @@ test('the label column is the first *name column, or a bare team', () => {
   assert.equal(labelColumn(['team', 'rank', 'adj_em', 'team_id']), 0);
   assert.equal(labelColumn(['player_name', 'team_abbreviation', 'rapm']), 0);
   assert.equal(labelColumn(['game_id', 'yards', 'names_n', 'teamname']), -1);
+  // pos_team names the team tables' rows, but never outranks a player's name
+  assert.equal(labelColumn(['team_id', 'pos_team', 'division', 'season', 'plays_off']), 1);
+  assert.equal(labelColumn(['pos_team', 'player_id', 'passer_player_name']), 2);
 });
 
 const COLS = ['player_id', 'name', 'EPAplay', 'EPAplay_rank', 'EPAplay_pct', 'EPAplay_n', 'fg_pct'];

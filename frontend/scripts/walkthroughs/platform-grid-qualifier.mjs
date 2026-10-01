@@ -41,9 +41,8 @@ const steps = async (page, base) => {
   const read = () =>
     page.evaluate(() => {
       const g = document.querySelector('[role="grid"]');
-      const names = [...g.querySelectorAll('thead th')].slice(1).map((th) =>
-        [...th.querySelector('button').childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim()
-      );
+      // the raw column name (th[data-col]): the visible text is the registry's short label
+      const names = [...g.querySelectorAll('thead th')].slice(1).map((th) => th.dataset.col);
       const rows = [...g.querySelectorAll('tbody tr[data-row]')].map((tr) => {
         const [hash, ...tds] = tr.cells;
         const cell = Object.fromEntries(names.map((n, i) => [n, tds[i].textContent === '∅' ? null : tds[i].title.split(' · ')[0]]));
