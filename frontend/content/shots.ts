@@ -35,6 +35,24 @@ import type { CourtKey, ShotSource } from "../lib/platform/viz/surfaces.ts";
  * `athlete_id_1` is an integer; the page keeps every id as the URL's string
  * and the Data API matches a filter value against either, so no cast happens
  * on a join here (the picker's id → name map is keyed by `String(id)`).
+ *
+ * League baseline (`curves`): the schema whose `metric_curves` holds the F4
+ * league curve `fg_pct_by_shot_distance` (`entity_type=league`, 37 buckets
+ * of [x_lo, x_hi) feet with a made `rate`, one row set per season), which
+ * colours each hexagon by its FG% minus the league's at the bin's mean
+ * distance. Producers exist today (2026-10-01) for `nba_stats` (1997–2026,
+ * season = END year) and `wnba_stats` (1997–2026, the calendar year) only:
+ *
+ * | league     | curves schema | why                                                                      |
+ * |------------|---------------|--------------------------------------------------------------------------|
+ * | nba_stats  | nba_stats     | its own                                                                  |
+ * | wnba_stats | wnba_stats    | its own                                                                  |
+ * | nba        | nba_stats     | the same league, the same END-year season key; the curve is a rate by    |
+ * |            |               | distance, not an id join, so the ESPN feed's shots (distance from its own |
+ * |            |               | coordinates) read against the NBA Stats league rate at that distance     |
+ * | wnba       | wnba_stats    | as nba → nba_stats (calendar-year seasons on both sides)                 |
+ * | mbb, wbb   | —             | no producer: the page falls back to the sequential FG% ramp with a note  |
+ * | nhl, pwhl  | —             | goals − xG is already an expectation; no F4                              |
  */
 
 export type ShotsSurface = { kind: "court"; court: CourtKey } | { kind: "rink" };
@@ -54,6 +72,9 @@ export type ShotsLeague = {
   surface: ShotsSurface;
   /** What a made shot is called in the readout and legend. */
   made: "FG" | "goals";
+  /** The schema whose `metric_curves` holds this league's F4 league FG% by
+   *  distance (table above); absent, the page colours FG% on its own. */
+  curves?: "nba_stats" | "wnba_stats";
   roster: {
     schema: string;
     table: string;
@@ -75,10 +96,11 @@ const stats = (schema: "nba_stats" | "wnba_stats", label: string, court: CourtKe
   source: schema,
   surface: { kind: "court", court },
   made: "FG",
+  curves: schema,
   roster: { schema, table: "rosters", idCol: "player_id", nameCols: ["player"] },
 });
 
-const espn = (schema: "nba" | "wnba" | "mbb" | "wbb", label: string): ShotsLeague => ({
+const espn = (schema: "nba" | "wnba" | "mbb" | "wbb", label: string, curves?: "nba_stats" | "wnba_stats"): ShotsLeague => ({
   label,
   schema,
   table: "shots",
@@ -88,6 +110,7 @@ const espn = (schema: "nba" | "wnba" | "mbb" | "wbb", label: string): ShotsLeagu
   source: schema,
   surface: { kind: "court", court: schema },
   made: "FG",
+  ...(curves ? { curves } : {}),
   roster: { schema, table: "rosters", idCol: "athlete_id", nameCols: ["full_name"] },
 });
 
@@ -95,8 +118,8 @@ const espn = (schema: "nba" | "wnba" | "mbb" | "wbb", label: string): ShotsLeagu
 export const SHOTS_LEAGUES: Readonly<Record<string, ShotsLeague>> = {
   nba_stats: stats("nba_stats", "NBA (NBA Stats)", "nba"),
   wnba_stats: stats("wnba_stats", "WNBA (WNBA Stats)", "wnba"),
-  nba: espn("nba", "NBA (ESPN)"),
-  wnba: espn("wnba", "WNBA (ESPN)"),
+  nba: espn("nba", "NBA (ESPN)", "nba_stats"),
+  wnba: espn("wnba", "WNBA (ESPN)", "wnba_stats"),
   mbb: espn("mbb", "Men's college basketball"),
   wbb: espn("wbb", "Women's college basketball"),
   nhl: {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { binKey, binSlot, HEX_RADIUS, hexbin, hexPoints, hexSize, nearestBin, onSurface, readoutText, type HexBin } from '../lib/platform/viz/hexbin.ts';
+import { binKey, binSlot, HEX_RADIUS, hexbin, hexPoints, hexSize, leagueRateAt, nearestBin, onSurface, readoutText, type CurveRow, type HexBin } from '../lib/platform/viz/hexbin.ts';
 import { COURT, RINK, RINK_GOAL_Y, type Shot } from '../lib/platform/viz/surfaces.ts';
 
 const shot = (x: number, y: number, made = false, xg?: number): Shot => ({ x, y, made, dist: Math.hypot(x, y), ...(xg === undefined ? {} : { xg }) });
@@ -100,4 +100,42 @@ test('nearestBin walks to the closest bin inside a 90° cone in that direction; 
   assert.equal(nearestBin([o, at(5, 5.1)], o, [1, 0]), null, 'outside the cone (more across than along)');
   assert.equal(nearestBin([o], o, [1, 0]), null);
   assert.equal(binKey(at(1.5, -2)), '1.5,-2');
+});
+
+test('leagueRateAt: the bucket holding the distance, x_lo inclusive and x_hi exclusive; past the curve → null', () => {
+  const curve: CurveRow[] = [{ x_lo: 0, x_hi: 3, rate: 0.62 }, { x_lo: 3, x_hi: 10, rate: 0.41 }];
+  assert.equal(leagueRateAt(curve, 4.2), 0.41);
+  assert.equal(leagueRateAt(curve, 0), 0.62, 'the first bucket starts at 0');
+  assert.equal(leagueRateAt(curve, 2.999), 0.62);
+  assert.equal(leagueRateAt(curve, 3), 0.41, 'a distance exactly at a boundary is the UPPER bucket\'s (x_hi exclusive)');
+  assert.equal(leagueRateAt(curve, 10), null, 'the last x_hi is past the curve');
+  assert.equal(leagueRateAt(curve, 10.5), null);
+  assert.equal(leagueRateAt(curve, -0.1), null);
+  assert.equal(leagueRateAt([], 4.2), null);
+  assert.equal(leagueRateAt([{ x_lo: 0, x_hi: 3, rate: NaN }], 1), null, 'a bucket without a rate is no baseline');
+  // unsorted rows find the same bucket
+  assert.equal(leagueRateAt([curve[1], curve[0]], 1), 0.62);
+});
+
+test('binSlot vs the league: FG% − leagueRateAt(mean distance) on the diverging ramp at ±3/6/9 pp; null curve → sequential — a distance with no curve rate gives a null slot (null stays null)', () => {
+  const curve: CurveRow[] = [{ x_lo: 0, x_hi: 3, rate: 0.62 }, { x_lo: 3, x_hi: 10, rate: 0.41 }];
+  // a bin at 0.50 made / 4.2 ft against the league's 0.41 there: +9 pp, the third step (the 0.09 cut is inclusive)
+  const at = (made: number, n: number, ft: number): HexBin => ({ cx: 0, cy: 0, n, made, sumDist: n * ft, sumXg: 0 });
+  assert.equal(binSlot(at(50, 100, 4.2), 'FG', curve), 'div-pos-3');
+  assert.equal(binSlot(at(49, 100, 4.2), 'FG', curve), 'div-pos-2', '+8 pp');
+  assert.equal(binSlot(at(47, 100, 4.2), 'FG', curve), 'div-pos-2', '+6 pp');
+  assert.equal(binSlot(at(44, 100, 4.2), 'FG', curve), 'div-pos-1', '+3 pp');
+  assert.equal(binSlot(at(43, 100, 4.2), 'FG', curve), 'div-mid', '+2 pp');
+  assert.equal(binSlot(at(37, 100, 4.2), 'FG', curve), 'div-neg-1', '−4 pp (0.38 − 0.41 is −0.02999… in floating point: the exact cut is not a stable test value)');
+  assert.equal(binSlot(at(31, 100, 4.2), 'FG', curve), 'div-neg-3', '−10 pp');
+  assert.equal(binSlot(at(62, 100, 1), 'FG', curve), 'div-mid', 'exactly the league rate');
+  // the bin's distance is its MEAN: 100 shots summing to 420 ft read the 3–10 ft bucket, not the 0–3
+  assert.equal(binSlot({ cx: 0, cy: 0, n: 100, made: 62, sumDist: 420, sumXg: 0 }, 'FG', curve), 'div-pos-3');
+  // null curve: the plain FG% ramp (what the page draws without a baseline)
+  assert.equal(binSlot(at(50, 100, 4.2), 'FG', null), 'seq-3');
+  assert.equal(binSlot(at(50, 100, 4.2), 'FG'), 'seq-3');
+  // a curve that does not reach the bin's distance: no colour, never the other ramp
+  assert.equal(binSlot(at(50, 100, 12), 'FG', curve), null);
+  // hockey ignores the curve
+  assert.equal(binSlot({ cx: 0, cy: 0, n: 23, made: 3, sumDist: 23 * 31, sumXg: 2.1 }, 'goals', curve), 'div-pos-1');
 });

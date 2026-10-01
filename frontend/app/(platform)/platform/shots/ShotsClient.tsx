@@ -7,18 +7,23 @@ import { SHOTS_MIN_N, shotsViewParams, type ShotsView } from "@lib/platform/view
 import { API_MAX_ROWS } from "@lib/platform/wp";
 import { apiRows, seasonRange } from "@lib/platform/queryRun";
 import { normalizeShot, type Shot } from "@lib/platform/viz/surfaces";
-import { HEX_RADIUS, hexbin, onSurface } from "@lib/platform/viz/hexbin";
+import { HEX_RADIUS, hexbin, onSurface, type CurveRow } from "@lib/platform/viz/hexbin";
 import ShotMap from "@components/platform/viz/ShotMap";
 import useUrlMirror from "@hooks/useUrlMirror";
 
 /**
  * Shot chart: one player-season's shots (content/shots.ts: one
  * `/api/platform/query/run` read, well under the API's 50,000-row cap) as
- * hexagons on a true-unit court or rink. Three reads per view, each cached
+ * hexagons on a true-unit court or rink. Four reads per view, each cached
  * by SWR on its key: the league's season range, the season's roster (the
- * player picker), the player's shots. A shot off the drawn surface (a
+ * player picker), the player's shots, and — for a hoops league with a
+ * `curves` schema (content/shots.ts) — the season's F4 league FG% by
+ * distance, one read per league-season, which colours each hexagon
+ * against the league at its distance. A shot off the drawn surface (a
  * backcourt heave, a sentinel coordinate) is dropped before binning and
- * counted in the note; a read that hits the API's row cap says so.
+ * counted in the note; a read that hits the API's row cap says so; a
+ * season without a league curve (no producer, no rows, a failed read)
+ * keeps the plain FG% ramp and says so.
  */
 
 type Player = { id: string; name: string };
@@ -52,6 +57,13 @@ async function loadShots(lg: ShotsLeague, season: string, player: string): Promi
   return rows.flatMap((r) => normalizeShot(lg.source, r) ?? []);
 }
 
+/** The league's FG% by distance for the season: the F4 `fg_pct_by_shot_distance`
+ *  league rows (37 buckets), or null when the season has none. */
+async function loadCurve([, schema, season]: readonly [string, string, string]): Promise<CurveRow[] | null> {
+  const rows = await apiRows({ schema, table: "metric_curves", season, entity_type: "league", metric: "fg_pct_by_shot_distance", select: "x_lo,x_hi,rate", order: "x_lo", limit: "100" });
+  return rows.length ? rows.map((r) => ({ x_lo: Number(r.x_lo), x_hi: r.x_hi == null ? Number.POSITIVE_INFINITY : Number(r.x_hi), rate: Number(r.rate) })) : null;
+}
+
 const selectClass = "rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm";
 const n = (x: number) => x.toLocaleString("en-US");
 
@@ -72,6 +84,14 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
     activeSeason && activePlayer ? ["shots", league, activeSeason, activePlayer] : null,
     () => loadShots(lg, activeSeason, activePlayer)
   );
+  // the league baseline, keyed by the CURVES schema: the ESPN and Stats feeds of one league share the read
+  const { data: curveRead, isLoading: curveLoading } = useSWR(lg.curves && activeSeason ? (["shots-curve", lg.curves, activeSeason] as const) : null, loadCurve, {
+    // a failed baseline read is the designed fallback (sequential + note), not something to retry
+    shouldRetryOnError: false,
+  });
+  // undefined (no read, a failed read) and null (no rows) alike: no baseline
+  const curve = curveRead ?? null;
+  const noBaseline = lg.made === "FG" && !curveLoading && !curve;
 
   // only shots on the drawn surface are binned: one off it would bin off the viewBox (unseen, counted, shrinking every hex)
   const drawn = useMemo(() => (shots ? shots.filter((s) => onSurface(s, lg.surface.kind)) : []), [shots, lg]);
@@ -85,7 +105,7 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
 
   const failure = seasonsError?.message ?? rosterError?.message ?? shotsError?.message ?? null;
   const cap = Number(API_MAX_ROWS);
-  const note = isLoading
+  const note = isLoading || curveLoading
     ? `Loading ${name || "shots"} ${activeSeason}…`
     : [
         shots
@@ -96,6 +116,7 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
             ? `No roster for ${activeSeason}.`
             : "",
         omitted ? `${n(omitted)} ${omitted === 1 ? "shot" : "shots"} off the ${lg.surface.kind} omitted` : "",
+        noBaseline && activeSeason ? `no league baseline for ${lg.label} ${activeSeason}` : "",
         shots && shots.length >= cap ? `shots truncated at ${n(cap)} rows` : "",
         rosterRead && rosterRead.rows >= cap ? `roster read truncated at ${n(cap)} rows (a per-game table): some players may be missing from the picker` : "",
       ]
@@ -175,7 +196,7 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
             {name || "Shots"} · {activeSeason}
           </h3>
           <p className="mb-2 font-inter text-xs text-muted-foreground">{lg.label}</p>
-          <ShotMap bins={shown} all={bins} surface={lg.surface} kind={lg.made} />
+          <ShotMap bins={shown} all={bins} surface={lg.surface} kind={lg.made} curve={curve} />
         </div>
       ) : null}
     </>
