@@ -5,7 +5,7 @@ import { gridViewParams, parseGridView, gridByIndex, gridByName, queryViewParams
 const sp = (qs: string) => new URLSearchParams(qs);
 
 test('grid view round-trips sort (by name, - for desc), column filters and tint', () => {
-  const v = { sort: { col: 'EPAplay', dir: 'desc' as const }, filters: { team: 'Ohio' }, tint: 'pct' as const, pin: null, qualified: false, preset: null };
+  const v = { sort: { col: 'EPAplay', dir: 'desc' as const }, filters: { team: 'Ohio' }, tint: 'pct' as const, pin: null, qualified: false, preset: null, basis: null };
   const p = new URLSearchParams('schema=cfb');
   gridViewParams(v, p);
   assert.equal(p.toString(), 'schema=cfb&grid.sort=-EPAplay&grid.tint=pct&grid.f.team=Ohio');
@@ -14,7 +14,7 @@ test('grid view round-trips sort (by name, - for desc), column filters and tint'
 
 test('grid defaults are omitted and junk is ignored', () => {
   const p = new URLSearchParams();
-  gridViewParams({ sort: null, filters: {}, tint: 'delta', pin: null, qualified: false, preset: null }, p);
+  gridViewParams({ sort: null, filters: {}, tint: 'delta', pin: null, qualified: false, preset: null, basis: null }, p);
   assert.equal(p.toString(), '');
   assert.deepEqual(parseGridView(sp('grid.tint=rainbow&grid.sort=-&grid.pin=nope')), EMPTY_GRID);
 });
@@ -22,15 +22,15 @@ test('grid defaults are omitted and junk is ignored', () => {
 test('names map onto the current columns and back; missing columns drop out', () => {
   const cols = ['athlete_id', 'team', 'EPAplay'];
   const pin = { col: 'athlete_id', values: ['7'] };
-  const byIdx = gridByIndex({ sort: { col: 'EPAplay', dir: 'asc' }, filters: { team: 'Ohio', gone: 'x' }, tint: 'off', pin, qualified: false, preset: null }, cols);
-  assert.deepEqual(byIdx, { sort: { col: 2, dir: 'asc' }, filters: { 1: 'Ohio' }, tint: 'off', pin, qualified: false, preset: null }); // pins stay by name and value
-  assert.deepEqual(gridByName(byIdx, cols), { sort: { col: 'EPAplay', dir: 'asc' }, filters: { team: 'Ohio' }, tint: 'off', pin, qualified: false, preset: null });
+  const byIdx = gridByIndex({ sort: { col: 'EPAplay', dir: 'asc' }, filters: { team: 'Ohio', gone: 'x' }, tint: 'off', pin, qualified: false, preset: null, basis: null }, cols);
+  assert.deepEqual(byIdx, { sort: { col: 2, dir: 'asc' }, filters: { 1: 'Ohio' }, tint: 'off', pin, qualified: false, preset: null, basis: null }); // pins stay by name and value
+  assert.deepEqual(gridByName(byIdx, cols), { sort: { col: 'EPAplay', dir: 'asc' }, filters: { team: 'Ohio' }, tint: 'off', pin, qualified: false, preset: null, basis: null });
   assert.equal(gridByIndex({ ...EMPTY_GRID, sort: { col: 'gone', dir: 'asc' } }, cols).sort, null);
 });
 
 test('a Query URL carries the grid alongside the API request without polluting it', () => {
   const p = queryViewParams({ schema: 'cfb', table: 'passing', filters: [], select: [], order: '', limit: 100 });
-  gridViewParams({ sort: { col: 'EPAplay', dir: 'desc' }, filters: {}, tint: 'pct', pin: { col: 'player_id', values: ['1'] }, qualified: true, preset: null }, p);
+  gridViewParams({ sort: { col: 'EPAplay', dir: 'desc' }, filters: {}, tint: 'pct', pin: { col: 'player_id', values: ['1'] }, qualified: true, preset: null, basis: null }, p);
   assert.deepEqual(parseQueryView(p, ['cfb']).filters, []); // grid.* never becomes an API filter
 });
 
@@ -43,8 +43,8 @@ test('grid sort column, filter names and filter values are capped at 200 chars',
 
 test('valid views round-trip; empty filters, non-column names and stale column indices drop out', () => {
   const views: GridView[] = [
-    { sort: { col: 'clock.displayValue', dir: 'asc' }, filters: { team: 'Ohio State', 'clock.displayValue': '1:00', _x: '-5' }, tint: 'off', pin: null, qualified: false, preset: null },
-    { sort: null, filters: { a: 'x&y=z #1' }, tint: 'pct', pin: { col: 'team_id', values: ['KC', '2426', 'a.b-c_d'] }, qualified: true, preset: null },
+    { sort: { col: 'clock.displayValue', dir: 'asc' }, filters: { team: 'Ohio State', 'clock.displayValue': '1:00', _x: '-5' }, tint: 'off', pin: null, qualified: false, preset: null, basis: null },
+    { sort: null, filters: { a: 'x&y=z #1' }, tint: 'pct', pin: { col: 'team_id', values: ['KC', '2426', 'a.b-c_d'] }, qualified: true, preset: null, basis: null },
     EMPTY_GRID,
   ];
   for (const v of views) {
@@ -53,10 +53,10 @@ test('valid views round-trip; empty filters, non-column names and stale column i
     assert.deepEqual(parseGridView(p), v);
   }
   const p = new URLSearchParams();
-  gridViewParams({ sort: null, filters: { team: '' }, tint: 'delta', pin: null, qualified: false, preset: null }, p);
+  gridViewParams({ sort: null, filters: { team: '' }, tint: 'delta', pin: null, qualified: false, preset: null, basis: null }, p);
   assert.equal(p.toString(), '');
   assert.deepEqual(parseGridView(sp('grid.f.team=&grid.f.x%22y=1&grid.f.1st=1&grid.f.=1')).filters, {});
-  assert.deepEqual(gridByName({ sort: { col: 9, dir: 'asc' }, filters: { 9: 'x' }, tint: 'delta', pin: null, qualified: false, preset: null }, ['team']), EMPTY_GRID);
+  assert.deepEqual(gridByName({ sort: { col: 9, dir: 'asc' }, filters: { 9: 'x' }, tint: 'delta', pin: null, qualified: false, preset: null, basis: null }, ['team']), EMPTY_GRID);
 });
 
 /** The cells in the grid's sort order (Array.prototype.sort is stable). */
@@ -160,7 +160,7 @@ test('formatCell: a non-zero value that rounds to 0 at 3 decimals shows 3 signif
 });
 
 test('grid.q=1 carries "qualified only"; off is the default and writes nothing', () => {
-  const v: GridView = { ...EMPTY_GRID, qualified: true, preset: null };
+  const v: GridView = { ...EMPTY_GRID, qualified: true, preset: null, basis: null };
   const p = new URLSearchParams('schema=cfb');
   gridViewParams(v, p);
   assert.equal(p.toString(), 'schema=cfb&grid.q=1');
@@ -187,6 +187,25 @@ test('grid.preset carries a registry family; an unknown, cased or empty one pars
   // it rides through the index form unchanged, and never becomes a Data API filter
   assert.equal(gridByName(gridByIndex(v, ['team']), ['team']).preset, 'efficiency');
   assert.deepEqual(parseQueryView(sp('schema=cfb&table=passing&grid.preset=efficiency'), ['cfb']).filters, []);
+  const none = new URLSearchParams();
+  gridViewParams(EMPTY_GRID, none);
+  assert.equal(none.toString(), '');
+});
+
+test('grid.basis carries a registry basis; an unknown, cased or empty one parses to null', () => {
+  const v: GridView = { ...EMPTY_GRID, basis: 'per_play', preset: 'efficiency' };
+  const p = new URLSearchParams('schema=cfb');
+  gridViewParams(v, p);
+  assert.equal(p.toString(), 'schema=cfb&grid.preset=efficiency&grid.basis=per_play');
+  assert.deepEqual(parseGridView(p), v);
+  assert.equal(EMPTY_GRID.basis, null);
+  for (const b of ['total', 'per_play', 'per_game', 'per_drive']) assert.equal(parseGridView(sp(`grid.basis=${b}`)).basis, b);
+  for (const junk of ['grid.basis=native', 'grid.basis=Per_play', 'grid.basis=per play', 'grid.basis=', 'grid.basis=per_play%2Cper_game', 'grid.basis=per_plays', '']) {
+    assert.equal(parseGridView(sp(junk)).basis, null, junk);
+  }
+  // it rides through the index form unchanged, and never becomes a Data API filter
+  assert.equal(gridByName(gridByIndex(v, ['team']), ['team']).basis, 'per_play');
+  assert.deepEqual(parseQueryView(sp('schema=cfb&table=passing&grid.basis=per_play'), ['cfb']).filters, []);
   const none = new URLSearchParams();
   gridViewParams(EMPTY_GRID, none);
   assert.equal(none.toString(), '');

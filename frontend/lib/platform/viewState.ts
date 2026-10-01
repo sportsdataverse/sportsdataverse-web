@@ -21,7 +21,7 @@ import { ROLLING_CARDS, ROLLING_TABS, type RollingCard, type RollingTab } from "
 import { MAX_TRENDS_TEAMS, formatValue, trimGaps, type TrendPicks } from "./trends.ts";
 import { ALL_PAIRS_CAP } from "./chartTokens.ts";
 import type { TintMode } from "./scales.ts";
-import { familyOrder } from "./gridRegistry.ts";
+import { bases, familyOrder } from "./gridRegistry.ts";
 
 export function toSearchParams(record: Record<string, string | string[] | undefined>): URLSearchParams {
   const p = new URLSearchParams();
@@ -386,7 +386,9 @@ export type SortDir = "asc" | "desc";
 export type GridPin = { col: string; values: string[] };
 /** `qualified`: a leaderboard's rows below its qualifier are hidden (`grid.q=1`); the intent is kept on a
  *  result without a gate, like `tint`'s. `preset`: a registry family whose columns alone show
- *  (`grid.preset=efficiency`); a result without that preset drops it, with a notice. */
+ *  (`grid.preset=efficiency`); a result without that preset drops it, with a notice. `basis`: a
+ *  registry basis every column with that variant shows in its place (`grid.basis=per_play`); null is
+ *  the native view, and a result that can't serve the basis drops it, with a notice. */
 export type GridView = {
   sort: { col: string; dir: SortDir } | null;
   filters: Record<string, string>;
@@ -394,10 +396,11 @@ export type GridView = {
   pin: GridPin | null;
   qualified: boolean;
   preset: string | null;
+  basis: string | null;
 };
 /** ResultsGrid's internal shape: the same view keyed by column index (pins stay by name and value). */
 export type GridIndexState = Omit<GridView, "sort" | "filters"> & { sort: { col: number; dir: SortDir } | null; filters: Record<number, string> };
-export const EMPTY_GRID: GridView = { sort: null, filters: {}, tint: "delta", pin: null, qualified: false, preset: null };
+export const EMPTY_GRID: GridView = { sort: null, filters: {}, tint: "delta", pin: null, qualified: false, preset: null, basis: null };
 
 /** The most rows a grid pins at once (the tray's columns; `grid.pin`'s values). */
 export const MAX_PINS = 8;
@@ -428,12 +431,18 @@ export function parseGridView(sp: URLSearchParams): GridView {
     pin: readPin(sp.get("grid.pin") ?? ""),
     qualified: sp.get("grid.q") === "1",
     preset: readPreset(sp.get("grid.preset") ?? ""),
+    basis: readBasis(sp.get("grid.basis") ?? ""),
   };
 }
 
 /** A registry family name, exactly (`efficiency`); anything else is no preset. */
 function readPreset(raw: string): string | null {
   return /^[a-z]+$/.test(raw) && familyOrder().includes(raw) ? raw : null;
+}
+
+/** A registry basis, exactly (`per_play`); anything else is the native view. */
+function readBasis(raw: string): string | null {
+  return bases().includes(raw) ? raw : null;
 }
 
 /** Appends the grid keys to `p` (a page's own params). */
@@ -444,6 +453,7 @@ export function gridViewParams(v: GridView, p: URLSearchParams): void {
   if (v.pin?.values.length) p.set("grid.pin", `${v.pin.col}:${v.pin.values.join(",")}`);
   if (v.qualified) p.set("grid.q", "1");
   if (v.preset) p.set("grid.preset", v.preset);
+  if (v.basis) p.set("grid.basis", v.basis);
 }
 
 /** `String()` of a non-finite double, as DuckDB cells arrive. */
@@ -486,11 +496,11 @@ export function gridByIndex(v: GridView, columns: string[]): GridIndexState {
   const filters: Record<number, string> = {};
   for (const [name, text] of Object.entries(v.filters)) if (idx(name) >= 0) filters[idx(name)] = text;
   const sortCol = v.sort ? idx(v.sort.col) : -1;
-  return { sort: v.sort && sortCol >= 0 ? { col: sortCol, dir: v.sort.dir } : null, filters, tint: v.tint, pin: v.pin, qualified: v.qualified, preset: v.preset };
+  return { sort: v.sort && sortCol >= 0 ? { col: sortCol, dir: v.sort.dir } : null, filters, tint: v.tint, pin: v.pin, qualified: v.qualified, preset: v.preset, basis: v.basis };
 }
 
 export function gridByName(s: GridIndexState, columns: string[]): GridView {
   const filters: Record<string, string> = {};
   for (const [i, text] of Object.entries(s.filters)) if (text && columns[Number(i)]) filters[columns[Number(i)]] = text;
-  return { sort: s.sort && columns[s.sort.col] ? { col: columns[s.sort.col], dir: s.sort.dir } : null, filters, tint: s.tint, pin: s.pin, qualified: s.qualified, preset: s.preset };
+  return { sort: s.sort && columns[s.sort.col] ? { col: columns[s.sort.col], dir: s.sort.dir } : null, filters, tint: s.tint, pin: s.pin, qualified: s.qualified, preset: s.preset, basis: s.basis };
 }

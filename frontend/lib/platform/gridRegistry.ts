@@ -157,7 +157,7 @@ function sourcesFor(columns: string[], basis: string, resolve: Resolve) {
     if (key === r.key) return i;
     const sibling = key === undefined ? undefined : `${key}${r.side ? `_${r.side}` : ""}${r.phase ? `_${r.phase}` : ""}`;
     const j = sibling === undefined ? undefined : at.get(sibling);
-    if (j === undefined) {
+    if (sibling === undefined || j === undefined) {
       blanked.add(c);
       return -1;
     }
