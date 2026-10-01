@@ -11,7 +11,7 @@ import { columnTip } from "@lib/platform/glossary";
 import { revealInScroller } from "@lib/platform/scroll";
 import { visibleRange, WINDOW_MIN } from "@lib/platform/gridVirtual";
 import { identityColumn, labelColumn, pinIdentity, transposePinned } from "@lib/platform/gridCompare";
-import { applyPreset, groupStarts, headerLabels, presetsFor, type Preset } from "@lib/platform/gridRegistry";
+import { applyPreset, groupStarts, headerLabels, presetsFor, validOrder, type Preset } from "@lib/platform/gridRegistry";
 import {
   asPercentile,
   columnDomain,
@@ -306,11 +306,7 @@ export default function ResultsGrid({
   /** The displayed columns by original index: every column (as dragged), or a preset's subset
    *  behind the frozen one. A shorter order is fine; one naming a column twice or out of range
    *  (the last result's, for one render) shows every column. */
-  const colOrder = useMemo(() => {
-    const valid =
-      order.length > 0 && order.length <= cols.length && new Set(order).size === order.length && order.every((i) => i >= 0 && i < cols.length);
-    return valid ? order : cols.map((_, i) => i);
-  }, [order, cols]);
+  const colOrder = useMemo(() => (validOrder(order, cols.length) ? order : cols.map((_, i) => i)), [order, cols]);
   const presets = useMemo(() => presetsFor(cols), [cols]);
   const frozen = frozenColumn(cols);
   /** The displayed names: separators and header labels follow the DISPLAYED order, not the result's. */

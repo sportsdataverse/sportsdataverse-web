@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { applyPreset, familyOrder, groupStarts, headerLabel, headerLabels, presetsFor } from '../lib/platform/gridRegistry.ts';
+import { applyPreset, familyOrder, groupStarts, headerLabel, headerLabels, presetsFor, validOrder } from '../lib/platform/gridRegistry.ts';
 import { METRICS, resolveMetric } from '../lib/platform/metricRegistry.ts';
 import { columnTip } from '../lib/platform/glossary.ts';
 
@@ -116,4 +116,16 @@ test('applyPreset: the frozen column first (when there is one), then the preset 
   assert.deepEqual(applyPreset(cols, -1, { columns: ['a1', 'a2'] }), [2, 6]);
   // a preset column the result lacks, or the frozen one named again, is skipped
   assert.deepEqual(applyPreset(cols, 0, { columns: ['a1', 'gone', 'id', 'a2'] }), [0, 2, 6]);
+});
+
+test('validOrder: non-empty, distinct, in-range indices, any length up to the column count', () => {
+  assert.equal(validOrder([0, 1, 2], 3), true);
+  assert.equal(validOrder([2, 0], 3), true); // shorter: a preset's subset
+  assert.equal(validOrder([1], 3), true);
+  assert.equal(validOrder([], 3), false);
+  assert.equal(validOrder([0, 0], 3), false); // a duplicate
+  assert.equal(validOrder([0, 3], 3), false); // out of range
+  assert.equal(validOrder([0, -1], 3), false);
+  assert.equal(validOrder([0, 1, 2, 3], 3), false); // longer than the result (the last result's order)
+  assert.equal(validOrder([0.5], 3), false);
 });

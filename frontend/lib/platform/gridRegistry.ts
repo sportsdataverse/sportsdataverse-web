@@ -92,6 +92,12 @@ export function headerLabels(displayed: string[], resolve: Resolve = resolveMetr
   return labels.map((l, i) => ((seen.get(l.text) ?? 0) > 1 ? raw(displayed[i]) : l));
 }
 
+/** A displayed order the grid can use: non-empty, distinct, in-range indices, at most `n` of them
+ *  (a preset's subset is shorter than the result). Anything else shows every column. */
+export function validOrder(order: number[], n: number): boolean {
+  return order.length > 0 && order.length <= n && new Set(order).size === order.length && order.every((i) => Number.isInteger(i) && i >= 0 && i < n);
+}
+
 /** The grid's `order` under a preset: the frozen column (when there is one), then the preset's
  *  columns by index. Every other column is hidden. */
 export function applyPreset(columns: string[], frozen: number, preset: { columns: string[] }): number[] {
