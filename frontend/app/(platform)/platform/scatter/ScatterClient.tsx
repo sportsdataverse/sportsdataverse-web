@@ -63,17 +63,16 @@ type Loaded = {
  *  ESPN id fires no request; an image that fails is counted and its mark
  *  stays a dot. */
 type Atlas = Sprites & { xwalk: Xwalk[] | null; failed: number; total: number };
-async function loadAtlas(src: ScatterSource, points: readonly ScatterPoint[], dark: boolean, dpr: number): Promise<Atlas> {
-  let xwalk: Xwalk[] | null = null;
-  if (src.xwalk) {
-    const { schema, key } = src.xwalk;
-    // The crosswalk holds the newest season(s) only (nba: 2026 alone on
-    // 2026-10-01) and a player's ids never change, so it is read whole,
-    // newest first, rather than for the viewed season (which would match
-    // nothing for an earlier one).
-    const pairs = await apiRows({ schema, table: "player_crosswalk", select: `${key},espn_athlete_id`, order: "-season", limit: "5000" });
-    xwalk = pairs.flatMap((r) => (r[key] != null && r.espn_athlete_id != null ? [{ key: String(r[key]), value: String(r.espn_athlete_id) }] : []));
-  }
+/** A source's id → ESPN id pairs. The crosswalk holds the newest season(s)
+ *  only (nba: 2026 alone on 2026-10-01) and a player's ids never change, so
+ *  it is read whole, newest first, rather than for the viewed season (which
+ *  would match nothing for an earlier one), and once per schema. */
+async function loadXwalk({ schema, key }: NonNullable<ScatterSource["xwalk"]>): Promise<Xwalk[]> {
+  const pairs = await apiRows({ schema, table: "player_crosswalk", select: `${key},espn_athlete_id`, order: "-season", limit: "5000" });
+  return pairs.flatMap((r) => (r[key] != null && r.espn_athlete_id != null ? [{ key: String(r[key]), value: String(r.espn_athlete_id) }] : []));
+}
+async function loadAtlas(src: ScatterSource, points: readonly ScatterPoint[], dark: boolean, dpr: number, xwalkRead: Promise<Xwalk[]> | null): Promise<Atlas> {
+  const xwalk = xwalkRead ? await xwalkRead : null;
   const entries = spriteEntries(src, espnIds(src, points, "id", xwalk), dark);
   const round = roundAtlas(await buildAtlas(entries, CELL), FACE * dpr);
   return { ...round, xwalk, failed: entries.length - Object.keys(round.frames).length, total: entries.length };
@@ -203,6 +202,8 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
     return () => window.removeEventListener("resize", read);
   }, []);
   const atlases = useRef(new Map<string, Promise<Atlas>>());
+  // The crosswalk read, once per schema (it is season-independent).
+  const xwalks = useRef(new Map<string, Promise<Xwalk[]>>());
   const [atlas, setAtlas] = useState<{ key: string; a: Atlas } | null>(null);
   // A failed build, for its key alone: a switch to Dots or another view drops it.
   const [atlasError, setAtlasError] = useState<{ key: string; text: string } | null>(null);
@@ -217,7 +218,14 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
     let live = true;
     let p = atlases.current.get(atlasId);
     if (!p) {
-      p = loadAtlas(src, points, resolvedTheme === "dark", dpr);
+      let xw: Promise<Xwalk[]> | null = null;
+      if (src.xwalk) {
+        const { schema } = src.xwalk;
+        xw = xwalks.current.get(schema) ?? loadXwalk(src.xwalk);
+        xwalks.current.set(schema, xw);
+        xw.catch(() => xwalks.current.delete(schema)); // a failed read is retried next time
+      }
+      p = loadAtlas(src, points, resolvedTheme === "dark", dpr, xw);
       atlases.current.set(atlasId, p);
       // the last few views only: an atlas is ~12 MB at the cap
       for (const k of atlases.current.keys()) if (atlases.current.size > 4) atlases.current.delete(k);
