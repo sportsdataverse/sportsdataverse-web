@@ -1235,6 +1235,11 @@ const HoverRail = memo(function HoverRail({
     setOrig(null);
   }
   const cells = orig == null ? undefined : rows[orig];
+  // every value, as the rail promises: the displayed columns first, then the ones a preset hides (as the tray)
+  const shown = useMemo(() => {
+    const seen = new Set(colOrder);
+    return [...colOrder, ...columns.flatMap((_, i) => (seen.has(i) ? [] : [i]))];
+  }, [colOrder, columns]);
   return (
     <aside
       ref={aside}
@@ -1250,7 +1255,7 @@ const HoverRail = memo(function HoverRail({
             ) : null}
           </div>
           <dl className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1 text-xs">
-            {colOrder.map((c) => {
+            {shown.map((c) => {
               const name = columns[c];
               const src = pcts.get(c);
               if (src?.col === c) return null; // an X_pct: drawn as its X's bar
