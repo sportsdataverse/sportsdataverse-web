@@ -43,6 +43,10 @@ export function joinOnStringId(rows: readonly Record<string, unknown>[], idCol: 
   });
 }
 
+/** ESPN athlete and team ids are positive integers; a data-side placeholder
+ *  (cfb's negative id for an unidentified player) is no id, so no request. */
+const ESPN_ID = /^[1-9]\d*$/;
+
 /** Each row's ESPN id: its own `idCol` for an ESPN-keyed source, else
  *  bridged through the source's crosswalk (none loaded: no ids). */
 export function espnIds(
@@ -51,7 +55,8 @@ export function espnIds(
   idCol: string,
   xwalk: readonly Xwalk[] | null
 ): (string | null)[] {
-  return source.xwalk ? joinOnStringId(rows, idCol, xwalk ?? []) : rows.map((r) => idText(r[idCol]));
+  const ids = source.xwalk ? joinOnStringId(rows, idCol, xwalk ?? []) : rows.map((r) => idText(r[idCol]));
+  return ids.map((id) => (id != null && ESPN_ID.test(id) ? id : null));
 }
 
 /** The ESPN league a source's images live under: `nba_stats` rows are NBA players; otherwise the schema. */

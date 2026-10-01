@@ -36,6 +36,9 @@ test('espnIds: an ESPN-keyed source uses its own ids; a crosswalk source bridges
   assert.deepEqual(espnIds(src('nba', 'player_impact'), [{ player_id: 2544 }, { player_id: 1 }], 'player_id', XWALK), ['1966', null]);
   // the bridge is never skipped for a crosswalk source: no crosswalk rows → no ids
   assert.deepEqual(espnIds(src('nba_stats', 'player_season_stats'), [{ player_id: 2544 }], 'player_id', null), [null]);
+  // an ESPN id is a positive integer: cfb's negative placeholder for an unidentified player is no id (no request)
+  assert.deepEqual(espnIds(src('cfb', 'passing'), [{ player_id: -6315 }, { player_id: '0' }, { player_id: 'abc' }, { player_id: 4880281 }], 'player_id', null), [null, null, null, '4880281']);
+  assert.deepEqual(espnIds(src('nba', 'player_impact'), [{ player_id: 1 }], 'player_id', [{ key: '1', value: '-1' }]), [null]);
 });
 
 test('every source that bridges names its crosswalk; nba_stats shares nba\'s', () => {
