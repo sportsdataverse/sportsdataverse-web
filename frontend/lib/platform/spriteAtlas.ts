@@ -33,8 +33,10 @@ export const NFL_LOGO_ABBR: Record<string, string> = {
   "25": "sf", "26": "sea", "27": "tb", "28": "wsh", "29": "car", "30": "jax", "33": "bal", "34": "hou",
 };
 
-/** Row-major grid of `cell`-px squares, `cols` wide; a duplicate id keeps its first slot. */
+/** Row-major grid of `cell`-px squares, `cols` wide; a duplicate id keeps its first slot.
+ *  `cols` below 1 would give NaN/Infinity frames silently, so it throws. */
 export function packFrames(ids: string[], cell: number, cols: number): Record<string, Frame> {
+  if (!(cols >= 1)) throw new RangeError("packFrames: cols must be >= 1");
   const frames: Record<string, Frame> = {};
   let i = 0;
   for (const id of ids) {
@@ -72,7 +74,8 @@ export function headshotSrc(league: League, athleteId: string | number, size: { 
  * it with the frame map. Each image is drawn at its natural size, scaled down
  * uniformly only if it overflows the cell, so a 96×70 headshot in a 96 cell
  * is padded, not stretched. An image that fails to load is dropped from
- * `frames`, so the consumer draws a dot for it.
+ * `frames`, so the consumer draws a dot for it; its cell stays an empty hole
+ * (the survivors keep their slots, the canvas is not repacked).
  */
 export async function buildAtlas(
   entries: { id: string; src: string }[],

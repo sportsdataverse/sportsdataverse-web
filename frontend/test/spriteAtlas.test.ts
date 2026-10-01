@@ -14,6 +14,11 @@ test('packFrames keeps the first slot for a duplicate id', () => {
   assert.deepEqual(packFrames(['61', '61'], 64, 4), { 61: { x: 0, y: 0, w: 64, h: 64 } });
 });
 
+test('packFrames refuses a grid narrower than one column', () => {
+  assert.throws(() => packFrames(['61'], 64, 0), RangeError);
+  assert.throws(() => packFrames(['61'], 64, Number.NaN), RangeError);
+});
+
 test('teamLogoSrc sizes through the combiner; NFL dark logos use the abbreviation path', () => {
   assert.equal(
     teamLogoSrc('cfb', '333', false, 64),
