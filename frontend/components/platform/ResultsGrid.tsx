@@ -11,7 +11,7 @@ import { COLUMN_GLOSSARY, columnTip } from "@lib/platform/glossary";
 import { revealInScroller } from "@lib/platform/scroll";
 import { visibleRange, WINDOW_MIN } from "@lib/platform/gridVirtual";
 import { identityColumn, labelColumn, pinIdentity, transposePinned } from "@lib/platform/gridCompare";
-import { applyPreset, groupStarts, headerLabels, presetsFor, validOrder, type Preset } from "@lib/platform/gridRegistry";
+import { applyPreset, basesFor, groupStarts, headerLabels, presetsFor, rebase, validOrder, type Preset, type Rebased } from "@lib/platform/gridRegistry";
 import {
   asPercentile,
   columnDomain,
@@ -84,6 +84,17 @@ import {
  * - The frozen column is the label (the name), else the identity column: it
  *   sticks behind `#` through horizontal scroll whenever it is displayed first,
  *   which a preset guarantees and a drag may undo.
+ *
+ * Basis (gridRegistry.ts `rebase`)
+ * - A segmented control (`b` cycles it) shows every column on one basis the
+ *   registry knows (`grid.basis=per_play`): a column keeps its name and place
+ *   but shows its sibling variant's cells (`TEPA_off` reads `EPAplay_off`), its
+ *   header tagged with the basis and its tooltip naming the sibling; a column
+ *   with no such variant in the result goes blank (`—`, never another basis's
+ *   values). Everything downstream (sort, filters, domains, cells, the tray,
+ *   the rail) reads the rebased rows, so a sort orders by what is displayed.
+ *   Heat and percentile tint are off for a rebased column (the producer's
+ *   `X_pct` belongs to the native basis); `Native` is the result itself.
  *
  * Sample sizes and the qualifier
  * - An `X` with an `X_n` beside it marks its header `n`, and each cell's title
@@ -162,6 +173,12 @@ function orderFor(columns: string[], presets: Preset[], preset: string | null): 
 }
 /** Says a preset the result lacks (a link from another table) was dropped, rather than dropping it unseen. */
 const presetNote = (from: string | null, kept: string | null) => (from !== null && kept === null ? `no ${from} preset for this result` : "");
+/** `per_play` → `per play`, as the toggle, the headers and the status bar say it. */
+const basisLabel = (basis: string) => basis.replace(/_/g, " ");
+/** `basis` when the result can serve it (one column at least would be sourced), else null: the native view. */
+const keepBasis = (basis: string | null, offered: string[]) => (basis !== null && offered.includes(basis) ? basis : null);
+/** Says a basis the result can't serve (a link from another table) was dropped, rather than dropping it unseen. */
+const basisNote = (from: string | null, kept: string | null) => (from !== null && kept === null ? `no ${basisLabel(from)} basis for this result` : "");
 const notes = (...parts: string[]) => parts.filter(Boolean).join(" · ");
 
 const PAGE = 20;
@@ -197,6 +214,7 @@ export default function ResultsGrid({
   const [selectedRow, setSelectedRow] = useState<number | null>(null); // original index
   const [preset, setPreset] = useState<string | null>(() => keepPreset(start.preset, presetsFor(columns)));
   const [order, setOrder] = useState<number[]>(() => orderFor(columns, presetsFor(columns), start.preset));
+  const [basis, setBasis] = useState<string | null>(() => keepBasis(start.basis, basesFor(columns)));
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [tint, setTint] = useState<TintMode>(start.tint);
   /** `q`'s intent, kept while the result has no gate (yet), like `tint`'s. */
@@ -215,7 +233,7 @@ export default function ResultsGrid({
   const [pins, setPins] = useState<Pins>(() => keepPins(pinsOf(initialView), columns, rows));
   const [pinnedOnly, setPinnedOnly] = useState(false);
   /** The status bar's live message: a pin, an unpin, a refusal, pins a result lacks. */
-  const [notice, setNotice] = useState(() => notes(missingNote(pinsOf(initialView), pins), presetNote(start.preset, preset)));
+  const [notice, setNotice] = useState(() => notes(missingNote(pinsOf(initialView), pins), presetNote(start.preset, preset), basisNote(start.basis, basis)));
   /** A row the next view change keeps focused wherever it lands (`z`), by original index. */
   const followRow = useRef<number | null>(null);
   /** The focused cell's row, by original index (for the gate's arrival under `q`). */
@@ -231,18 +249,20 @@ export default function ResultsGrid({
   // for "reset state when a prop changes"), so there's no stale frame.
   const [cols, setCols] = useState(columns);
   if (cols.join("\u0001") !== columns.join("\u0001")) {
-    const next = gridByIndex(gridByName({ sort, filters, tint, pin: null, qualified, preset }, cols), columns);
+    const next = gridByIndex(gridByName({ sort, filters, tint, pin: null, qualified, preset, basis }, cols), columns);
     setCols(columns);
     const nextPresets = presetsFor(columns);
     const keptPreset = keepPreset(preset, nextPresets);
     setPreset(keptPreset);
     setOrder(orderFor(columns, nextPresets, keptPreset));
+    const keptBasis = keepBasis(basis, basesFor(columns));
+    setBasis(keptBasis);
     setFilters(next.filters);
     setSort(next.sort);
     setSelectedRow(null);
     const kept = keepPins(pins, columns, rows);
     setPins(kept);
-    setNotice(notes(missingNote(pins, kept), presetNote(preset, keptPreset)));
+    setNotice(notes(missingNote(pins, kept), presetNote(preset, keptPreset), basisNote(basis, keptBasis)));
   }
   // A rerun with the same columns keeps sort and filters, but the selected index
   // would point at a different row. Both row sources are stable per result.
@@ -261,8 +281,8 @@ export default function ResultsGrid({
     [pins]
   );
   useEffect(() => {
-    onViewChange?.(gridByName({ sort, filters, tint, pin: urlPin, qualified, preset }, cols));
-  }, [sort, filters, tint, urlPin, qualified, preset, cols, onViewChange]);
+    onViewChange?.(gridByName({ sort, filters, tint, pin: urlPin, qualified, preset, basis }, cols));
+  }, [sort, filters, tint, urlPin, qualified, preset, basis, cols, onViewChange]);
 
   const idCol = pins.col === null ? -1 : cols.indexOf(pins.col);
   const origById = useMemo(() => new Map(idCol < 0 ? [] : rows.map((r, i) => [r[idCol], i])), [rows, idCol]);
@@ -308,6 +328,16 @@ export default function ResultsGrid({
    *  (the last result's, for one render) shows every column. */
   const colOrder = useMemo(() => (validOrder(order, cols.length) ? order : cols.map((_, i) => i)), [order, cols]);
   const presets = useMemo(() => presetsFor(cols), [cols]);
+  /** The bases this result can serve (the toggle's segments); none hides the toggle. */
+  const offered = useMemo(() => basesFor(cols), [cols]);
+  /** The result on `basis`: what every cell, domain, sort, filter, the tray and the rail read. The native
+   *  view is `rows` itself (same reference), so nothing downstream re-memos; a basis rebuilds the rows
+   *  once per [cols, rows, basis], never per render. Row identity (pins, the qualifier, the label and
+   *  id columns) stays with `rows`: those columns pass through untouched. */
+  const onBasis = useMemo(() => rebase(cols, rows, basis), [cols, rows, basis]);
+  const data = onBasis.rows;
+  /** A column showing another column's cells, or none: its native tint would lie, so it has none. */
+  const rebased = (name: string) => onBasis.sourced.has(name) || onBasis.blanked.has(name);
   const frozen = frozenColumn(cols);
   /** The displayed names: separators and header labels follow the DISPLAYED order, not the result's. */
   const displayed = useMemo(() => colOrder.map((ci) => cols[ci]), [colOrder, cols]);
@@ -335,15 +365,20 @@ export default function ResultsGrid({
     setNotice("");
   }
 
+  function pickBasis(next: string | null) {
+    setBasis(next);
+    setNotice("");
+  }
+
   /** The longest cell per column as shown (formatCell) over the whole result, for the windowed grid's sizer row. */
   // ponytail: formats every cell once per result (~75 ms at 10k x 20, ~1.9 s at 50k x 61). If big
   // pulls stall, size by the raw decimal cut to 3 places (never narrower than what formatCell shows).
   const widest = useMemo(() => {
-    if (rows.length <= WINDOW_MIN) return null;
+    if (data.length <= WINDOW_MIN) return null;
     const digits = (v: string) => v.replace(/\D/g, "").length;
     return cols.map((_, c) => {
       let w = "";
-      for (const r of rows) {
+      for (const r of data) {
         const v = formatCell(r[c]) ?? "∅";
         // ponytail: character count, not measured width; a tie goes to more digits (10.25 over -0.25).
         // Measure with a canvas if a proportional face ever makes the shorter string the wider one.
@@ -351,7 +386,7 @@ export default function ResultsGrid({
       }
       return w;
     });
-  }, [cols, rows]);
+  }, [cols, data]);
   /** Column → the producer percentile column that shades it, with its scale. */
   const pcts = useMemo(() => pctSources(cols, rows), [cols, rows]);
   const hasPct = pcts.size > 0;
@@ -408,17 +443,17 @@ export default function ResultsGrid({
   const domains = useMemo<(Domain | null)[]>(
     () =>
       cols.map((name, c) => {
-        const all = columnDomain(rows.map((r) => r[c]), name);
+        const all = columnDomain(data.map((r) => r[c]), name);
         if (!all || !below) return all;
-        return columnDomain(rows.filter((_, i) => below[i] !== true).map((r) => r[c]), name) ?? all;
+        return columnDomain(data.filter((_, i) => below[i] !== true).map((r) => r[c]), name) ?? all;
       }),
-    [cols, rows, below]
+    [cols, data, below]
   );
 
   /** Filtered + sorted view; every row keeps its ORIGINAL index for numbering,
    *  selection identity, and external linking. */
   const view = useMemo(() => {
-    let out = rows.map((cells, orig) => ({ cells, orig }));
+    let out = data.map((cells, orig) => ({ cells, orig }));
     if (keepOnly) out = out.filter(({ orig }) => keepOnly.has(orig));
     // q: the rows below the qualifier go; a pinned row always shows
     if (onlyQualified) out = out.filter(({ orig }) => below![orig] !== true || pinnedSet.has(orig));
@@ -436,7 +471,7 @@ export default function ResultsGrid({
       out = [...out].sort((a, b) => compareCells(a.cells[sort.col], b.cells[sort.col], sort.dir));
     }
     return out;
-  }, [rows, filters, sort, keepOnly, onlyQualified, below, pinnedSet]);
+  }, [data, filters, sort, keepOnly, onlyQualified, below, pinnedSet]);
 
   const viewIndexByOrig = useMemo(() => {
     const m = new Map<number, number>();
@@ -587,6 +622,16 @@ export default function ResultsGrid({
       setTint(nextTint(shownTint, hasPct));
       return;
     }
+    if (key === "b") {
+      e.preventDefault();
+      if (!offered.length) {
+        setNotice("no other basis for this result: no column has a per game, per play or per drive sibling");
+        return;
+      }
+      const cycle = [null, ...offered];
+      pickBasis(cycle[(cycle.indexOf(basis) + 1) % cycle.length]);
+      return;
+    }
     if (key === "p" || key === "c") {
       e.preventDefault();
       // c: the row under the pointer now (a scroll moves rows under a still pointer)
@@ -671,7 +716,7 @@ export default function ResultsGrid({
     // From xl the rail's column is always there, so the grid's width never moves when it fills.
     <div className="min-w-0 xl:grid xl:grid-cols-[minmax(0,1fr)_16rem] xl:items-start xl:gap-4">
       <div className="flex min-w-0 flex-col">
-        {presets.length || activeFilters.length ? (
+        {presets.length || offered.length || activeFilters.length ? (
           <div className="mb-2 flex flex-wrap items-center gap-2 font-mono text-xs">
             {presets.length ? (
               <div role="group" aria-label="Column presets" className="flex flex-wrap items-center gap-1.5">
@@ -689,6 +734,26 @@ export default function ResultsGrid({
                     )}
                   >
                     {family ?? "All"}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {offered.length ? (
+              <div role="group" aria-label="Value basis" className="flex items-center divide-x divide-border overflow-hidden rounded-md border border-border">
+                {[null, ...offered].map((b) => (
+                  <button
+                    key={b ?? "native"}
+                    type="button"
+                    aria-pressed={basis === b}
+                    onClick={() => pickBasis(b)}
+                    title={b === null ? "Every column as the result has it (b)" : `Every column with a ${basisLabel(b)} sibling shows it in its place; the rest go blank (b)`}
+                    className={cn(
+                      "px-2.5 py-0.5 text-[11px] uppercase tracking-wide transition-colors",
+                      // weight as well as fill: the chosen one reads without colour
+                      basis === b ? "bg-primary font-bold text-primary-foreground" : "text-primary hover:bg-primary/10"
+                    )}
+                  >
+                    {b === null ? "Native" : basisLabel(b)}
                   </button>
                 ))}
               </div>
@@ -736,8 +801,10 @@ export default function ResultsGrid({
                 </th>
                 {colOrder.map((ci, c) => {
                   const name = columns[ci];
+                  const source = onBasis.sourced.get(name);
+                  const blank = onBasis.blanked.has(name);
                   const encoded =
-                    shownTint === "delta" ? domains[ci] !== null : shownTint === "pct" && pcts.has(ci);
+                    !source && !blank && (shownTint === "delta" ? domains[ci] !== null : shownTint === "pct" && pcts.has(ci));
                   // The frozen column sticks when it is displayed first: always under a preset (applyPreset
                   // puts it there and dropOn keeps it); otherwise wherever the reader dragged it.
                   const stuck = c === 0 && ci === frozen;
@@ -745,7 +812,9 @@ export default function ResultsGrid({
                   // the registry title, then the dtype and the glossary description; an unresolved column is the glossary tip alone
                   const dtype = types?.[name];
                   const desc = COLUMN_GLOSSARY[name];
-                  const tip = head.text === name ? columnTip(name, dtype) : `${head.title}${dtype ? ` (${dtype})` : ""}${desc ? ` — ${desc}` : ""}`;
+                  const tip =
+                    (head.text === name ? columnTip(name, dtype) : `${head.title}${dtype ? ` (${dtype})` : ""}${desc ? ` — ${desc}` : ""}`) +
+                    (source ? ` · values from ${source}` : blank ? ` · no ${basisLabel(basis!)} variant` : "");
                   return (
                     <th
                       key={name}
@@ -777,6 +846,11 @@ export default function ResultsGrid({
                       >
                         <GripVertical className="size-3 opacity-30" />
                         {head.text}
+                        {source || blank ? (
+                          <span data-basis={blank ? "none" : basis} className="text-[9px] font-normal normal-case opacity-70">
+                            {blank ? `(no ${basisLabel(basis!)})` : `· ${basisLabel(basis!)}`}
+                          </span>
+                        ) : null}
                         {nOf.has(ci) ? (
                           <abbr title={`sample size in ${columns[nOf.get(ci)!]}`} className="text-[9px] font-normal normal-case no-underline">
                             n
@@ -911,9 +985,12 @@ export default function ResultsGrid({
                     </td>
                     {colOrder.map((ci, c) => {
                       const raw = cells[ci];
+                      const name = cols[ci];
+                      const blank = onBasis.blanked.has(name);
                       const numeric = domains[ci] !== null;
-                      // below the qualifier: no heat (its extremes would draw the strongest buckets)
-                      const shade = faded ? undefined : gridShade(shownTint, cells, ci, domains[ci], pcts.get(ci));
+                      // below the qualifier: no heat (its extremes would draw the strongest buckets);
+                      // on another basis, none for a rebased column (its X_pct and its scale are the native one's)
+                      const shade = faded || rebased(name) ? undefined : gridShade(shownTint, cells, ci, domains[ci], pcts.get(ci));
                       const n = nOf.get(ci);
                       const fades = faded && metric.has(ci);
                       // a name or an id, which columnDomain never shades: its only inline style is `left`
@@ -931,8 +1008,10 @@ export default function ResultsGrid({
                           }}
                           onClick={() => selectRow(isSelected ? null : r)}
                           title={
-                            (n === undefined ? (raw ?? "") : `${raw ?? "∅"} · n = ${cells[n] ?? "∅"}`) +
-                            (fades ? ` · below the qualifier (${qminText} per team game)` : "")
+                            blank
+                              ? `no ${basisLabel(basis!)} variant`
+                              : (n === undefined ? (raw ?? "") : `${raw ?? "∅"} · n = ${cells[n] ?? "∅"}`) +
+                                (fades ? ` · below the qualifier (${qminText} per team game)` : "")
                           }
                           style={stuck ? { left: hashW } : shade && !rowBg ? { backgroundColor: shade } : undefined}
                           className={cn(
@@ -953,7 +1032,8 @@ export default function ResultsGrid({
                             "focus:ring-1 focus:ring-inset focus:ring-primary"
                           )}
                         >
-                          {raw === null ? "∅" : formatCell(raw)}
+                          {/* — is "no variant on this basis"; ∅ stays "null data" */}
+                          {blank ? "—" : raw === null ? "∅" : formatCell(raw)}
                         </td>
                       );
                     })}
@@ -971,7 +1051,7 @@ export default function ResultsGrid({
               {windowed && widest ? (
                 <tr aria-hidden className="invisible leading-[0]">
                   {/* pl-6: the pin button and its gap */}
-                  <td className="w-10 overflow-hidden border-r pl-6 pr-2 font-mono">{rows.length}</td>
+                  <td className="w-10 overflow-hidden border-r pl-6 pr-2 font-mono">{data.length}</td>
                   {colOrder.map((ci, c) => (
                     <td
                       key={ci}
@@ -1018,6 +1098,7 @@ export default function ResultsGrid({
           ) : null}
           {onlyQualified ? <span className="text-foreground">qualified: ≥ {perGame}</span> : null}
           {preset ? <span className="text-foreground">preset: {preset} · All shows every column</span> : null}
+          {basis ? <span className="text-foreground">basis: {basisLabel(basis)} · percentile shading off for rebased columns</span> : null}
           <span role="status" className="text-foreground empty:sr-only">
             {notice}
           </span>
@@ -1043,6 +1124,11 @@ export default function ResultsGrid({
           <span className="hidden sm:inline">
             <kbd className="text-foreground">z</kbd> pinned only
           </span>
+          {offered.length ? (
+            <span className="hidden md:inline">
+              <kbd className="text-foreground">b</kbd> basis
+            </span>
+          ) : null}
           <button
             onClick={() => setTint(nextTint(shownTint, hasPct))}
             className={cn(
@@ -1069,7 +1155,9 @@ export default function ResultsGrid({
         {pinned.length ? (
           <PinTray
             columns={cols}
-            rows={rows}
+            rows={data}
+            shown={onBasis}
+            basis={basis}
             pinned={pinned}
             pcts={pcts}
             colOrder={colOrder}
@@ -1080,7 +1168,7 @@ export default function ResultsGrid({
           />
         ) : null}
       </div>
-      <HoverRail ref={showInRail} columns={cols} colOrder={colOrder} rows={rows} pcts={pcts} label={labelCol} id={idCol} />
+      <HoverRail ref={showInRail} columns={cols} colOrder={colOrder} rows={data} result={rows} shown={onBasis} pcts={pcts} label={labelCol} id={idCol} />
     </div>
   );
 }
@@ -1104,6 +1192,8 @@ const STICKY_EDGE = "shadow-[inset_-1px_0_0_var(--color-border)]";
 function PinTray({
   columns,
   rows,
+  shown,
+  basis,
   pinned,
   pcts,
   colOrder,
@@ -1113,7 +1203,10 @@ function PinTray({
   onUnpin,
 }: {
   columns: string[];
+  /** The rows as displayed (rebased on `basis`). */
   rows: (string | null)[][];
+  shown: Rebased;
+  basis: string | null;
   pinned: number[];
   pcts: Map<number, PctSource>;
   /** The grid's column order (dragged), which the metrics follow. */
@@ -1134,6 +1227,7 @@ function PinTray({
     <section aria-label="Pinned rows" className="mt-3 min-w-0">
       <h3 className="mb-1.5 font-display text-sm font-bold uppercase text-muted-foreground">
         Pinned {pinned.length} of {MAX_PINS}
+        {basis ? <span className="font-normal normal-case"> · {basisLabel(basis)}</span> : null}
       </h3>
       {/* relative: the sr-only percentile text is absolute, and would escape the clip to widen the page */}
       <div className="scrollbar-visible relative max-h-[32rem] max-w-full overflow-auto rounded-lg">
@@ -1165,7 +1259,9 @@ function PinTray({
           </thead>
           <tbody>
             {metrics.map(({ metric, values }) => {
-              const src = pcts.get(columns.indexOf(metric));
+              const blank = shown.blanked.has(metric);
+              // a rebased metric has no percentile: its X_pct is the native basis's
+              const src = blank || shown.sourced.has(metric) ? undefined : pcts.get(columns.indexOf(metric));
               return (
                 <tr key={metric}>
                   {/* the site rule pads and borders td only */}
@@ -1180,9 +1276,9 @@ function PinTray({
                         key={pinned[j]}
                         style={src ? { backgroundColor: pctTint(pct, src.scale) } : undefined}
                         className="max-w-48 truncate whitespace-nowrap text-right font-display text-[13px] tabular-nums"
-                        title={p != null ? `${v ?? "∅"} · ${ordinal(p)} percentile` : (v ?? "")}
+                        title={blank ? `no ${basisLabel(basis!)} variant` : p != null ? `${v ?? "∅"} · ${ordinal(p)} percentile` : (v ?? "")}
                       >
-                        {formatCell(v) ?? "∅"}
+                        {blank ? "—" : (formatCell(v) ?? "∅")}
                         {p != null ? <span className="sr-only">, {ordinal(p)} percentile</span> : null}
                       </td>
                     );
@@ -1208,6 +1304,8 @@ const HoverRail = memo(function HoverRail({
   columns,
   colOrder,
   rows,
+  result,
+  shown,
   pcts,
   label,
   id,
@@ -1215,7 +1313,10 @@ const HoverRail = memo(function HoverRail({
   ref: React.Ref<(orig: number | null) => void>;
   columns: string[];
   colOrder: number[];
+  /** The rows as displayed (rebased), and the result they came from: a basis switch keeps the row. */
   rows: (string | null)[][];
+  result: (string | null)[][];
+  shown: Rebased;
   pcts: Map<number, PctSource>;
   label: number;
   id: number;
@@ -1227,14 +1328,14 @@ const HoverRail = memo(function HoverRail({
     if (aside.current?.offsetParent != null) setOrig(o);
   }, []);
   // a re-run: the index names another row now
-  const [seen, setSeen] = useState(rows);
-  if (seen !== rows) {
-    setSeen(rows);
+  const [seen, setSeen] = useState(result);
+  if (seen !== result) {
+    setSeen(result);
     setOrig(null);
   }
   const cells = orig == null ? undefined : rows[orig];
   // every value, as the rail promises: the displayed columns first, then the ones a preset hides (as the tray)
-  const shown = useMemo(() => {
+  const order = useMemo(() => {
     const seen = new Set(colOrder);
     return [...colOrder, ...columns.flatMap((_, i) => (seen.has(i) ? [] : [i]))];
   }, [colOrder, columns]);
@@ -1253,9 +1354,11 @@ const HoverRail = memo(function HoverRail({
             ) : null}
           </div>
           <dl className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1 text-xs">
-            {shown.map((c) => {
+            {order.map((c) => {
               const name = columns[c];
-              const src = pcts.get(c);
+              const blank = shown.blanked.has(name);
+              // a rebased value has no percentile bar: its X_pct is the native basis's
+              const src = blank || shown.sourced.has(name) ? undefined : pcts.get(c);
               if (src?.col === c) return null; // an X_pct: drawn as its X's bar
               const raw = src ? cells[src.col] : null;
               const p = raw == null || raw === "" ? null : asPercentile(Number(raw), src!.scale);
@@ -1264,8 +1367,8 @@ const HoverRail = memo(function HoverRail({
                   <dt className="truncate font-mono text-muted-foreground" title={name}>
                     {name}
                   </dt>
-                  <dd className="truncate text-right font-display text-[13px] tabular-nums" title={cells[c] ?? ""}>
-                    {formatCell(cells[c]) ?? "∅"}
+                  <dd className="truncate text-right font-display text-[13px] tabular-nums" title={blank ? "no variant on this basis" : (cells[c] ?? "")}>
+                    {blank ? "—" : (formatCell(cells[c]) ?? "∅")}
                   </dd>
                   {src ? (
                     <dd className="col-span-2 mb-1 flex items-center gap-2" title={`${columns[src.col]}: ${p == null ? "none" : ordinal(p)}`}>
