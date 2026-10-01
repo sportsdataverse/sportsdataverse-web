@@ -17,7 +17,8 @@ test('packFrames keeps the first slot for a duplicate id', () => {
 test('packFrames stores "__proto__" as an own frame, not as the prototype', () => {
   const frames = packFrames(['__proto__', '61'], 64, 2);
   assert.ok(Object.hasOwn(frames, '__proto__'));
-  assert.deepEqual(Object.keys(frames), ['__proto__', '61']);
+  // integer-like keys enumerate first, so compare as a set
+  assert.deepEqual(Object.keys(frames).sort(), ['61', '__proto__']);
   assert.deepEqual(frames['61'], { x: 64, y: 0, w: 64, h: 64 });
 });
 
