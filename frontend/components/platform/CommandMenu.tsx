@@ -38,7 +38,7 @@ export default function CommandMenu({ isAdmin = false }: { isAdmin?: boolean }) 
   const [query, setQuery] = useState("");
   // The newest search that landed, with the query it answered: a query it
   // does not match is still pending (its own fetch is in flight or debounced).
-  const [result, setResult] = useState<{ q: string; hits: SearchHit[] }>({ q: "", hits: [] });
+  const [result, setResult] = useState<{ q: string; hits: SearchHit[]; failed?: boolean }>({ q: "", hits: [] });
   // Every release tag, read once per mount on the first open.
   const [tags, setTags] = useState<string[] | null>(null);
   const router = useRouter();
@@ -84,10 +84,14 @@ export default function CommandMenu({ isAdmin = false }: { isAdmin?: boolean }) 
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/platform/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal });
-        const body: unknown = res.ok ? await res.json() : [];
+        if (!res.ok) throw new Error(`search ${res.status}`);
+        const body: unknown = await res.json();
         setResult({ q, hits: Array.isArray(body) ? (body as SearchHit[]) : [] });
       } catch {
-        // aborted by a newer keystroke (its own fetch takes over), or offline: keep what is shown
+        // aborted by a newer keystroke: its own fetch takes over. Anything else (offline, a 502 from
+        // the proxy, a bad body) answers this query as failed, so the palette neither stays on
+        // "Searching…" nor claims "No results." for a search that never ran.
+        if (!ctrl.signal.aborted) setResult({ q, hits: [], failed: true });
       }
     }, SEARCH_DEBOUNCE_MS);
     return () => {
@@ -138,7 +142,7 @@ export default function CommandMenu({ isAdmin = false }: { isAdmin?: boolean }) 
     <CommandDialog open={open} onOpenChange={onOpenChange} shouldFilter={false} title="Search">
       <CommandInput placeholder="Search players, teams, games, datasets, or go to…" value={query} onValueChange={setQuery} />
       <CommandList>
-        <CommandEmpty>{pending ? "Searching…" : "No results."}</CommandEmpty>
+        <CommandEmpty>{pending ? "Searching…" : result.failed ? "Search is unavailable right now." : "No results."}</CommandEmpty>
         {entities.length > 0 && (
           <CommandGroup heading="Entities">
             {entities.map(({ hit, href }) => (
