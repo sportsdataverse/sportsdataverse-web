@@ -29,10 +29,11 @@ const TOP_X = 'Shai Gilgeous-Alexander'; // the highest o_rapm, 5.384
 const CFB_TOP = 'Vanderbilt';
 // nfl.passing 2025: 67 of 101 passers have no epa_cpoe_composite.
 const NFL_MISSING = '67 players have no value for epa_cpoe_composite.';
-// polars, 2026-09-28: 2026 rows whose team_id is in mbb.team_group_seasons (season 2026, 365 D-I
-// teams). All rows: 9,990 players, medians -2.765 / 0.867; mbb.ratings all 727 teams, 99.204 / 116.503.
-const MBB_PV = { d1: 5015, left: 4975, mx: -0.8493846600284214, my: 0.4076165227817555 };
-const MBB_RATINGS = { d1: 365, left: 362, mx: 109.20291187126529, my: 109.10112308105424 };
+// 2026 rows whose team_id is in mbb.team_group_seasons (season 2026, D-I): first by polars on
+// 2026-09-28, re-derived from the Data API on 2026-10-01 (the tables moved; the dot-mode render is
+// byte-identical to main, so re-derive on a drift, never loosen the 1e-9).
+const MBB_PV = { d1: 5015, left: 4975, mx: -0.8564294611967049, my: 0.40974289093957117 };
+const MBB_RATINGS = { d1: 365, left: 362, mx: 109.20169012685503, my: 109.10008189869598 };
 
 const scatter = async (page, base) => {
   if (!process.env.SDV_SESSION_COOKIE) throw new Error('set SDV_SESSION_COOKIE to a minted authjs.session-token');
