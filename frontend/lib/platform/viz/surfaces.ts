@@ -25,14 +25,17 @@ export const COURT = { width: 50, half: 47, hoop: 5.25, ftLine: 13.75, ftRadius:
  *  from the hoop (laterally); `key`: the lane's width. */
 export type Court = { three: number; corner: number; key: number };
 
-/** FIBA corner geometry (WNBA since 2013, NCAA men 2019 / women 2021): the
- *  arc is 6.75 m and straightens 0.9 m from the sideline, 6.6 m = 21.65 ft
- *  from the hoop, meeting the arc 4.66 ft above it. */
+/** FIBA corner geometry (NCAA men 2019 / women 2021): the arc is 6.75 m and
+ *  straightens 0.9 m from the sideline, 6.6 m = 21.65 ft from the hoop,
+ *  meeting the arc 4.66 ft above it. The WNBA shares the 22.146 ft arc but
+ *  its straight corner segments sit 36 in from the sideline of a 50 ft court,
+ *  so its corner is 22 ft and the arc joins only 2.54 ft above the hoop. */
 const FIBA = { three: 22.146, corner: 21.65 };
+const WNBA = { three: 22.146, corner: 22 };
 
 export const COURTS = {
   nba: { three: 23.75, corner: 22, key: 16 },
-  wnba: { ...FIBA, key: 16 },
+  wnba: { ...WNBA, key: 16 },
   mbb: { ...FIBA, key: 12 },
   wbb: { ...FIBA, key: 12 },
 } as const satisfies Record<string, Court>;
