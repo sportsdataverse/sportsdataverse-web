@@ -60,8 +60,8 @@ async function loadShots(lg: ShotsLeague, season: string, player: string): Promi
 /** The league's FG% by distance for the season: the F4 `fg_pct_by_shot_distance`
  *  league rows (37 buckets), or null when the season has none. */
 async function loadCurve([, schema, season]: readonly [string, string, string]): Promise<CurveRow[] | null> {
-  const rows = await apiRows({ schema, table: "metric_curves", season, entity_type: "league", metric: "fg_pct_by_shot_distance", select: "x_lo,x_hi,rate", order: "x_lo", limit: API_MAX_ROWS });
-  return rows.length ? rows.map((r) => ({ x_lo: Number(r.x_lo), x_hi: Number(r.x_hi), rate: Number(r.rate) })) : null;
+  const rows = await apiRows({ schema, table: "metric_curves", season, entity_type: "league", metric: "fg_pct_by_shot_distance", select: "x_lo,x_hi,rate", order: "x_lo", limit: "100" });
+  return rows.length ? rows.map((r) => ({ x_lo: Number(r.x_lo), x_hi: r.x_hi == null ? Number.POSITIVE_INFINITY : Number(r.x_hi), rate: Number(r.rate) })) : null;
 }
 
 const selectClass = "rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm";
@@ -85,7 +85,10 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
     () => loadShots(lg, activeSeason, activePlayer)
   );
   // the league baseline, keyed by the CURVES schema: the ESPN and Stats feeds of one league share the read
-  const { data: curveRead, isLoading: curveLoading } = useSWR(lg.curves && activeSeason ? (["shots-curve", lg.curves, activeSeason] as const) : null, loadCurve);
+  const { data: curveRead, isLoading: curveLoading } = useSWR(lg.curves && activeSeason ? (["shots-curve", lg.curves, activeSeason] as const) : null, loadCurve, {
+    // a failed baseline read is the designed fallback (sequential + note), not something to retry
+    shouldRetryOnError: false,
+  });
   // undefined (no read, a failed read) and null (no rows) alike: no baseline
   const curve = curveRead ?? null;
   const noBaseline = lg.made === "FG" && !curveLoading && !curve;
