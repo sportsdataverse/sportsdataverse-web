@@ -80,10 +80,36 @@ export type MadeKind = "FG" | "goals";
 /** |goals − xG| per shot at which a rink bin reads one, two or three steps from expected. */
 export const XG_CUTS = [0.02, 0.05, 0.1] as const;
 
-/** A bin's colour: FG% on the sequential ramp for hoops; goals above or
- *  below the shots' summed xG, per shot, on the diverging ramp for hockey. */
-export function binSlot(b: HexBin, kind: MadeKind): ChartSlot | null {
-  return kind === "FG" ? sequentialSlot(b.made / b.n) : divergingSlot((b.made - b.sumXg) / b.n, XG_CUTS);
+/** |FG% − the league's FG% at that distance| at which a court bin reads one,
+ *  two or three steps from the league: ±3, ±6, ±9 percentage points. */
+export const LEAGUE_CUTS = [0.03, 0.06, 0.09] as const;
+
+/** One bucket of a league's F4 `fg_pct_by_shot_distance` curve
+ *  (`/v1/{schema}/metric_curves?entity_type=league`): feet [x_lo, x_hi)
+ *  and the league's made rate there. */
+export type CurveRow = { x_lo: number; x_hi: number; rate: number };
+
+/** The league's FG% at `dist` feet: the rate of the bucket holding it —
+ *  x_lo inclusive, x_hi EXCLUSIVE, since the buckets abut (a shot at
+ *  exactly 3 ft is the 3–4 ft bucket's, as the producer floors the
+ *  distance) — or null when no bucket does (past the last one, a negative
+ *  distance, an empty curve). */
+export function leagueRateAt(curve: readonly CurveRow[], dist: number): number | null {
+  const row = curve.find((r) => dist >= r.x_lo && dist < r.x_hi);
+  return row && Number.isFinite(row.rate) ? row.rate : null;
+}
+
+/** A bin's colour: goals above or below the shots' summed xG, per shot, on
+ *  the diverging ramp for hockey; for hoops, FG% minus the league's FG% at
+ *  the bin's mean distance on the diverging ramp when a `curve` is given,
+ *  else FG% on the sequential ramp. With a curve, a bin whose distance no
+ *  bucket holds is null (no baseline, no colour): the two ramps never mix
+ *  on one chart. */
+export function binSlot(b: HexBin, kind: MadeKind, curve: readonly CurveRow[] | null = null): ChartSlot | null {
+  if (kind === "goals") return divergingSlot((b.made - b.sumXg) / b.n, XG_CUTS);
+  if (!curve) return sequentialSlot(b.made / b.n);
+  const league = leagueRateAt(curve, b.sumDist / b.n);
+  return league === null ? null : divergingSlot(b.made / b.n - league, LEAGUE_CUTS);
 }
 
 const pct = (x: number) => `${Math.round(100 * x)}%`;

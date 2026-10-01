@@ -5,7 +5,7 @@ import { Court } from "./Court";
 import { Rink } from "./Rink";
 import type { ShotsSurface } from "@content/shots";
 import { chartVar, DIVERGING, SEQUENTIAL } from "@lib/platform/chartTokens";
-import { binKey, binSlot, HEX_RADIUS, hexPoints, hexSize, nearestBin, readoutText, XG_CUTS, type HexBin, type MadeKind } from "@lib/platform/viz/hexbin";
+import { binKey, binSlot, HEX_RADIUS, hexPoints, hexSize, LEAGUE_CUTS, nearestBin, readoutText, XG_CUTS, type CurveRow, type HexBin, type MadeKind } from "@lib/platform/viz/hexbin";
 
 /** The surfaces' default feet→px scales (Court 8, Rink 4): a 1 px dot in the viewBox is 1/scale ft. */
 const SCALE = { court: 8, rink: 4 } as const;
@@ -16,7 +16,8 @@ const ARROWS: Record<string, readonly [number, number]> = { ArrowRight: [1, 0], 
 /**
  * A player's shots as hexagons on a court or rink: every bin a hex sized by
  * volume (lib/platform/viz/hexbin.ts `hexSize`, against the busiest bin in
- * `all`) and coloured by `binSlot`, a lone shot a 2 px dot. One mark per
+ * `all`) and coloured by `binSlot` — against the league's FG% at the bin's
+ * distance when a `curve` is given — a lone shot a 2 px dot. One mark per
  * bin, at most ~300 (the radii are chosen for it), all SVG. Hovering or
  * focusing a mark outlines it and fills the readout box in the chart's
  * bottom-left corner — a fixed box, not a tooltip, so it never covers the
@@ -26,13 +27,16 @@ const ARROWS: Record<string, readonly [number, number]> = { ArrowRight: [1, 0], 
  * mark in that direction, Home/End to the first/last, and each mark's
  * aria-label is its readout. The legend names the ramp and the size rule.
  */
-export default function ShotMap({ bins, all, surface, kind }: {
+export default function ShotMap({ bins, all, surface, kind, curve = null }: {
   /** The bins drawn (those at or above the page's min-n). */
   bins: readonly HexBin[];
   /** Every bin, for the size scale: the min-n slider never rescales the marks. */
   all: readonly HexBin[];
   surface: ShotsSurface;
   kind: MadeKind;
+  /** The league's F4 FG% by distance for the season (hoops): the marks and
+   *  legend turn diverging, FG% vs the league at that distance. */
+  curve?: readonly CurveRow[] | null;
 }) {
   // the hovered or focused bin by its lattice centre, so a min-n or player
   // change mid-hover can never point at another bin
@@ -55,11 +59,13 @@ export default function ShotMap({ bins, all, surface, kind }: {
     <g data-testid="shots-marks" data-marks={bins.length} onPointerLeave={() => setHovered(null)}>
       {ordered.map((b) => {
         const key = binKey(b);
-        const slot = binSlot(b, kind);
+        const slot = binSlot(b, kind, curve);
         const size = hexSize(b.n, max);
         const shared = {
           "data-n": b.n,
           "data-made": b.made,
+          "data-dist": b.sumDist / b.n,
+          "data-slot": slot ?? undefined,
           fill: slot ? chartVar(slot) : undefined,
           className: `focus:outline-none ${slot ? "" : "fill-muted-foreground/40 "}${key === hovered ? "stroke-foreground" : "stroke-none"}`,
           strokeWidth: 1.5,
@@ -106,23 +112,23 @@ export default function ShotMap({ bins, all, surface, kind }: {
           {hover ? <span className="text-foreground">{readoutText(hover, kind)}</span> : <span className="text-muted-foreground">Hover a hexagon</span>}
         </p>
       </div>
-      <Legend kind={kind} />
+      <Legend ramp={kind === "goals" ? "xg" : curve ? "league" : "fg"} />
     </div>
   );
 }
 
 /** The colour ramp, each swatch labelled at its left edge with the cut it
  *  starts at, then the size rule. */
-function Legend({ kind }: { kind: MadeKind }) {
-  const slots = kind === "FG" ? SEQUENTIAL : DIVERGING;
+function Legend({ ramp }: { ramp: "fg" | "league" | "xg" }) {
+  const slots = ramp === "fg" ? SEQUENTIAL : DIVERGING;
   const cut = (c: number) => c.toFixed(2).slice(1); // 0.05 → ".05"
-  const left =
-    kind === "FG"
-      ? SEQUENTIAL.map((_, i) => String(20 * i))
-      : ["", ...[...XG_CUTS].reverse().map((c) => `−${cut(c)}`), ...XG_CUTS.map((c) => `+${cut(c)}`)];
+  const pp = (c: number) => String(Math.round(100 * c)); // 0.03 → "3"
+  const diverging = (cuts: readonly number[], f: (c: number) => string) => ["", ...[...cuts].reverse().map((c) => `−${f(c)}`), ...cuts.map((c) => `+${f(c)}`)];
+  const left = ramp === "fg" ? SEQUENTIAL.map((_, i) => String(20 * i)) : ramp === "league" ? diverging(LEAGUE_CUTS, pp) : diverging(XG_CUTS, cut);
+  const unit = ramp === "fg" ? "100" : ramp === "league" ? "pp" : null;
   return (
-    <div data-testid="shots-legend" className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-inter text-xs text-muted-foreground">
-      <span>{kind === "FG" ? "FG%" : "goals − xG per shot"}</span>
+    <div data-testid="shots-legend" data-ramp={ramp} className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-inter text-xs text-muted-foreground">
+      <span>{ramp === "fg" ? "FG%" : ramp === "league" ? "FG% vs league at that distance" : "goals − xG per shot"}</span>
       <span className="flex items-start">
         {slots.map((s, i) => (
           <span key={s} className="flex w-8 flex-col">
@@ -130,7 +136,7 @@ function Legend({ kind }: { kind: MadeKind }) {
             <span className="tabular-nums">{left[i]}</span>
           </span>
         ))}
-        {kind === "FG" ? <span className="self-end tabular-nums">100</span> : null}
+        {unit ? <span className="self-end tabular-nums">{unit}</span> : null}
       </span>
       <span>hex size = shots · dot = 1 shot</span>
     </div>

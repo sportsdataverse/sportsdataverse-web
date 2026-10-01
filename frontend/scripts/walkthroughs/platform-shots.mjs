@@ -10,7 +10,12 @@
 // touches the court frame); an NHL skater
 // draws on the rink with the goals − xG legend, named once its 50,000-row per-game roster lands; a
 // bare /platform/shots picks the default league's
-// first listed player and draws.
+// first listed player and draws. Then the league baseline (P3 T3): Rudy Gobert's hexagons are
+// coloured FG% minus the league's FG% at each bin's mean distance (the F4 curve read through the
+// proxy, recomputed here mark by mark from data-n/data-made/data-dist at the ±3/6/9 pp cuts), the
+// legend is the diverging "FG% vs league at that distance" strip, and the hoop's bin reads above
+// the league; a college player (no curve producer) and a failed curve read (the proxy answers
+// 500) both fall back to the plain FG% ramp with a "no league baseline for <league> <season>" note.
 // /platform is behind org sign-in, so this is recorded locally and is NOT listed on the PR's
 // `Walkthrough steps:` line (CI has no session; the module throws there).
 
@@ -201,6 +206,67 @@ const shots = async (page, base) => {
   if (q.get('league') || !q.get('player') || !q.get('season')) fail(`bare URL became ${page.url()}`);
   if ((await page.getByLabel('League').inputValue()) !== 'nba_stats') fail('the default league is not nba_stats');
   console.log(`shots (e) ${width}: bare URL → ${await page.getByTestId('shots-title').innerText()} with ${e} marks (${page.url().replace(base, '')})`);
+  await page.waitForTimeout(800);
+
+  // (g) vs the league: Rudy Gobert 2026. The legend is the diverging strip at −9/−6/−3/+3/+6/+9 pp;
+  // every mark's slot (data-slot, and its fill) is recomputed from its own numbers against the F4
+  // league curve, so a mark coloured by another bin, another bucket (x_hi inclusive would shift a
+  // boundary distance), or other cuts fails; the hoop's own bin reads above the league.
+  const legendOf = async () => (await page.getByTestId('shots-legend').innerText()).replace(/\n/g, ' ');
+  const slotsOf = () => marks.locator('polygon, circle').evaluateAll((els) => els.map((el) => ({ n: Number(el.dataset.n), made: Number(el.dataset.made), dist: Number(el.dataset.dist), slot: el.dataset.slot ?? null, fill: el.getAttribute('fill') })));
+  await page.goto(`${base}/platform/shots?league=nba_stats&season=2026&player=203497`, { waitUntil: 'domcontentloaded' });
+  const g = await drawn();
+  await page.getByTestId('shots-title').filter({ hasText: 'Rudy Gobert · 2026' }).waitFor({ timeout: 60_000 });
+  const gLegend = await legendOf();
+  for (const want of ['FG% vs league at that distance', '−9', '−3', '+3', '+9', 'pp', 'dot = 1 shot']) if (!gLegend.includes(want)) fail(`vs-league legend lacks "${want}": "${gLegend}"`);
+  if ((await page.getByTestId('shots-legend').getAttribute('data-ramp')) !== 'league') fail('the legend ramp is not "league"');
+  const curve = await page.evaluate(async () => (await (await fetch('/api/platform/query/run?schema=nba_stats&table=metric_curves&season=2026&entity_type=league&metric=fg_pct_by_shot_distance&select=x_lo,x_hi,rate&limit=100')).json()).data);
+  if (curve.length < 30) fail(`the 2026 nba_stats league curve has ${curve.length} rows`);
+  const rateAt = (d) => curve.find((r) => d >= r.x_lo && d < r.x_hi)?.rate ?? null;
+  const slotFor = (m) => {
+    const league = rateAt(m.dist);
+    if (league === null) return null;
+    const delta = m.made / m.n - league;
+    const mag = Math.abs(delta);
+    const step = mag >= 0.09 ? 3 : mag >= 0.06 ? 2 : mag >= 0.03 ? 1 : 0;
+    return step ? `div-${delta > 0 ? 'pos' : 'neg'}-${step}` : 'div-mid';
+  };
+  const gMarks = await slotsOf();
+  const wrong = gMarks.filter((m) => m.slot !== slotFor(m) || m.fill !== `var(--color-chart-${m.slot})`);
+  if (wrong.length) fail(`${wrong.length} of ${gMarks.length} marks coloured off the league curve, e.g. ${JSON.stringify(wrong[0])} (want ${slotFor(wrong[0])})`);
+  const rim = gMarks.filter((m) => m.dist < 3).sort((a, b) => a.dist - b.dist);
+  const hoop = rim[0];
+  if (!hoop || hoop.dist > 1.5 || hoop.n < 100 || !/^div-pos-/.test(hoop.slot ?? '')) fail(`the hoop's bin does not read above the league: ${JSON.stringify(hoop)}`);
+  const rimText = rim.map((m) => `${m.made}/${m.n} = ${Math.round((100 * m.made) / m.n)}% at ${m.dist.toFixed(2)} ft vs league ${(100 * rateAt(m.dist)).toFixed(1)}% → ${m.slot}`).join('; ');
+  console.log(`shots (g) nba_stats 203497 (Gobert) 2026 ${width}: ${g} marks, every slot = its FG% − league at its distance; legend "${gLegend}"; bins under 3 ft: ${rimText}`);
+  await page.waitForTimeout(800);
+
+  // (h) No producer: a college player keeps the plain FG% ramp and the note says so.
+  await page.goto(`${base}/platform/shots?league=mbb&season=2026&player=5185239`, { waitUntil: 'domcontentloaded' });
+  const h = await drawn();
+  if (h < 20) fail(`mbb 5185239: only ${h} marks`);
+  const hNote = await note.innerText();
+  if (!hNote.includes("no league baseline for Men's college basketball 2026")) fail(`mbb note: "${hNote}"`);
+  const hLegend = await legendOf();
+  if (!/^FG% /.test(hLegend) || /vs league/.test(hLegend) || (await page.getByTestId('shots-legend').getAttribute('data-ramp')) !== 'fg') fail(`mbb legend: "${hLegend}"`);
+  const hSlots = await slotsOf();
+  if (!hSlots.every((m) => /^seq-/.test(m.slot ?? '') && m.fill === `var(--color-chart-${m.slot})`)) fail(`mbb marks off the sequential ramp: ${JSON.stringify(hSlots.find((m) => !/^seq-/.test(m.slot ?? '')))}`);
+  console.log(`shots (h) mbb 5185239 2026 ${width}: ${h} marks on the FG% ramp; note "${hNote}"`);
+  await page.waitForTimeout(800);
+
+  // (i) A failed curve read: the proxy answers 500 for metric_curves, and the NBA view falls back
+  // the same way (the note, the FG% ramp), with no error box — the shots themselves landed.
+  const curves = (url) => url.pathname === '/api/platform/query/run' && url.searchParams.get('table') === 'metric_curves';
+  await page.route(curves, (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"detail":"metric_curves is down"}' }));
+  await page.goto(`${base}/platform/shots?league=nba_stats&season=2026&player=203497`, { waitUntil: 'domcontentloaded' });
+  const i = await drawn();
+  const iNote = await note.innerText();
+  if (!iNote.includes('no league baseline for NBA (NBA Stats) 2026')) fail(`failed-read note: "${iNote}"`);
+  if ((await page.getByTestId('shots-legend').getAttribute('data-ramp')) !== 'fg') fail(`failed read did not fall back: legend "${await legendOf()}"`);
+  if (!(await slotsOf()).every((m) => /^seq-/.test(m.slot ?? ''))) fail('a mark is off the sequential ramp after the failed curve read');
+  if (await page.getByTestId('shots-error').count()) fail(`the failed curve read raised the error box: "${await page.getByTestId('shots-error').innerText()}"`);
+  await page.unroute(curves);
+  console.log(`shots (i) ${width}: metric_curves 500 → ${i} marks on the FG% ramp; note "${iNote}"`);
   await page.waitForTimeout(800);
 };
 export default shots;
