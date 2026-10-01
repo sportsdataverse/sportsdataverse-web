@@ -81,11 +81,23 @@ async function readRows(src: RatingSource, season: string): Promise<{ rows: Row[
 
 const selectClass = "rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm";
 
-export default function RatingsClient({ initial, initialPin }: { initial: RatingsView; initialPin: GridPin | null }) {
+export default function RatingsClient({
+  initial,
+  initialPin,
+  initialPreset,
+}: {
+  initial: RatingsView;
+  initialPin: GridPin | null;
+  initialPreset: string | null;
+}) {
   const [league, setLeague] = useState(initial.league);
-  // The grid's pins are the only grid.* key the page keeps: the board always opens on its own order.
+  // The grid's pins and its preset are the grid.* keys the page keeps: the board always opens on its own order.
   const [pin, setPin] = useState(initialPin);
-  const onGridView = useCallback((v: GridView) => setPin(v.pin), []);
+  const [preset, setPreset] = useState(initialPreset);
+  const onGridView = useCallback((v: GridView) => {
+    setPin(v.pin);
+    setPreset(v.preset);
+  }, []);
   const [season, setSeason] = useState(initial.season);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [busy, setBusy] = useState(false);
@@ -101,7 +113,7 @@ export default function RatingsClient({ initial, initialPin }: { initial: Rating
   const loadKey = `${league}|${activeSeason}`;
   const shown = loaded?.key === loadKey ? loaded : null;
   const pageParams = ratingsViewParams({ league, season: activeSeason || season });
-  gridViewParams({ ...EMPTY_GRID, pin }, pageParams);
+  gridViewParams({ ...EMPTY_GRID, pin, preset }, pageParams);
   useUrlMirror(pageParams);
 
   useEffect(() => {
@@ -144,7 +156,7 @@ export default function RatingsClient({ initial, initialPin }: { initial: Rating
   const types = useMemo(() => ({ ...src.columns, ...(src.names ? { [TEAM_COL]: "text" } : {}) }), [src]);
   // The grid opens on the board's order (the rows already arrive in it), so its header says so.
   // A season switch keeps the pins (the grid drops any id the new season lacks).
-  const initialGrid: GridView = { sort: { col: orderCol, dir: desc ? "desc" : "asc" }, filters: {}, tint: "delta", pin, qualified: false, preset: null };
+  const initialGrid: GridView = { sort: { col: orderCol, dir: desc ? "desc" : "asc" }, filters: {}, tint: "delta", pin, qualified: false, preset };
 
   const one = src.noun.replace(/s$/, "");
   const d1 = src.names?.only && shown && !shown.unlisted ? `${src.names.only} ` : "";

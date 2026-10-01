@@ -19,5 +19,6 @@ export default async function PlatformRatingsPage({
 }) {
   if (!(await requireOrgMember())) return null;
   const sp = toSearchParams(await searchParams);
-  return <RatingsClient initial={parseRatingsView(sp)} initialPin={parseGridView(sp).pin} />;
+  const grid = parseGridView(sp);
+  return <RatingsClient initial={parseRatingsView(sp)} initialPin={grid.pin} initialPreset={grid.preset} />;
 }
