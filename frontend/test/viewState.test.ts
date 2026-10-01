@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   toSearchParams, parseExploreView, exploreViewParams, parseQueryView, queryViewParams,
   exploreLinkMoved, parseWpView, wpViewParams, parseTrendsView, trendsViewParams, parseLookupsView, lookupsViewParams,
-  parseScatterView, scatterViewParams, parseGridView, gridViewParams, EMPTY_GRID,
+  parseScatterView, scatterViewParams, parseGridView, gridViewParams, EMPTY_GRID, parseShotsView, shotsViewParams,
   SQL_OP_BY_SUFFIX, SUFFIX_BY_SQL_OP,
 } from '../lib/platform/viewState.ts';
 
@@ -231,4 +231,22 @@ test('Scatter hl: repeated keys by colour slot, a blank key per gap, at most 3, 
   const old = parseScatterView(sp('schema=cfb&table=ratings&season=2025&x=adj_off_epa&y=adj_def_epa'));
   assert.deepEqual(old.hl, []);
   assert.equal(scatterViewParams(old).toString(), 'schema=cfb&table=ratings&season=2025&x=adj_off_epa&y=adj_def_epa');
+});
+
+test('Shots round-trips league, season, player, mode and min; defaults stay off the URL; min clamps to 1–15', () => {
+  const v = { league: 'nhl', season: '2026', player: '8477492', mode: 'raw' as const, minN: 5 };
+  const qs = shotsViewParams(v).toString();
+  assert.equal(qs, 'league=nhl&season=2026&player=8477492&min=5');
+  assert.deepEqual(parseShotsView(sp(qs)), v);
+  assert.equal(shotsViewParams(parseShotsView(sp(''))).toString(), '');
+  assert.deepEqual(parseShotsView(sp('')), { league: 'nba_stats', season: '', player: '', mode: 'raw', minN: 2 });
+  assert.deepEqual(parseShotsView(sp('league=nba_stats&season=2026&player=1628983&mode=zones&min=15')), { league: 'nba_stats', season: '2026', player: '1628983', mode: 'zones', minN: 15 });
+  assert.equal(parseShotsView(sp('min=0')).minN, 1);
+  assert.equal(parseShotsView(sp('min=99')).minN, 15);
+  assert.equal(parseShotsView(sp('min=7.9')).minN, 7);
+  assert.equal(parseShotsView(sp('min=abc')).minN, 2);
+  assert.equal(parseShotsView(sp('min=')).minN, 2);
+  // hostile values fall back
+  const bad = parseShotsView(sp('league=nope&season=20x6&player=a%20b;drop&mode=3d'));
+  assert.deepEqual(bad, { league: 'nba_stats', season: '', player: '', mode: 'raw', minN: 2 });
 });
