@@ -105,6 +105,8 @@ export default function ScatterCanvas({
   xLabel,
   yLabel,
   slots = null,
+  marks = "dot",
+  sprites = null,
   ref,
 }: {
   points: readonly ScatterPoint[];
@@ -112,6 +114,10 @@ export default function ScatterCanvas({
   yLabel: string;
   /** Each mark's highlight slot (-1: not highlighted), or null with no highlight. */
   slots?: readonly number[] | null;
+  /** Faces (or logos) for the marks with a frame, or dots for every mark. */
+  marks?: ScatterScene["marks"];
+  /** The round atlas and each mark's id into it; null until loaded (dots meanwhile). */
+  sprites?: ScatterScene["sprites"];
   ref?: React.Ref<ScatterExport>;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -153,9 +159,11 @@ export default function ScatterCanvas({
       labels: showLabels,
       labelled,
       hover: hoverAt,
+      sprites,
+      marks,
       ...look,
     }),
-    [points, slots, showLabels, labelled, view]
+    [points, slots, showLabels, labelled, view, sprites, marks]
   );
   const schedule = useCallback(() => {
     if (frame.current) return;
@@ -194,6 +202,7 @@ export default function ScatterCanvas({
       // the label boxes and this frame's draw time.
       host.dataset.plot = JSON.stringify({ ...PAD, x: v.x, y: v.y, k: v.k, xt: drawn.xTicks, yt: drawn.yTicks });
       host.dataset.labels = JSON.stringify(drawn.layout);
+      host.dataset.faces = String(drawn.faces);
       host.dataset.frameMs = (performance.now() - t0).toFixed(2);
     };
     schedule();
@@ -223,6 +232,7 @@ export default function ScatterCanvas({
             xt: d.xTicks,
             yt: d.yTicks,
             marks: d.marks,
+            faces: d.faces,
             labels: d.layout.map(({ text, x, y, w, h }) => ({ text, x, y, w, h })),
           };
         });
