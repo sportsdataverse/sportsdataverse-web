@@ -88,8 +88,9 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
   const [player, setPlayer] = useState(initial.player);
   const [minN, setMinN] = useState(initial.minN);
   const [mode, setMode] = useState(initial.mode);
-  // the one hovered distance bin (its lower edge, feet) the map, the curves and the butterfly share
-  const [hoverDistance, setHoverDistance] = useState<number | null>(null);
+  // the one hovered distance bin (its lower edge, feet) the map, the curves and the butterfly
+  // share, stored with the view it was hovered on (`hoverView` below)
+  const [hovered, setHovered] = useState<{ view: object; lo: number } | null>(null);
   const lg = SHOTS_LEAGUES[league];
 
   const { data: seasons, error: seasonsError } = useSWR(["shots-seasons", league], () => seasonRange(lg, lg.seasonCol));
@@ -124,6 +125,13 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
   const sides = useMemo(() => butterfly(drawn, step), [drawn, step]);
   const made = drawn.filter((s) => s.made).length;
   const name = roster?.find((p) => p.id === activePlayer)?.name ?? activePlayer;
+  // The shared hover is a position on THESE shots in THIS mode at THIS min-n: a player's shots
+  // landing, a mode switch or a min-n change can remove the hovered mark without a leave or blur,
+  // which would leave the band drawn and a companion column tinted for nothing under the pointer.
+  // So the hover is read only while the view it was set on is current (a new object per change).
+  const hoverView = useMemo(() => ({ mode, minN, drawn }), [mode, minN, drawn]);
+  const hoverDistance = hovered?.view === hoverView ? hovered.lo : null;
+  const setHoverDistance = (lo: number | null) => setHovered(lo === null ? null : { view: hoverView, lo });
 
   useUrlMirror(shotsViewParams({ league, season: activeSeason || season, player: activePlayer, mode, minN }));
 

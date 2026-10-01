@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  butterfly, byDistance, COURT_ZONES, courtZones, DIST_STEP, distBin, kernelSmooth, RINK_ZONES, rinkZoneOf, rinkZones, SMOOTH_SIGMA, smoothBins, zoneOf, zoneStats,
+  butterfly, byDistance, COURT_ZONES, sideTotals, courtZones, DIST_STEP, distBin, kernelSmooth, RINK_ZONES, rinkZoneOf, rinkZones, SMOOTH_SIGMA, smoothBins, zoneOf, zoneStats,
 } from '../lib/platform/viz/shotStats.ts';
 import { binSlot, HEX_RADIUS, hexbin, hexSize, type HexBin } from '../lib/platform/viz/hexbin.ts';
 import { COURT, COURTS, normalizeShot, RINK, RINK_GOAL_Y, type Shot } from '../lib/platform/viz/surfaces.ts';
@@ -214,6 +214,16 @@ test('butterfly: [(−5, 5), (5, 5), (6, 6)] splits left 1 / right 2; x = 0 is r
   assert.deepEqual(real.map((x) => x.left.n + x.right.n), dist.map((d) => d.n));
   assert.deepEqual(real.map((x) => x.left.made + x.right.made), dist.map((d) => d.made));
   assert.deepEqual(butterfly([], 1), []);
+});
+
+test('sideTotals: a side\'s totals line, singular for one shot and one goal', () => {
+  assert.equal(sideTotals({ n: 867, made: 451, sumDist: 0, sumXg: 0 }, 'FG'), '867 shots · 52% FG');
+  assert.equal(sideTotals({ n: 1_234, made: 600, sumDist: 0, sumXg: 0 }, 'FG'), '1,234 shots · 49% FG');
+  assert.equal(sideTotals({ n: 1, made: 1, sumDist: 0, sumXg: 0 }, 'FG'), '1 shot · 100% FG');
+  assert.equal(sideTotals({ n: 284, made: 38, sumDist: 0, sumXg: 30 }, 'goals'), '284 shots · 38 goals');
+  assert.equal(sideTotals({ n: 40, made: 1, sumDist: 0, sumXg: 3 }, 'goals'), '40 shots · 1 goal', 'not "1 goals"');
+  assert.equal(sideTotals({ n: 1, made: 0, sumDist: 0, sumXg: 0.1 }, 'goals'), '1 shot · 0 goals');
+  assert.equal(sideTotals({ n: 0, made: 0, sumDist: 0, sumXg: 0 }, 'goals'), 'no shots');
 });
 
 test('distBin: a bin\'s mean distance floors to its companion bin', () => {

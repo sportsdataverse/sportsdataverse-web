@@ -18,7 +18,7 @@
  * Every helper here is pinned by test/shotStats.test.ts.
  */
 import type { ShotsSurface } from "../../../content/shots.ts";
-import type { BinStats, HexBin } from "./hexbin.ts";
+import { pct, type BinStats, type HexBin, type MadeKind } from "./hexbin.ts";
 import { arcCornerY, boards, circle, COURT, COURTS, rect, RINK, RINK_GOAL_Y, threeLine, type Court, type CourtKey, type Shot } from "./surfaces.ts";
 
 // --- Smoothing ----------------------------------------------------------------------
@@ -237,6 +237,14 @@ export function butterfly(shots: readonly Shot[], step: number): SideRow[] {
     add(s.x < 0 ? row.left : row.right, s);
   }
   return rows;
+}
+
+/** A butterfly side's totals line: "867 shots · 52% FG", on a rink "284 shots ·
+ *  38 goals" — "1 shot", "1 goal" in the singular, as `readoutText` — or "no shots". */
+export function sideTotals(s: BinStats, kind: MadeKind): string {
+  if (!s.n) return "no shots";
+  const shots = `${s.n.toLocaleString("en-US")} ${s.n === 1 ? "shot" : "shots"}`;
+  return `${shots} · ${kind === "FG" ? `${pct(s.made / s.n)} FG` : `${s.made} ${s.made === 1 ? "goal" : "goals"}`}`;
 }
 
 /** The distance bin holding a bin's mean distance: what hovering a hex or a
