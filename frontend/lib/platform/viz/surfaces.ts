@@ -112,6 +112,28 @@ export function rinkPaths(): string[] {
   ];
 }
 
+// --- Frames -----------------------------------------------------------------------
+
+/** One feet→px frame for an SVG surface: the viewBox (1 px of slack so the
+ *  outline's stroke is not clipped), the group transform that maps feet
+ *  with the hoop or goal at the origin onto it (so children plot in feet),
+ *  and the lines to draw. */
+export type Frame = { viewBox: string; transform: string; paths: string[] };
+
+const frame = (w: number, h: number, ox: number, oy: number, scale: number, paths: string[]): Frame => ({
+  viewBox: `-1 -1 ${w * scale + 2} ${h * scale + 2}`,
+  transform: `scale(${scale}) translate(${ox} ${oy})`,
+  paths,
+});
+
+/** A half court at `scale` px per foot, the hoop at the top. */
+export const courtFrame = (court: CourtKey, scale = 8): Frame =>
+  frame(COURT.width, COURT.half, COURT.width / 2, COURT.hoop, scale, courtPaths(COURTS[court]));
+
+/** The attacking half of the rink at `scale` px per foot, the goal at the top. */
+export const rinkFrame = (scale = 4): Frame =>
+  frame(RINK.width, RINK_GOAL_Y + RINK.goalLine, RINK.width / 2, RINK.goalLine, scale, rinkPaths());
+
 // --- Normalizers --------------------------------------------------------------------
 
 /**
@@ -119,9 +141,9 @@ export function rinkPaths(): string[] {
  * `coordinate_x_raw` runs 0–50 across the court and `coordinate_y_raw` is
  * feet from the hoop toward centre court (a free throw sits at (25, 13.75),
  * a shot behind the backboard below 0). The only documentation is
- * "hoop ≈ (25, 0)"; the fixtures pin it: made layups and dunks land within
- * 5 ft of (25, 0) in 95% (nba), 94% (wnba) of rows, and within 5 ft of the
- * baseline-origin alternative (25, 5.25) in only 45% / 57%.
+ * "hoop ≈ (25, 0)"; the fixtures pin it: ≥ 90% of made layups and dunks
+ * land within 5 ft of (25, 0) in all four fixtures (test/surfaces.test.ts),
+ * where the baseline-origin alternative (25, 5.25) fails.
  * (`coordinate_x`/`coordinate_y` are the same points moved to a full-court
  * frame, `(y_raw − 41.75, x_raw − 25)` with one team's sign flipped; the
  * raw pair needs no unflipping.)
@@ -155,11 +177,20 @@ function shot(x: number, y: number, made: boolean, xg?: number): Shot | null {
  *   away team −x (pinned by the fixture: every home shot has x_fixed > 0,
  *   every away shot < 0, and the distances reproduce the table's
  *   `shot_distance`), so the attacked goal is at ±89 by `event_team_type`.
- *   Switching ends is a half turn, so the lateral sign flips with it.
+ *   Handedness contract (the T4 butterfly splits on the sign of x): at the
+ *   home end x = +y_fixed, y = 89 − x_fixed; the away end is the half turn,
+ *   x = −y_fixed, y = 89 + x_fixed, so one spot on the ice draws at one x
+ *   whichever end it is. Against a top-down rink (+x right, +y up) turned so
+ *   the goal is at the top, that is the MIRROR image: the +y_fixed side
+ *   draws on the right. Pinned by deepEqual tests at both ends.
  * - PWHL: `x_coord`/`y_coord` are centre-ice feet with each team attacking
- *   one end all game and no home/away column, so the end is the sign of x.
- *   ponytail: a shot from behind centre ice folds to the nearer goal; the
- *   fixture has none, and `shot_distance` would disagree if one appeared.
+ *   one end all game and no home/away column, so the end is the sign of x
+ *   (x = 0 attacks +x), with the NHL's handedness. The `shot_distance`
+ *   parity test pins the 89 ft goal and the y convention, not the end: the
+ *   table's distance is to the nearer goal as well, so a shot from behind
+ *   centre ice folds the same way in both and the parity cannot tell.
+ *   ponytail: nearer-goal fold; the fixture has no such row. If the page
+ *   ever shows one, resolve the end per team from the game's majority side.
  */
 export function normalizeShot(source: ShotSource, row: Record<string, unknown>): Shot | null {
   switch (source) {
