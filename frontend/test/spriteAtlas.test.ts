@@ -60,3 +60,55 @@ test('headshotSrc builds the combiner URL over the league headshot path', () => 
 test('buildAtlas is exported (browser-only; importing the module needs no DOM)', () => {
   assert.equal(typeof buildAtlas, 'function');
 });
+
+test('buildAtlas keeps at most 16 images in flight and still draws every one', async () => {
+  let inFlight = 0;
+  let peak = 0;
+  const pending: (() => void)[] = [];
+  class FakeImage {
+    crossOrigin = '';
+    width = 48;
+    height = 48;
+    onload: () => void = () => {};
+    onerror: () => void = () => {};
+    set src(_: string) {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      pending.push(() => {
+        inFlight--;
+        this.onload();
+      });
+    }
+  }
+  const drawn: unknown[][] = [];
+  const g = globalThis as { document?: unknown; Image?: unknown };
+  g.document = { createElement: () => ({ getContext: () => ({ drawImage: (...a: unknown[]) => drawn.push(a) }) }) };
+  g.Image = FakeImage;
+  try {
+    const entries = Array.from({ length: 40 }, (_, i) => ({ id: String(i), src: `s${i}` }));
+    const built = buildAtlas(entries, 48);
+    assert.equal(inFlight, 16); // 16 started, the other 24 wait
+    while (pending.length || inFlight) {
+      pending.shift()?.(); // one finishes, one more may start
+      await new Promise((r) => setImmediate(r));
+      assert.ok(inFlight <= 16, `in flight ${inFlight}`);
+    }
+    const { frames } = await built;
+    assert.equal(Object.keys(frames).length, 40);
+    assert.equal(drawn.length, 40);
+    assert.equal(peak, 16);
+  } finally {
+    delete g.document;
+    delete g.Image;
+  }
+});
+
+test('headshotSrc and teamLogoSrc cover the platform scatter sources: college hoops, NBA and WNBA', () => {
+  const at = (dir: string, id: string) => `https://a.espncdn.com/combiner/i?img=/i/headshots/${dir}/players/full/${id}.png&w=48&h=48`;
+  assert.equal(headshotSrc('mbb', '4917149', { w: 48, h: 48 }), at('mens-college-basketball', '4917149'));
+  assert.equal(headshotSrc('wbb', '5318437', { w: 48, h: 48 }), at('womens-college-basketball', '5318437'));
+  assert.equal(headshotSrc('nba', 1966, { w: 48, h: 48 }), at('nba', '1966'));
+  assert.equal(headshotSrc('wnba', '869', { w: 48, h: 48 }), at('wnba', '869'));
+  // MBB team ids share the NCAA logo path with CFB
+  assert.equal(teamLogoSrc('mbb', '130', true, 48), 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/ncaa/500-dark/130.png&w=48&h=48');
+});

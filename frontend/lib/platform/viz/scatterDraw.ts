@@ -9,6 +9,8 @@ import { formatValue } from "../trends.ts";
 import { ALL_PAIRS_CAP, CATEGORICAL } from "../chartTokens.ts";
 import { labelIndices, placeLabels } from "./labels.ts";
 import { baseView, median, paddedDomain, type ScatterPoint, type ZoomView } from "./scatterMath.ts";
+import { FACE } from "./sprites.ts";
+import type { Frame } from "../spriteAtlas.ts";
 
 /** The right gutter holds the Y median's caption, clear of every mark. */
 export const PAD = { l: 52, r: 52, t: 34, b: 26 };
@@ -90,6 +92,12 @@ export type ScatterScene = {
   hover: number | null;
   colors: ScatterColors;
   font: string;
+  /** The round atlas (lib/platform/viz/sprites.ts) and each mark's ESPN id
+   *  into its frames (null: no id); null while none is loaded. */
+  sprites: { canvas: CanvasImageSource; frames: Record<string, Frame>; ids: readonly (string | null)[] } | null;
+  /** Faces: a mark with a frame draws its face (or logo) on a 2 px ring; one
+   *  without draws the dot. Dots: every mark a dot, whatever `sprites` holds. */
+  marks: "dot" | "face";
 };
 
 export type ScatterLabel = { i: number; text: string; x: number; y: number; w: number; h: number; leader: boolean };
@@ -99,6 +107,8 @@ export type ScatterLabel = { i: number; text: string; x: number; y: number; w: n
 export type ScatterDrawn = {
   at: { px: number; py: number }[];
   marks: number;
+  /** How many of them drew a face or logo. */
+  faces: number;
   xTicks: number[];
   yTicks: number[];
   layout: ScatterLabel[];
@@ -107,7 +117,8 @@ export type ScatterDrawn = {
 /**
  * Draws `scene` into `ctx` (CSS px, origin at the chart's top-left) at the
  * geo's size: grid and ticks for the visible domain, the marks (faded
- * context and ringed highlights, or ringed dots, or translucent past DENSE),
+ * context and ringed highlights, or ringed dots, or translucent past DENSE;
+ * in face mode a framed mark is its face on a ring where its dot would be),
  * the median crosshair, the outlier (or highlighted) labels, the MEDIAN
  * captions and the hovered mark.
  */
@@ -162,6 +173,13 @@ export function drawScatter(ctx: CanvasRenderingContext2D, geo: ScatterGeo, scen
     const [px, py] = [sx(p.x), sy(p.y)];
     return inX(px) && inY(py) ? { px, py } : { px: NaN, py: NaN };
   });
+  // In face mode, the frame a mark draws (none: it draws the dot).
+  const sprites = scene.marks === "face" ? scene.sprites : null;
+  const frameOf = (i: number): Frame | undefined => {
+    if (!sprites) return undefined;
+    const id = sprites.ids[i];
+    return id != null && Object.hasOwn(sprites.frames, id) ? sprites.frames[id] : undefined;
+  };
 
   // Dots, each in a 2 px surface ring so overlaps stay countable, or, past
   // DENSE, translucent and ringless. Every hover change repaints them all.
@@ -180,12 +198,36 @@ export function drawScatter(ctx: CanvasRenderingContext2D, geo: ScatterGeo, scen
     ctx.fillStyle = fill;
     ctx.fill();
   };
+  // A face: its round frame where the dot would be, on a 2 px ring in the
+  // mark's colour (the dot's fill), both at `alpha` (faded context, dense).
+  const face = (x: number, y: number, f: Frame, ring: string, alpha: number) => {
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sprites!.canvas, f.x, f.y, f.w, f.h, x - FACE / 2, y - FACE / 2, FACE, FACE);
+    ctx.beginPath();
+    ctx.arc(x, y, FACE / 2 + RING / 2, 0, Math.PI * 2);
+    ctx.lineWidth = RING;
+    ctx.strokeStyle = ring;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  };
+  const mark = (i: number, ringAlpha: number, fill: string) => {
+    const f = frameOf(i);
+    if (f) face(at[i].px, at[i].py, f, fill, 1);
+    else dot(at[i].px, at[i].py, ringAlpha, fill);
+  };
   // One path per mark: a single path would fill its overlaps once.
   const translucent = (keep: (i: number) => boolean, alpha: number, fill: string) => {
     ctx.globalAlpha = alpha;
     ctx.fillStyle = fill;
     for (let i = 0; i < at.length; i++) {
       if (Number.isNaN(at[i].px) || !keep(i)) continue;
+      const f = frameOf(i);
+      if (f) {
+        face(at[i].px, at[i].py, f, fill, alpha);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = fill;
+        continue;
+      }
       ctx.beginPath();
       ctx.arc(at[i].px, at[i].py, R, 0, Math.PI * 2);
       ctx.fill();
@@ -197,10 +239,10 @@ export function drawScatter(ctx: CanvasRenderingContext2D, geo: ScatterGeo, scen
     // chip's colour at full opacity, ringed.
     translucent((i) => slots[i] < 0, FADED_ALPHA, c.axis);
     for (let i = 0; i < at.length; i++) {
-      if (slots[i] >= 0 && !Number.isNaN(at[i].px)) dot(at[i].px, at[i].py, 1, hl[slots[i]]);
+      if (slots[i] >= 0 && !Number.isNaN(at[i].px)) mark(i, 1, hl[slots[i]]);
     }
   } else if (geo.dense) translucent(() => true, DENSE_ALPHA, c.mark);
-  else for (const p of at) if (!Number.isNaN(p.px)) dot(p.px, p.py, RING_ALPHA, c.mark);
+  else for (let i = 0; i < at.length; i++) if (!Number.isNaN(at[i].px)) mark(i, RING_ALPHA, c.mark);
 
   // The median crosshair: the medians of every mark, placed in the view.
   const mX = geo.mx != null ? sx(geo.mx) : NaN;
@@ -234,7 +276,10 @@ export function drawScatter(ctx: CanvasRenderingContext2D, geo: ScatterGeo, scen
     const seen = at.flatMap((_, i) => (inPlot(i) ? [i] : []));
     shown = labelIndices(seen.map((i) => points[i]), slots ? seen.map((i) => slots[i]) : null).map((j) => seen[j]);
   }
-  const dotBox = (i: number) => ({ x: at[i].px - R - 1, y: at[i].py - R - 1, w: 2 * R + 2, h: 2 * R + 2 });
+  const dotBox = (i: number) => {
+    const r = frameOf(i) ? FACE / 2 : R;
+    return { x: at[i].px - r - 1, y: at[i].py - r - 1, w: 2 * r + 2, h: 2 * r + 2 };
+  };
   const obstacles = (slots ? at.flatMap((_, i) => (slots[i] >= 0 && inPlot(i) ? [i] : [])) : shown).map(dotBox);
   ctx.font = `600 ${LABEL_FONT}px ${font}`;
   const boxes = shown.map((i) => ({ w: Math.ceil(ctx.measureText(points[i].label).width) + 4, h: LABEL_FONT + 4 }));
@@ -256,8 +301,9 @@ export function drawScatter(ctx: CanvasRenderingContext2D, geo: ScatterGeo, scen
     const { px, py } = at[l.i];
     const [nx, ny] = [Math.min(Math.max(px, l.x), l.x + l.w), Math.min(Math.max(py, l.y), l.y + l.h)];
     const d = Math.hypot(nx - px, ny - py) || 1;
+    const edge = (frameOf(l.i) ? FACE / 2 : R) + 1; // a leader starts just off the mark, dot or face
     ctx.beginPath();
-    ctx.moveTo(px + ((nx - px) / d) * (R + 1), py + ((ny - py) / d) * (R + 1));
+    ctx.moveTo(px + ((nx - px) / d) * edge, py + ((ny - py) / d) * edge);
     ctx.lineTo(nx, ny);
     ctx.stroke();
   }
@@ -298,15 +344,22 @@ export function drawScatter(ctx: CanvasRenderingContext2D, geo: ScatterGeo, scen
   // The hovered mark, redrawn on top inside a ring of text ink.
   if (hover != null && at[hover] && !Number.isNaN(at[hover].px)) {
     const p = at[hover];
-    dot(p.px, p.py, 1, slots ? (slots[hover] >= 0 ? hl[slots[hover]] : c.axis) : c.mark);
+    mark(hover, 1, slots ? (slots[hover] >= 0 ? hl[slots[hover]] : c.axis) : c.mark);
     ctx.beginPath();
-    ctx.arc(p.px, p.py, R + RING + 1.5, 0, Math.PI * 2);
+    ctx.arc(p.px, p.py, (frameOf(hover) ? FACE / 2 : R) + RING + 1.5, 0, Math.PI * 2);
     ctx.lineWidth = 2;
     ctx.strokeStyle = c.ink;
     ctx.stroke();
   }
 
-  return { at, marks: at.filter((p) => !Number.isNaN(p.px)).length, xTicks, yTicks, layout };
+  return {
+    at,
+    marks: at.filter((p) => !Number.isNaN(p.px)).length,
+    faces: at.filter((p, i) => !Number.isNaN(p.px) && frameOf(i)).length,
+    xTicks,
+    yTicks,
+    layout,
+  };
 }
 
 /**

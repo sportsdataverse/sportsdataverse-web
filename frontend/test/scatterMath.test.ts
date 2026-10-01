@@ -125,9 +125,10 @@ test('scatterPoints drops null and non-finite x or y, counting each axis, and na
     { player: 'F', team_id: '150', min: 'n/a', box_bpm: 1 },
   ];
   const { points, missingX, missingY } = scatterPoints(rows, src, 'min', 'box_bpm', new Map([['150', 'Duke Blue Devils']]));
+  // the id rides along as it came (here none: these rows carry no player_id)
   assert.deepEqual(points, [
-    { label: 'A', team: 'Duke Blue Devils', teamName: '', x: 10, y: 2 },
-    { label: 'E', team: 'Duke Blue Devils', teamName: '', x: 7, y: 1.5 },
+    { label: 'A', team: 'Duke Blue Devils', teamName: '', x: 10, y: 2, id: undefined },
+    { label: 'E', team: 'Duke Blue Devils', teamName: '', x: 7, y: 1.5, id: undefined },
   ]);
   assert.equal(missingX, 3);
   assert.equal(missingY, 2);
@@ -195,8 +196,8 @@ test('resolveColor reads the token off a probe inside the host, then removes it'
 const pt = (label: string, team: string, teamName = '', x = 0, y = 0): ScatterPoint => ({ label, team, teamName, x, y });
 
 test('scatterPoints carries the full team name where the source has one (NBA: team_name beside BOS)', () => {
-  const r = scatterPoints([{ player_name: 'Jayson Tatum', team_abbreviation: 'BOS', team_name: 'Boston Celtics', o_rapm: 1, d_rapm: 2 }], source('nba', 'player_impact'), 'o_rapm', 'd_rapm');
-  assert.deepEqual(r.points, [{ label: 'Jayson Tatum', team: 'BOS', teamName: 'Boston Celtics', x: 1, y: 2 }]);
+  const r = scatterPoints([{ player_id: 1628369, player_name: 'Jayson Tatum', team_abbreviation: 'BOS', team_name: 'Boston Celtics', o_rapm: 1, d_rapm: 2 }], source('nba', 'player_impact'), 'o_rapm', 'd_rapm');
+  assert.deepEqual(r.points, [{ label: 'Jayson Tatum', team: 'BOS', teamName: 'Boston Celtics', x: 1, y: 2, id: 1628369 }]);
 });
 
 test('chipMatches: the name, the team, the team abbreviation or full name, ignoring case; never a substring', () => {

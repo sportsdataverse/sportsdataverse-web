@@ -10,12 +10,26 @@
  * ESPN pixels are republished — the same posture as today's hotlinked `<img>`.
  *
  * Twin of game-on-paper-app `astro/src/utils/spriteAtlas.ts` with identical
- * signatures; this copy takes a `league` and has no special-images map.
+ * signatures for the leagues both know (cfb, nfl); this copy takes a `league`
+ * and has no special-images map, and is a superset: the platform scatter
+ * also draws college hoops, NBA and WNBA faces (P4 T3).
  * Only `buildAtlas` touches the DOM, so the module imports under `node --test`.
  */
 
-export type League = "cfb" | "nfl";
+export type League = "cfb" | "nfl" | "mbb" | "wbb" | "nba" | "wnba";
+/** Leagues with a logo path here: the NFL under `nfl/`, the college leagues under the shared `ncaa/`. */
+export type LogoLeague = "cfb" | "nfl" | "mbb";
 export type Frame = { x: number; y: number; w: number; h: number };
+
+/** ESPN's headshot directory per league. */
+const HEADSHOT_DIR: Record<League, string> = {
+  cfb: "college-football",
+  nfl: "nfl",
+  mbb: "mens-college-basketball",
+  wbb: "womens-college-basketball",
+  nba: "nba",
+  wnba: "wnba",
+};
 
 const ESPN = "https://a.espncdn.com";
 
@@ -51,6 +65,11 @@ export function packFrames(ids: string[], cell: number, cols: number): Record<st
   return frames;
 }
 
+/** Images in flight at once: a 1,500-face build must not open every request
+ *  at once (the browser queues past its per-host limit anyway, and the CDN
+ *  takes a burst badly); 16 keeps the pipe full. */
+const IN_FLIGHT = 16;
+
 const combiner = (path: string, w: number, h: number) => `${ESPN}/combiner/i?img=${path}&w=${w}&h=${h}`;
 
 /**
@@ -58,7 +77,7 @@ const combiner = (path: string, w: number, h: number) => `${ESPN}/combiner/i?img
  * `size` is given. Dark NFL logos go through the abbreviation path; an NFL id
  * missing from the map falls back to the light logo rather than a 404.
  */
-export function teamLogoSrc(league: League, teamId: string | number, dark: boolean, size?: number): string {
+export function teamLogoSrc(league: LogoLeague, teamId: string | number, dark: boolean, size?: number): string {
   const id = String(teamId);
   const dir = league === "nfl" ? "nfl" : "ncaa";
   const darkName = league === "nfl" ? NFL_LOGO_ABBR[id] : id;
@@ -68,12 +87,12 @@ export function teamLogoSrc(league: League, teamId: string | number, dark: boole
 
 /** ESPN headshot URL for an athlete, sized through the combiner. */
 export function headshotSrc(league: League, athleteId: string | number, size: { w: number; h: number }): string {
-  const dir = league === "nfl" ? "nfl" : "college-football";
-  return combiner(`/i/headshots/${dir}/players/full/${athleteId}.png`, size.w, size.h);
+  return combiner(`/i/headshots/${HEADSHOT_DIR[league]}/players/full/${athleteId}.png`, size.w, size.h);
 }
 
 /**
- * Browser-only. Loads every `src` with `crossOrigin="anonymous"`, draws them
+ * Browser-only. Loads every `src` with `crossOrigin="anonymous"`, IN_FLIGHT
+ * at a time, draws them
  * into a `packFrames` grid (`cols = ceil(sqrt(n))`) on one canvas and returns
  * it with the frame map. Each image is drawn at its natural size, scaled down
  * uniformly only if it overflows the cell, so a 96×70 headshot in a 96 cell
@@ -103,20 +122,23 @@ export async function buildAtlas(
       img.src = src;
     });
 
+  // a duplicate id keeps its first entry, as packFrames keeps its first slot
   const seen = new Set<string>();
-  await Promise.all(
-    entries.map(async ({ id, src }) => {
-      if (seen.has(id)) return; // a duplicate id keeps its first entry, as packFrames keeps its first slot
-      seen.add(id);
+  const todo = entries.filter(({ id }) => !seen.has(id) && seen.add(id));
+  let next = 0;
+  const worker = async () => {
+    while (next < todo.length) {
+      const { id, src } = todo[next++];
       const img = await load(src);
       const f = frames[id];
       if (!img) {
         delete frames[id];
-        return;
+        continue;
       }
       const s = Math.min(1, cell / img.width, cell / img.height);
       ctx.drawImage(img, f.x, f.y, img.width * s, img.height * s);
-    }),
-  );
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(IN_FLIGHT, todo.length) }, worker));
   return { canvas, frames };
 }

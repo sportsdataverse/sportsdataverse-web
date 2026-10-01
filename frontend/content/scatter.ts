@@ -64,7 +64,14 @@ export type ScatterSource = {
   /** Fixed Data API filters, sent with every read of the source. */
   filter?: Readonly<Record<string, string>>;
   names?: ScatterNames;
+  /** Where `idCol` is not the ESPN id (NBA and WNBA ids): the
+   *  `{schema}.player_crosswalk` column it matches, read as text and bridged
+   *  to `espn_athlete_id` for the faces (lib/platform/viz/sprites.ts). */
+  xwalk?: { schema: string; key: string };
 };
+
+/** NBA ids (nba.player_impact, nba_stats.player_season_stats) bridge through nba.player_crosswalk. */
+const NBA_XWALK = { schema: "nba", key: "nba_player_id" } as const;
 
 const player = (
   schema: string,
@@ -102,13 +109,19 @@ export const hoopsNames = (league: "mbb" | "wbb", col: string): ScatterNames => 
 /** The first entry is the default: a link without schema/table shows it, so
  *  reordering this list changes what every old default link shows. */
 export const SCATTER_SOURCES: readonly ScatterSource[] = [
-  player("nba", "player_impact", "NBA player impact", "player_name", "team_abbreviation", { season_type: "Regular Season" }, "team_name"),
-  player("wnba", "player_impact", "WNBA player impact", "player_name", "team_abbreviation", { season_type: "Regular Season" }, "team_name"),
-  player("nba_stats", "player_season_stats", "NBA advanced, per game (NBA Stats)", "player_name", "team_abbreviation", {
-    season_type: "regular-season",
-    measure_type: "advanced",
-    per_mode: "pergame",
-  }),
+  { ...player("nba", "player_impact", "NBA player impact", "player_name", "team_abbreviation", { season_type: "Regular Season" }, "team_name"), xwalk: NBA_XWALK },
+  {
+    ...player("wnba", "player_impact", "WNBA player impact", "player_name", "team_abbreviation", { season_type: "Regular Season" }, "team_name"),
+    xwalk: { schema: "wnba", key: "wnba_player_id" },
+  },
+  {
+    ...player("nba_stats", "player_season_stats", "NBA advanced, per game (NBA Stats)", "player_name", "team_abbreviation", {
+      season_type: "regular-season",
+      measure_type: "advanced",
+      per_mode: "pergame",
+    }),
+    xwalk: NBA_XWALK,
+  },
   { ...player("mbb", "player_value", "MBB player value", "player", "team_id"), names: hoopsNames("mbb", "team_id") },
   { ...player("wbb", "player_value", "WBB player value", "player", "team_id"), names: hoopsNames("wbb", "team_id") },
   player("cfb", "passing", "CFB passing", "passer_player_name", "pos_team"),

@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import useSWRImmutable from "swr/immutable";
+import { useTheme } from "next-themes";
 import { Download, Shuffle, Table2, X } from "lucide-react";
 import { Button } from "@components/ui/button";
-import { SCATTER_SOURCES, sourceKey } from "@content/scatter";
+import { SCATTER_SOURCES, sourceKey, type ScatterSource } from "@content/scatter";
 import { scatterViewParams, type ScatterView } from "@lib/platform/viewState";
 import { API_MAX_ROWS, loadSequencer } from "@lib/platform/wp";
 import { apiRows, seasonRange, teamNameRows } from "@lib/platform/queryRun";
@@ -24,7 +25,10 @@ import {
   scatterExportText,
   scatterPoints,
   suggest,
+  type ScatterPoint,
 } from "@lib/platform/viz/scatterMath";
+import { buildAtlas } from "@lib/platform/spriteAtlas";
+import { atlasKey, CELL, FACE, FACE_CAP, espnIds, roundAtlas, spriteEntries, type Sprites, type Xwalk } from "@lib/platform/viz/sprites";
 import ScatterCanvas, { type ScatterExport } from "@components/platform/viz/ScatterCanvas";
 import useUrlMirror from "@hooks/useUrlMirror";
 
@@ -34,6 +38,10 @@ import useUrlMirror from "@hooks/useUrlMirror";
  * canvas with a median crosshair. One `/api/platform/query/run` read per
  * (source, season), plus a team-name read where the source has only ids, and
  * one read of the Data API's freshness per session for the PNG export.
+ * In face mode (`marks=face`), one round atlas of ESPN headshots (or logos)
+ * per (source, season, and theme for logos), built in the browser from
+ * `a.espncdn.com` (CORS `*`: the canvas stays untainted) and kept for the
+ * session; a source whose ids are not ESPN's reads its crosswalk first.
  */
 
 type Row = Record<string, unknown>;
@@ -48,6 +56,34 @@ type Loaded = {
   left: number;
   unlisted: boolean;
 };
+
+/** The faces (or logos) for one view: the crosswalk where the source needs
+ *  one, then each plotted mark's image through the combiner (48 px), 16 at a
+ *  time, into one round atlas at the device's pixel ratio. A mark with no
+ *  ESPN id fires no request; an image that fails is counted and its mark
+ *  stays a dot. */
+/** `rows`: how many the read returned; at API_MAX_ROWS it was cut and the
+ *  oldest seasons are missing, which the note says. */
+type XwalkRead = { pairs: Xwalk[]; rows: number };
+type Atlas = Sprites & { xwalk: Xwalk[] | null; xwalkRows: number; failed: number; total: number };
+/** A source's id → ESPN id pairs. The crosswalk holds the newest season(s)
+ *  only (nba: 2026 alone on 2026-10-01) and a player's ids never change, so
+ *  it is read whole, newest first, rather than for the viewed season (which
+ *  would match nothing for an earlier one), and once per schema. */
+async function loadXwalk({ schema, key }: NonNullable<ScatterSource["xwalk"]>): Promise<XwalkRead> {
+  const rows = await apiRows({ schema, table: "player_crosswalk", select: `${key},espn_athlete_id`, order: "-season", limit: API_MAX_ROWS });
+  return {
+    pairs: rows.flatMap((r) => (r[key] != null && r.espn_athlete_id != null ? [{ key: String(r[key]), value: String(r.espn_athlete_id) }] : [])),
+    rows: rows.length,
+  };
+}
+async function loadAtlas(src: ScatterSource, points: readonly ScatterPoint[], dark: boolean, dpr: number, xwalkRead: Promise<XwalkRead> | null): Promise<Atlas> {
+  const xw = xwalkRead ? await xwalkRead : null;
+  const xwalk = xw?.pairs ?? null;
+  const entries = spriteEntries(src, espnIds(src, points, "id", xwalk), dark);
+  const round = roundAtlas(await buildAtlas(entries, CELL), FACE * dpr);
+  return { ...round, xwalk, xwalkRows: xw?.rows ?? 0, failed: entries.length - Object.keys(round.frames).length, total: entries.length };
+}
 
 /** `/v1/meta`'s `datasets`: when each "schema.table" last changed. */
 const metaFetcher = async (url: string) => {
@@ -86,6 +122,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
   // Highlight chips by colour slot (a removed chip leaves a gap), the combobox
   // text, its open state and pending option, and the chip a full set refused.
   const [hl, setHl] = useState<TrendPicks>(initial.hl);
+  const [marks, setMarks] = useState<ScatterView["marks"]>(initial.marks);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -107,6 +144,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
   const activeSeason = seasons?.length ? (seasons.includes(season) ? season : seasons[0]) : "";
   const loadKey = `${key}|${activeSeason}`;
   const shown = loaded?.key === loadKey ? loaded : null;
+  const faceNoun = src.noun === "teams" ? "logos" : "faces";
 
   useEffect(() => {
     // The ticket first: a switch to a source whose seasons are still loading
@@ -149,13 +187,76 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
     [showTable, plotted]
   );
 
-  const view = { schema: src.schema, table: src.table, season: activeSeason || season, x: ax.x, y: ax.y, hl };
+  const view = { schema: src.schema, table: src.table, season: activeSeason || season, x: ax.x, y: ax.y, hl, marks };
   const viewParams = scatterViewParams(view);
   useUrlMirror(viewParams);
 
   const q = filter.trim().toLowerCase();
   const rail = byLetter(axes.filter((c) => c.toLowerCase().includes(q)));
   const points = useMemo(() => plotted?.points ?? [], [plotted]);
+  // Faces: one atlas per (source, season) read, per theme for logos (which
+  // have a dark variant), per device pixel ratio and per plotted set
+  // (`atlasKey`), built from the PLOTTED marks (at most FACE_CAP: past it the
+  // Faces option is off and the marks stay dots) and kept, the last few, for
+  // the session: a highlight, zoom or theme switch never reloads, and an axis
+  // switch only when it plots other marks (their images are then cached).
+  const { resolvedTheme } = useTheme();
+  const [dpr, setDpr] = useState(1);
+  useEffect(() => {
+    const read = () => setDpr(window.devicePixelRatio || 1);
+    read();
+    window.addEventListener("resize", read); // a browser zoom fires it
+    return () => window.removeEventListener("resize", read);
+  }, []);
+  const atlases = useRef(new Map<string, Promise<Atlas>>());
+  // The crosswalk read, once per schema (it is season-independent).
+  const xwalks = useRef(new Map<string, Promise<XwalkRead>>());
+  const [atlas, setAtlas] = useState<{ key: string; a: Atlas } | null>(null);
+  // A failed build, for its key alone: a switch to Dots or another view drops it.
+  const [atlasError, setAtlasError] = useState<{ key: string; text: string } | null>(null);
+  const overCap = points.length > FACE_CAP;
+  const atlasId =
+    marks === "face" && !overCap && points.length && resolvedTheme
+      ? atlasKey(loadKey, src.noun, resolvedTheme, dpr, points.map((p) => p.id))
+      : null;
+
+  useEffect(() => {
+    if (!atlasId) return;
+    let live = true;
+    let p = atlases.current.get(atlasId);
+    if (!p) {
+      let xw: Promise<XwalkRead> | null = null;
+      if (src.xwalk) {
+        const { schema } = src.xwalk;
+        xw = xwalks.current.get(schema) ?? loadXwalk(src.xwalk);
+        xwalks.current.set(schema, xw);
+        xw.catch(() => xwalks.current.delete(schema)); // a failed read is retried next time
+      }
+      p = loadAtlas(src, points, resolvedTheme === "dark", dpr, xw);
+      atlases.current.set(atlasId, p);
+      // the last few views only: an atlas is ~12 MB at the cap
+      for (const k of atlases.current.keys()) if (atlases.current.size > 4) atlases.current.delete(k);
+    }
+    p.then(
+      (a) => {
+        if (live) setAtlas({ key: atlasId, a });
+      },
+      (e) => {
+        atlases.current.delete(atlasId); // the next switch to it tries again
+        if (live) setAtlasError({ key: atlasId, text: `${faceNoun} unavailable: ${e instanceof Error ? e.message : String(e)}` });
+      }
+    );
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one build per key
+  }, [atlasId]);
+
+  // The atlas for the view, with each plotted mark's id into it (from the
+  // loaded crosswalk: no request).
+  const ready = atlas?.key === atlasId ? atlas.a : null;
+  const sprites = useMemo(() => (ready ? { canvas: ready.canvas, frames: ready.frames, ids: espnIds(src, points, "id", ready.xwalk) } : null), [ready, src, points]);
+  const noId = sprites ? sprites.ids.filter((id) => id == null).length : 0;
   const noun = src.noun;
   const options = useMemo(() => highlightOptions(points), [points]);
   const slots = useMemo(() => highlightSlots(points, hl), [points, hl]);
@@ -205,6 +306,13 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
         shown.unnamed && src.names
           ? `${shown.unnamed} team ${shown.unnamed === 1 ? "id is" : "ids are"} not in ${src.names.schema}.${src.names.table} and ${shown.unnamed === 1 ? "reads" : "read"} as the id.`
           : "",
+        overCap
+          ? `${faceNoun[0].toUpperCase()}${faceNoun.slice(1)} are available up to ${FACE_CAP.toLocaleString("en-US")} marks (this view has ${points.length.toLocaleString("en-US")}).`
+          : "",
+        atlasError?.key === atlasId ? atlasError.text : atlasId && !ready ? `Loading ${faceNoun}…` : "",
+        noId ? `${noId.toLocaleString("en-US")} ${noun} have no ESPN id and stay dots.` : "",
+        ready?.failed ? `${faceNoun} unavailable: ${ready.failed} of ${ready.total} images failed.` : "",
+        ready && ready.xwalkRows >= Number(API_MAX_ROWS) ? `crosswalk truncated at ${ready.xwalkRows.toLocaleString("en-US")} rows.` : "",
       ].filter(Boolean)
     : [];
   const failure = error ?? catalogError?.message ?? seasonsError?.message ?? null;
@@ -372,7 +480,18 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
                   </li>
                 </ul>
               ) : null}
-              <ScatterCanvas ref={chart} points={points} xLabel={ax.x} yLabel={ax.y} slots={slots} />
+              <ScatterCanvas
+                ref={chart}
+                points={points}
+                xLabel={ax.x}
+                yLabel={ax.y}
+                slots={slots}
+                marks={marks}
+                sprites={sprites}
+                onMarks={setMarks}
+                faceLabel={src.noun === "teams" ? "Logos" : "Faces"}
+                facesOff={overCap}
+              />
               <p className="text-right font-inter text-xs text-muted-foreground" aria-hidden="true">
                 {ax.x} →
               </p>

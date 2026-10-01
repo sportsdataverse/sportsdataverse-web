@@ -172,12 +172,12 @@ test('an Explore link keeps its filters unless the table or season it named is m
 });
 
 test('Scatter round-trips source, season and axes; the default source stays off the URL', () => {
-  const v = { schema: 'cfb', table: 'passing', season: '2025', x: 'EPAplay', y: 'yards', hl: [] };
+  const v = { schema: 'cfb', table: 'passing', season: '2025', x: 'EPAplay', y: 'yards', hl: [], marks: 'dot' as const };
   const qs = scatterViewParams(v).toString();
   assert.equal(qs, 'schema=cfb&table=passing&season=2025&x=EPAplay&y=yards');
   assert.deepEqual(parseScatterView(sp(qs)), v);
   const index = parseScatterView(sp('schema=nba&table=player_impact&season=2026&x=o_rapm&y=d_rapm'));
-  assert.deepEqual(index, { schema: 'nba', table: 'player_impact', season: '2026', x: 'o_rapm', y: 'd_rapm', hl: [] });
+  assert.deepEqual(index, { schema: 'nba', table: 'player_impact', season: '2026', x: 'o_rapm', y: 'd_rapm', hl: [], marks: 'dot' });
   assert.equal(scatterViewParams(index).toString(), 'season=2026&x=o_rapm&y=d_rapm');
   assert.deepEqual(parseScatterView(sp(scatterViewParams(index).toString())), index);
   assert.equal(scatterViewParams(parseScatterView(sp(''))).toString(), '');
@@ -185,10 +185,22 @@ test('Scatter round-trips source, season and axes; the default source stays off 
 
 test('Scatter drops an x or y that is not a numeric column, falling back to the first two', () => {
   const numeric = ['d_rapm', 'o_rapm', 'war'];
-  assert.deepEqual(parseScatterView(sp('x=player_name&y=war'), numeric), { schema: 'nba', table: 'player_impact', season: '', x: 'd_rapm', y: 'war', hl: [] });
+  assert.deepEqual(parseScatterView(sp('x=player_name&y=war'), numeric), { schema: 'nba', table: 'player_impact', season: '', x: 'd_rapm', y: 'war', hl: [], marks: 'dot' });
   assert.deepEqual(parseScatterView(sp('x=nope&y=zip'), numeric).x, 'd_rapm');
   assert.deepEqual(parseScatterView(sp('x=nope&y=zip'), numeric).y, 'o_rapm');
-  assert.deepEqual(parseScatterView(sp('x=war&y=o_rapm'), numeric), { schema: 'nba', table: 'player_impact', season: '', x: 'war', y: 'o_rapm', hl: [] });
+  assert.deepEqual(parseScatterView(sp('x=war&y=o_rapm'), numeric), { schema: 'nba', table: 'player_impact', season: '', x: 'war', y: 'o_rapm', hl: [], marks: 'dot' });
+});
+
+test('Scatter marks: face round-trips, dot is the default and stays off the URL, any other value is dot', () => {
+  const v = parseScatterView(sp('schema=cfb&table=passing&season=2025&marks=face'));
+  assert.equal(v.marks, 'face');
+  assert.equal(scatterViewParams(v).toString(), 'schema=cfb&table=passing&season=2025&marks=face');
+  assert.deepEqual(parseScatterView(sp(scatterViewParams(v).toString())), v);
+  assert.equal(parseScatterView(sp('marks=dot')).marks, 'dot');
+  assert.equal(parseScatterView(sp('')).marks, 'dot');
+  assert.equal(parseScatterView(sp('marks=logo')).marks, 'dot');
+  assert.equal(parseScatterView(sp('marks=FACE')).marks, 'dot');
+  assert.equal(scatterViewParams(parseScatterView(sp('marks=dot'))).toString(), '');
 });
 
 test('Scatter sanitizes a hostile URL: unknown source, bad season, quoted column', () => {

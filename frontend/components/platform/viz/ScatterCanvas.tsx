@@ -105,6 +105,11 @@ export default function ScatterCanvas({
   xLabel,
   yLabel,
   slots = null,
+  marks = "dot",
+  sprites = null,
+  onMarks,
+  faceLabel = "Faces",
+  facesOff = false,
   ref,
 }: {
   points: readonly ScatterPoint[];
@@ -112,6 +117,16 @@ export default function ScatterCanvas({
   yLabel: string;
   /** Each mark's highlight slot (-1: not highlighted), or null with no highlight. */
   slots?: readonly number[] | null;
+  /** Faces (or logos) for the marks with a frame, or dots for every mark. */
+  marks?: ScatterScene["marks"];
+  /** The round atlas and each mark's id into it; null until loaded (dots meanwhile). */
+  sprites?: ScatterScene["sprites"];
+  /** Shows the Dots | Faces control, which sets `marks` through it. */
+  onMarks?: (marks: ScatterScene["marks"]) => void;
+  /** The face option's text: "Logos" for a team source. */
+  faceLabel?: string;
+  /** The face option is off (too many marks for an atlas); the page's note says why. */
+  facesOff?: boolean;
   ref?: React.Ref<ScatterExport>;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -153,9 +168,11 @@ export default function ScatterCanvas({
       labels: showLabels,
       labelled,
       hover: hoverAt,
+      sprites,
+      marks,
       ...look,
     }),
-    [points, slots, showLabels, labelled, view]
+    [points, slots, showLabels, labelled, view, sprites, marks]
   );
   const schedule = useCallback(() => {
     if (frame.current) return;
@@ -194,6 +211,7 @@ export default function ScatterCanvas({
       // the label boxes and this frame's draw time.
       host.dataset.plot = JSON.stringify({ ...PAD, x: v.x, y: v.y, k: v.k, xt: drawn.xTicks, yt: drawn.yTicks });
       host.dataset.labels = JSON.stringify(drawn.layout);
+      host.dataset.faces = String(drawn.faces);
       host.dataset.frameMs = (performance.now() - t0).toFixed(2);
     };
     schedule();
@@ -223,6 +241,7 @@ export default function ScatterCanvas({
             xt: d.xTicks,
             yt: d.yTicks,
             marks: d.marks,
+            faces: d.faces,
             labels: d.layout.map(({ text, x, y, w, h }) => ({ text, x, y, w, h })),
           };
         });
@@ -299,6 +318,23 @@ export default function ScatterCanvas({
           ↑ {yLabel}
         </p>
         <div className="flex gap-1" role="group" aria-label="Chart view">
+          {onMarks ? (
+            // weight as well as fill: the chosen one reads without colour
+            <div role="group" aria-label="Marks" className="flex h-7 items-center divide-x divide-border overflow-hidden rounded-md border border-border">
+              {(["dot", "face"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={marks === m}
+                  disabled={m === "face" && facesOff}
+                  onClick={() => onMarks(m)}
+                  className={`h-full px-2 font-inter text-sm transition-colors disabled:opacity-50 ${marks === m ? "bg-primary font-semibold text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  {m === "dot" ? "Dots" : faceLabel}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <button type="button" aria-pressed={showLabels} onClick={() => setShowLabels((s) => !s)} className={toolClass}>
             Labels
           </button>

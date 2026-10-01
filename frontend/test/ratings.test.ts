@@ -117,7 +117,7 @@ test('Chart this emits exactly the ScatterView keys, and Scatter parses it back 
     const url = new URL(href, 'https://x');
     assert.equal(url.pathname, '/platform/scatter');
     for (const k of url.searchParams.keys()) assert.ok(['schema', 'table', 'season', 'x', 'y'].includes(k), `${r.schema}.${r.table}: stray key ${k}`);
-    assert.deepEqual(parseScatterView(url.searchParams), { schema: r.schema, table: r.table, season: '2019', x: r.chart.x, y: r.chart.y, hl: [] });
+    assert.deepEqual(parseScatterView(url.searchParams), { schema: r.schema, table: r.table, season: '2019', x: r.chart.x, y: r.chart.y, hl: [], marks: 'dot' });
   }
   assert.equal(ratingsChartHref(RATINGS.cfb, '2025'), '/platform/scatter?schema=cfb&table=ratings&season=2025&x=adj_off_epa&y=adj_def_epa');
 });

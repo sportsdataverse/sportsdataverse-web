@@ -13,16 +13,17 @@ import {
 } from '../lib/platform/viz/scatterDraw.ts';
 import { labelIndices } from '../lib/platform/viz/labels.ts';
 import type { ScatterPoint, ZoomView } from '../lib/platform/viz/scatterMath.ts';
+import { FACE } from '../lib/platform/viz/sprites.ts';
 
 /** A 2D context that records every call with the paint it was made in. */
 function recorder() {
-  const calls: { op: string; args: unknown[]; paint: string }[] = [];
+  const calls: { op: string; args: unknown[]; paint: string; stroke: string }[] = [];
   const state: Record<string | symbol, unknown> = { fillStyle: '', globalAlpha: 1 };
   const ctx = new Proxy(state, {
     get(t, k) {
       if (k in t) return t[k];
       if (k === 'measureText') return (s: string) => ({ width: s.length * 6 });
-      return (...args: unknown[]) => calls.push({ op: String(k), args, paint: `${String(t.fillStyle)}@${t.globalAlpha}` });
+      return (...args: unknown[]) => calls.push({ op: String(k), args, paint: `${String(t.fillStyle)}@${t.globalAlpha}`, stroke: `${String(t.strokeStyle)}@${t.globalAlpha}` });
     },
     set(t, k, v) {
       t[k] = v;
@@ -66,6 +67,8 @@ const scene = (view: ZoomView, slots: number[] | null = null, labels = true): Sc
   hover: null,
   colors: COLORS,
   font: 'Inter',
+  sprites: null,
+  marks: 'dot',
 });
 // A desktop and a phone canvas (the viewer's layout) against the export's fixed plot.
 const SCREENS = [
@@ -146,18 +149,18 @@ test('drawScatter: a dense screen (a phone) and a sparse export still draw every
   const d = scatterDomain(many);
   const phone = scatterGeo(d, many.length, 390, 300);
   assert.ok(phone.dense && !scatterGeo(d, many.length, EXPORT_PLOT.w, EXPORT_PLOT.h).dense);
-  const s: ScatterScene = { points: many, slots: null, view: d.base, labels: true, labelled: labelIndices(many, null), hover: null, colors: COLORS, font: 'Inter' };
+  const s: ScatterScene = { points: many, slots: null, view: d.base, labels: true, labelled: labelIndices(many, null), hover: null, colors: COLORS, font: 'Inter', sprites: null, marks: 'dot' };
   assert.equal(drawScatter(recorder().ctx, phone, s).marks, many.length);
   assert.equal(drawScatterExport(recorder().ctx, d, s, { x: 'x', y: 'y' }).marks, many.length);
 });
 
 // The export must never be tainted: toBlob throws on a canvas that drew a
-// cross-origin image. No image is drawn yet (faces, P4 T3, come through the
-// same-origin file proxy); this fails if any scene ever draws one from
-// another origin.
+// cross-origin image. Faces (P4 T3) draw from the atlas canvas, itself built
+// from crossOrigin="anonymous" images (F14 v1), never from an <img> with a
+// foreign src; this fails if any scene ever draws one from another origin.
 test('drawScatter: no scene draws an image from another origin (the export canvas stays untainted)', () => {
   const ORIGIN = 'https://sportsdataverse.org';
-  const scenes = [scene(DOMAIN.base), scene(DOMAIN.base, [...SLOTS]), scene(ZOOMED, [...SLOTS]), { ...scene(DOMAIN.base), hover: 5 }];
+  const scenes = [scene(DOMAIN.base), scene(DOMAIN.base, [...SLOTS]), scene(ZOOMED, [...SLOTS]), { ...scene(DOMAIN.base), hover: 5 }, faceScene(), { ...faceScene(), hover: 0 }];
   for (const s of scenes) {
     for (const draw of [
       (ctx: CanvasRenderingContext2D) => drawScatter(ctx, scatterGeo(DOMAIN, POINTS.length, 718, 488), s),
@@ -171,4 +174,93 @@ test('drawScatter: no scene draws an image from another origin (the export canva
       }
     }
   }
+});
+
+// ---- faces (P4 T3) ----------------------------------------------------------------------------
+// Four marks, three with a frame in a (stub) round atlas: a, b, c; d has no ESPN id.
+const FOUR: ScatterPoint[] = [
+  { label: 'a', team: 'BOS', teamName: '', x: 1, y: 1 },
+  { label: 'b', team: 'LAL', teamName: '', x: 2, y: 2 },
+  { label: 'c', team: 'LAL', teamName: '', x: 3, y: 1 },
+  { label: 'd', team: 'LAL', teamName: '', x: 2, y: 3 },
+];
+const FOUR_DOMAIN = scatterDomain(FOUR);
+const ATLAS = {
+  canvas: { atlas: true } as unknown as CanvasImageSource,
+  frames: { a: { x: 0, y: 0, w: 44, h: 44 }, b: { x: 44, y: 0, w: 44, h: 44 }, c: { x: 88, y: 0, w: 44, h: 44 } },
+};
+const faceScene = (marks: 'dot' | 'face' = 'face', slots: number[] | null = null, hover: number | null = null): ScatterScene => ({
+  points: FOUR,
+  slots,
+  view: FOUR_DOMAIN.base,
+  labels: false,
+  labelled: [],
+  hover,
+  colors: COLORS,
+  font: 'Inter',
+  sprites: { ...ATLAS, ids: ['a', 'b', 'c', null] },
+  marks,
+});
+const GEO = scatterGeo(FOUR_DOMAIN, FOUR.length, 718, 488);
+
+test('face mode: a framed mark is one drawImage of its frame at 22 px plus a ring in the mark colour; an unframed mark is a dot', () => {
+  const r = recorder();
+  const drawn = drawScatter(r.ctx, GEO, faceScene());
+  const images = r.calls.filter((c) => c.op === 'drawImage');
+  assert.equal(images.length, 3);
+  assert.equal(drawn.faces, 3);
+  assert.deepEqual(r.marks(), { 'mark@1': 1 }); // d, the dot
+  for (const [j, id] of (['a', 'b', 'c'] as const).entries()) {
+    const f = ATLAS.frames[id];
+    const { px, py } = drawn.at[j];
+    assert.deepEqual(images[j].args, [ATLAS.canvas, f.x, f.y, f.w, f.h, px - FACE / 2, py - FACE / 2, FACE, FACE]);
+    assert.equal(images[j].paint.split('@')[1], '1');
+    // the 2 px ring right after the face, in chart-cat-1 (the mark colour) at full opacity
+    const next = r.calls[r.calls.indexOf(images[j]) + 2];
+    assert.equal(next.op, 'arc');
+    assert.deepEqual(next.args, [px, py, FACE / 2 + 1, 0, Math.PI * 2]);
+    assert.equal(r.calls[r.calls.indexOf(images[j]) + 3].stroke, 'mark@1');
+  }
+});
+
+test('dot mode draws no image, even with an atlas on the scene', () => {
+  const r = recorder();
+  const drawn = drawScatter(r.ctx, GEO, faceScene('dot'));
+  assert.equal(r.calls.filter((c) => c.op === 'drawImage').length, 0);
+  assert.equal(drawn.faces, 0);
+  assert.deepEqual(r.marks(), { 'mark@1': 4 });
+});
+
+test('the export draws faces too', () => {
+  const r = recorder();
+  const exp = drawScatterExport(r.ctx, FOUR_DOMAIN, faceScene(), { x: 'x', y: 'y' });
+  assert.equal(r.calls.filter((c) => c.op === 'drawImage').length, 3);
+  assert.equal(exp.faces, 3);
+  assert.deepEqual(r.marks(), { 'mark@1': 1 });
+});
+
+test('face mode with a highlight: the match keeps its chip colour on the ring, the rest are faded faces (or a faded dot)', () => {
+  const r = recorder();
+  drawScatter(r.ctx, GEO, faceScene('face', [0, -1, -1, -1]));
+  const images = r.calls.filter((c) => c.op === 'drawImage');
+  assert.deepEqual(images.map((c) => c.paint.split('@')[1]), ['0.15', '0.15', '1']); // b, c faded first, then a on top
+  const ring = (img: (typeof images)[number]) => r.calls[r.calls.indexOf(img) + 3].stroke;
+  assert.deepEqual(images.map(ring), ['axis@0.15', 'axis@0.15', 'hl0@1']);
+  assert.deepEqual(r.marks(), { 'axis@0.15': 1 }); // d
+});
+
+test('hovering a framed mark redraws its face under an ink ring sized to the face', () => {
+  const r = recorder();
+  drawScatter(r.ctx, GEO, faceScene('face', null, 0));
+  const images = r.calls.filter((c) => c.op === 'drawImage');
+  assert.equal(images.length, 4);
+  const arcs = r.calls.filter((c) => c.op === 'arc');
+  const last = arcs[arcs.length - 1];
+  assert.equal(last.args[2], FACE / 2 + 2 + 1.5);
+  assert.equal(r.calls[r.calls.indexOf(last) + 1].stroke, 'ink@1');
+  // a hovered dot keeps the dot-sized ring
+  const d = recorder();
+  drawScatter(d.ctx, GEO, faceScene('face', null, 3));
+  const dArcs = d.calls.filter((c) => c.op === 'arc');
+  assert.equal(dArcs[dArcs.length - 1].args[2], 4 + 2 + 1.5);
 });
