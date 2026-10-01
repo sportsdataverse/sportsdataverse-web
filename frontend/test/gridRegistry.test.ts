@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { applyPreset, bases, basesFor, familyOrder, groupStarts, headerLabel, headerLabels, nativeBasis, presetsFor, rebase, validOrder } from '../lib/platform/gridRegistry.ts';
-import { compareCells } from '../lib/platform/viewState.ts';
+import { viewRows } from '../lib/platform/viewState.ts';
 import { METRICS, resolveMetric } from '../lib/platform/metricRegistry.ts';
 import { columnTip } from '../lib/platform/glossary.ts';
 
@@ -234,14 +234,17 @@ test('rebase: a suffixed column (X_pct, X_rank, X_n) passes through under every 
   }
 });
 
-test("rebase: sorting the rebased rows with the grid's comparator orders by the displayed (sibling) values", () => {
+test("rebase: the grid's view (viewRows) over the rebased rows sorts and filters by the displayed (sibling) values", () => {
   const cols = ['id', 'yards', 'yardsplay'];
   const rows = [['a', '300', '2.0'], ['b', '100', '9.0'], ['c', '200', '5.0']];
   const shown = rebase(cols, rows, 'per_play', vstub).rows;
-  const byYards = [...shown].sort((x, y) => compareCells(x[1], y[1], 'desc'));
-  assert.deepEqual(byYards.map((r) => r[0]), ['b', 'c', 'a']); // by yardsplay 9 > 5 > 2, not yards 300 > 200 > 100
-  const native = [...rows].sort((x, y) => compareCells(x[1], y[1], 'desc'));
-  assert.deepEqual(native.map((r) => r[0]), ['a', 'c', 'b']);
+  const byYards = viewRows(shown, { col: 1, dir: 'desc' }, {});
+  assert.deepEqual(byYards.map((r) => r.cells[0]), ['b', 'c', 'a']); // by yardsplay 9 > 5 > 2, not yards 300 > 200 > 100
+  assert.deepEqual(byYards.map((r) => r.orig), [1, 2, 0]); // each row keeps its original index
+  assert.deepEqual(viewRows(rows, { col: 1, dir: 'desc' }, {}).map((r) => r.cells[0]), ['a', 'c', 'b']);
+  // a filter on yards reads the displayed value too
+  assert.deepEqual(viewRows(shown, null, { 1: '9' }).map((r) => r.cells[0]), ['b']);
+  assert.deepEqual(viewRows(rows, null, { 1: '9' }).map((r) => r.cells[0]), []);
 });
 
 test('rebase: the native view (basis null) returns the input unchanged, same references', () => {

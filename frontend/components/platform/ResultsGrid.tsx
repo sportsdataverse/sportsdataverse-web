@@ -25,12 +25,12 @@ import {
   type TintMode,
 } from "@lib/platform/scales";
 import {
-  compareCells,
   EMPTY_GRID,
   formatCell,
   gridByIndex,
   gridByName,
   MAX_PINS,
+  viewRows,
   type GridPin,
   type GridView,
 } from "@lib/platform/viewState";
@@ -450,28 +450,21 @@ export default function ResultsGrid({
     [cols, data, below]
   );
 
-  /** Filtered + sorted view; every row keeps its ORIGINAL index for numbering,
-   *  selection identity, and external linking. */
-  const view = useMemo(() => {
-    let out = data.map((cells, orig) => ({ cells, orig }));
-    if (keepOnly) out = out.filter(({ orig }) => keepOnly.has(orig));
-    // q: the rows below the qualifier go; a pinned row always shows
-    if (onlyQualified) out = out.filter(({ orig }) => below![orig] !== true || pinnedSet.has(orig));
-    const active = Object.entries(filters).filter(([, v]) => v !== "");
-    // The raw cell, not the shown one: a grid.f link keeps its rows, and a shown
-    // value is the raw one's prefix unless its last digit rounded up.
-    if (active.length) {
-      out = out.filter(({ cells }) =>
-        active.every(([c, v]) =>
-          (cells[Number(c)] ?? "").toLowerCase().includes(v.toLowerCase())
-        )
-      );
-    }
-    if (sort) {
-      out = [...out].sort((a, b) => compareCells(a.cells[sort.col], b.cells[sort.col], sort.dir));
-    }
-    return out;
-  }, [data, filters, sort, keepOnly, onlyQualified, below, pinnedSet]);
+  /** Filtered + sorted view over the DISPLAYED rows (viewRows), so a sort orders by what is on
+   *  screen; every row keeps its ORIGINAL index for numbering, selection identity, and external linking. */
+  const view = useMemo(
+    () =>
+      viewRows(
+        data,
+        sort,
+        filters,
+        keepOnly || onlyQualified
+          ? // z: only the pinned rows; q: the rows below the qualifier go, a pinned row always shows
+            (orig) => (!keepOnly || keepOnly.has(orig)) && (!onlyQualified || below![orig] !== true || pinnedSet.has(orig))
+          : undefined
+      ),
+    [data, filters, sort, keepOnly, onlyQualified, below, pinnedSet]
+  );
 
   const viewIndexByOrig = useMemo(() => {
     const m = new Map<number, number>();

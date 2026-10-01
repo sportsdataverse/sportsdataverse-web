@@ -474,6 +474,27 @@ export function compareCells(a: string | null, b: string | null, dir: SortDir): 
   return dir === "asc" ? byValue : -byValue;
 }
 
+export type ViewRow = { cells: (string | null)[]; orig: number };
+
+/** ResultsGrid's view over the rows it displays: the rows `keep` admits (by original index) that
+ *  match every column filter (a case-insensitive substring of the RAW cell, so a grid.f link keeps
+ *  its rows, and a shown value is the raw one's prefix unless its last digit rounded up), in `sort`'s
+ *  order by compareCells over those same cells (stable: a tie keeps the input order). Every row keeps
+ *  its ORIGINAL index for numbering, selection identity and external linking. */
+export function viewRows(
+  rows: (string | null)[][],
+  sort: { col: number; dir: SortDir } | null,
+  filters: Record<number, string>,
+  keep?: (orig: number) => boolean
+): ViewRow[] {
+  let out: ViewRow[] = rows.map((cells, orig) => ({ cells, orig }));
+  if (keep) out = out.filter(({ orig }) => keep(orig));
+  const active = Object.entries(filters).filter(([, v]) => v !== "");
+  if (active.length) out = out.filter(({ cells }) => active.every(([c, v]) => (cells[Number(c)] ?? "").toLowerCase().includes(v.toLowerCase())));
+  if (sort) out = [...out].sort((a, b) => compareCells(a.cells[sort.col], b.cells[sort.col], sort.dir));
+  return out;
+}
+
 /** A decimal number as DuckDB and the Data API write one; a fraction or an exponent makes it non-integer. */
 const DECIMAL = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
 

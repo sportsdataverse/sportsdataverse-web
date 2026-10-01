@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gridViewParams, parseGridView, gridByIndex, gridByName, queryViewParams, parseQueryView, compareCells, formatCell, EMPTY_GRID, type GridView, type SortDir } from '../lib/platform/viewState.ts';
+import { gridViewParams, parseGridView, gridByIndex, gridByName, queryViewParams, parseQueryView, compareCells, formatCell, viewRows, EMPTY_GRID, type GridView, type SortDir } from '../lib/platform/viewState.ts';
 
 const sp = (qs: string) => new URLSearchParams(qs);
 
@@ -209,4 +209,18 @@ test('grid.basis carries a registry basis; an unknown, cased or empty one parses
   const none = new URLSearchParams();
   gridViewParams(EMPTY_GRID, none);
   assert.equal(none.toString(), '');
+});
+
+test('viewRows: keep by original index, case-insensitive substring filters over the raw cell, a stable sort; orig survives', () => {
+  const rows = [['Ohio State', '1.5', null], ['ohio', '0.25', 'x'], ['Penn State', '1.5', ''], ['Iowa', null, 'y']];
+  assert.deepEqual(viewRows(rows, null, {}).map((r) => r.orig), [0, 1, 2, 3]);
+  assert.deepEqual(viewRows(rows, null, { 0: 'OHIO' }).map((r) => r.orig), [0, 1]);
+  assert.deepEqual(viewRows(rows, null, { 0: 'ohio', 2: 'x' }).map((r) => r.orig), [1]);
+  assert.deepEqual(viewRows(rows, null, { 0: '' }).map((r) => r.orig), [0, 1, 2, 3]); // an empty filter is none
+  assert.deepEqual(viewRows(rows, null, {}, (o) => o % 2 === 0).map((r) => r.orig), [0, 2]);
+  // desc: 1.5, 1.5 (tie keeps the input order), 0.25, then the null last; asc the same null-last
+  assert.deepEqual(viewRows(rows, { col: 1, dir: 'desc' }, {}).map((r) => r.orig), [0, 2, 1, 3]);
+  assert.deepEqual(viewRows(rows, { col: 1, dir: 'asc' }, {}).map((r) => r.orig), [1, 0, 2, 3]);
+  assert.deepEqual(viewRows(rows, { col: 1, dir: 'asc' }, { 0: 'state' }, (o) => o !== 2).map((r) => r.orig), [0]);
+  assert.equal(viewRows(rows, null, {})[0].cells, rows[0]); // the cells are the rows' own
 });
