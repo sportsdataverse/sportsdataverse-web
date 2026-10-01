@@ -477,5 +477,77 @@ const shots = async (page, base) => {
   if (!rz.every((z) => !z.n || /^[+−]\d+\.\d · \d+$/.test(z.label))) fail(`rink zone labels: ${JSON.stringify(rz)}`);
   console.log(`shots (m) nhl 8477492 zones ${width}: ${rz.map((z) => `${z.zone} ${z.label}`).join('; ')} (Σ ${mTotal})`);
   await page.waitForTimeout(800);
+
+  // (n) A stale hover never outlives its marks. (n1) Pointer: hovering SGA's 24 ft bin and picking
+  // Rudy Gobert redraws the curve on another x scale under a pointer that has not moved; whatever the
+  // band then shows must be the bin under the pointer NOW (the browser may re-hover the new column),
+  // never the old 24 ft unless that is what is under it. (n2) Focus, the deterministic case: with the
+  // pointer away, SGA's LAST curve bin (31 ft) focused by keyboard draws the band at 31; picking Gobert
+  // (his farthest bin is 26 ft) removes that rect without a blur — the band and every tinted column
+  // must go. (n3) A hexagon's distance up, then Zones → clear; (n4) a 2-shot hexagon hovered, then
+  // min-n 15 hides it → no band, nothing tinted.
+  const tinted = () => page.locator('[data-testid="shots-curve-bins"] rect[data-hover], [data-testid="shots-butterfly-bins"] rect[data-hover]').count();
+  const pick = async (id, who) => {
+    await picker.selectOption(id);
+    await page.getByTestId('shots-title').filter({ hasText: who }).waitFor();
+    return drawn();
+  };
+  await page.goto(`${base}${NBA}`, { waitUntil: 'domcontentloaded' });
+  await drawn();
+  await page.getByTestId('shots-title').filter({ hasText: 'Shai Gilgeous-Alexander · 2026' }).waitFor({ timeout: 60_000 });
+  // (n1)
+  await curveBin(24).scrollIntoViewIfNeeded();
+  const box = await curveBin(24).boundingBox();
+  const [px, py] = [box.x + box.width / 2, box.y + box.height / 2];
+  await page.mouse.move(px, py);
+  await page.waitForTimeout(300);
+  if ((await arcAt())?.lo !== 24 || (await tinted()) !== 2) fail(`(n1) setup: hovering 24 ft drew ${JSON.stringify(await arcAt())}`);
+  await pick('203497', 'Rudy Gobert · 2026');
+  await page.waitForTimeout(400);
+  const under = await page.evaluate(([x, y]) => { const el = document.elementFromPoint(x, y); return el?.closest('[data-testid="shots-curve-bins"]') ? Number(el.dataset.lo) : null; }, [px, py]);
+  const n1 = await arcAt();
+  if (n1 && n1.lo !== under) fail(`(n1) after the switch the band is at ${n1.lo} ft but the pointer is over ${under} ft`);
+  if (!n1 && (await tinted())) fail('(n1) no band, yet a column is tinted');
+  console.log(`shots (n1) ${width}: 24 ft hovered on SGA → Gobert: pointer now over his ${under} ft column, band ${n1 ? `at ${n1.lo} ft (= under the pointer)` : 'none'}`);
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(300);
+  // (n2)
+  await pick('1628983', 'Shai Gilgeous-Alexander · 2026');
+  const lastRect = page.locator('[data-testid="shots-curve-bins"] rect').last();
+  const sgaLast = Number(await lastRect.getAttribute('data-lo'));
+  await page.locator('[data-testid="shots-curve-bins"] rect[tabindex="0"]').focus();
+  await page.keyboard.press('End');
+  await page.waitForTimeout(250);
+  if ((await arcAt())?.lo !== sgaLast || (await tinted()) !== 2) fail(`(n2) setup: End drew ${JSON.stringify(await arcAt())}, want ${sgaLast}`);
+  await pick('203497', 'Rudy Gobert · 2026');
+  await page.waitForTimeout(400);
+  const gobertLast = Number(await page.locator('[data-testid="shots-curve-bins"] rect').last().getAttribute('data-lo'));
+  if (!(gobertLast < sgaLast)) fail(`(n2) Gobert's farthest bin ${gobertLast} ft is not inside SGA's ${sgaLast}: the focused rect was not removed`);
+  if ((await arcAt()) || (await tinted())) fail(`(n2) SGA's ${sgaLast} ft bin is gone but the band is ${JSON.stringify(await arcAt())}, ${await tinted()} column(s) tinted`);
+  console.log(`shots (n2) ${width}: SGA's ${sgaLast} ft bin focused → Gobert (to ${gobertLast} ft): no band, nothing tinted`);
+  await page.waitForTimeout(500);
+  // (n3)
+  const nHex = marks.locator('polygon').first();
+  await nHex.scrollIntoViewIfNeeded();
+  await nHex.hover();
+  await page.waitForTimeout(200);
+  if ((await tinted()) !== 2) fail('(n3) hovering a hexagon did not tint the companions');
+  await modeButton('Zones').click();
+  await page.waitForTimeout(400);
+  if ((await drawn()) !== 5 || (await arcAt()) || (await tinted())) fail(`(n3) Zones with a hexagon's distance up: band ${JSON.stringify(await arcAt())}, tinted ${await tinted()}`);
+  // (n4)
+  await modeButton('Raw').click();
+  await page.waitForTimeout(400);
+  await drawn();
+  const small = marks.locator('polygon[data-n="2"]').first();
+  await small.scrollIntoViewIfNeeded();
+  await small.hover();
+  await page.waitForTimeout(200);
+  if ((await tinted()) !== 2) fail('(n4) hovering a 2-shot hexagon did not tint the companions');
+  await pressMin('End'); // hides it
+  await drawn();
+  if ((await arcAt()) || (await tinted())) fail(`(n4) min-n 15 hid the hovered hexagon but left band ${JSON.stringify(await arcAt())}, tinted ${await tinted()}`);
+  console.log(`shots (n3, n4) ${width}: hexagon up → Zones → clear; 2-shot hexagon up → min 15 → clear`);
+  await page.waitForTimeout(600);
 };
 export default shots;

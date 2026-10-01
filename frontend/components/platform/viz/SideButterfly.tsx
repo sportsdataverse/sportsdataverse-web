@@ -2,8 +2,8 @@
 
 import { useRef } from "react";
 import { chartVar } from "@lib/platform/chartTokens";
-import { binSlot, pct, readoutText, type BinStats, type CurveRow, type MadeKind } from "@lib/platform/viz/hexbin";
-import type { SideRow } from "@lib/platform/viz/shotStats";
+import { binSlot, readoutText, type BinStats, type CurveRow, type MadeKind } from "@lib/platform/viz/hexbin";
+import { sideTotals, type SideRow } from "@lib/platform/viz/shotStats";
 
 const W = 400;
 const L = 30;
@@ -59,7 +59,6 @@ export default function SideButterfly({ rows, step, kind, curve = null, hover, o
     const slot = binSlot(s, kind, curve);
     return <rect x={x(lo) + 0.5} y={up ? MID - h : MID} width={Math.max(0, x(lo + step) - x(lo) - 1)} height={h} data-n={s.n} data-slot={slot ?? undefined} fill={slot ? chartVar(slot) : undefined} className={slot ? undefined : "fill-muted-foreground/40"} />;
   };
-  const totals = (s: BinStats) => (s.n ? `${s.n.toLocaleString("en-US")} shots · ${kind === "FG" ? `${pct(s.made / s.n)} FG` : `${s.made} goals`}` : "no shots");
   const ft = (r: SideRow) => (step === 1 ? `${r.lo} ft` : `${r.lo}–${r.lo + step} ft`);
   const label = (r: SideRow) => `${ft(r)} · left ${side(r.left, kind)} · right ${side(r.right, kind)}`;
   const at = hover === null ? undefined : rows.find((r) => r.lo === hover);
@@ -67,8 +66,8 @@ export default function SideButterfly({ rows, step, kind, curve = null, hover, o
     <div data-testid="shots-butterfly">
       <p data-testid="shots-butterfly-totals" data-left={left.n} data-right={right.n} className="mb-1 flex flex-wrap items-center gap-x-3 font-inter text-xs text-muted-foreground">
         <span className="font-semibold text-foreground">Left vs right</span>
-        <span>left {totals(left)}</span>
-        <span>right {totals(right)}</span>
+        <span>left {sideTotals(left, kind)}</span>
+        <span>right {sideTotals(right, kind)}</span>
       </p>
       <p data-testid="shots-butterfly-readout" aria-live="polite" className="mb-1 min-h-5 font-inter text-xs tabular-nums text-foreground">
         {at ? label(at) : <span className="text-muted-foreground">Hover a column</span>}
