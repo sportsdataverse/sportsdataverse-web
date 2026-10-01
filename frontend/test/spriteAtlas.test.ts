@@ -60,3 +60,13 @@ test('headshotSrc builds the combiner URL over the league headshot path', () => 
 test('buildAtlas is exported (browser-only; importing the module needs no DOM)', () => {
   assert.equal(typeof buildAtlas, 'function');
 });
+
+test('headshotSrc and teamLogoSrc cover the platform scatter sources: college hoops, NBA and WNBA', () => {
+  const at = (dir: string, id: string) => `https://a.espncdn.com/combiner/i?img=/i/headshots/${dir}/players/full/${id}.png&w=48&h=48`;
+  assert.equal(headshotSrc('mbb', '4917149', { w: 48, h: 48 }), at('mens-college-basketball', '4917149'));
+  assert.equal(headshotSrc('wbb', '5318437', { w: 48, h: 48 }), at('womens-college-basketball', '5318437'));
+  assert.equal(headshotSrc('nba', 1966, { w: 48, h: 48 }), at('nba', '1966'));
+  assert.equal(headshotSrc('wnba', '869', { w: 48, h: 48 }), at('wnba', '869'));
+  // MBB team ids share the NCAA logo path with CFB
+  assert.equal(teamLogoSrc('mbb', '130', true, 48), 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/ncaa/500-dark/130.png&w=48&h=48');
+});

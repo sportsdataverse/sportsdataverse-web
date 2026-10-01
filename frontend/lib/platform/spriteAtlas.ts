@@ -10,12 +10,26 @@
  * ESPN pixels are republished — the same posture as today's hotlinked `<img>`.
  *
  * Twin of game-on-paper-app `astro/src/utils/spriteAtlas.ts` with identical
- * signatures; this copy takes a `league` and has no special-images map.
+ * signatures for the leagues both know (cfb, nfl); this copy takes a `league`
+ * and has no special-images map, and is a superset: the platform scatter
+ * also draws college hoops, NBA and WNBA faces (P4 T3).
  * Only `buildAtlas` touches the DOM, so the module imports under `node --test`.
  */
 
-export type League = "cfb" | "nfl";
+export type League = "cfb" | "nfl" | "mbb" | "wbb" | "nba" | "wnba";
+/** Leagues with a logo path here: the NFL under `nfl/`, the college leagues under the shared `ncaa/`. */
+export type LogoLeague = "cfb" | "nfl" | "mbb";
 export type Frame = { x: number; y: number; w: number; h: number };
+
+/** ESPN's headshot directory per league. */
+const HEADSHOT_DIR: Record<League, string> = {
+  cfb: "college-football",
+  nfl: "nfl",
+  mbb: "mens-college-basketball",
+  wbb: "womens-college-basketball",
+  nba: "nba",
+  wnba: "wnba",
+};
 
 const ESPN = "https://a.espncdn.com";
 
@@ -58,7 +72,7 @@ const combiner = (path: string, w: number, h: number) => `${ESPN}/combiner/i?img
  * `size` is given. Dark NFL logos go through the abbreviation path; an NFL id
  * missing from the map falls back to the light logo rather than a 404.
  */
-export function teamLogoSrc(league: League, teamId: string | number, dark: boolean, size?: number): string {
+export function teamLogoSrc(league: LogoLeague, teamId: string | number, dark: boolean, size?: number): string {
   const id = String(teamId);
   const dir = league === "nfl" ? "nfl" : "ncaa";
   const darkName = league === "nfl" ? NFL_LOGO_ABBR[id] : id;
@@ -68,8 +82,7 @@ export function teamLogoSrc(league: League, teamId: string | number, dark: boole
 
 /** ESPN headshot URL for an athlete, sized through the combiner. */
 export function headshotSrc(league: League, athleteId: string | number, size: { w: number; h: number }): string {
-  const dir = league === "nfl" ? "nfl" : "college-football";
-  return combiner(`/i/headshots/${dir}/players/full/${athleteId}.png`, size.w, size.h);
+  return combiner(`/i/headshots/${HEADSHOT_DIR[league]}/players/full/${athleteId}.png`, size.w, size.h);
 }
 
 /**
