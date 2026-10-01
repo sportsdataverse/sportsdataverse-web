@@ -195,6 +195,8 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
   const { resolvedTheme } = useTheme();
   const atlases = useRef(new Map<string, Promise<Atlas>>());
   const [atlas, setAtlas] = useState<{ key: string; a: Atlas } | null>(null);
+  // A failed build, for its key alone: a switch to Dots or another view drops it.
+  const [atlasError, setAtlasError] = useState<{ key: string; text: string } | null>(null);
   const overCap = points.length > FACE_CAP;
   const atlasKey = marks === "face" && !overCap && points.length && resolvedTheme ? `${loadKey}|${src.noun === "teams" ? resolvedTheme : ""}` : null;
 
@@ -212,7 +214,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
       },
       (e) => {
         atlases.current.delete(atlasKey); // the next switch to it tries again
-        if (live) setError(`${faceNoun} unavailable: ${e instanceof Error ? e.message : String(e)}`);
+        if (live) setAtlasError({ key: atlasKey, text: `${faceNoun} unavailable: ${e instanceof Error ? e.message : String(e)}` });
       }
     );
     return () => {
@@ -278,7 +280,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
         overCap
           ? `${faceNoun[0].toUpperCase()}${faceNoun.slice(1)} are available up to ${FACE_CAP.toLocaleString("en-US")} marks (this view has ${points.length.toLocaleString("en-US")}).`
           : "",
-        atlasKey && !ready ? `Loading ${faceNoun}…` : "",
+        atlasError?.key === atlasKey ? atlasError.text : atlasKey && !ready ? `Loading ${faceNoun}…` : "",
         noId ? `${noId.toLocaleString("en-US")} ${noun} have no ESPN id and stay dots.` : "",
         ready?.failed ? `${faceNoun} unavailable: ${ready.failed} of ${ready.total} images failed.` : "",
       ].filter(Boolean)
