@@ -62,20 +62,27 @@ type Loaded = {
  *  time, into one round atlas at the device's pixel ratio. A mark with no
  *  ESPN id fires no request; an image that fails is counted and its mark
  *  stays a dot. */
-type Atlas = Sprites & { xwalk: Xwalk[] | null; failed: number; total: number };
+/** `rows`: how many the read returned; at API_MAX_ROWS it was cut and the
+ *  oldest seasons are missing, which the note says. */
+type XwalkRead = { pairs: Xwalk[]; rows: number };
+type Atlas = Sprites & { xwalk: Xwalk[] | null; xwalkRows: number; failed: number; total: number };
 /** A source's id → ESPN id pairs. The crosswalk holds the newest season(s)
  *  only (nba: 2026 alone on 2026-10-01) and a player's ids never change, so
  *  it is read whole, newest first, rather than for the viewed season (which
  *  would match nothing for an earlier one), and once per schema. */
-async function loadXwalk({ schema, key }: NonNullable<ScatterSource["xwalk"]>): Promise<Xwalk[]> {
-  const pairs = await apiRows({ schema, table: "player_crosswalk", select: `${key},espn_athlete_id`, order: "-season", limit: "5000" });
-  return pairs.flatMap((r) => (r[key] != null && r.espn_athlete_id != null ? [{ key: String(r[key]), value: String(r.espn_athlete_id) }] : []));
+async function loadXwalk({ schema, key }: NonNullable<ScatterSource["xwalk"]>): Promise<XwalkRead> {
+  const rows = await apiRows({ schema, table: "player_crosswalk", select: `${key},espn_athlete_id`, order: "-season", limit: API_MAX_ROWS });
+  return {
+    pairs: rows.flatMap((r) => (r[key] != null && r.espn_athlete_id != null ? [{ key: String(r[key]), value: String(r.espn_athlete_id) }] : [])),
+    rows: rows.length,
+  };
 }
-async function loadAtlas(src: ScatterSource, points: readonly ScatterPoint[], dark: boolean, dpr: number, xwalkRead: Promise<Xwalk[]> | null): Promise<Atlas> {
-  const xwalk = xwalkRead ? await xwalkRead : null;
+async function loadAtlas(src: ScatterSource, points: readonly ScatterPoint[], dark: boolean, dpr: number, xwalkRead: Promise<XwalkRead> | null): Promise<Atlas> {
+  const xw = xwalkRead ? await xwalkRead : null;
+  const xwalk = xw?.pairs ?? null;
   const entries = spriteEntries(src, espnIds(src, points, "id", xwalk), dark);
   const round = roundAtlas(await buildAtlas(entries, CELL), FACE * dpr);
-  return { ...round, xwalk, failed: entries.length - Object.keys(round.frames).length, total: entries.length };
+  return { ...round, xwalk, xwalkRows: xw?.rows ?? 0, failed: entries.length - Object.keys(round.frames).length, total: entries.length };
 }
 
 /** `/v1/meta`'s `datasets`: when each "schema.table" last changed. */
@@ -203,7 +210,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
   }, []);
   const atlases = useRef(new Map<string, Promise<Atlas>>());
   // The crosswalk read, once per schema (it is season-independent).
-  const xwalks = useRef(new Map<string, Promise<Xwalk[]>>());
+  const xwalks = useRef(new Map<string, Promise<XwalkRead>>());
   const [atlas, setAtlas] = useState<{ key: string; a: Atlas } | null>(null);
   // A failed build, for its key alone: a switch to Dots or another view drops it.
   const [atlasError, setAtlasError] = useState<{ key: string; text: string } | null>(null);
@@ -218,7 +225,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
     let live = true;
     let p = atlases.current.get(atlasId);
     if (!p) {
-      let xw: Promise<Xwalk[]> | null = null;
+      let xw: Promise<XwalkRead> | null = null;
       if (src.xwalk) {
         const { schema } = src.xwalk;
         xw = xwalks.current.get(schema) ?? loadXwalk(src.xwalk);
@@ -305,6 +312,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
         atlasError?.key === atlasId ? atlasError.text : atlasId && !ready ? `Loading ${faceNoun}…` : "",
         noId ? `${noId.toLocaleString("en-US")} ${noun} have no ESPN id and stay dots.` : "",
         ready?.failed ? `${faceNoun} unavailable: ${ready.failed} of ${ready.total} images failed.` : "",
+        ready && ready.xwalkRows >= Number(API_MAX_ROWS) ? `crosswalk truncated at ${ready.xwalkRows.toLocaleString("en-US")} rows.` : "",
       ].filter(Boolean)
     : [];
   const failure = error ?? catalogError?.message ?? seasonsError?.message ?? null;

@@ -195,7 +195,7 @@ const sprites = async (page, base) => {
   const xreq = await xwalkRead;
   const nba = await facesDrawn('· 2026');
   if (!/order=-season/.test(xreq.url()) || !/select=nba_player_id%2Cespn_athlete_id/.test(xreq.url())) fail(`crosswalk read ${xreq.url()}`);
-  const xwalk = await apiRows({ schema: 'nba', table: 'player_crosswalk', select: 'nba_player_id,espn_athlete_id', order: '-season', limit: '5000' });
+  const xwalk = await apiRows({ schema: 'nba', table: 'player_crosswalk', select: 'nba_player_id,espn_athlete_id', order: '-season', limit: '50000' });
   const bridged = new Set(xwalk.filter((r) => r.nba_player_id != null && r.espn_athlete_id != null).map((r) => String(r.nba_player_id)));
   const impact = await apiRows({ schema: 'nba', table: 'player_impact', season: '2026', season_type: 'Regular Season', select: 'player_id,o_rapm,d_rapm', limit: '50000' });
   const canBridge = impact.filter((r) => finite(r.o_rapm) && finite(r.d_rapm) && bridged.has(String(r.player_id))).length;
