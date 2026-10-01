@@ -26,6 +26,10 @@ import type { CourtKey, ShotSource } from "../lib/platform/viz/surfaces.ts";
  * newest game first, skaters only, so the cut falls on the season's first
  * games. ponytail: a skater who played only the first ~100 games of a season
  * is missing from the NHL picker; a season-level NHL roster table would fix it.
+ * `position_code__ne=G` is SQL `<>`, so a NULL position would be dropped
+ * too — but `position_code__isnull=true` (the API's null operator) finds no
+ * such row in any season (2026-10-01), and the API cannot OR two filters, so
+ * a NULL-tolerant read would be a second request for an always-empty set.
  *
  * Column dtypes: nba.rosters' `athlete_id` is text where nba.shots'
  * `athlete_id_1` is an integer; the page keeps every id as the URL's string

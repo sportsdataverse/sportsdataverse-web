@@ -13,7 +13,7 @@
  * counts them over an exhaustive grid and 50,000 uniform points).
  */
 import { divergingSlot, sequentialSlot, type ChartSlot } from "../chartTokens.ts";
-import type { Shot } from "./surfaces.ts";
+import { COURT, RINK, RINK_GOAL_Y, type Shot } from "./surfaces.ts";
 
 /** Hex radius (centre to vertex), in feet, per surface kind. */
 export const HEX_RADIUS = { court: 1.85, rink: 3.6 } as const;
@@ -87,7 +87,11 @@ export function binSlot(b: HexBin, kind: MadeKind): ChartSlot | null {
 }
 
 const pct = (x: number) => `${Math.round(100 * x)}%`;
-const signed = (x: number) => `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(1)}`;
+/** Signed to one decimal, the sign taken AFTER rounding so −0.04 reads "+0.0", never "−0.0". */
+const signed = (x: number) => {
+  const r = Number(x.toFixed(1));
+  return `${r >= 0 ? "+" : "−"}${Math.abs(r).toFixed(1)}`;
+};
 
 /** The readout for a bin: "23 shots · 48% FG · 12 ft", or on a rink
  *  "23 shots · 3 goals · +0.9 vs xG · 31 ft". */
@@ -97,3 +101,38 @@ export function readoutText(b: HexBin, kind: MadeKind): string {
   if (kind === "FG") return `${shots} · ${pct(b.made / b.n)} FG · ${ft}`;
   return `${shots} · ${b.made} ${b.made === 1 ? "goal" : "goals"} · ${signed(b.made - b.sumXg)} vs xG · ${ft}`;
 }
+
+/** The surface a shot must lie on to be binned: the half court (±25 ft,
+ *  the baseline to centre court) or the attacking half of the rink (±42.5
+ *  ft, the end boards to centre ice). Anything else — a heave from the
+ *  backcourt, an own-zone empty-net shot, a sentinel coordinate — would
+ *  bin off the viewBox: drawn unseen, counted as a mark, and the busiest
+ *  such bin would shrink every visible hex through `hexSize`'s max. The
+ *  page drops them before `hexbin` and counts them in its note. */
+export function onSurface(s: Shot, kind: "court" | "rink"): boolean {
+  return kind === "court"
+    ? Math.abs(s.x) <= COURT.width / 2 && s.y >= -COURT.hoop && s.y <= COURT.half - COURT.hoop
+    : Math.abs(s.x) <= RINK.width / 2 && s.y >= -RINK.goalLine && s.y <= RINK_GOAL_Y;
+}
+
+/** The nearest bin from `from` in direction `[dx, dy]` (unit axis; +y is
+ *  down the screen, as the surfaces draw): among the bins ahead within a
+ *  90° cone (the component along the direction at least the one across
+ *  it), the closest; null when none. Arrow keys walk the marks with it. */
+export function nearestBin(bins: readonly HexBin[], from: HexBin, [dx, dy]: readonly [number, number]): HexBin | null {
+  let best: HexBin | null = null;
+  let bestD = Infinity;
+  for (const b of bins) {
+    if (b === from) continue;
+    const [ex, ey] = [b.cx - from.cx, b.cy - from.cy];
+    const along = ex * dx + ey * dy;
+    if (along <= 0 || along < Math.abs(ex * -dy + ey * dx)) continue;
+    const d = Math.hypot(ex, ey);
+    if (d < bestD) [best, bestD] = [b, d];
+  }
+  return best;
+}
+
+/** A bin's identity across renders: its lattice centre, which a min-n or
+ *  player change never moves (an index would). */
+export const binKey = (b: HexBin) => `${b.cx},${b.cy}`;

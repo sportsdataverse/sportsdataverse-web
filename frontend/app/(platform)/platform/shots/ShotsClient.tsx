@@ -7,7 +7,7 @@ import { SHOTS_MIN_N, shotsViewParams, type ShotsView } from "@lib/platform/view
 import { API_MAX_ROWS } from "@lib/platform/wp";
 import { apiRows, seasonRange } from "@lib/platform/queryRun";
 import { normalizeShot, type Shot } from "@lib/platform/viz/surfaces";
-import { HEX_RADIUS, hexbin } from "@lib/platform/viz/hexbin";
+import { HEX_RADIUS, hexbin, onSurface } from "@lib/platform/viz/hexbin";
 import ShotMap from "@components/platform/viz/ShotMap";
 import useUrlMirror from "@hooks/useUrlMirror";
 
@@ -16,15 +16,18 @@ import useUrlMirror from "@hooks/useUrlMirror";
  * `/api/platform/query/run` read, well under the API's 50,000-row cap) as
  * hexagons on a true-unit court or rink. Three reads per view, each cached
  * by SWR on its key: the league's season range, the season's roster (the
- * player picker), the player's shots.
+ * player picker), the player's shots. A shot off the drawn surface (a
+ * backcourt heave, a sentinel coordinate) is dropped before binning and
+ * counted in the note; a read that hits the API's row cap says so.
  */
 
 type Player = { id: string; name: string };
 
 /** The season's roster as id → name, A–Z, one entry per id (a trade or a
- *  transfer lists a player twice; the NHL table is per game). Ids are kept
- *  as strings, the URL's type, on both sides of the map. */
-async function loadRoster(lg: ShotsLeague, season: string): Promise<Player[]> {
+ *  transfer lists a player twice; the NHL table is per game), and how many
+ *  rows the read returned (at API_MAX_ROWS it was cut). Ids are kept as
+ *  strings, the URL's type, on both sides of the map. */
+async function loadRoster(lg: ShotsLeague, season: string): Promise<{ players: Player[]; rows: number }> {
   const { roster } = lg;
   const rows = await apiRows({
     ...roster.params,
@@ -40,7 +43,7 @@ async function loadRoster(lg: ShotsLeague, season: string): Promise<Player[]> {
     if (id == null || byId.has(String(id))) continue;
     byId.set(String(id), roster.nameCols.map((c) => String(r[c] ?? "")).join(" ").trim() || String(id));
   }
-  return [...byId].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  return { players: [...byId].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)), rows: rows.length };
 }
 
 /** The player-season's rows, normalized: a row that is not a shot (a free throw, a faceoff) is dropped. */
@@ -61,7 +64,8 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
 
   const { data: seasons, error: seasonsError } = useSWR(["shots-seasons", league], () => seasonRange(lg, lg.seasonCol));
   const activeSeason = seasons?.length ? (seasons.includes(season) ? season : seasons[0]) : "";
-  const { data: roster, error: rosterError } = useSWR(activeSeason ? ["shots-roster", league, activeSeason] : null, () => loadRoster(lg, activeSeason));
+  const { data: rosterRead, error: rosterError } = useSWR(activeSeason ? ["shots-roster", league, activeSeason] : null, () => loadRoster(lg, activeSeason));
+  const roster = rosterRead?.players;
   // The URL's player is kept even off the roster (an id the picker cannot list still reads its shots); blank picks the first listed.
   const activePlayer = player || roster?.[0]?.id || "";
   const { data: shots, error: shotsError, isLoading } = useSWR(
@@ -69,23 +73,34 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
     () => loadShots(lg, activeSeason, activePlayer)
   );
 
-  const bins = useMemo(() => (shots ? hexbin(shots, HEX_RADIUS[lg.surface.kind]) : []), [shots, lg]);
+  // only shots on the drawn surface are binned: one off it would bin off the viewBox (unseen, counted, shrinking every hex)
+  const drawn = useMemo(() => (shots ? shots.filter((s) => onSurface(s, lg.surface.kind)) : []), [shots, lg]);
+  const omitted = shots ? shots.length - drawn.length : 0;
+  const bins = useMemo(() => hexbin(drawn, HEX_RADIUS[lg.surface.kind]), [drawn, lg]);
   const shown = useMemo(() => bins.filter((b) => b.n >= minN), [bins, minN]);
-  const made = shots?.filter((s) => s.made).length ?? 0;
+  const made = drawn.filter((s) => s.made).length;
   const name = roster?.find((p) => p.id === activePlayer)?.name ?? activePlayer;
 
   useUrlMirror(shotsViewParams({ league, season: activeSeason || season, player: activePlayer, mode: initial.mode, minN }));
 
   const failure = seasonsError?.message ?? rosterError?.message ?? shotsError?.message ?? null;
+  const cap = Number(API_MAX_ROWS);
   const note = isLoading
     ? `Loading ${name || "shots"} ${activeSeason}…`
-    : shots
-      ? shots.length
-        ? `${n(shots.length)} shots · ${n(made)} ${lg.made === "FG" ? "made" : "goals"} (${Math.round((100 * made) / shots.length)}%) · ${n(bins.length)} hexagons, ${n(shown.length)} shown at ${minN}+ shots`
-        : `No shots for ${name} in ${activeSeason}.`
-      : roster && !roster.length
-        ? `No roster for ${activeSeason}.`
-        : "";
+    : [
+        shots
+          ? drawn.length
+            ? `${n(drawn.length)} shots · ${n(made)} ${lg.made === "FG" ? "made" : "goals"} (${Math.round((100 * made) / drawn.length)}%) · ${n(bins.length)} hexagons, ${n(shown.length)} shown at ${minN}+ shots`
+            : `No shots for ${name} in ${activeSeason}.`
+          : roster && !roster.length
+            ? `No roster for ${activeSeason}.`
+            : "",
+        omitted ? `${n(omitted)} ${omitted === 1 ? "shot" : "shots"} off the ${lg.surface.kind} omitted` : "",
+        shots && shots.length >= cap ? `shots truncated at ${n(cap)} rows` : "",
+        rosterRead && rosterRead.rows >= cap ? `roster read truncated at ${n(cap)} rows (a per-game table): some players may be missing from the picker` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
 
   return (
     <>
