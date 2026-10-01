@@ -21,6 +21,7 @@ import {
   Flame,
   ChartScatter,
   ListOrdered,
+  Hexagon,
 } from "lucide-react";
 
 export type PlatformNavItem = {
@@ -70,6 +71,7 @@ export const PLATFORM_NAV: { title: string | null; items: PlatformNavItem[] }[] 
       { href: "/platform/scatter", label: "Scatter", icon: ChartScatter },
       { href: "/platform/rolling", label: "Rolling form", icon: Flame },
       { href: "/platform/ratings", label: "Ratings", icon: ListOrdered },
+      { href: "/platform/shots", label: "Shots", icon: Hexagon },
     ],
   },
   {

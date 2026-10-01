@@ -16,6 +16,7 @@ import { LOOKUP_SPORTS } from "../../content/lookups.ts";
 import { ROLLING } from "../../content/rolling.ts";
 import { SCATTER_SOURCES } from "../../content/scatter.ts";
 import { RATINGS, type RatingSource } from "../../content/ratings.ts";
+import { SHOTS_LEAGUE_KEYS } from "../../content/shots.ts";
 import { scatterAxes } from "./viz/scatterMath.ts";
 import { ROLLING_CARDS, ROLLING_TABS, type RollingCard, type RollingTab } from "./rolling.ts";
 import { MAX_TRENDS_TEAMS, formatValue, trimGaps, type TrendPicks } from "./trends.ts";
@@ -385,6 +386,38 @@ export function ratingsChartHref(src: RatingSource, season: string): string | nu
   if (!src.chart || src.source !== "api" || !SCATTER_SOURCES.some((s) => s.schema === src.schema && s.table === src.table)) return null;
   const qs = scatterViewParams({ schema: src.schema, table: src.table, season, x: src.chart.x, y: src.chart.y, hl: [], marks: "dot" }).toString();
   return `/platform/scatter?${qs}`;
+}
+
+// --- Shots ---------------------------------------------------------------------
+
+/** One league (content/shots.ts), one season (blank: the newest), one player
+ *  id (blank: the roster's first), the view mode (only `raw` is drawn until
+ *  the modes land; the key is reserved) and the smallest bin drawn, 1–15
+ *  (15 reads "15+"). */
+export type ShotsView = { league: string; season: string; player: string; mode: "raw" | "smoothed" | "zones"; minN: number };
+const SHOTS_MODES = ["raw", "smoothed", "zones"] as const;
+export const SHOTS_MIN_N = { min: 1, max: 15, dflt: 2 } as const;
+
+export function parseShotsView(sp: URLSearchParams): ShotsView {
+  const season = sp.get("season") ?? "";
+  const player = (sp.get("player") ?? "").slice(0, MAX_LEN);
+  return {
+    league: pick(sp.get("league"), SHOTS_LEAGUE_KEYS, SHOTS_LEAGUE_KEYS[0]),
+    season: /^\d{4}$/.test(season) ? season : "",
+    player: TOKEN.test(player) ? player : "",
+    mode: pick(sp.get("mode"), SHOTS_MODES, "raw"),
+    minN: clamp(Number(sp.get("min") || SHOTS_MIN_N.dflt), SHOTS_MIN_N.min, SHOTS_MIN_N.max, SHOTS_MIN_N.dflt),
+  };
+}
+
+export function shotsViewParams(v: ShotsView): URLSearchParams {
+  const p = new URLSearchParams();
+  if (v.league !== SHOTS_LEAGUE_KEYS[0]) p.set("league", v.league);
+  if (v.season) p.set("season", v.season);
+  if (v.player) p.set("player", v.player);
+  if (v.mode !== "raw") p.set("mode", v.mode);
+  if (v.minN !== SHOTS_MIN_N.dflt) p.set("min", String(v.minN));
+  return p;
 }
 
 // --- ResultsGrid (sort / column filters / tint / pins / qualified only), keyed by column NAME --

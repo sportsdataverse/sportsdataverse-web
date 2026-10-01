@@ -16,11 +16,12 @@ import { LOOKUP_SPORTS } from "../content/lookups.ts";
 import { ROLLING } from "../content/rolling.ts";
 import { SCATTER_SOURCES } from "../content/scatter.ts";
 import { RATINGS } from "../content/ratings.ts";
+import { SHOTS_LEAGUES } from "../content/shots.ts";
 import { baseMetadata } from "./metadata.ts";
 import {
   parseWpView, wpViewParams, parseTrendsView, trendsViewParams, parseExploreView, exploreViewParams,
   parseQueryView, parseLookupsView, lookupsViewParams, parseScatterView, scatterViewParams,
-  parseRollingView, rollingViewParams, parseRatingsView, ratingsViewParams,
+  parseRollingView, rollingViewParams, parseRatingsView, ratingsViewParams, parseShotsView, shotsViewParams,
 } from "./platform/viewState.ts";
 
 export const SUMMARY_MAX = 80;
@@ -124,6 +125,15 @@ const VIEWS: Record<string, Spec> = {
     summary: (sp) => {
       const v = parseRatingsView(sp);
       return [RATINGS[v.league].label, v.season];
+    },
+  },
+  shots: {
+    title: "Shots",
+    keys: ["league", "season", "player"],
+    canonical: (sp) => shotsViewParams(parseShotsView(sp)),
+    summary: (sp) => {
+      const v = parseShotsView(sp);
+      return [SHOTS_LEAGUES[v.league].label, v.season, tok(v.player) && `player ${v.player}`];
     },
   },
 };
