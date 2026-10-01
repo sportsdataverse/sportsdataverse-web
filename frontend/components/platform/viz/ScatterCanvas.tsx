@@ -109,6 +109,7 @@ export default function ScatterCanvas({
   sprites = null,
   onMarks,
   faceLabel = "Faces",
+  facesOff = false,
   ref,
 }: {
   points: readonly ScatterPoint[];
@@ -124,6 +125,8 @@ export default function ScatterCanvas({
   onMarks?: (marks: ScatterScene["marks"]) => void;
   /** The face option's text: "Logos" for a team source. */
   faceLabel?: string;
+  /** The face option is off (too many marks for an atlas); the page's note says why. */
+  facesOff?: boolean;
   ref?: React.Ref<ScatterExport>;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -323,8 +326,9 @@ export default function ScatterCanvas({
                   key={m}
                   type="button"
                   aria-pressed={marks === m}
+                  disabled={m === "face" && facesOff}
                   onClick={() => onMarks(m)}
-                  className={`h-full px-2 font-inter text-sm transition-colors ${marks === m ? "bg-primary font-semibold text-primary-foreground" : "hover:bg-muted"}`}
+                  className={`h-full px-2 font-inter text-sm transition-colors disabled:opacity-50 ${marks === m ? "bg-primary font-semibold text-primary-foreground" : "hover:bg-muted"}`}
                 >
                   {m === "dot" ? "Dots" : faceLabel}
                 </button>

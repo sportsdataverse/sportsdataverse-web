@@ -13,6 +13,10 @@ import { headshotSrc, teamLogoSrc, type Frame, type League, type LogoLeague } fr
 export const CELL = 48;
 /** A face or logo's diameter on the canvas, in CSS px. */
 export const FACE = 22;
+/** The most faces one view builds: past it the Faces control is off and the
+ *  marks stay dots (a 1,500-face round atlas is ~12 MB at DPR 2, and 1,500
+ *  22 px faces already cover a desktop plot; mbb player_value plots ~5,000). */
+export const FACE_CAP = 1500;
 
 /** One crosswalk row: a source id (`key`) and its ESPN id (`value`), both as text. */
 export type Xwalk = { key: string; value: string };
@@ -65,8 +69,9 @@ export function spriteLeague(schema: string): League | null {
   return LEAGUES.find((x) => x === l) ?? null;
 }
 
-/** One combiner-sized image per distinct ESPN id, in first-seen order: a
- *  headshot for a player source, a light or dark logo for a team source. */
+/** One combiner-sized image per distinct ESPN id, in first-seen order, at
+ *  most FACE_CAP of them: a headshot for a player source, a light or dark
+ *  logo for a team source. */
 export function spriteEntries(source: ScatterSource, ids: readonly (string | null)[], dark: boolean): { id: string; src: string }[] {
   const league = spriteLeague(source.schema);
   const logo: LogoLeague | null = league === "cfb" || league === "nfl" || league === "mbb" ? league : null;
@@ -74,6 +79,7 @@ export function spriteEntries(source: ScatterSource, ids: readonly (string | nul
   const out: { id: string; src: string }[] = [];
   for (const id of new Set(ids)) {
     if (id == null) continue;
+    if (out.length >= FACE_CAP) break;
     out.push({ id, src: logo && source.noun === "teams" ? teamLogoSrc(logo, id, dark, CELL) : headshotSrc(league, id, { w: CELL, h: CELL }) });
   }
   return out;

@@ -9,7 +9,8 @@
 // counted in the note); cfb.ratings draws logos (the control reads "Logos"), the dark
 // variant on the dark theme, and a theme switch swaps them; the PNG export in face mode is a
 // file (the canvas is not tainted) with face pixels where the plot is; marks=dot and a link
-// without marks draw no image at all.
+// without marks draw no image at all; mbb.player_value (~5,000 marks) is over FACE_CAP (1,500):
+// the Faces option is disabled with a note, no image is requested, every mark a dot.
 // /platform is behind org sign-in, so this is recorded locally and is NOT listed on the PR's
 // `Walkthrough steps:` line (CI has no session; the module throws there).
 
@@ -265,5 +266,21 @@ const sprites = async (page, base) => {
   }
   console.log(`scatter T3 (f) ${width}: marks=dot and no marks: 0 faces, 0 ESPN requests`);
   await page.waitForTimeout(600);
+
+  // (g) Over the cap: mbb.player_value 2025 with marks=face keeps dots, disables Faces, says why,
+  // and requests nothing.
+  espn.length = 0;
+  await page.goto(`${base}/platform/scatter?schema=mbb&table=player_value&season=2025&marks=face`, { waitUntil: 'domcontentloaded' });
+  await page.getByTestId('scatter-title').filter({ hasText: '· 2025' }).waitFor({ timeout: 120_000 });
+  await page.waitForTimeout(1500);
+  const cap = await counts();
+  const capNote = await note.innerText();
+  if (cap.marks <= 1500) fail(`mbb.player_value 2025 plots ${cap.marks} marks: not over the cap`);
+  if (cap.faces !== 0 || espn.length) fail(`over the cap: ${cap.faces} faces, ${espn.length} ESPN requests`);
+  if (!(await facesButton('Faces').isDisabled())) fail('Faces is not disabled over the cap');
+  if (!capNote.includes(`Faces are available up to 1,500 marks (this view has ${cap.marks.toLocaleString('en-US')}).`)) fail(`cap note: "${capNote}"`);
+  console.log(`scatter T3 (g) ${width}: mbb.player_value 2025 ${cap.marks} marks: Faces disabled, ${cap.faces} faces, ${espn.length} ESPN requests; note "${capNote.split('. ').find((s) => s.startsWith('Faces are'))}"`);
+  await chart.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(800);
 };
 export default sprites;

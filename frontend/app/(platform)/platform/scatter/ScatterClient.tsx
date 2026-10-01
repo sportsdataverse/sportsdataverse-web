@@ -25,9 +25,10 @@ import {
   scatterExportText,
   scatterPoints,
   suggest,
+  type ScatterPoint,
 } from "@lib/platform/viz/scatterMath";
 import { buildAtlas } from "@lib/platform/spriteAtlas";
-import { CELL, FACE, espnIds, roundAtlas, spriteEntries, type Sprites, type Xwalk } from "@lib/platform/viz/sprites";
+import { CELL, FACE, FACE_CAP, espnIds, roundAtlas, spriteEntries, type Sprites, type Xwalk } from "@lib/platform/viz/sprites";
 import ScatterCanvas, { type ScatterExport } from "@components/platform/viz/ScatterCanvas";
 import useUrlMirror from "@hooks/useUrlMirror";
 
@@ -56,12 +57,13 @@ type Loaded = {
   unlisted: boolean;
 };
 
-/** The faces (or logos) for one (source, season, theme): the crosswalk where
- *  the source needs one, then every row's image through the combiner (48 px)
- *  into one round atlas at the device's pixel ratio. A row with no ESPN id
- *  fires no request; an image that fails is counted and its mark stays a dot. */
+/** The faces (or logos) for one view: the crosswalk where the source needs
+ *  one, then each plotted mark's image through the combiner (48 px), 16 at a
+ *  time, into one round atlas at the device's pixel ratio. A mark with no
+ *  ESPN id fires no request; an image that fails is counted and its mark
+ *  stays a dot. */
 type Atlas = Sprites & { xwalk: Xwalk[] | null; failed: number; total: number };
-async function loadAtlas(src: ScatterSource, rows: readonly Row[], dark: boolean): Promise<Atlas> {
+async function loadAtlas(src: ScatterSource, points: readonly ScatterPoint[], dark: boolean): Promise<Atlas> {
   let xwalk: Xwalk[] | null = null;
   if (src.xwalk) {
     const { schema, key } = src.xwalk;
@@ -72,7 +74,7 @@ async function loadAtlas(src: ScatterSource, rows: readonly Row[], dark: boolean
     const pairs = await apiRows({ schema, table: "player_crosswalk", select: `${key},espn_athlete_id`, order: "-season", limit: "5000" });
     xwalk = pairs.flatMap((r) => (r[key] != null && r.espn_athlete_id != null ? [{ key: String(r[key]), value: String(r.espn_athlete_id) }] : []));
   }
-  const entries = spriteEntries(src, espnIds(src, rows, src.idCol, xwalk), dark);
+  const entries = spriteEntries(src, espnIds(src, points, "id", xwalk), dark);
   const round = roundAtlas(await buildAtlas(entries, CELL), FACE * (window.devicePixelRatio || 1));
   return { ...round, xwalk, failed: entries.length - Object.keys(round.frames).length, total: entries.length };
 }
@@ -136,14 +138,6 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
   const activeSeason = seasons?.length ? (seasons.includes(season) ? season : seasons[0]) : "";
   const loadKey = `${key}|${activeSeason}`;
   const shown = loaded?.key === loadKey ? loaded : null;
-  // Faces: built once per (source, season), and per theme for logos (which
-  // have a dark variant), from every row of the read (the plotted set moves
-  // with the axes; a row missing an axis value is the exception), and kept
-  // for the session: an axis, highlight, zoom or theme switch never reloads.
-  const { resolvedTheme } = useTheme();
-  const atlases = useRef(new Map<string, Promise<Atlas>>());
-  const [atlas, setAtlas] = useState<{ key: string; a: Atlas } | null>(null);
-  const atlasKey = marks === "face" && shown && resolvedTheme ? `${loadKey}|${src.noun === "teams" ? resolvedTheme : ""}` : null;
   const faceNoun = src.noun === "teams" ? "logos" : "faces";
 
   useEffect(() => {
@@ -174,29 +168,6 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one read per (source, season)
   }, [loadKey]);
 
-  useEffect(() => {
-    if (!atlasKey || !shown) return;
-    let live = true;
-    let p = atlases.current.get(atlasKey);
-    if (!p) {
-      p = loadAtlas(src, shown.rows, resolvedTheme === "dark");
-      atlases.current.set(atlasKey, p);
-    }
-    p.then(
-      (a) => {
-        if (live) setAtlas({ key: atlasKey, a });
-      },
-      (e) => {
-        atlases.current.delete(atlasKey); // the next switch to it tries again
-        if (live) setError(`${faceNoun} unavailable: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    );
-    return () => {
-      live = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one build per (source, season, theme for logos)
-  }, [atlasKey]);
-
   const numeric = useMemo(() => (catalog?.[src.table] ? numericColumns(catalog[src.table]) : []), [catalog, src]);
   // Once rows land, only the columns they fill (an nba_stats slice fills 75 of 201).
   const axes = useMemo(() => (shown ? filledColumns(numeric, shown.rows) : numeric), [numeric, shown]);
@@ -217,6 +188,39 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
   const q = filter.trim().toLowerCase();
   const rail = byLetter(axes.filter((c) => c.toLowerCase().includes(q)));
   const points = useMemo(() => plotted?.points ?? [], [plotted]);
+  // Faces: one atlas per (source, season) read, per theme for logos (which
+  // have a dark variant), built from the PLOTTED marks (at most FACE_CAP: past
+  // it the Faces option is off and the marks stay dots) and kept for the
+  // session, so a highlight, zoom or theme switch never reloads.
+  const { resolvedTheme } = useTheme();
+  const atlases = useRef(new Map<string, Promise<Atlas>>());
+  const [atlas, setAtlas] = useState<{ key: string; a: Atlas } | null>(null);
+  const overCap = points.length > FACE_CAP;
+  const atlasKey = marks === "face" && !overCap && points.length && resolvedTheme ? `${loadKey}|${src.noun === "teams" ? resolvedTheme : ""}` : null;
+
+  useEffect(() => {
+    if (!atlasKey) return;
+    let live = true;
+    let p = atlases.current.get(atlasKey);
+    if (!p) {
+      p = loadAtlas(src, points, resolvedTheme === "dark");
+      atlases.current.set(atlasKey, p);
+    }
+    p.then(
+      (a) => {
+        if (live) setAtlas({ key: atlasKey, a });
+      },
+      (e) => {
+        atlases.current.delete(atlasKey); // the next switch to it tries again
+        if (live) setError(`${faceNoun} unavailable: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    );
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one build per key
+  }, [atlasKey]);
+
   // The atlas for the view, with each plotted mark's id into it (recomputed
   // per axis switch from the loaded crosswalk: no request).
   const ready = atlas?.key === atlasKey ? atlas.a : null;
@@ -270,6 +274,9 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
         plotted ? missingNote(noun, [[ax.x, plotted.missingX], [ax.y, plotted.missingY]]) : "",
         shown.unnamed && src.names
           ? `${shown.unnamed} team ${shown.unnamed === 1 ? "id is" : "ids are"} not in ${src.names.schema}.${src.names.table} and ${shown.unnamed === 1 ? "reads" : "read"} as the id.`
+          : "",
+        overCap
+          ? `${faceNoun[0].toUpperCase()}${faceNoun.slice(1)} are available up to ${FACE_CAP.toLocaleString("en-US")} marks (this view has ${points.length.toLocaleString("en-US")}).`
           : "",
         atlasKey && !ready ? `Loading ${faceNoun}…` : "",
         noId ? `${noId.toLocaleString("en-US")} ${noun} have no ESPN id and stay dots.` : "",
@@ -451,6 +458,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
                 sprites={sprites}
                 onMarks={setMarks}
                 faceLabel={src.noun === "teams" ? "Logos" : "Faces"}
+                facesOff={overCap}
               />
               <p className="text-right font-inter text-xs text-muted-foreground" aria-hidden="true">
                 {ax.x} →

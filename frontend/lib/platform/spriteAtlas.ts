@@ -65,6 +65,11 @@ export function packFrames(ids: string[], cell: number, cols: number): Record<st
   return frames;
 }
 
+/** Images in flight at once: a 1,500-face build must not open every request
+ *  at once (the browser queues past its per-host limit anyway, and the CDN
+ *  takes a burst badly); 16 keeps the pipe full. */
+const IN_FLIGHT = 16;
+
 const combiner = (path: string, w: number, h: number) => `${ESPN}/combiner/i?img=${path}&w=${w}&h=${h}`;
 
 /**
@@ -86,7 +91,8 @@ export function headshotSrc(league: League, athleteId: string | number, size: { 
 }
 
 /**
- * Browser-only. Loads every `src` with `crossOrigin="anonymous"`, draws them
+ * Browser-only. Loads every `src` with `crossOrigin="anonymous"`, IN_FLIGHT
+ * at a time, draws them
  * into a `packFrames` grid (`cols = ceil(sqrt(n))`) on one canvas and returns
  * it with the frame map. Each image is drawn at its natural size, scaled down
  * uniformly only if it overflows the cell, so a 96×70 headshot in a 96 cell
@@ -116,20 +122,23 @@ export async function buildAtlas(
       img.src = src;
     });
 
+  // a duplicate id keeps its first entry, as packFrames keeps its first slot
   const seen = new Set<string>();
-  await Promise.all(
-    entries.map(async ({ id, src }) => {
-      if (seen.has(id)) return; // a duplicate id keeps its first entry, as packFrames keeps its first slot
-      seen.add(id);
+  const todo = entries.filter(({ id }) => !seen.has(id) && seen.add(id));
+  let next = 0;
+  const worker = async () => {
+    while (next < todo.length) {
+      const { id, src } = todo[next++];
       const img = await load(src);
       const f = frames[id];
       if (!img) {
         delete frames[id];
-        return;
+        continue;
       }
       const s = Math.min(1, cell / img.width, cell / img.height);
       ctx.drawImage(img, f.x, f.y, img.width * s, img.height * s);
-    }),
-  );
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(IN_FLIGHT, todo.length) }, worker));
   return { canvas, frames };
 }
