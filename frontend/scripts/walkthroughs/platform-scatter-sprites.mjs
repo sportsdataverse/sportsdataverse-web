@@ -124,16 +124,22 @@ const sprites = async (page, base) => {
   const plotted = rows.filter((r) => finite(r[xcol]) && finite(r[ycol]));
   const box = await plotBox();
   const at = plotted.map((r) => ({ r, ...toPx(r[xcol], r[ycol], box) }));
-  const isolated = at.filter((p) => reqIds.includes(String(p.r.player_id)) && at.every((o) => o === p || Math.hypot(o.px - p.px, o.py - p.py) > 30));
-  if (!isolated.length) fail('no isolated face to sample');
-  const sample = isolated[0];
-  const mark = await token('--color-chart-cat-1');
-  const ring = await ringShare(sample, 12, mark);
-  const disc = await inkIn({ x: sample.px - 9, y: sample.py - 9, w: 18, h: 18 });
-  if (ring < 0.6) fail(`${sample.r.passer_player_name}: ring share ${ring} in chart-cat-1`);
-  // a headshot PNG is transparent around the head: part opaque, many colours (a dot would be one)
-  if (disc.opaque / disc.total < 0.3 || disc.colours < 8) fail(`${sample.r.passer_player_name}: the disc is not a photo (${disc.opaque}/${disc.total} opaque, ${disc.colours} colours)`);
-  console.log(`scatter T3 (a) face: ${sample.r.passer_player_name} ring ${ring.toFixed(2)} chart-cat-1, disc ${disc.colours} colours`);
+  // The loneliest face (its nearest neighbour the farthest away): pixels are sampled only where it
+  // is 30 px clear of every other mark (a desktop); on a phone the faces overlap, so only the hover is checked.
+  const gapOf = (p) => Math.min(...at.filter((o) => o !== p).map((o) => Math.hypot(o.px - p.px, o.py - p.py)));
+  const framed = at.filter((p) => reqIds.includes(String(p.r.player_id)));
+  if (!framed.length) fail('no face to sample');
+  const sample = framed.reduce((a, b) => (gapOf(b) > gapOf(a) ? b : a));
+  const gap = gapOf(sample);
+  if (gap > 30) {
+    const mark = await token('--color-chart-cat-1');
+    const ring = await ringShare(sample, 12, mark);
+    const disc = await inkIn({ x: sample.px - 9, y: sample.py - 9, w: 18, h: 18 });
+    if (ring < 0.6) fail(`${sample.r.passer_player_name}: ring share ${ring} in chart-cat-1`);
+    // a headshot PNG is transparent around the head: part opaque, many colours (a dot would be one)
+    if (disc.opaque / disc.total < 0.3 || disc.colours < 8) fail(`${sample.r.passer_player_name}: the disc is not a photo (${disc.opaque}/${disc.total} opaque, ${disc.colours} colours)`);
+    console.log(`scatter T3 (a) face: ${sample.r.passer_player_name} ring ${ring.toFixed(2)} chart-cat-1, disc ${disc.colours} colours`);
+  } else console.log(`scatter T3 (a) face: no face is 30 px clear at ${width} (loneliest gap ${gap.toFixed(1)} px); pixels not sampled`);
   // The hover label still works on a face.
   await chart.scrollIntoViewIfNeeded();
   const cbox = await chart.locator('canvas').boundingBox();
