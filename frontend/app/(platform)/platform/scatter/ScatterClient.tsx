@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import useSWRImmutable from "swr/immutable";
+import { useTheme } from "next-themes";
 import { Download, Shuffle, Table2, X } from "lucide-react";
 import { Button } from "@components/ui/button";
-import { SCATTER_SOURCES, sourceKey } from "@content/scatter";
+import { SCATTER_SOURCES, sourceKey, type ScatterSource } from "@content/scatter";
 import { scatterViewParams, type ScatterView } from "@lib/platform/viewState";
 import { API_MAX_ROWS, loadSequencer } from "@lib/platform/wp";
 import { apiRows, seasonRange, teamNameRows } from "@lib/platform/queryRun";
@@ -25,6 +26,8 @@ import {
   scatterPoints,
   suggest,
 } from "@lib/platform/viz/scatterMath";
+import { buildAtlas } from "@lib/platform/spriteAtlas";
+import { CELL, FACE, espnIds, roundAtlas, spriteEntries, type Sprites, type Xwalk } from "@lib/platform/viz/sprites";
 import ScatterCanvas, { type ScatterExport } from "@components/platform/viz/ScatterCanvas";
 import useUrlMirror from "@hooks/useUrlMirror";
 
@@ -34,6 +37,10 @@ import useUrlMirror from "@hooks/useUrlMirror";
  * canvas with a median crosshair. One `/api/platform/query/run` read per
  * (source, season), plus a team-name read where the source has only ids, and
  * one read of the Data API's freshness per session for the PNG export.
+ * In face mode (`marks=face`), one round atlas of ESPN headshots (or logos)
+ * per (source, season, and theme for logos), built in the browser from
+ * `a.espncdn.com` (CORS `*`: the canvas stays untainted) and kept for the
+ * session; a source whose ids are not ESPN's reads its crosswalk first.
  */
 
 type Row = Record<string, unknown>;
@@ -48,6 +55,27 @@ type Loaded = {
   left: number;
   unlisted: boolean;
 };
+
+/** The faces (or logos) for one (source, season, theme): the crosswalk where
+ *  the source needs one, then every row's image through the combiner (48 px)
+ *  into one round atlas at the device's pixel ratio. A row with no ESPN id
+ *  fires no request; an image that fails is counted and its mark stays a dot. */
+type Atlas = Sprites & { xwalk: Xwalk[] | null; failed: number; total: number };
+async function loadAtlas(src: ScatterSource, rows: readonly Row[], dark: boolean): Promise<Atlas> {
+  let xwalk: Xwalk[] | null = null;
+  if (src.xwalk) {
+    const { schema, key } = src.xwalk;
+    // The crosswalk holds the newest season(s) only (nba: 2026 alone on
+    // 2026-10-01) and a player's ids never change, so it is read whole,
+    // newest first, rather than for the viewed season (which would match
+    // nothing for an earlier one).
+    const pairs = await apiRows({ schema, table: "player_crosswalk", select: `${key},espn_athlete_id`, order: "-season", limit: "5000" });
+    xwalk = pairs.flatMap((r) => (r[key] != null && r.espn_athlete_id != null ? [{ key: String(r[key]), value: String(r.espn_athlete_id) }] : []));
+  }
+  const entries = spriteEntries(src, espnIds(src, rows, src.idCol, xwalk), dark);
+  const round = roundAtlas(await buildAtlas(entries, CELL), FACE * (window.devicePixelRatio || 1));
+  return { ...round, xwalk, failed: entries.length - Object.keys(round.frames).length, total: entries.length };
+}
 
 /** `/v1/meta`'s `datasets`: when each "schema.table" last changed. */
 const metaFetcher = async (url: string) => {
@@ -86,6 +114,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
   // Highlight chips by colour slot (a removed chip leaves a gap), the combobox
   // text, its open state and pending option, and the chip a full set refused.
   const [hl, setHl] = useState<TrendPicks>(initial.hl);
+  const [marks, setMarks] = useState<ScatterView["marks"]>(initial.marks);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -107,6 +136,15 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
   const activeSeason = seasons?.length ? (seasons.includes(season) ? season : seasons[0]) : "";
   const loadKey = `${key}|${activeSeason}`;
   const shown = loaded?.key === loadKey ? loaded : null;
+  // Faces: built once per (source, season), and per theme for logos (which
+  // have a dark variant), from every row of the read (the plotted set moves
+  // with the axes; a row missing an axis value is the exception), and kept
+  // for the session: an axis, highlight, zoom or theme switch never reloads.
+  const { resolvedTheme } = useTheme();
+  const atlases = useRef(new Map<string, Promise<Atlas>>());
+  const [atlas, setAtlas] = useState<{ key: string; a: Atlas } | null>(null);
+  const atlasKey = marks === "face" && shown && resolvedTheme ? `${loadKey}|${src.noun === "teams" ? resolvedTheme : ""}` : null;
+  const faceNoun = src.noun === "teams" ? "logos" : "faces";
 
   useEffect(() => {
     // The ticket first: a switch to a source whose seasons are still loading
@@ -136,6 +174,29 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one read per (source, season)
   }, [loadKey]);
 
+  useEffect(() => {
+    if (!atlasKey || !shown) return;
+    let live = true;
+    let p = atlases.current.get(atlasKey);
+    if (!p) {
+      p = loadAtlas(src, shown.rows, resolvedTheme === "dark");
+      atlases.current.set(atlasKey, p);
+    }
+    p.then(
+      (a) => {
+        if (live) setAtlas({ key: atlasKey, a });
+      },
+      (e) => {
+        atlases.current.delete(atlasKey); // the next switch to it tries again
+        if (live) setError(`${faceNoun} unavailable: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    );
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one build per (source, season, theme for logos)
+  }, [atlasKey]);
+
   const numeric = useMemo(() => (catalog?.[src.table] ? numericColumns(catalog[src.table]) : []), [catalog, src]);
   // Once rows land, only the columns they fill (an nba_stats slice fills 75 of 201).
   const axes = useMemo(() => (shown ? filledColumns(numeric, shown.rows) : numeric), [numeric, shown]);
@@ -149,13 +210,18 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
     [showTable, plotted]
   );
 
-  const view = { schema: src.schema, table: src.table, season: activeSeason || season, x: ax.x, y: ax.y, hl };
+  const view = { schema: src.schema, table: src.table, season: activeSeason || season, x: ax.x, y: ax.y, hl, marks };
   const viewParams = scatterViewParams(view);
   useUrlMirror(viewParams);
 
   const q = filter.trim().toLowerCase();
   const rail = byLetter(axes.filter((c) => c.toLowerCase().includes(q)));
   const points = useMemo(() => plotted?.points ?? [], [plotted]);
+  // The atlas for the view, with each plotted mark's id into it (recomputed
+  // per axis switch from the loaded crosswalk: no request).
+  const ready = atlas?.key === atlasKey ? atlas.a : null;
+  const sprites = useMemo(() => (ready ? { canvas: ready.canvas, frames: ready.frames, ids: espnIds(src, points, "id", ready.xwalk) } : null), [ready, src, points]);
+  const noId = sprites ? sprites.ids.filter((id) => id == null).length : 0;
   const noun = src.noun;
   const options = useMemo(() => highlightOptions(points), [points]);
   const slots = useMemo(() => highlightSlots(points, hl), [points, hl]);
@@ -205,6 +271,9 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
         shown.unnamed && src.names
           ? `${shown.unnamed} team ${shown.unnamed === 1 ? "id is" : "ids are"} not in ${src.names.schema}.${src.names.table} and ${shown.unnamed === 1 ? "reads" : "read"} as the id.`
           : "",
+        atlasKey && !ready ? `Loading ${faceNoun}…` : "",
+        noId ? `${noId.toLocaleString("en-US")} ${noun} have no ESPN id and stay dots.` : "",
+        ready?.failed ? `${faceNoun} unavailable: ${ready.failed} of ${ready.total} images failed.` : "",
       ].filter(Boolean)
     : [];
   const failure = error ?? catalogError?.message ?? seasonsError?.message ?? null;
@@ -372,7 +441,17 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
                   </li>
                 </ul>
               ) : null}
-              <ScatterCanvas ref={chart} points={points} xLabel={ax.x} yLabel={ax.y} slots={slots} />
+              <ScatterCanvas
+                ref={chart}
+                points={points}
+                xLabel={ax.x}
+                yLabel={ax.y}
+                slots={slots}
+                marks={marks}
+                sprites={sprites}
+                onMarks={setMarks}
+                faceLabel={src.noun === "teams" ? "Logos" : "Faces"}
+              />
               <p className="text-right font-inter text-xs text-muted-foreground" aria-hidden="true">
                 {ax.x} →
               </p>

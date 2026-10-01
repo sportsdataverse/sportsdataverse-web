@@ -107,6 +107,8 @@ export default function ScatterCanvas({
   slots = null,
   marks = "dot",
   sprites = null,
+  onMarks,
+  faceLabel = "Faces",
   ref,
 }: {
   points: readonly ScatterPoint[];
@@ -118,6 +120,10 @@ export default function ScatterCanvas({
   marks?: ScatterScene["marks"];
   /** The round atlas and each mark's id into it; null until loaded (dots meanwhile). */
   sprites?: ScatterScene["sprites"];
+  /** Shows the Dots | Faces control, which sets `marks` through it. */
+  onMarks?: (marks: ScatterScene["marks"]) => void;
+  /** The face option's text: "Logos" for a team source. */
+  faceLabel?: string;
   ref?: React.Ref<ScatterExport>;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -309,6 +315,22 @@ export default function ScatterCanvas({
           ↑ {yLabel}
         </p>
         <div className="flex gap-1" role="group" aria-label="Chart view">
+          {onMarks ? (
+            // weight as well as fill: the chosen one reads without colour
+            <div role="group" aria-label="Marks" className="flex h-7 items-center divide-x divide-border overflow-hidden rounded-md border border-border">
+              {(["dot", "face"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={marks === m}
+                  onClick={() => onMarks(m)}
+                  className={`h-full px-2 font-inter text-sm transition-colors ${marks === m ? "bg-primary font-semibold text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  {m === "dot" ? "Dots" : faceLabel}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <button type="button" aria-pressed={showLabels} onClick={() => setShowLabels((s) => !s)} className={toolClass}>
             Labels
           </button>

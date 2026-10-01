@@ -127,7 +127,9 @@ export function scatterAxes(x: string, y: string, numeric: readonly string[]): {
 
 /** `teamName`: the team's full name where `team` is an abbreviation
  *  (`source.teamNameCol`), else "". */
-export type ScatterPoint = { label: string; team: string; teamName: string; x: number; y: number };
+/** `id`: the row's `source.idCol` as it came (a player or team id; the faces'
+ *  key, lib/platform/viz/sprites.ts `espnIds`). */
+export type ScatterPoint = { label: string; team: string; teamName: string; x: number; y: number; id?: unknown };
 
 /**
  * Rows → points: a row whose x or y is null or not finite (after
@@ -153,7 +155,7 @@ export function scatterPoints(
     if (!Number.isFinite(vx)) missingX++;
     if (!Number.isFinite(vy)) missingY++;
     if (Number.isFinite(vx) && Number.isFinite(vy))
-      points.push({ label: text(r, source.labelCol), team: text(r, source.teamCol), teamName: text(r, source.teamNameCol), x: vx, y: vy });
+      points.push({ label: text(r, source.labelCol), team: text(r, source.teamCol), teamName: text(r, source.teamNameCol), x: vx, y: vy, id: r[source.idCol] });
   }
   return { points, missingX, missingY };
 }

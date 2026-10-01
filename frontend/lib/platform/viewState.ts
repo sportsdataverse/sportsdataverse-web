@@ -254,10 +254,11 @@ export function lookupsViewParams(v: LookupsView): URLSearchParams {
 // --- Scatter ------------------------------------------------------------------
 
 /** One source (schema + table, from content/scatter.ts), one season, two
- *  numeric columns, and up to ALL_PAIRS_CAP highlight chips by colour slot
- *  (`hl`, a blank key per gap, as Trends' `team`). `mode` is reserved for
- *  P4 T3 (faces): not read or written yet. */
-export type ScatterView = { schema: string; table: string; season: string; x: string; y: string; hl: TrendPicks };
+ *  numeric columns, up to ALL_PAIRS_CAP highlight chips by colour slot
+ *  (`hl`, a blank key per gap, as Trends' `team`), and the marks: dots
+ *  (the default, off the URL) or faces (`marks=face`: headshots, or logos
+ *  for a team source). */
+export type ScatterView = { schema: string; table: string; season: string; x: string; y: string; hl: TrendPicks; marks: "dot" | "face" };
 const SCATTER_DEFAULT = SCATTER_SOURCES[0];
 
 /** A source outside content/scatter.ts falls back to the first; `numeric`
@@ -273,7 +274,14 @@ export function parseScatterView(sp: URLSearchParams, numeric?: readonly string[
   };
   const season = sp.get("season") ?? "";
   const axes = numeric ? scatterAxes(col("x"), col("y"), numeric) : { x: col("x"), y: col("y") };
-  return { schema: src.schema, table: src.table, season: /^\d{4}$/.test(season) ? season : "", ...axes, hl: readPicks(sp, "hl", ALL_PAIRS_CAP) };
+  return {
+    schema: src.schema,
+    table: src.table,
+    season: /^\d{4}$/.test(season) ? season : "",
+    ...axes,
+    hl: readPicks(sp, "hl", ALL_PAIRS_CAP),
+    marks: sp.get("marks") === "face" ? "face" : "dot",
+  };
 }
 
 export function scatterViewParams(v: ScatterView): URLSearchParams {
@@ -286,6 +294,7 @@ export function scatterViewParams(v: ScatterView): URLSearchParams {
   if (v.x) p.set("x", v.x);
   if (v.y) p.set("y", v.y);
   for (const c of trimGaps(v.hl)) p.append("hl", c ?? "");
+  if (v.marks === "face") p.set("marks", "face");
   return p;
 }
 
@@ -374,7 +383,7 @@ export function ratingsViewParams(v: RatingsView): URLSearchParams {
  *  is not a Scatter source. */
 export function ratingsChartHref(src: RatingSource, season: string): string | null {
   if (!src.chart || src.source !== "api" || !SCATTER_SOURCES.some((s) => s.schema === src.schema && s.table === src.table)) return null;
-  const qs = scatterViewParams({ schema: src.schema, table: src.table, season, x: src.chart.x, y: src.chart.y, hl: [] }).toString();
+  const qs = scatterViewParams({ schema: src.schema, table: src.table, season, x: src.chart.x, y: src.chart.y, hl: [], marks: "dot" }).toString();
   return `/platform/scatter?${qs}`;
 }
 
