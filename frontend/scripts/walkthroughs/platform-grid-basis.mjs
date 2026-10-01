@@ -210,7 +210,12 @@ const steps = async (page, base) => {
   if (s.tags.TEPA !== '· per play' || s.tags.plays !== '(no per play)' || s.tags.EPAplay_pct !== undefined || s.cells.plays.some((v) => v !== '—')) fail(`passing tags ${JSON.stringify(s.tags)}`);
   if (s.cells.EPAplay_pct.every((v) => v === '—' || v === '∅')) fail('EPAplay_pct is not passing through');
   console.log(`passing: ${s.total} rows under per play, ${s.rows} in the DOM at ${s.heights}px; EPAplay_pct untouched, plays blank, TEPA <- EPAplay`);
-  // the qualifier note reads the native counts: a faded row still says "<n> dropbacks in <m> team games" with plays blank
+  // the qualifier note reads the native counts: a faded row still says "<n> dropbacks in <m> team games" with
+  // dropbacks and plays blank. The windowed grid renders the top of the -TEPA order, all qualifiers, so sort
+  // TEPA ascending first: under per play that is EPAplay ascending, and the most negative EPA/play belongs to
+  // one- or two-dropback passers, who can never clear 14 dropbacks per team game.
+  await cellOf(s, 'TEPA', 0).click();
+  await key('s');
   await grid.locator('td[title*="below the qualifier"]').first().waitFor({ timeout: 30_000 });
   const why = await grid.locator('tbody tr[data-row] > td:first-child[title*="below the qualifier"]').first().getAttribute('title');
   if (!/^\d+ dropbacks in \d+ team games, below the qualifier/.test(why)) fail(`a faded row's note under per play reads "${why}"`);
