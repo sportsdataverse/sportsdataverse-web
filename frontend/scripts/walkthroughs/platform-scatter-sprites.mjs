@@ -4,8 +4,9 @@
 // going to a.espncdn.com's combiner at 48 px (one per distinct id, never a full-size headshot);
 // the Dots | Faces control (aria-pressed) switches back and forth without a reload (no new
 // requests) and mirrors marks=face in the URL; an axis switch keeps the atlas (no new requests);
-// nba.player_impact bridges NBA ids through nba.player_crosswalk (>= 80 % matched, the rest
-// dots, counted in the note); cfb.ratings draws logos (the control reads "Logos"), the dark
+// nba.player_impact bridges NBA ids through nba.player_crosswalk (a face for >= 95 % of the
+// players the crosswalk can bridge — 67 % of 2026 on 2026-10-01, a data gap — the rest dots,
+// counted in the note); cfb.ratings draws logos (the control reads "Logos"), the dark
 // variant on the dark theme, and a theme switch swaps them; the PNG export in face mode is a
 // file (the canvas is not tainted) with face pixels where the plot is; marks=dot and a link
 // without marks draw no image at all.
@@ -177,18 +178,27 @@ const sprites = async (page, base) => {
   console.log(`scatter T3 (b) ${width}: Dots -> 0 faces, Faces -> ${first.faces} again, axis switch -> ${after.faces}/${after.marks}; 0 new requests`);
   await page.waitForTimeout(1000);
 
-  // (c) nba.player_impact bridges through the crosswalk: at least 80 % matched, the rest dots.
+  // (c) nba.player_impact bridges through nba.player_crosswalk (one read, whole, newest season
+  // first): a face for at least 95 % of the players the crosswalk CAN bridge (2026-10-01: 390 of
+  // 582 — 149 of its 544 rows carry no nba_player_id, a data gap upstream), the rest dots and
+  // counted in the note; every request an nba headshot through the combiner.
   espn.length = 0;
   const xwalkRead = page.waitForRequest(/query\/run\?schema=nba&table=player_crosswalk/, { timeout: 60_000 });
   await page.goto(`${base}${NBA}`, { waitUntil: 'domcontentloaded' });
   const xreq = await xwalkRead;
   const nba = await facesDrawn('· 2026');
-  const ratio = nba.faces / nba.marks;
-  if (ratio < 0.8) fail(`nba.player_impact: ${nba.faces} faces of ${nba.marks} marks`);
   if (!/order=-season/.test(xreq.url()) || !/select=nba_player_id%2Cespn_athlete_id/.test(xreq.url())) fail(`crosswalk read ${xreq.url()}`);
+  const xwalk = await apiRows({ schema: 'nba', table: 'player_crosswalk', select: 'nba_player_id,espn_athlete_id', order: '-season', limit: '5000' });
+  const bridged = new Set(xwalk.filter((r) => r.nba_player_id != null && r.espn_athlete_id != null).map((r) => String(r.nba_player_id)));
+  const impact = await apiRows({ schema: 'nba', table: 'player_impact', season: '2026', season_type: 'Regular Season', select: 'player_id,o_rapm,d_rapm', limit: '50000' });
+  const canBridge = impact.filter((r) => finite(r.o_rapm) && finite(r.d_rapm) && bridged.has(String(r.player_id))).length;
+  const ratio = nba.faces / nba.marks;
+  if (nba.faces < 0.95 * canBridge) fail(`nba.player_impact: ${nba.faces} faces of ${nba.marks} marks, the crosswalk bridges ${canBridge}`);
+  if (!(await note.innerText()).includes(`${(nba.marks - canBridge).toLocaleString('en-US')} players have no ESPN id`)) fail(`the note does not count the unbridged players: "${await note.innerText()}"`);
   const nbaReqs = espn.filter((u) => COMBINER.test(u) && /headshots\/nba\//.test(u));
   if (espn.some((u) => !COMBINER.test(u))) fail('an NBA request off the combiner');
-  console.log(`scatter T3 (c) nba.player_impact 2026 ${width}: ${nba.faces} faces of ${nba.marks} (${(100 * ratio).toFixed(1)} %), ${nbaReqs.length} nba headshot requests; note "${await note.innerText()}"`);
+  if (nbaReqs.length !== canBridge) fail(`${nbaReqs.length} nba headshot requests for ${canBridge} bridged players`);
+  console.log(`scatter T3 (c) nba.player_impact 2026 ${width}: ${nba.faces} faces of ${nba.marks} (${(100 * ratio).toFixed(1)} %); the crosswalk bridges ${canBridge} (${((100 * canBridge) / nba.marks).toFixed(1)} %), ${nbaReqs.length} nba headshot requests; note "${await note.innerText()}"`);
   await chart.scrollIntoViewIfNeeded();
   await page.waitForTimeout(1500);
 
