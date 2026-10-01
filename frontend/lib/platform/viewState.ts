@@ -395,7 +395,8 @@ export function ratingsChartHref(src: RatingSource, season: string): string | nu
  *  the modes land; the key is reserved) and the smallest bin drawn, 1–15
  *  (15 reads "15+"). */
 export type ShotsView = { league: string; season: string; player: string; mode: "raw" | "smoothed" | "zones"; minN: number };
-const SHOTS_MODES = ["raw", "smoothed", "zones"] as const;
+/** The map's modes, in the control's order (ShotsClient). */
+export const SHOTS_MODES = ["raw", "smoothed", "zones"] as const;
 export const SHOTS_MIN_N = { min: 1, max: 15, dflt: 2 } as const;
 
 export function parseShotsView(sp: URLSearchParams): ShotsView {

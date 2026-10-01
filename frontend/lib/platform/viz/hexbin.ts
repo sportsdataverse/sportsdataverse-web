@@ -23,6 +23,10 @@ export const HEX_RADIUS = { court: 1.85, rink: 3.6 } as const;
  *  and the hockey colouring (a shot without `xg` adds 0). */
 export type HexBin = { cx: number; cy: number; n: number; made: number; sumDist: number; sumXg: number };
 
+/** What `binSlot` and `readoutText` read: a hex bin, a zone, a distance bin or
+ *  a butterfly side (shotStats.ts) all carry these four. */
+export type BinStats = Pick<HexBin, "n" | "made" | "sumDist" | "sumXg">;
+
 const S3 = Math.sqrt(3);
 
 /** The shots binned onto a hex grid of `radius` feet; a bin per cell that
@@ -105,27 +109,29 @@ export function leagueRateAt(curve: readonly CurveRow[], dist: number): number |
  *  else FG% on the sequential ramp. With a curve, a bin whose distance no
  *  bucket holds is null (no baseline, no colour): the two ramps never mix
  *  on one chart. */
-export function binSlot(b: HexBin, kind: MadeKind, curve: readonly CurveRow[] | null = null): ChartSlot | null {
+export function binSlot(b: BinStats, kind: MadeKind, curve: readonly CurveRow[] | null = null): ChartSlot | null {
   if (kind === "goals") return divergingSlot((b.made - b.sumXg) / b.n, XG_CUTS);
   if (!curve) return sequentialSlot(b.made / b.n);
   const league = leagueRateAt(curve, b.sumDist / b.n);
   return league === null ? null : divergingSlot(b.made / b.n - league, LEAGUE_CUTS);
 }
 
-const pct = (x: number) => `${Math.round(100 * x)}%`;
+export const pct = (x: number) => `${Math.round(100 * x)}%`;
 /** Signed to one decimal, the sign taken AFTER rounding so −0.04 reads "+0.0", never "−0.0". */
-const signed = (x: number) => {
+export const signed = (x: number) => {
   const r = Number(x.toFixed(1));
   return `${r >= 0 ? "+" : "−"}${Math.abs(r).toFixed(1)}`;
 };
 
 /** The readout for a bin: "23 shots · 48% FG · 12 ft", or on a rink
- *  "23 shots · 3 goals · +0.9 vs xG · 31 ft". */
-export function readoutText(b: HexBin, kind: MadeKind): string {
+ *  "23 shots · 3 goals · +0.9 vs xG · 31 ft" (a smoothed bin's goals are
+ *  fractional: "3.1 goals"). */
+export function readoutText(b: BinStats, kind: MadeKind): string {
   const shots = `${b.n.toLocaleString("en-US")} ${b.n === 1 ? "shot" : "shots"}`;
   const ft = `${Math.round(b.sumDist / b.n)} ft`;
   if (kind === "FG") return `${shots} · ${pct(b.made / b.n)} FG · ${ft}`;
-  return `${shots} · ${b.made} ${b.made === 1 ? "goal" : "goals"} · ${signed(b.made - b.sumXg)} vs xG · ${ft}`;
+  const goals = Number.isInteger(b.made) ? b.made : b.made.toFixed(1);
+  return `${shots} · ${goals} ${b.made === 1 ? "goal" : "goals"} · ${signed(b.made - b.sumXg)} vs xG · ${ft}`;
 }
 
 /** The surface a shot must lie on to be binned: the half court (±25 ft,
