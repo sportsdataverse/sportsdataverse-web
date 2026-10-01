@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SCATTER_SOURCES } from '../content/scatter.ts';
-import { CELL, FACE, FACE_CAP, espnIds, idText, joinOnStringId, roundAtlas, spriteEntries, spriteLeague } from '../lib/platform/viz/sprites.ts';
+import { CELL, FACE, FACE_CAP, atlasKey, espnIds, idText, joinOnStringId, roundAtlas, spriteEntries, spriteLeague } from '../lib/platform/viz/sprites.ts';
 
 const src = (schema: string, table: string) => SCATTER_SOURCES.find((s) => s.schema === schema && s.table === table)!;
 const XWALK = [
@@ -66,6 +66,14 @@ test('spriteEntries: one combiner-sized headshot per distinct id for players, a 
   assert.deepEqual(spriteEntries(src('mbb', 'ratings'), ['130'], true), [
     { id: '130', src: 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/ncaa/500-dark/130.png&w=48&h=48' },
   ]);
+});
+
+test('atlasKey: the theme only for a team source; the DPR and the plotted set always', () => {
+  assert.equal(atlasKey('cfb.ratings|2025', 'teams', 'dark', 2, [1, 2]), 'cfb.ratings|2025|dark|2|1,2');
+  assert.notEqual(atlasKey('cfb.ratings|2025', 'teams', 'dark', 2, [1, 2]), atlasKey('cfb.ratings|2025', 'teams', 'light', 2, [1, 2]));
+  assert.equal(atlasKey('cfb.passing|2025', 'players', 'dark', 2, [1, 2]), atlasKey('cfb.passing|2025', 'players', 'light', 2, [1, 2]));
+  assert.notEqual(atlasKey('cfb.passing|2025', 'players', 'dark', 1, [1, 2]), atlasKey('cfb.passing|2025', 'players', 'dark', 2, [1, 2]));
+  assert.notEqual(atlasKey('cfb.passing|2025', 'players', 'dark', 2, [1, 2]), atlasKey('cfb.passing|2025', 'players', 'dark', 2, [1, 3]));
 });
 
 test('spriteEntries stops at FACE_CAP distinct ids (duplicates and missing ids do not count)', () => {

@@ -28,7 +28,7 @@ import {
   type ScatterPoint,
 } from "@lib/platform/viz/scatterMath";
 import { buildAtlas } from "@lib/platform/spriteAtlas";
-import { CELL, FACE, FACE_CAP, espnIds, roundAtlas, spriteEntries, type Sprites, type Xwalk } from "@lib/platform/viz/sprites";
+import { atlasKey, CELL, FACE, FACE_CAP, espnIds, roundAtlas, spriteEntries, type Sprites, type Xwalk } from "@lib/platform/viz/sprites";
 import ScatterCanvas, { type ScatterExport } from "@components/platform/viz/ScatterCanvas";
 import useUrlMirror from "@hooks/useUrlMirror";
 
@@ -63,7 +63,7 @@ type Loaded = {
  *  ESPN id fires no request; an image that fails is counted and its mark
  *  stays a dot. */
 type Atlas = Sprites & { xwalk: Xwalk[] | null; failed: number; total: number };
-async function loadAtlas(src: ScatterSource, points: readonly ScatterPoint[], dark: boolean): Promise<Atlas> {
+async function loadAtlas(src: ScatterSource, points: readonly ScatterPoint[], dark: boolean, dpr: number): Promise<Atlas> {
   let xwalk: Xwalk[] | null = null;
   if (src.xwalk) {
     const { schema, key } = src.xwalk;
@@ -75,7 +75,7 @@ async function loadAtlas(src: ScatterSource, points: readonly ScatterPoint[], da
     xwalk = pairs.flatMap((r) => (r[key] != null && r.espn_athlete_id != null ? [{ key: String(r[key]), value: String(r.espn_athlete_id) }] : []));
   }
   const entries = spriteEntries(src, espnIds(src, points, "id", xwalk), dark);
-  const round = roundAtlas(await buildAtlas(entries, CELL), FACE * (window.devicePixelRatio || 1));
+  const round = roundAtlas(await buildAtlas(entries, CELL), FACE * dpr);
   return { ...round, xwalk, failed: entries.length - Object.keys(round.frames).length, total: entries.length };
 }
 
@@ -189,43 +189,57 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
   const rail = byLetter(axes.filter((c) => c.toLowerCase().includes(q)));
   const points = useMemo(() => plotted?.points ?? [], [plotted]);
   // Faces: one atlas per (source, season) read, per theme for logos (which
-  // have a dark variant), built from the PLOTTED marks (at most FACE_CAP: past
-  // it the Faces option is off and the marks stay dots) and kept for the
-  // session, so a highlight, zoom or theme switch never reloads.
+  // have a dark variant), per device pixel ratio and per plotted set
+  // (`atlasKey`), built from the PLOTTED marks (at most FACE_CAP: past it the
+  // Faces option is off and the marks stay dots) and kept, the last few, for
+  // the session: a highlight, zoom or theme switch never reloads, and an axis
+  // switch only when it plots other marks (their images are then cached).
   const { resolvedTheme } = useTheme();
+  const [dpr, setDpr] = useState(1);
+  useEffect(() => {
+    const read = () => setDpr(window.devicePixelRatio || 1);
+    read();
+    window.addEventListener("resize", read); // a browser zoom fires it
+    return () => window.removeEventListener("resize", read);
+  }, []);
   const atlases = useRef(new Map<string, Promise<Atlas>>());
   const [atlas, setAtlas] = useState<{ key: string; a: Atlas } | null>(null);
   // A failed build, for its key alone: a switch to Dots or another view drops it.
   const [atlasError, setAtlasError] = useState<{ key: string; text: string } | null>(null);
   const overCap = points.length > FACE_CAP;
-  const atlasKey = marks === "face" && !overCap && points.length && resolvedTheme ? `${loadKey}|${src.noun === "teams" ? resolvedTheme : ""}` : null;
+  const atlasId =
+    marks === "face" && !overCap && points.length && resolvedTheme
+      ? atlasKey(loadKey, src.noun, resolvedTheme, dpr, points.map((p) => p.id))
+      : null;
 
   useEffect(() => {
-    if (!atlasKey) return;
+    if (!atlasId) return;
     let live = true;
-    let p = atlases.current.get(atlasKey);
+    let p = atlases.current.get(atlasId);
     if (!p) {
-      p = loadAtlas(src, points, resolvedTheme === "dark");
-      atlases.current.set(atlasKey, p);
+      p = loadAtlas(src, points, resolvedTheme === "dark", dpr);
+      atlases.current.set(atlasId, p);
+      // the last few views only: an atlas is ~12 MB at the cap
+      for (const k of atlases.current.keys()) if (atlases.current.size > 4) atlases.current.delete(k);
     }
     p.then(
       (a) => {
-        if (live) setAtlas({ key: atlasKey, a });
+        if (live) setAtlas({ key: atlasId, a });
       },
       (e) => {
-        atlases.current.delete(atlasKey); // the next switch to it tries again
-        if (live) setAtlasError({ key: atlasKey, text: `${faceNoun} unavailable: ${e instanceof Error ? e.message : String(e)}` });
+        atlases.current.delete(atlasId); // the next switch to it tries again
+        if (live) setAtlasError({ key: atlasId, text: `${faceNoun} unavailable: ${e instanceof Error ? e.message : String(e)}` });
       }
     );
     return () => {
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one build per key
-  }, [atlasKey]);
+  }, [atlasId]);
 
-  // The atlas for the view, with each plotted mark's id into it (recomputed
-  // per axis switch from the loaded crosswalk: no request).
-  const ready = atlas?.key === atlasKey ? atlas.a : null;
+  // The atlas for the view, with each plotted mark's id into it (from the
+  // loaded crosswalk: no request).
+  const ready = atlas?.key === atlasId ? atlas.a : null;
   const sprites = useMemo(() => (ready ? { canvas: ready.canvas, frames: ready.frames, ids: espnIds(src, points, "id", ready.xwalk) } : null), [ready, src, points]);
   const noId = sprites ? sprites.ids.filter((id) => id == null).length : 0;
   const noun = src.noun;
@@ -280,7 +294,7 @@ export default function ScatterClient({ initial }: { initial: ScatterView }) {
         overCap
           ? `${faceNoun[0].toUpperCase()}${faceNoun.slice(1)} are available up to ${FACE_CAP.toLocaleString("en-US")} marks (this view has ${points.length.toLocaleString("en-US")}).`
           : "",
-        atlasError?.key === atlasKey ? atlasError.text : atlasKey && !ready ? `Loading ${faceNoun}…` : "",
+        atlasError?.key === atlasId ? atlasError.text : atlasId && !ready ? `Loading ${faceNoun}…` : "",
         noId ? `${noId.toLocaleString("en-US")} ${noun} have no ESPN id and stay dots.` : "",
         ready?.failed ? `${faceNoun} unavailable: ${ready.failed} of ${ready.total} images failed.` : "",
       ].filter(Boolean)

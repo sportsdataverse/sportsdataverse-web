@@ -85,6 +85,15 @@ export function spriteEntries(source: ScatterSource, ids: readonly (string | nul
   return out;
 }
 
+/** The atlas cache key: one atlas per (source, season) read (`loadKey`), per
+ *  theme for a team source (logos have a dark variant, headshots do not), per
+ *  device pixel ratio (a browser zoom rebuilds at the new ratio instead of
+ *  blurring the old one), and per plotted set (`ids`, the marks' own ids: an
+ *  axis switch that plots the same marks reuses the atlas). */
+export function atlasKey(loadKey: string, noun: ScatterSource["noun"], theme: string, dpr: number, ids: readonly unknown[]): string {
+  return `${loadKey}|${noun === "teams" ? theme : ""}|${dpr}|${ids.join(",")}`;
+}
+
 /**
  * Browser-only. Every frame of `atlas` redrawn once as a `d`-px circle on a
  * second canvas (a circular clip, the frame cover-fit and centred in it), so
