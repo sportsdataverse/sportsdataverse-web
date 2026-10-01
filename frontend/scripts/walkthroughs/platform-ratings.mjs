@@ -26,7 +26,8 @@ const ratings = async (page, base) => {
     await page.waitForTimeout(400);
     return page.evaluate(async () => {
       const t = document.querySelector('table[role="grid"]');
-      const cols = [...t.querySelectorAll('thead th')].slice(1).map((th) => th.innerText.trim().toLowerCase());
+      // raw names ride on th[data-col]: the visible text is the registry's short label
+      const cols = [...t.querySelectorAll('thead th')].slice(1).map((th) => th.dataset.col.toLowerCase());
       // over 200 rows the grid renders only a window of them: scroll it through, collecting by row
       const box = t.parentElement, seen = new Map();
       const settle = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 50))));
