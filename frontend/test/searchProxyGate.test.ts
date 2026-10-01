@@ -34,3 +34,10 @@ test('the search proxy trims q to the Data API cap of 64 characters', () => {
   const text = fs.readFileSync(path.join(frontendRoot, 'app/api/platform/search/route.ts'), 'utf8');
   assert.match(text, /\.slice\(0,\s*64\)/, 'q must be trimmed to 64 characters (the Data API 400s longer) before it reaches the Data API');
 });
+
+test('both proxies answer with Cache-Control: private — a session-gated body is never shared by a cache', () => {
+  for (const { rel } of ROUTES) {
+    const text = fs.readFileSync(path.join(frontendRoot, rel), 'utf8');
+    assert.match(text, /["']Cache-Control["']\s*:\s*["']private\b/, `${rel} must set a private Cache-Control`);
+  }
+});
