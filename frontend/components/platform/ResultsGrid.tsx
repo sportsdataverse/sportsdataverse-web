@@ -917,7 +917,8 @@ export default function ResultsGrid({
                 const isLinked = highlightIndex === orig;
                 const isPinned = pinnedSet.has(orig);
                 const faded = below?.[orig] === true;
-                const why = faded ? belowNote(cells[volCol]!, cells[gamesCol]!, qmin!, unit) : undefined;
+                // the native counts: on a basis the volume column may be blank (plays under per play)
+                const why = faded ? belowNote(rows[orig][volCol]!, rows[orig][gamesCol]!, qmin!, unit) : undefined;
                 const rowBg = isSelected
                   ? "bg-primary/15"
                   : isLinked

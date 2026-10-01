@@ -9,7 +9,8 @@
 //   sorting the native TEPA_off); `b` cycles Native → total → per play → per game → per drive → Native,
 //   Ctrl+b is left to the browser; a copied link with grid.basis + grid.preset restores both.
 // - Query cfb.passing: EPAplay_pct passes through untouched under per play; a 10k-row link stays
-//   windowed (≤ 44 rows in the DOM, 28 px each) on a basis.
+//   windowed (≤ 44 rows in the DOM, 28 px each) on a basis; a faded row's qualifier note still carries
+//   the native dropbacks and team_games counts.
 // - Query cfb.league_averages (no registry column): no toggle, `b` says so, grid.basis is dropped with a notice.
 // Keys go through page.keyboard. /platform is behind org sign-in, so this is recorded locally.
 import { basesFor, rebase } from '../../lib/platform/gridRegistry.ts';
@@ -209,6 +210,11 @@ const steps = async (page, base) => {
   if (s.tags.TEPA !== '· per play' || s.tags.plays !== '(no per play)' || s.tags.EPAplay_pct !== undefined || s.cells.plays.some((v) => v !== '—')) fail(`passing tags ${JSON.stringify(s.tags)}`);
   if (s.cells.EPAplay_pct.every((v) => v === '—' || v === '∅')) fail('EPAplay_pct is not passing through');
   console.log(`passing: ${s.total} rows under per play, ${s.rows} in the DOM at ${s.heights}px; EPAplay_pct untouched, plays blank, TEPA <- EPAplay`);
+  // the qualifier note reads the native counts: a faded row still says "<n> dropbacks in <m> team games" with plays blank
+  await grid.locator('td[title*="below the qualifier"]').first().waitFor({ timeout: 30_000 });
+  const why = await grid.locator('tbody tr[data-row] > td:first-child[title*="below the qualifier"]').first().getAttribute('title');
+  if (!/^\d+ dropbacks in \d+ team games, below the qualifier/.test(why)) fail(`a faded row's note under per play reads "${why}"`);
+  console.log(`passing under per play: faded row note "${why.split(',')[0]}"`);
   await page.waitForTimeout(500);
 
   // --- a table with no sibling: no toggle, b says so, grid.basis is dropped --------------------------
