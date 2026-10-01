@@ -7,7 +7,7 @@ import { cn } from "@lib/utils";
 import { apiRows } from "@lib/platform/queryRun";
 import { belowNote, belowQualifier, categoryOf, metricColumns, nSiblings, QUALIFIER_VOLUME, qualifierMin } from "@lib/platform/gridQualifier";
 import { formatValue } from "@lib/platform/trends";
-import { columnTip } from "@lib/platform/glossary";
+import { COLUMN_GLOSSARY, columnTip } from "@lib/platform/glossary";
 import { revealInScroller } from "@lib/platform/scroll";
 import { visibleRange, WINDOW_MIN } from "@lib/platform/gridVirtual";
 import { identityColumn, labelColumn, pinIdentity, transposePinned } from "@lib/platform/gridCompare";
@@ -742,8 +742,10 @@ export default function ResultsGrid({
                   // puts it there and dropOn keeps it); otherwise wherever the reader dragged it.
                   const stuck = c === 0 && ci === frozen;
                   const head = heads[c];
-                  // the registry label, then the glossary's dtype and description; an unresolved column is the glossary tip alone
-                  const tip = head.text === name ? columnTip(name, types?.[name]) : head.title + columnTip(name, types?.[name]).slice(name.length);
+                  // the registry title, then the dtype and the glossary description; an unresolved column is the glossary tip alone
+                  const dtype = types?.[name];
+                  const desc = COLUMN_GLOSSARY[name];
+                  const tip = head.text === name ? columnTip(name, dtype) : `${head.title}${dtype ? ` (${dtype})` : ""}${desc ? ` — ${desc}` : ""}`;
                   return (
                     <th
                       key={name}
