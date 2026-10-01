@@ -981,7 +981,8 @@ export default function ResultsGrid({
                       const raw = cells[ci];
                       const name = cols[ci];
                       const blank = onBasis.blanked.has(name);
-                      const numeric = domains[ci] !== null;
+                      // a blank column has no domain, but its — sits with the numbers it stands in for
+                      const numeric = domains[ci] !== null || blank;
                       // below the qualifier: no heat (its extremes would draw the strongest buckets);
                       // on another basis, none for a rebased column (its X_pct and its scale are the native one's)
                       const shade = faded || rebased(name) ? undefined : gridShade(shownTint, cells, ci, domains[ci], pcts.get(ci));
@@ -1051,7 +1052,7 @@ export default function ResultsGrid({
                       key={ci}
                       className={cn(
                         "max-w-64 truncate whitespace-nowrap border-r px-3",
-                        domains[ci] !== null ? "font-display text-[13px] tabular-nums" : "font-mono",
+                        domains[ci] !== null || onBasis.blanked.has(cols[ci]) ? "font-display text-[13px] tabular-nums" : "font-mono",
                         groups.has(c) && "border-l-2 border-l-border" // the same 2 px, so the widths match
                       )}
                     >
