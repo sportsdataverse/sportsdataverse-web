@@ -301,8 +301,9 @@ export function drawScatter(ctx: CanvasRenderingContext2D, geo: ScatterGeo, scen
     const { px, py } = at[l.i];
     const [nx, ny] = [Math.min(Math.max(px, l.x), l.x + l.w), Math.min(Math.max(py, l.y), l.y + l.h)];
     const d = Math.hypot(nx - px, ny - py) || 1;
+    const edge = (frameOf(l.i) ? FACE / 2 : R) + 1; // a leader starts just off the mark, dot or face
     ctx.beginPath();
-    ctx.moveTo(px + ((nx - px) / d) * (R + 1), py + ((ny - py) / d) * (R + 1));
+    ctx.moveTo(px + ((nx - px) / d) * edge, py + ((ny - py) / d) * edge);
     ctx.lineTo(nx, ny);
     ctx.stroke();
   }
