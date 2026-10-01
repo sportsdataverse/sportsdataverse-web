@@ -45,10 +45,17 @@ export type CourtKey = keyof typeof COURTS;
 /** Where the three-point arc meets the straight corner line, in feet above the hoop (NBA: 8.95). */
 export const arcCornerY = (c: Court) => Math.sqrt(c.three ** 2 - c.corner ** 2);
 
-/** A circle as path data (every surface line is one `<path>`). */
-const circle = (cx: number, cy: number, r: number) => `M ${cx - r} ${cy} a ${r} ${r} 0 1 0 ${2 * r} 0 a ${r} ${r} 0 1 0 ${-2 * r} 0`;
-const rect = (x: number, y: number, w: number, h: number) => `M ${x} ${y} h ${w} v ${h} h ${-w} Z`;
+/** A circle as path data (every surface line is one `<path>`); exported for the zone fills (shotStats.ts). */
+export const circle = (cx: number, cy: number, r: number) => `M ${cx - r} ${cy} a ${r} ${r} 0 1 0 ${2 * r} 0 a ${r} ${r} 0 1 0 ${-2 * r} 0`;
+export const rect = (x: number, y: number, w: number, h: number) => `M ${x} ${y} h ${w} v ${h} h ${-w} Z`;
 const line = (x1: number, y1: number, x2: number, y2: number) => `M ${x1} ${y1} L ${x2} ${y2}`;
+
+/** The three-point line: a corner line, the arc, the other corner line — open at
+ *  the baseline, so `+ " Z"` closes it along the baseline into the inside-the-arc region. */
+export const threeLine = (c: Court) => {
+  const yi = arcCornerY(c);
+  return `M ${-c.corner} ${-COURT.hoop} L ${-c.corner} ${yi} A ${c.three} ${c.three} 0 0 0 ${c.corner} ${yi} L ${c.corner} ${-COURT.hoop}`;
+};
 
 /**
  * A half court's lines as SVG path data in feet, hoop at the origin, y
@@ -60,7 +67,6 @@ const line = (x1: number, y1: number, x2: number, y2: number) => `M ${x1} ${y1} 
 export function courtPaths(c: Court): string[] {
   const { width, half, hoop, ftLine, ftRadius, restricted, backboard, backboardY, rim } = COURT;
   const w2 = width / 2;
-  const yi = arcCornerY(c);
   return [
     rect(-w2, -hoop, width, half),
     rect(-c.key / 2, -hoop, c.key, hoop + ftLine),
@@ -68,7 +74,7 @@ export function courtPaths(c: Court): string[] {
     line(-backboard / 2, backboardY, backboard / 2, backboardY),
     circle(0, 0, rim),
     `M ${-restricted} 0 A ${restricted} ${restricted} 0 0 0 ${restricted} 0`,
-    `M ${-c.corner} ${-hoop} L ${-c.corner} ${yi} A ${c.three} ${c.three} 0 0 0 ${c.corner} ${yi} L ${c.corner} ${-hoop}`,
+    threeLine(c),
     circle(0, half - hoop, ftRadius),
   ];
 }
@@ -84,6 +90,15 @@ export const RINK = { length: 200, width: 85, goalLine: 11, blueLine: 25, corner
 /** The goal line's distance from centre ice (89 ft): the normalizers' goal. */
 export const RINK_GOAL_Y = RINK.length / 2 - RINK.goalLine;
 
+/** The boards of the attacking half, closed along the centre line: rounded
+ *  end corners, straight sides. The perimeter zone's outline (shotStats.ts). */
+export const boards = () => {
+  const { width, goalLine, corner } = RINK;
+  const w2 = width / 2;
+  const top = -goalLine;
+  return `M ${-w2} ${RINK_GOAL_Y} L ${-w2} ${top + corner} A ${corner} ${corner} 0 0 1 ${-w2 + corner} ${top} L ${w2 - corner} ${top} A ${corner} ${corner} 0 0 1 ${w2} ${top + corner} L ${w2} ${RINK_GOAL_Y} Z`;
+};
+
 /**
  * The attacking half of the rink as SVG path data in feet, goal at the
  * origin, y toward centre ice: boards (rounded end corners, closed by the
@@ -94,13 +109,12 @@ export const RINK_GOAL_Y = RINK.length / 2 - RINK.goalLine;
 export function rinkPaths(): string[] {
   const { width, goalLine, blueLine, corner, dotY, dotX, circle: r, creaseW, creaseR, goalW, goalD } = RINK;
   const w2 = width / 2;
-  const top = -goalLine; // the end boards
   const centre = RINK_GOAL_Y;
   const goalLineX = w2 - corner + Math.sqrt(corner ** 2 - (corner - goalLine) ** 2); // where the goal line meets the curved boards
   const cx = creaseW / 2;
   const cy = Math.sqrt(creaseR ** 2 - cx ** 2);
   return [
-    `M ${-w2} ${centre} L ${-w2} ${top + corner} A ${corner} ${corner} 0 0 1 ${-w2 + corner} ${top} L ${w2 - corner} ${top} A ${corner} ${corner} 0 0 1 ${w2} ${top + corner} L ${w2} ${centre} Z`,
+    boards(),
     line(-goalLineX, 0, goalLineX, 0),
     line(-w2, centre - blueLine, w2, centre - blueLine),
     `M ${-cx} 0 L ${-cx} ${cy} A ${creaseR} ${creaseR} 0 0 0 ${cx} ${cy} L ${cx} 0`,

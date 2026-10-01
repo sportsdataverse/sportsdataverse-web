@@ -3,12 +3,15 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { SHOTS_LEAGUE_KEYS, SHOTS_LEAGUES, type ShotsLeague } from "@content/shots";
-import { SHOTS_MIN_N, shotsViewParams, type ShotsView } from "@lib/platform/viewState";
+import { SHOTS_MIN_N, SHOTS_MODES, shotsViewParams, type ShotsView } from "@lib/platform/viewState";
 import { API_MAX_ROWS } from "@lib/platform/wp";
 import { apiRows, seasonRange } from "@lib/platform/queryRun";
 import { normalizeShot, type Shot } from "@lib/platform/viz/surfaces";
 import { HEX_RADIUS, hexbin, onSurface, type CurveRow } from "@lib/platform/viz/hexbin";
+import { butterfly, byDistance, DIST_STEP, SMOOTH_SIGMA, smoothBins, zoneStats } from "@lib/platform/viz/shotStats";
 import ShotMap from "@components/platform/viz/ShotMap";
+import DistanceCurves from "@components/platform/viz/DistanceCurves";
+import SideButterfly from "@components/platform/viz/SideButterfly";
 import useUrlMirror from "@hooks/useUrlMirror";
 
 /**
@@ -24,6 +27,16 @@ import useUrlMirror from "@hooks/useUrlMirror";
  * counted in the note; a read that hits the API's row cap says so; a
  * season without a league curve (no producer, no rows, a failed read)
  * keeps the plain FG% ramp and says so.
+ *
+ * Modes (`mode=` in the URL): raw draws the hexagons as binned; smoothed
+ * recolours the SAME hexagons by `smoothBins` (an attempt-weighted
+ * Gaussian over the lattice, σ SMOOTH_SIGMA feet — smoothed before the
+ * min-n filter, so a hidden bin still informs its neighbours); zones draws
+ * the surface's zone partition (`zoneStats`) instead, the min-n slider
+ * idle. Under the map, the by-distance curves and the left/right butterfly
+ * (`byDistance`, `butterfly` on the same drawn shots) share one hovered
+ * distance with it: a hex hands its distance bin to both companions, a
+ * companion's bin draws a band on the map at that distance.
  */
 
 type Player = { id: string; name: string };
@@ -65,6 +78,8 @@ async function loadCurve([, schema, season]: readonly [string, string, string]):
 }
 
 const selectClass = "rounded-md border border-input bg-card px-3 py-1.5 font-inter text-sm";
+const modeClass = "rounded-md border border-border px-3 py-1.5 font-inter text-sm hover:bg-muted aria-pressed:bg-muted aria-pressed:font-semibold";
+const MODE_LABEL: Record<ShotsView["mode"], string> = { raw: "Raw", smoothed: "Smoothed", zones: "Zones" };
 const n = (x: number) => x.toLocaleString("en-US");
 
 export default function ShotsClient({ initial }: { initial: ShotsView }) {
@@ -72,6 +87,9 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
   const [season, setSeason] = useState(initial.season);
   const [player, setPlayer] = useState(initial.player);
   const [minN, setMinN] = useState(initial.minN);
+  const [mode, setMode] = useState(initial.mode);
+  // the one hovered distance bin (its lower edge, feet) the map, the curves and the butterfly share
+  const [hoverDistance, setHoverDistance] = useState<number | null>(null);
   const lg = SHOTS_LEAGUES[league];
 
   const { data: seasons, error: seasonsError } = useSWR(["shots-seasons", league], () => seasonRange(lg, lg.seasonCol));
@@ -97,11 +115,17 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
   const drawn = useMemo(() => (shots ? shots.filter((s) => onSurface(s, lg.surface.kind)) : []), [shots, lg]);
   const omitted = shots ? shots.length - drawn.length : 0;
   const bins = useMemo(() => hexbin(drawn, HEX_RADIUS[lg.surface.kind]), [drawn, lg]);
-  const shown = useMemo(() => bins.filter((b) => b.n >= minN), [bins, minN]);
+  // smoothed over EVERY bin, then the min-n filter: a hidden bin still informs its neighbours
+  const coloured = useMemo(() => (mode === "smoothed" ? smoothBins(bins, SMOOTH_SIGMA[lg.surface.kind]) : bins), [bins, mode, lg]);
+  const shown = useMemo(() => coloured.filter((b) => b.n >= minN), [coloured, minN]);
+  const zones = useMemo(() => (mode === "zones" ? zoneStats(drawn, lg.surface) : []), [drawn, mode, lg]);
+  const step = DIST_STEP[lg.surface.kind];
+  const dist = useMemo(() => byDistance(drawn, step), [drawn, step]);
+  const sides = useMemo(() => butterfly(drawn, step), [drawn, step]);
   const made = drawn.filter((s) => s.made).length;
   const name = roster?.find((p) => p.id === activePlayer)?.name ?? activePlayer;
 
-  useUrlMirror(shotsViewParams({ league, season: activeSeason || season, player: activePlayer, mode: initial.mode, minN }));
+  useUrlMirror(shotsViewParams({ league, season: activeSeason || season, player: activePlayer, mode, minN }));
 
   const failure = seasonsError?.message ?? rosterError?.message ?? shotsError?.message ?? null;
   const cap = Number(API_MAX_ROWS);
@@ -110,7 +134,9 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
     : [
         shots
           ? drawn.length
-            ? `${n(drawn.length)} shots · ${n(made)} ${lg.made === "FG" ? "made" : "goals"} (${Math.round((100 * made) / drawn.length)}%) · ${n(bins.length)} hexagons, ${n(shown.length)} shown at ${minN}+ shots`
+            ? `${n(drawn.length)} shots · ${n(made)} ${lg.made === "FG" ? "made" : "goals"} (${Math.round((100 * made) / drawn.length)}%) · ${
+                mode === "zones" ? `${zones.length} zones` : `${n(bins.length)} hexagons, ${n(shown.length)} shown at ${minN}+ shots${mode === "smoothed" ? ` · smoothed, σ ${SMOOTH_SIGMA[lg.surface.kind]} ft` : ""}`
+              }`
             : `No shots for ${name} in ${activeSeason}.`
           : roster && !roster.length
             ? `No roster for ${activeSeason}.`
@@ -164,6 +190,13 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
             </option>
           ))}
         </select>
+        <div role="group" aria-label="Mode" data-testid="shots-mode" className="flex gap-1">
+          {SHOTS_MODES.map((m) => (
+            <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={modeClass}>
+              {MODE_LABEL[m]}
+            </button>
+          ))}
+        </div>
         <label className="flex items-center gap-2 font-inter text-sm">
           Min shots per hex
           <input
@@ -172,7 +205,8 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
             max={SHOTS_MIN_N.max}
             value={minN}
             onChange={(e) => setMinN(Number(e.target.value))}
-            className="accent-primary"
+            disabled={mode === "zones"}
+            className="accent-primary disabled:opacity-50"
           />
           <output data-testid="shots-min" className="w-6 font-mono text-xs tabular-nums">
             {minN === SHOTS_MIN_N.max ? `${minN}+` : minN}
@@ -196,7 +230,13 @@ export default function ShotsClient({ initial }: { initial: ShotsView }) {
             {name || "Shots"} · {activeSeason}
           </h3>
           <p className="mb-2 font-inter text-xs text-muted-foreground">{lg.label}</p>
-          <ShotMap bins={shown} all={bins} surface={lg.surface} kind={lg.made} curve={curve} />
+          <ShotMap bins={shown} all={bins} surface={lg.surface} kind={lg.made} curve={curve} mode={mode} zones={zones} hoverDistance={hoverDistance} onHoverDistance={setHoverDistance} />
+          {drawn.length ? (
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <DistanceCurves rows={dist} step={step} kind={lg.made} curve={curve} hover={hoverDistance} onHover={setHoverDistance} />
+              <SideButterfly rows={sides} step={step} kind={lg.made} curve={curve} hover={hoverDistance} onHover={setHoverDistance} />
+            </div>
+          ) : null}
         </div>
       ) : null}
     </>

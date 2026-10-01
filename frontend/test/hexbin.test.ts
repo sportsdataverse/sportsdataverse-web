@@ -67,9 +67,9 @@ test('binSlot: FG% on the sequential ramp; goals − xG per shot on the divergin
   assert.equal(binSlot({ ...rink, made: 0 }, 'goals'), 'div-neg-2'); // −2.1 / 23 = −0.091
   assert.equal(binSlot({ ...rink, sumXg: 3 }, 'goals'), 'div-mid');
   assert.equal(readoutText(rink, 'goals'), '23 shots · 3 goals · +0.9 vs xG · 31 ft');
-  assert.equal(readoutText({ cx: 0, cy: 0, n: 1, made: 1, sumDist: 5, sumXg: 0.4 }, 'goals'), '1 shot · 1 goal · +0.6 vs xG · 5 ft');
-  assert.equal(readoutText({ cx: 0, cy: 0, n: 2, made: 0, sumDist: 54, sumXg: 0.04 }, 'goals'), '2 shots · 0 goals · +0.0 vs xG · 27 ft', 'no −0.0');
-  assert.equal(readoutText({ cx: 0, cy: 0, n: 2, made: 0, sumDist: 54, sumXg: 0.06 }, 'goals'), '2 shots · 0 goals · −0.1 vs xG · 27 ft');
+  assert.equal(readoutText({ n: 1, made: 1, sumDist: 5, sumXg: 0.4 }, 'goals'), '1 shot · 1 goal · +0.6 vs xG · 5 ft');
+  assert.equal(readoutText({ n: 2, made: 0, sumDist: 54, sumXg: 0.04 }, 'goals'), '2 shots · 0 goals · +0.0 vs xG · 27 ft', 'no −0.0');
+  assert.equal(readoutText({ n: 2, made: 0, sumDist: 54, sumXg: 0.06 }, 'goals'), '2 shots · 0 goals · −0.1 vs xG · 27 ft');
 });
 
 test('onSurface: a point at (0, 60) is off the court; the baseline strip, the corners and the rink halves are pinned', () => {
@@ -130,12 +130,12 @@ test('binSlot vs the league: FG% − leagueRateAt(mean distance) on the divergin
   assert.equal(binSlot(at(31, 100, 4.2), 'FG', curve), 'div-neg-3', '−10 pp');
   assert.equal(binSlot(at(62, 100, 1), 'FG', curve), 'div-mid', 'exactly the league rate');
   // the bin's distance is its MEAN: 100 shots summing to 420 ft read the 3–10 ft bucket, not the 0–3
-  assert.equal(binSlot({ cx: 0, cy: 0, n: 100, made: 62, sumDist: 420, sumXg: 0 }, 'FG', curve), 'div-pos-3');
+  assert.equal(binSlot({ n: 100, made: 62, sumDist: 420, sumXg: 0 }, 'FG', curve), 'div-pos-3');
   // null curve: the plain FG% ramp (what the page draws without a baseline)
   assert.equal(binSlot(at(50, 100, 4.2), 'FG', null), 'seq-3');
   assert.equal(binSlot(at(50, 100, 4.2), 'FG'), 'seq-3');
   // a curve that does not reach the bin's distance: no colour, never the other ramp
   assert.equal(binSlot(at(50, 100, 12), 'FG', curve), null);
   // hockey ignores the curve
-  assert.equal(binSlot({ cx: 0, cy: 0, n: 23, made: 3, sumDist: 23 * 31, sumXg: 2.1 }, 'goals', curve), 'div-pos-1');
+  assert.equal(binSlot({ n: 23, made: 3, sumDist: 23 * 31, sumXg: 2.1 }, 'goals', curve), 'div-pos-1');
 });

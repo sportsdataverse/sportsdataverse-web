@@ -16,6 +16,17 @@
 // legend is the diverging "FG% vs league at that distance" strip, and the hoop's bin reads above
 // the league; a college player (no curve producer) and a failed curve read (the proxy answers
 // 500) both fall back to the plain FG% ramp with a "no league baseline for <league> <season>" note.
+// Then the modes and companions (P3 T4): Gobert's Smoothed view keeps every mark of the Raw view
+// (same lattice, same sizes, ≤ 300) with at least one recoloured (the kernel does something) and
+// says "smoothed" in the readout, legend and note; Zones draws the five court zones as fills
+// whose shots sum to the drawn total, each lettered with its FG% and shots, the min-n range
+// idle; the NHL skater's Zones are four; each mode is mirrored as mode= in the URL and Raw drops
+// it. The companions share ONE hovered distance with the map: hovering the 24 ft bin on the
+// curve draws the band on the court at exactly 24–25 ft (the circle's r − strokeWidth/2 is 24)
+// and tints the butterfly's 24 ft column; hovering a hexagon tints the curve column holding its
+// mean distance with no band on the map; the arrow keys walk the curve's bins and the band
+// follows. The butterfly's left + right equal the drawn shots, and column by column equal the
+// curve's bins.
 // /platform is behind org sign-in, so this is recorded locally and is NOT listed on the PR's
 // `Walkthrough steps:` line (CI has no session; the module throws there).
 
@@ -39,7 +50,7 @@ const shots = async (page, base) => {
       return !t.startsWith('Loading') && /shots/.test(t);
     }, null, { timeout: 120_000 });
     await page.waitForTimeout(300);
-    const n = await marks.locator('polygon, circle').count();
+    const n = await marks.locator('[data-n]').count();
     const attr = Number(await marks.getAttribute('data-marks'));
     if (n !== attr) fail(`${n} SVG marks but data-marks says ${attr}`);
     if (n > 300) fail(`${n} marks: over the 300-mark rule`);
@@ -148,7 +159,7 @@ const shots = async (page, base) => {
   await drawn();
 
   // (c) Two more players through the picker, each ≤ 300.
-  const picker = page.getByLabel('Player');
+  const picker = page.getByLabel('Player', { exact: true });
   const options = await picker.locator('option').evaluateAll((els) => els.map((o) => ({ id: o.value, name: o.textContent })).filter((o) => o.id));
   const counts = [];
   for (const o of [options[1], options[Math.floor(options.length / 2)]]) {
@@ -185,7 +196,7 @@ const shots = async (page, base) => {
   if (d < 30) fail(`nhl 8477492: only ${d} marks`);
   // the NHL roster is a 50,000-row read (per player-game): the name lands after the shots
   await page.getByTestId('shots-title').filter({ hasText: 'Nathan MacKinnon · 2026' }).waitFor({ timeout: 120_000 });
-  if ((await page.getByLabel('Player').inputValue()) !== '8477492') fail('the picker did not select the URL skater');
+  if ((await page.getByLabel('Player', { exact: true }).inputValue()) !== '8477492') fail('the picker did not select the URL skater');
   if (!(await page.getByRole('img', { name: 'Attacking half of the rink' }).count())) fail('no rink');
   const rinkLegend = await page.getByTestId('shots-legend').innerText();
   if (!/goals − xG per shot/.test(rinkLegend)) fail(`rink legend: "${rinkLegend}"`);
@@ -204,7 +215,7 @@ const shots = async (page, base) => {
   const e = await drawn();
   const q = new URL(page.url()).searchParams;
   if (q.get('league') || !q.get('player') || !q.get('season')) fail(`bare URL became ${page.url()}`);
-  if ((await page.getByLabel('League').inputValue()) !== 'nba_stats') fail('the default league is not nba_stats');
+  if ((await page.getByLabel('League', { exact: true }).inputValue()) !== 'nba_stats') fail('the default league is not nba_stats');
   console.log(`shots (e) ${width}: bare URL → ${await page.getByTestId('shots-title').innerText()} with ${e} marks (${page.url().replace(base, '')})`);
   await page.waitForTimeout(800);
 
@@ -267,6 +278,164 @@ const shots = async (page, base) => {
   if (await page.getByTestId('shots-error').count()) fail(`the failed curve read raised the error box: "${await page.getByTestId('shots-error').innerText()}"`);
   await page.unroute(curves);
   console.log(`shots (i) ${width}: metric_curves 500 → ${i} marks on the FG% ramp; note "${iNote}"`);
+  await page.waitForTimeout(800);
+
+  // (j) Modes. Gobert again, Raw → Smoothed → Zones → Raw by the segmented control (aria-pressed),
+  // each mirrored as mode= in the URL (Raw drops it). Smoothed: the same marks at the same places
+  // and sizes (every polygon's points and circle's cx/cy/r identical), ≤ 300, at least one with
+  // another data-slot — the kernel moved a colour — and "smoothed" in the readout, the legend and
+  // the note with the σ. Zones: 5 <path data-n> marks whose shots sum to the drawn total, a label
+  // on each with its own FG% and shots, the min-n range disabled, "5 zones" in the note; the
+  // restricted area's readout names it.
+  const modeParam = () => new URL(page.url()).searchParams.get('mode');
+  const modeButton = (label) => page.getByTestId('shots-mode').getByRole('button', { name: label, exact: true });
+  const pressed = async () => (await page.getByTestId('shots-mode').locator('button[aria-pressed="true"]').allInnerTexts()).join('|');
+  const geometry = () => marks.locator('[data-n]').evaluateAll((els) => els.map((el) => `${el.tagName}:${el.getAttribute('points') ?? `${el.getAttribute('cx')},${el.getAttribute('cy')},${el.getAttribute('r')}`}`));
+  await page.goto(`${base}/platform/shots?league=nba_stats&season=2026&player=203497`, { waitUntil: 'domcontentloaded' });
+  const jRaw = await drawn();
+  await page.getByTestId('shots-title').filter({ hasText: 'Rudy Gobert · 2026' }).waitFor({ timeout: 60_000 });
+  if ((await pressed()) !== 'Raw' || modeParam() !== null) fail(`initial mode: pressed "${await pressed()}", URL mode=${modeParam()}`);
+  const rawGeom = await geometry();
+  const rawSlots = await slotsOf();
+  await modeButton('Smoothed').click();
+  await page.waitForTimeout(400);
+  const jSmooth = await drawn();
+  if (jSmooth !== jRaw) fail(`Smoothed draws ${jSmooth} marks, Raw ${jRaw}`);
+  if ((await pressed()) !== 'Smoothed' || modeParam() !== 'smoothed') fail(`Smoothed: pressed "${await pressed()}", URL mode=${modeParam()}`);
+  const smoothGeom = await geometry();
+  if (smoothGeom.join('\n') !== rawGeom.join('\n')) fail('Smoothed moved or resized a mark');
+  const smoothSlots = await slotsOf();
+  const moved = smoothSlots.filter((m, i) => m.slot !== rawSlots[i].slot).length;
+  if (moved < 1) fail('Smoothed recoloured no mark: the kernel did nothing');
+  if (smoothSlots.some((m, i) => m.n !== rawSlots[i].n)) fail('Smoothed changed a mark\'s shots');
+  const jNote = await note.innerText();
+  if (!/· smoothed, σ 3 ft$/.test(jNote)) fail(`smoothed note: "${jNote}"`);
+  if (!/smoothed \(σ 3 ft\)/.test(await legendOf())) fail(`smoothed legend: "${await legendOf()}"`);
+  const sHex = marks.locator('polygon').first();
+  await sHex.scrollIntoViewIfNeeded();
+  await sHex.hover();
+  await page.waitForTimeout(300);
+  const sText = await readout.innerText();
+  if (!/ · smoothed$/.test(sText) || !/^\d+ shots · \d+% FG · \d+ ft/.test(sText)) fail(`smoothed readout: "${sText}"`);
+  await page.mouse.move(0, 0);
+  console.log(`shots (j) smoothed ${width}: ${jSmooth} marks (= raw ${jRaw}), same geometry, ${moved} recoloured; note "${jNote}"; readout "${sText}"`);
+  await page.waitForTimeout(800);
+  await modeButton('Zones').click();
+  await page.waitForTimeout(400);
+  const jZones = await drawn();
+  if (jZones !== 5 || (await marks.locator('path[data-n]').count()) !== 5) fail(`Zones draws ${jZones} marks`);
+  if ((await pressed()) !== 'Zones' || modeParam() !== 'zones') fail(`Zones: pressed "${await pressed()}", URL mode=${modeParam()}`);
+  const zones = await marks.locator('path[data-n]').evaluateAll((els) => els.map((el) => ({ zone: el.dataset.zone, n: Number(el.dataset.n), made: Number(el.dataset.made), slot: el.dataset.slot ?? null, label: el.parentElement.querySelector('text')?.textContent ?? '' })));
+  const drawnTotal = Number((await note.innerText()).match(/^([\d,]+) shots/)[1].replace(/,/g, ''));
+  const zoneSum = zones.reduce((s, z) => s + z.n, 0);
+  if (zoneSum !== drawnTotal) fail(`the zones hold ${zoneSum} shots, the note ${drawnTotal}`);
+  for (const z of zones) if (z.n && z.label !== `${Math.round((100 * z.made) / z.n)}% · ${z.n.toLocaleString('en-US')}`) fail(`zone ${z.zone} labelled "${z.label}" for ${z.made}/${z.n}`);
+  if (zones.map((z) => z.zone).sort().join() !== 'atb3,corner3,mid,paint,restricted') fail(`zones: ${zones.map((z) => z.zone)}`);
+  if (!(await range.isDisabled())) fail('the min-n range is live in Zones');
+  if (!/· 5 zones$/.test(await note.innerText())) fail(`zones note: "${await note.innerText()}"`);
+  const ra = marks.locator('path[data-zone="restricted"]');
+  await ra.hover(); // the centre of its box is the hoop: inside the circle, not the paint around it
+  await page.waitForTimeout(300);
+  const raText = await readout.innerText();
+  const raZ = zones.find((z) => z.zone === 'restricted');
+  if (!raText.startsWith(`restricted area · ${raZ.n.toLocaleString('en-US')} shots · ${Math.round((100 * raZ.made) / raZ.n)}% FG`)) fail(`restricted readout "${raText}" for ${JSON.stringify(raZ)}`);
+  if (!/stroke-foreground/.test((await ra.getAttribute('class')) ?? '')) fail('the hovered zone is not outlined');
+  await page.mouse.move(0, 0);
+  console.log(`shots (j) zones ${width}: ${zones.map((z) => `${z.zone} ${z.label} ${z.slot}`).join('; ')} (Σ ${zoneSum} = note ${drawnTotal}); readout "${raText}"`);
+  await page.waitForTimeout(800);
+  await modeButton('Raw').click();
+  await page.waitForTimeout(400);
+  if ((await drawn()) !== jRaw || modeParam() !== null) fail(`back to Raw: ${await drawn()} marks, URL mode=${modeParam()}`);
+  // the URL reproduces a mode
+  await page.goto(`${base}/platform/shots?league=nba_stats&season=2026&player=203497&mode=zones`, { waitUntil: 'domcontentloaded' });
+  if ((await drawn()) !== 5 || (await pressed()) !== 'Zones') fail('mode=zones in the URL did not open Zones');
+  await page.waitForTimeout(600);
+
+  // (k) One hovered distance, on Shai Gilgeous-Alexander's Raw view (he shoots from everywhere,
+  // so the 24 ft bin exists and holds shots). Hovering the curve's 24 ft bin draws the band on
+  // the court at EXACTLY 24–25 ft (r − strokeWidth/2 = 24, strokeWidth = 1), tints the
+  // butterfly's 24 ft column and the curve's own; leaving clears all three. Hovering a hexagon
+  // tints the curve column holding its mean distance (floor) and draws NO band. Keyboard: focus
+  // the curve's first bin, ArrowRight steps a bin and the band follows it, End reaches the last.
+  await page.goto(`${base}${NBA}`, { waitUntil: 'domcontentloaded' });
+  await drawn();
+  const curveBin = (lo) => page.locator(`[data-testid="shots-curve-bins"] rect[data-lo="${lo}"]`);
+  const sideBin = (lo) => page.locator(`[data-testid="shots-butterfly-bins"] rect[data-lo="${lo}"]`);
+  const arc = page.getByTestId('shots-hover-arc');
+  const arcAt = async () => ((await arc.count()) ? { r: Number(await arc.getAttribute('r')), sw: Number(await arc.getAttribute('stroke-width')), lo: Number(await arc.getAttribute('data-lo')) } : null);
+  const cMarks = Number(await page.locator('[data-testid="shots-curves"] svg').getAttribute('data-marks'));
+  const bMarks = Number(await page.locator('[data-testid="shots-butterfly"] svg').getAttribute('data-marks'));
+  if (cMarks > 300 || bMarks > 300) fail(`companions: curve ${cMarks} marks, butterfly ${bMarks}`);
+  await curveBin(24).scrollIntoViewIfNeeded();
+  await curveBin(24).hover();
+  await page.waitForTimeout(300);
+  const band = await arcAt();
+  if (!band || Math.abs(band.r - band.sw / 2 - 24) > 1e-9 || band.sw !== 1 || band.lo !== 24) fail(`hover 24 ft: band ${JSON.stringify(band)} (want inner radius 24, width 1)`);
+  if ((await sideBin(24).getAttribute('data-hover')) === null || (await curveBin(24).getAttribute('data-hover')) === null) fail('hover 24 ft did not tint both companions');
+  const kLabel = await curveBin(24).getAttribute('aria-label');
+  if (!/^24 ft · \d+ shots \(\d+%\) · \d+% FG · league \d+%$/.test(kLabel)) fail(`24 ft label: "${kLabel}"`);
+  console.log(`shots (k) ${width}: hover 24 ft on the curve → band r=${band.r} width=${band.sw} (24–25 ft); "${kLabel}"; butterfly 24 ft tinted; curve ${cMarks} marks, butterfly ${bMarks}`);
+  await page.waitForTimeout(800);
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(200);
+  if (await arcAt()) fail('the band stayed after leaving the curve');
+  if ((await sideBin(24).getAttribute('data-hover')) !== null) fail('the butterfly column stayed tinted');
+  // a hexagon → the curve's column at floor(its mean distance), no band
+  const far = marks.locator('polygon').first();
+  await far.scrollIntoViewIfNeeded();
+  await far.hover();
+  await page.waitForTimeout(300);
+  const farLo = Math.floor(Number(await far.getAttribute('data-dist')));
+  if ((await curveBin(farLo).getAttribute('data-hover')) === null) fail(`hovering a hex at ${await far.getAttribute('data-dist')} ft did not tint the curve's ${farLo} ft bin`);
+  if ((await page.locator('[data-testid="shots-curve-bins"] rect[data-hover]').count()) !== 1) fail('more than one curve column tinted');
+  if (await arcAt()) fail('a hovered hexagon drew a band');
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(200);
+  // keyboard on the curve: the roving tab stop is the first bin with shots; the arrows step from it
+  const firstLo = Number(await page.locator('[data-testid="shots-curve-bins"] rect[tabindex="0"]').getAttribute('data-lo'));
+  await page.locator('[data-testid="shots-curve-bins"] rect[tabindex="0"]').focus();
+  await page.waitForTimeout(200);
+  const b1 = await arcAt();
+  if (!b1 || b1.lo !== firstLo) fail(`focusing the ${firstLo} ft bin drew ${JSON.stringify(b1)}`);
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(250);
+  const b2 = await arcAt();
+  const focusedLo = await page.evaluate(() => Number(document.activeElement?.dataset?.lo));
+  if (!b2 || b2.lo !== firstLo + 1 || focusedLo !== firstLo + 1) fail(`ArrowRight: focus at ${focusedLo}, band ${JSON.stringify(b2)}`);
+  await page.keyboard.press('End');
+  await page.waitForTimeout(250);
+  const lastLo = await page.locator('[data-testid="shots-curve-bins"] rect').last().getAttribute('data-lo');
+  if ((await arcAt())?.lo !== Number(lastLo)) fail(`End: band at ${JSON.stringify(await arcAt())}, last bin ${lastLo}`);
+  await page.keyboard.press('Tab');
+  await page.waitForTimeout(200);
+  console.log(`shots (k) keyboard ${width}: hex at ${farLo} ft → curve column ${farLo}, no band; focus ${firstLo} ft → band ${b1.lo}, ArrowRight → ${b2.lo}, End → ${lastLo}`);
+
+  // (l) The butterfly's halves: left + right (the totals line's data-left/right) equal the drawn
+  // shots, and bin by bin equal the curve's bins.
+  const totals = page.getByTestId('shots-butterfly-totals');
+  const lN = Number(await totals.getAttribute('data-left'));
+  const rN = Number(await totals.getAttribute('data-right'));
+  const lTotal = Number((await note.innerText()).match(/^([\d,]+) shots/)[1].replace(/,/g, ''));
+  if (lN + rN !== lTotal) fail(`butterfly left ${lN} + right ${rN} ≠ ${lTotal} drawn shots`);
+  if (lN < 1 || rN < 1) fail(`a side is empty: left ${lN}, right ${rN}`);
+  const cols = await page.locator('[data-testid="shots-butterfly-bars"] g[data-lo]').evaluateAll((els) => els.map((g) => ({ lo: Number(g.dataset.lo), n: Number(g.dataset.leftN) + Number(g.dataset.rightN) })));
+  const curveNs = await page.locator('[data-testid="shots-curve-bins"] rect').evaluateAll((els) => els.map((r) => ({ lo: Number(r.dataset.lo), n: Number(r.dataset.n) })));
+  if (JSON.stringify(cols) !== JSON.stringify(curveNs)) fail(`butterfly columns ${JSON.stringify(cols.slice(0, 5))}… ≠ curve bins ${JSON.stringify(curveNs.slice(0, 5))}…`);
+  const tText = await totals.innerText();
+  if (!new RegExp(`left ${lN.toLocaleString('en-US')} shots · \\d+% FG`).test(tText) || !new RegExp(`right ${rN.toLocaleString('en-US')} shots · \\d+% FG`).test(tText)) fail(`totals line "${tText}"`);
+  console.log(`shots (l) ${width}: butterfly left ${lN} + right ${rN} = ${lTotal} drawn; ${cols.length} columns match the curve's bins; "${tText.replace(/\n/g, ' ')}"`);
+  await page.waitForTimeout(600);
+
+  // (m) An NHL skater's Zones: four rink zones, shots summing to the drawn total, labels of goals − xG.
+  await page.goto(`${base}${NHL}&mode=zones`, { waitUntil: 'domcontentloaded' });
+  const m = await drawn();
+  if (m !== 4) fail(`nhl zones: ${m} marks`);
+  const rz = await marks.locator('path[data-n]').evaluateAll((els) => els.map((el) => ({ zone: el.dataset.zone, n: Number(el.dataset.n), label: el.parentElement.querySelector('text')?.textContent ?? '' })));
+  const mTotal = Number((await note.innerText()).match(/^([\d,]+) shots/)[1].replace(/,/g, ''));
+  if (rz.reduce((s, z) => s + z.n, 0) !== mTotal) fail(`rink zones hold ${rz.reduce((s, z) => s + z.n, 0)}, the note ${mTotal}`);
+  if (rz.map((z) => z.zone).sort().join() !== 'highSlot,perimeter,point,slot') fail(`rink zones: ${rz.map((z) => z.zone)}`);
+  if (!rz.every((z) => !z.n || /^[+−]\d+\.\d · \d+$/.test(z.label))) fail(`rink zone labels: ${JSON.stringify(rz)}`);
+  console.log(`shots (m) nhl 8477492 zones ${width}: ${rz.map((z) => `${z.zone} ${z.label}`).join('; ')} (Σ ${mTotal})`);
   await page.waitForTimeout(800);
 };
 export default shots;
