@@ -54,6 +54,9 @@ const steps = async (page, base) => {
         titles: ths.map((th) => th.querySelector('button').title),
         headSep: ths.map(sep),
         bodySep: [...row0.cells].slice(1).map(sep),
+        // a start's other borders keep the cell's own colour (border-l-border; border-border would strip the /60 and /40)
+        headRight: ths.map((th) => getComputedStyle(th).borderRightColor),
+        bodyRight: [...row0.cells].slice(1).map((td) => getComputedStyle(td).borderRightColor),
         sizerSep: sizer ? [...sizer.cells].slice(1).map(sep) : null,
         first: { position: cs.position, left: parseFloat(cs.left), bg: cs.backgroundColor, x: x(first), hashW: hash.getBoundingClientRect().width },
         lastX: x(row0.cells[row0.cells.length - 1]),
@@ -73,6 +76,9 @@ const steps = async (page, base) => {
     const expect = s.cols.map((_, i) => want.has(i));
     for (const [name, got] of [['header', s.headSep], ['body', s.bodySep], ['sizer', s.sizerSep]]) {
       if (got && got.join() !== expect.join()) fail(`${where}: ${name} separators at ${got.flatMap((b, i) => (b ? [i] : []))}, not ${[...want]}`);
+    }
+    if (want.size && (new Set(s.headRight).size !== 1 || new Set(s.bodyRight).size !== 1)) {
+      fail(`${where}: a group start changed a cell's right border colour (header ${[...new Set(s.headRight)]}; body ${[...new Set(s.bodyRight)]})`);
     }
     return want;
   };

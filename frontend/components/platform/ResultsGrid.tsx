@@ -763,7 +763,7 @@ export default function ResultsGrid({
                         "whitespace-nowrap border-b border-r border-border/60 p-0 align-top font-bold",
                         // opaque: a translucent tint on this sticky th let scrolled rows show through
                         sort?.col === ci ? "bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-muted))]" : "bg-muted",
-                        groups.has(c) && "border-l-2 border-border",
+                        groups.has(c) && "border-l-2 border-l-border",
                         stuck && "sticky z-30",
                         dragCol === ci && "opacity-40"
                       )}
@@ -943,7 +943,7 @@ export default function ResultsGrid({
                             numeric
                               ? "font-display text-right text-[13px] tabular-nums"
                               : "font-mono",
-                            groups.has(c) && "border-l-2 border-border",
+                            groups.has(c) && "border-l-2 border-l-border",
                             // the frozen cell: sticky behind #, and opaque (sorted included) for the same reason as #
                             stuck && "sticky z-10",
                             stuck && (stickBg ?? (sort?.col === ci ? "bg-[color-mix(in_oklab,var(--color-muted)_40%,var(--color-card))]" : "bg-card")),
@@ -980,7 +980,7 @@ export default function ResultsGrid({
                       className={cn(
                         "max-w-64 truncate whitespace-nowrap border-r px-3",
                         domains[ci] !== null ? "font-display text-[13px] tabular-nums" : "font-mono",
-                        groups.has(c) && "border-l-2 border-border" // the same 2 px, so the widths match
+                        groups.has(c) && "border-l-2 border-l-border" // the same 2 px, so the widths match
                       )}
                     >
                       {widest[ci]}
