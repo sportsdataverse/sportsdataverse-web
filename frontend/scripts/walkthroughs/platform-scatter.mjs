@@ -23,8 +23,10 @@ const INDEX = '/platform/scatter?schema=nba&table=player_impact&season=2026&x=o_
 const MEDIAN_X = -0.019004368898077478;
 const MEDIAN_Y = 0.004169331890630006;
 const TOP_X = 'Shai Gilgeous-Alexander'; // the highest o_rapm, 5.384
-// cfb.ratings 2025: the highest adj_off_epa is team_id 84, named Indiana by cfb.team_info.
-const CFB_TOP = 'Indiana';
+// cfb.ratings 2025: the highest adj_off_epa is team_id 238, named Vanderbilt by cfb.team_info (a live season:
+// it was Indiana on 2026-09-28; re-derive from the API, as the dot-mode zero-diff against main shows
+// the render unchanged).
+const CFB_TOP = 'Vanderbilt';
 // nfl.passing 2025: 67 of 101 passers have no epa_cpoe_composite.
 const NFL_MISSING = '67 players have no value for epa_cpoe_composite.';
 // polars, 2026-09-28: 2026 rows whose team_id is in mbb.team_group_seasons (season 2026, 365 D-I
