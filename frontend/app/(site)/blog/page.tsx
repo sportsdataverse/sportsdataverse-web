@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import MDXContent from "@lib/MDXContent";
 import { getFormattedDate } from "@utils/date";
+import PageHeader from "@components/site/PageHeader";
 
 export const metadata: Metadata = {
   title: "Blog",
@@ -12,15 +13,11 @@ export const metadata: Metadata = {
 export default function BlogIndex() {
   const posts = new MDXContent("posts").getAllPosts();
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-16">
-      <p className="eyebrow">The SDV blog</p>
-      <h1 className="mt-1 font-display text-4xl font-bold tracking-tight">
-        Blog
-      </h1>
-      <p className="mt-3 max-w-2xl text-muted-foreground">
+    <div className="mx-auto w-full max-w-4xl px-4 pb-16">
+      <PageHeader eyebrow="The SDV blog" title="Blog">
         Notes on sports data engineering — packages, pipelines, and analysis
         across Python, R, and Node.js. {posts.length} posts and counting.
-      </p>
+      </PageHeader>
       <ul className="mt-12 space-y-10">
         {posts.map((post) => (
           <li key={post.slug}>

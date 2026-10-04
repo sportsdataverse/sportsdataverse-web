@@ -3,7 +3,7 @@
 import { AnimatePresence } from "motion/react";
 import { FadeContainer } from "@content/FramerMotionVariants";
 import AnimatedDiv from "@components/FramerMotion/AnimatedDiv";
-import PageTop from "@components/PageTop";
+import PageHeader from "@components/site/PageHeader";
 import SnippetCard from "@components/SnippetCard";
 import type { FrontMatter } from "@lib/types";
 
@@ -46,8 +46,8 @@ export default function SnippetsList({
   );
 
   return (
-    <section className="pageTop flex flex-col gap-2">
-      <PageTop pageTitle="Snippets">{description}</PageTop>
+    <section className="mx-auto flex w-full max-w-4xl flex-col gap-2 px-4 pb-16">
+      <PageHeader title="Snippets">{description}</PageHeader>
 
       {SECTIONS.map((sec) => {
         const items = byKey(sec.key);

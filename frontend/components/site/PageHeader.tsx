@@ -1,28 +1,44 @@
 /**
- * The one page-title pattern for the public site: condensed display caps with
- * the amber score-underline (the page's single amber moment), optional kicker,
- * optional lede. Server-safe; renders the page's only <h1>.
+ * The one page-title pattern for the public site (DESIGN.md "Components"): condensed display caps with
+ * the amber score-underline (the page's single amber moment), optional kicker, optional lede. Every
+ * public route renders its only <h1> here, except the home hero. `compact` is the smaller size for a
+ * blog post or a snippet, whose title sits above the article's own byline. Server-safe; `not-prose`
+ * keeps the typography plugin's h1 and p styles off it when a layout renders it inside `.prose`.
  */
 export default function PageHeader({
   eyebrow,
   title,
+  compact = false,
   children,
 }: {
   eyebrow?: string;
   title: string;
+  compact?: boolean;
   children?: React.ReactNode;
 }) {
   return (
-    <div className="pt-12 md:pt-16">
+    <div data-page-header className={compact ? "not-prose pt-2" : "not-prose pt-12 md:pt-16"}>
       {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
-      <h1 className="mt-2 font-display text-5xl font-bold uppercase leading-[0.95] tracking-tight sm:text-6xl">
+      <h1
+        className={
+          compact
+            ? "font-display text-3xl font-bold uppercase leading-[1.05] tracking-tight md:text-4xl"
+            : "mt-2 font-display text-5xl font-bold uppercase leading-[0.95] tracking-tight sm:text-6xl"
+        }
+      >
         <span className="relative inline-block">
           {title}
           <span aria-hidden className="absolute -bottom-1 left-0 h-1 w-full bg-score" />
         </span>
       </h1>
       {children ? (
-        <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+        <p
+          className={
+            compact
+              ? "mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground"
+              : "mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg"
+          }
+        >
           {children}
         </p>
       ) : null}

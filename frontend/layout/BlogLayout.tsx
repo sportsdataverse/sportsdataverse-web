@@ -18,6 +18,7 @@ import { PostType } from "@lib/types";
 import { RxPencil2 } from "react-icons/rx";
 import TableOfContents from "@components/TableOfContents";
 import PostNavigation, { type PostNavLink } from "@components/PostNavigation";
+import PageHeader from "@components/site/PageHeader";
 
 export default function BlogLayout({
   post,
@@ -63,11 +64,9 @@ export default function BlogLayout({
         }}
       >
         <ScrollProgressBar />
-        <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-5xl">
-          {post.meta.title}
-        </h1>
+        <PageHeader compact title={post.meta.title} />
 
-        <div className="flex items-center !w-full text-muted-foreground">
+        <div className="mt-6 flex items-center !w-full text-muted-foreground">
           <div className="flex items-center w-full gap-2">
             <Image
               alt={authorName}

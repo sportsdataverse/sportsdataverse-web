@@ -5,6 +5,13 @@ import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import rehypePrettyCode from "rehype-pretty-code";
 import MDXComponents from "@components/MDXComponents";
 
+// The page's only <h1> is its PageHeader title, so a `# Heading` inside a post, snippet or static
+// page renders one level down.
+const components = {
+  ...MDXComponents,
+  h1: (props: React.ComponentProps<"h2">) => <h2 {...props} />,
+};
+
 /**
  * Server-side MDX renderer for the App Router. Same rehype chain as the old
  * `MDXContent.getPostFromSlug` serialize path (slug anchors, autolinked
@@ -16,7 +23,7 @@ export function MdxRenderer({ source }: { source: string }) {
   return (
     <MDXRemote
       source={source}
-      components={MDXComponents}
+      components={components}
       options={{
         mdxOptions: {
           remarkPlugins: [remarkGfm],

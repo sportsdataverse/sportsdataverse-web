@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Project from "@components/Project";
-import PageTop from "@components/PageTop";
+import PageHeader from "@components/site/PageHeader";
 import AnimatedDiv from "@components/FramerMotion/AnimatedDiv";
 import { FadeContainer } from "@content/FramerMotionVariants";
 import { ProjectType } from "@lib/types";
@@ -18,18 +18,18 @@ export default function ProjectsClient({
   if (error) return <CreateAnIssue />;
 
   return (
-    <section className="pageTop">
-      <PageTop pageTitle="Projects">
+    <section className="mx-auto w-full max-w-4xl px-4 pb-16">
+      <PageHeader title="Projects">
         Projects from across the SportsDataverse community. So far there are{" "}
         <span className="font-bold text-foreground">
           {projects.length}+
         </span>{" "}
         projects on display.
-      </PageTop>
+      </PageHeader>
 
       <AnimatedDiv
         variants={FadeContainer}
-        className="mx-auto grid max-w-3xl grid-cols-1 gap-4"
+        className="mx-auto mt-10 grid max-w-3xl grid-cols-1 gap-4"
       >
         {projects.map((project) => {
           if (project.name === "" && project.githubURL === "") return null;
