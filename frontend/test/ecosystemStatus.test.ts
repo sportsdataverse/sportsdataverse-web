@@ -457,4 +457,9 @@ test('a package card shows the worst state of the producers it reads', () => {
   assert.equal(worstPipeline([link('a', 'fresh'), link('b', 'stale'), link('c', 'failing'), link('d', 'failing')])?.anchor, 'c', 'failing wins; the first on a tie');
   assert.equal(worstPipeline([link('a', 'idle'), link('b', 'unknown'), link('c', 'fresh')])?.anchor, 'b', 'unknown is worse than idle');
   assert.equal(worstPipeline([link('a', 'fresh')])?.anchor, 'a');
+  const ladder = ['failing', 'stale', 'unknown', 'idle', 'fresh'] as const;
+  for (let i = 0; i + 1 < ladder.length; i++) {
+    const [worse, better] = [ladder[i], ladder[i + 1]];
+    assert.equal(worstPipeline([link('b', better), link('w', worse)])?.anchor, 'w', `${worse} is worse than ${better}`);
+  }
 });
