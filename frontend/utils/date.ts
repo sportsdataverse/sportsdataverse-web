@@ -14,5 +14,7 @@ export function getFormattedDate(date: Date): string {
     "Nov",
     "Dec",
   ];
-  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  // UTC getters: the server renders in UTC, and local-time getters gave visitors west of it the
+  // previous day, which is also a React hydration mismatch.
+  return `${months[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
 }
