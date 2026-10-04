@@ -89,7 +89,7 @@ function LearnMenu({ pathname }: { pathname: string | null }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          "relative flex items-center gap-1 px-3 py-2 font-display text-[15px] font-semibold uppercase tracking-wide text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:text-foreground",
+          "relative flex items-center gap-1 rounded-md px-3 py-2 font-display text-[15px] font-semibold uppercase tracking-wide text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
           active &&
             "text-foreground after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:bg-score"
         )}
@@ -116,8 +116,18 @@ function LearnMenu({ pathname }: { pathname: string | null }) {
 export default function SiteNav() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Back / forward changes the route without a tap inside the sheet.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- closing the menu on navigation is the effect
+  useEffect(() => setMenuOpen(false), [pathname]);
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground"
+      >
+        Skip to content
+      </a>
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
         <Link href="/" className="mr-2 flex items-baseline gap-2">
           <span className="font-script text-xl leading-none text-primary">
@@ -149,7 +159,7 @@ export default function SiteNav() {
         <div className="ml-auto flex items-center gap-1.5">
           <MemberAction />
           <ThemeToggle />
-          <Sheet>
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild className="lg:hidden">
               <Button variant="ghost" size="icon" aria-label="Open menu">
                 <Menu className="size-5" />
@@ -159,7 +169,8 @@ export default function SiteNav() {
               <SheetTitle className="font-script text-xl text-primary">
                 SportsDataverse
               </SheetTitle>
-              <nav className="mt-6 flex flex-col gap-1">
+              {/* any tap in the list closes the sheet, including the link for the current page */}
+              <nav className="mt-6 flex flex-col gap-1" onClick={() => setMenuOpen(false)}>
                 {LINKS.map((l) => (
                   <Link
                     key={l.href}
