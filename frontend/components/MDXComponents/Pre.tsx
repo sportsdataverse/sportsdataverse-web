@@ -1,18 +1,25 @@
 "use client";
 
-import { useState, useRef, ReactNode } from "react";
+import { useState, useRef, useEffect, ReactNode } from "react";
 
 const Pre = ({ children }: { children?: ReactNode }) => {
   const textInput = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
 
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+
   const onCopy = () => {
     if (textInput.current !== null) {
-      setCopied(true);
-      navigator.clipboard.writeText(textInput.current.textContent!);
-      setTimeout(() => {
-        setCopied(false);
-      }, 2000);
+      navigator.clipboard
+        ?.writeText(textInput.current.textContent!)
+        .then(() => {
+          setCopied(true);
+          clearTimeout(timer.current);
+          timer.current = setTimeout(() => setCopied(false), 2000);
+        })
+        .catch(() => {});
     }
   };
 
