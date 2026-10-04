@@ -3,7 +3,12 @@
 export default async (page, base) => {
   await page.goto(base + '/about', { waitUntil: 'networkidle' });
   await page.keyboard.press('Tab');
-  await page.getByRole('link', { name: 'Skip to content' }).waitFor({ state: 'visible', timeout: 5000 });
+  const skipLink = page.getByRole('link', { name: 'Skip to content' });
+  await skipLink.waitFor({ state: 'visible', timeout: 5000 });
+  // visible is not enough: the unfocused sr-only link also counts as visible to Playwright
+  await skipLink.evaluate((link) => {
+    if (document.activeElement !== link) throw new Error('Skip to content is not the first tab stop');
+  });
   await page.waitForTimeout(800);
   const menu = page.getByRole('button', { name: 'Open menu' });
   if (!(await menu.isVisible())) {
