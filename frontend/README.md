@@ -124,7 +124,6 @@ After that server should be running on [localhost:3000](http://localhost:3000)
 |  ├── MovieCard.tsx
 |  ├── Newsletter.tsx
 |  ├── OgImage.tsx
-|  ├── PageTop.tsx
 |  ├── Project.tsx
 |  ├── QRCodeContainer.tsx
 |  ├── ScrollProgressBar.tsx
