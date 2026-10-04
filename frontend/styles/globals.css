@@ -378,9 +378,6 @@ code > .line::before {
   .hover-slide-animation {
     @apply relative overflow-hidden before:absolute before:h-full before:w-40 before:bg-foreground before:opacity-10 before:-right-10 before:-z-10 before:rotate-[20deg] before:scale-y-150 before:top-4 hover:before:scale-[7] before:duration-700;
   }
-  .pageTop {
-    @apply mt-[44px] md:mt-[60px] max-w-4xl 2xl:max-w-5xl 3xl:max-w-7xl relative mx-auto p-4 mb-10 text-foreground;
-  }
   .utilities-svg {
     @apply !pointer-events-none mb-4 w-8 h-8;
   }

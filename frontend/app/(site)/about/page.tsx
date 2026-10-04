@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Contact from "@components/Contact";
+import PageHeader from "@components/site/PageHeader";
 import SupportCallout from "@components/site/SupportCallout";
 import { connectToDatabase } from "@lib/mongodb";
 import { PUBLIC_PACKAGE_FILTER } from "@lib/packageVisibility";
@@ -56,16 +57,8 @@ export default async function AboutPage() {
   const count = await packageCount();
   return (
     <div className="mx-auto max-w-4xl px-4">
-      <section className="pt-16 md:pt-24">
-        <p className="eyebrow">About us</p>
-        <h1 className="mt-3 font-display text-5xl font-bold uppercase leading-[0.95] tracking-tight sm:text-6xl">
-          Sports data,
-          <br />
-          <span className="relative inline-block">
-            without the paywall.
-            <span className="absolute -bottom-1 left-0 h-1.5 w-full bg-score" />
-          </span>
-        </h1>
+      <section>
+        <PageHeader eyebrow="About us" title="Sports data, without the paywall." />
         <div className="mt-8 space-y-5 text-base leading-relaxed text-foreground/90 sm:text-lg">
           <p>
             The SportsDataverse started in 2021 with a simple frustration:

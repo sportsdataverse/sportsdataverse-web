@@ -4,17 +4,17 @@ import { AnimatePresence } from "motion/react";
 import { FadeContainer } from "@content/FramerMotionVariants";
 import Blog from "@components/Blog";
 import AnimatedDiv from "@components/FramerMotion/AnimatedDiv";
-import PageTop from "@components/PageTop";
+import PageHeader from "@components/site/PageHeader";
 import useBookmarkBlogs from "@hooks/useBookmarkBlogs";
 
 export default function BookmarkList() {
   const { bookmarkedBlogs } = useBookmarkBlogs("blogs", []);
 
   return (
-    <section className="flex flex-col gap-2 pageTop text-foreground">
-      <PageTop pageTitle="Bookmarks">
+    <section className="mx-auto flex w-full max-w-4xl flex-col gap-2 px-4 pb-16 text-foreground">
+      <PageHeader title="Bookmarks">
         Here you can find article bookmarked by you for later use.
-      </PageTop>
+      </PageHeader>
 
       <section className="relative py-5 px-2 flex flex-col gap-2 min-h-[50vh]">
         <AnimatePresence>

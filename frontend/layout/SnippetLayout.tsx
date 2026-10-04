@@ -2,6 +2,7 @@
 
 import { opacityVariant } from "@content/FramerMotionVariants";
 import AnimatedDiv from "@components/FramerMotion/AnimatedDiv";
+import PageHeader from "@components/site/PageHeader";
 import { PostType } from "@lib/types";
 import { snippetsImages } from "@utils/utils";
 import Image from "next/image";
@@ -16,12 +17,14 @@ export default function SnippetLayout({
   return (
     <section className="mt-[44px] md:mt-[60px]  relative !overflow-hidden">
       <section className="relative max-w-3xl p-5 mx-auto prose sm:pt-10 font-barlow dark:prose-invert">
-        <div className="flex items-center justify-between">
-          <h1 className="m-0 text-3xl font-bold tracking-tight text-foreground md:text-5xl">
-            {snippet.meta.title}
-          </h1>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <PageHeader compact title={snippet.meta.title}>
+              {snippet.meta.excerpt}
+            </PageHeader>
+          </div>
 
-          <div className="relative flex items-center justify-center w-12 h-12 p-1 overflow-hidden">
+          <div className="relative flex items-center justify-center w-12 h-12 p-1 overflow-hidden shrink-0">
             <Image
               className="m-0"
               src={snippetsImages[`${snippet.meta.image}`]}
@@ -31,8 +34,6 @@ export default function SnippetLayout({
             ></Image>
           </div>
         </div>
-
-        <p>{snippet.meta.excerpt}</p>
 
         <AnimatedDiv
           variants={opacityVariant}

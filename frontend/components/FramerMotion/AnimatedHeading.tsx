@@ -3,7 +3,7 @@ import { AnimatedTAGProps } from "@lib/types";
 
 /**
  * Animated heading with a configurable level. Defaults to h2 — a page gets
- * exactly one h1, owned by its title component (PageHeader / PageTop / hero).
+ * exactly one h1, owned by its title component (PageHeader, or the home hero).
  */
 export default function AnimatedHeading({
   variants,
