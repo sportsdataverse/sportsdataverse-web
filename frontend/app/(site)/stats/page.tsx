@@ -4,9 +4,8 @@ import pageMeta from "@content/meta";
 import PageHeader from "@components/site/PageHeader";
 import { connectToDatabase } from "@lib/mongodb";
 import { PUBLIC_PACKAGE_FILTER } from "@lib/packageVisibility";
-import { listDbStatuses } from "@lib/platform/dbStatus";
+import { warehouseSnapshot } from "@lib/siteFacts";
 import { warehouseFigures } from "@lib/warehouseFigures";
-import { listRepoReleases } from "@lib/platform/github";
 import StatsCard from "@components/Stats/StatsCard";
 import StatsClient from "./StatsClient";
 
@@ -21,8 +20,6 @@ export const metadata: Metadata = {
 /** Re-read the live sources at most once an hour. */
 export const revalidate = 3600;
 
-const RELEASES_REPO = "sportsdataverse/sportsdataverse-data";
-
 async function packageCount(): Promise<number | null> {
   try {
     const { db } = await connectToDatabase();
@@ -34,28 +31,10 @@ async function packageCount(): Promise<number | null> {
   }
 }
 
-async function warehouseStatus() {
-  try {
-    const statuses = await listDbStatuses();
-    return statuses.find((s) => s.source === "sdv-db") ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function releaseTags(): Promise<string[] | null> {
-  try {
-    const releases = await listRepoReleases(RELEASES_REPO);
-    return releases.map((r) => r.tag);
-  } catch {
-    return null;
-  }
-}
-
 export default async function StatsPage() {
-  const [status, tags, pkgs] = await Promise.all([
-    warehouseStatus(),
-    releaseTags(),
+  // The same snapshot the ticker, the home hero and /about read (lib/siteFacts), so they cannot disagree.
+  const [{ status, releaseTags: tags }, pkgs] = await Promise.all([
+    warehouseSnapshot(),
     packageCount(),
   ]);
   const { tiles, asOf } = warehouseFigures({ status, releaseTags: tags, packages: pkgs });

@@ -16,7 +16,14 @@ const LANGS = [
   { label: "JS", note: "sportsdataverse.js · web tooling" },
 ];
 
-export default function HomeClient({ blogs }: { blogs: FrontMatter[] }) {
+export default function HomeClient({
+  blogs,
+  warehouse,
+}: {
+  blogs: FrontMatter[];
+  /** "48.7M+ rows across 10 leagues" (lib/siteFacts), or null when the figures did not load. */
+  warehouse: string | null;
+}) {
   return (
     <div className="relative mx-auto max-w-6xl px-4">
       <motion.section
@@ -47,7 +54,7 @@ export default function HomeClient({ blogs }: { blogs: FrontMatter[] }) {
             Play-by-play, box scores, betting lines, and win-probability models
             for college football, basketball, and beyond — shipped as free
             packages in R, Python, and Node.js, backed by an open data
-            warehouse.
+            warehouse{warehouse ? ` of ${warehouse}` : ""}.
           </motion.p>
           <motion.div variants={opacityVariant} className="flex flex-wrap gap-3">
             <Button asChild size="lg" className="gap-2">
