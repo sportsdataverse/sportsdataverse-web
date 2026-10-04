@@ -23,6 +23,7 @@ import {
   trackedTagCount,
   workflowAlt,
   workflowStem,
+  worstPipeline,
 } from '../lib/ecosystemStatus.ts';
 
 const fixture = JSON.parse(
@@ -447,4 +448,13 @@ test('a /status group starts open only when it needs attention', () => {
     false,
     'a disabled workflow\'s last failure is history, not attention'
   );
+});
+
+test('a package card shows the worst state of the producers it reads', () => {
+  const link = (anchor: string, state: 'fresh' | 'idle' | 'stale' | 'failing' | 'unknown') =>
+    ({ repo: `sportsdataverse/${anchor}`, anchor, label: anchor, state });
+  assert.equal(worstPipeline([]), undefined);
+  assert.equal(worstPipeline([link('a', 'fresh'), link('b', 'stale'), link('c', 'failing'), link('d', 'failing')])?.anchor, 'c', 'failing wins; the first on a tie');
+  assert.equal(worstPipeline([link('a', 'idle'), link('b', 'unknown'), link('c', 'fresh')])?.anchor, 'b', 'unknown is worse than idle');
+  assert.equal(worstPipeline([link('a', 'fresh')])?.anchor, 'a');
 });
