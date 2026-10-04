@@ -62,7 +62,7 @@ const link = "text-accent underline-offset-4 hover:underline";
 /** Links that are not inline in running text are at least 24 px tall (a tap target on a phone). */
 const tapLink = `${link} inline-flex min-h-6 items-center`;
 // Release rows stack on a phone, so their links get the 24 px target there and keep the table look from md up.
-const rowLink = `${tapLink} md:inline-block md:min-h-0`;
+const rowLink = `${tapLink} md:inline md:min-h-0`;
 /** The one-line summary of a collapsed producer or package group. */
 const summaryRow =
   "flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 py-2 [&::-webkit-details-marker]:hidden";
@@ -276,13 +276,13 @@ function Producers({ summary, now }: { summary: EcosystemSummary; now: number })
               </summary>
               <div className="border-t border-border/60 px-4 pb-4 pt-3">
                 <p className="break-words font-mono text-xs text-muted-foreground">
-                  <a href={`${GH}/${p.repo}`} target="_blank" rel="noopener noreferrer" title={p.repo} className={link}>
+                  <a href={`${GH}/${p.repo}`} target="_blank" rel="noopener noreferrer" title={p.repo} className={rowLink}>
                     {anchor}
                   </a>
                   {p.raw_repo ? (
                     <>
                       {" · built from "}
-                      <a href={`${GH}/${p.raw_repo}`} target="_blank" rel="noopener noreferrer" title={p.raw_repo} className={link}>
+                      <a href={`${GH}/${p.raw_repo}`} target="_blank" rel="noopener noreferrer" title={p.raw_repo} className={rowLink}>
                         {producerAnchor(p.raw_repo)}
                       </a>
                     </>
@@ -379,7 +379,7 @@ function RedWorkflows({ summary, now }: { summary: EcosystemSummary; now: number
               {rows.map((r) => (
                 <tr key={`${r.repo}/${r.name}`} className="border-t border-border/60">
                   <td className="px-3 py-1.5 font-mono">
-                    <a href={`${GH}/${r.repo}`} target="_blank" rel="noopener noreferrer" className={link}>
+                    <a href={`${GH}/${r.repo}`} target="_blank" rel="noopener noreferrer" className={rowLink}>
                       {producerAnchor(r.repo)}
                     </a>
                   </td>
@@ -432,7 +432,7 @@ function Packages({ summary }: { summary: EcosystemSummary }) {
                 </summary>
                 <div className="border-t border-border/60 px-4 pb-4 pt-3">
                   <p className="break-words font-mono text-xs text-muted-foreground">
-                    <a href={`${GH}/${p.repo}`} target="_blank" rel="noopener noreferrer" className={link}>
+                    <a href={`${GH}/${p.repo}`} target="_blank" rel="noopener noreferrer" className={rowLink}>
                       {p.repo}
                     </a>
                     {" · "}
@@ -442,7 +442,7 @@ function Packages({ summary }: { summary: EcosystemSummary }) {
                           href={`${GH}/${p.repo}/releases/tag/${encodeURIComponent(p.latest_release_tag)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={link}
+                          className={rowLink}
                         >
                           {p.latest_release_tag}
                         </a>
