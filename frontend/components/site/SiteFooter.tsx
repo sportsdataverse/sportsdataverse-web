@@ -61,7 +61,7 @@ export default function SiteFooter() {
         </div>
         {GROUPS.map((g) => (
           <div key={g.title}>
-            <h3 className="eyebrow">{g.title}</h3>
+            <h3 className="font-sans text-sm font-medium text-muted-foreground">{g.title}</h3>
             <ul className="mt-4 space-y-2.5">
               {g.links.map((l) => (
                 <li key={l.href}>

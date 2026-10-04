@@ -58,7 +58,7 @@ export default async function AboutPage() {
   return (
     <div className="mx-auto max-w-4xl px-4">
       <section>
-        <PageHeader eyebrow="About us" title="Sports data, without the paywall." />
+        <PageHeader title="Sports data, without the paywall." />
         <div className="mt-8 space-y-5 text-base leading-relaxed text-foreground/90 sm:text-lg">
           <p>
             The SportsDataverse started in 2021 with a simple frustration:
@@ -115,7 +115,7 @@ export default async function AboutPage() {
       </section>
 
       <section className="mt-14">
-        <p className="eyebrow">What we build</p>
+        <p className="text-sm font-medium text-muted-foreground">What we build</p>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           {PILLARS.map((p) => (
             <div
@@ -140,7 +140,7 @@ export default async function AboutPage() {
       </section>
 
       <section className="mt-14">
-        <p className="eyebrow">Leagues covered</p>
+        <p className="text-sm font-medium text-muted-foreground">Leagues covered</p>
         <div className="mt-4 flex flex-wrap gap-2">
           {LEAGUES.map((l) => (
             <span
@@ -157,7 +157,7 @@ export default async function AboutPage() {
       </section>
 
       <section className="mt-14">
-        <p className="eyebrow">Find us</p>
+        <p className="text-sm font-medium text-muted-foreground">Find us</p>
         <ul className="mt-4 space-y-2.5 text-sm">
           <li>
             <a
