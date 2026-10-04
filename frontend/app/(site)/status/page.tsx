@@ -91,12 +91,13 @@ function SectionHead({ id, title, note }: { id?: string; title: string; note?: s
   );
 }
 
-function When({ value, now }: { value: string | null; now: number }) {
+/** `compact` drops the relative age below md, where a stacked row has no room for it. */
+function When({ value, now, compact = false }: { value: string | null; now: number; compact?: boolean }) {
   if (!value) return <span className="text-muted-foreground">—</span>;
   return (
     <>
-      <time dateTime={value}>{formatDate(value)}</time>{" "}
-      <span className="text-muted-foreground">· {relativeAge(value, now)}</span>
+      <time dateTime={value}>{formatDate(value)}</time>
+      <span className={`text-muted-foreground ${compact ? "hidden md:inline" : ""}`}> · {relativeAge(value, now)}</span>
     </>
   );
 }
@@ -365,7 +366,7 @@ function RedWorkflows({ summary, now }: { summary: EcosystemSummary; now: number
           aria-label="Red workflows table, scrollable"
           className={`mt-4 overflow-x-auto ${scrollRegion}`}
         >
-          {/* Below md every row is a stacked block (repo and conclusion; workflow; date and run), the same
+          {/* Below md every row is a stacked block (repo, date and conclusion; workflow and run link), the same
               pattern as the release table above; the explicit roles keep the table semantics. */}
           <table
             data-plain
@@ -387,23 +388,23 @@ function RedWorkflows({ summary, now }: { summary: EcosystemSummary; now: number
                 <tr
                   key={`${r.repo}/${r.name}`}
                   role="row"
-                  className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2 md:table-row md:border-b-0 md:border-t md:p-0"
+                  className="flex flex-wrap items-center gap-x-2 border-b border-border/60 px-3 py-1.5 md:table-row md:border-b-0 md:border-t md:p-0"
                 >
-                  <td role="cell" className="col-start-1 row-start-1 font-mono [overflow-wrap:anywhere] md:px-3 md:py-1.5">
+                  <td role="cell" className="order-1 font-mono [overflow-wrap:anywhere] md:px-3 md:py-1.5">
                     <a href={`${GH}/${r.repo}`} target="_blank" rel="noopener noreferrer" className={rowLink}>
                       {producerAnchor(r.repo)}
                     </a>
                   </td>
-                  <td role="cell" className="col-span-2 row-start-2 [overflow-wrap:anywhere] md:px-3 md:py-1.5">
+                  <td role="cell" className="order-4 min-w-0 flex-1 [overflow-wrap:anywhere] md:px-3 md:py-1.5">
                     {r.name}
                   </td>
-                  <td role="cell" className="col-start-2 row-start-1 md:px-3 md:py-1.5">
+                  <td role="cell" className="order-3 md:px-3 md:py-1.5">
                     <Chip tone={runTone(r)}>{r.conclusion ? r.conclusion.replace(/_/g, " ") : "unknown"}</Chip>
                   </td>
-                  <td role="cell" className="col-start-1 row-start-3 whitespace-nowrap font-mono text-xs md:px-3 md:py-1.5">
-                    <When value={r.created_at} now={now} />
+                  <td role="cell" className="order-2 mr-auto whitespace-nowrap font-mono text-xs md:px-3 md:py-1.5">
+                    <When value={r.created_at} now={now} compact />
                   </td>
-                  <td role="cell" className="col-start-2 row-start-3 md:px-3 md:py-1.5">
+                  <td role="cell" className="order-5 md:px-3 md:py-1.5">
                     {r.url ? <External href={r.url}>View run</External> : <span className="text-muted-foreground">—</span>}
                   </td>
                 </tr>
