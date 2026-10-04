@@ -30,11 +30,13 @@ export default async function Ticker() {
   // them twice per half.
   const half = [...items, ...items];
   const strip = [...half, ...half];
+  // The 40s cycle was tuned for six facts per half; eight facts keep that pace at 40 * 8 / 6 = 53s.
   return (
     <div className="overflow-hidden border-b border-border bg-card">
       <p className="sr-only">{items.join(" · ")}</p>
       <div
         aria-hidden="true"
+        style={{ animationDuration: "53s" }}
         className="flex w-max animate-ticker gap-0 whitespace-nowrap py-1.5 motion-reduce:animate-none"
       >
         {strip.map((item, i) => (
