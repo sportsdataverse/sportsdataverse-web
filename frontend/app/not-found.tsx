@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PageHeader from "@components/site/PageHeader";
 import SiteNav from "@components/site/SiteNav";
 import SiteFooter from "@components/site/SiteFooter";
 
@@ -14,12 +15,9 @@ export default function NotFound() {
         className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center focus:outline-none"
       >
         <p className="font-mono text-sm text-muted-foreground">404</p>
-        <h1 className="font-display text-4xl font-bold tracking-tight">
-          Page not found
-        </h1>
-        <p className="max-w-md text-muted-foreground">
+        <PageHeader compact title="Page not found">
           The page you are looking for does not exist or has moved.
-        </p>
+        </PageHeader>
         <Link
           href="/"
           className="mt-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"

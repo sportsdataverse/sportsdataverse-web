@@ -25,15 +25,17 @@ export default function SnippetLayout({
             </PageHeader>
           </div>
 
-          <div className="relative flex items-center justify-center w-12 h-12 p-1 overflow-hidden shrink-0">
-            <Image
-              className="m-0"
-              src={snippetsImages[`${snippet.meta.image}`]}
-              alt={snippet.meta.title}
-              width={62}
-              height={62}
-            ></Image>
-          </div>
+          {snippetsImages[`${snippet.meta.image}`] ? (
+            <div className="relative flex items-center justify-center w-12 h-12 p-1 overflow-hidden shrink-0">
+              <Image
+                className="m-0"
+                src={snippetsImages[`${snippet.meta.image}`]}
+                alt={snippet.meta.title}
+                width={62}
+                height={62}
+              ></Image>
+            </div>
+          ) : null}
         </div>
 
         <AnimatedDiv

@@ -158,7 +158,7 @@ export default function PackagesClient({
               aria-pressed={language === l}
               onClick={() => setLanguage(l)}
               className={cn(
-                "inline-flex min-h-8 items-center rounded-full border px-3 font-display text-sm font-semibold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                "inline-flex min-h-8 items-center rounded-full border px-3 font-display text-sm font-semibold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 language === l
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"

@@ -118,7 +118,7 @@ on the site must read identically.
 Every public page opens with `PageHeader` (`frontend/components/site/PageHeader.tsx`),
 which renders its only `h1` in display caps with the page's one amber underline; blog
 posts and snippets use its `compact` size, and the home hero is the one page that
-brings its own. On a phone, a list longer than a screen collapses by default (rows in
+brings its own. On a phone, a status or package list longer than a screen collapses by default (rows in
 place of a wide table, `<details>` groups that start open only when they need
 attention), and every link or control in it is at least 24 px tall.
 
