@@ -163,6 +163,7 @@ function ReleaseFreshness({ summary, now }: { summary: EcosystemSummary; now: nu
                 table semantics a screen reader would lose once the rows are display: grid. */}
             <table
               id="release-tags"
+              data-plain
               role="table"
               aria-labelledby="release-freshness-heading"
               className="block w-full text-left text-sm md:table md:min-w-[42rem]"
@@ -191,9 +192,9 @@ function ReleaseFreshness({ summary, now }: { summary: EcosystemSummary; now: nu
                       data-tag={r.tag}
                       data-producer={r.producer ?? ""}
                       data-label={r.producer ? labelOf(r.producer) : ""}
-                      className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 border-t border-border/60 px-3 py-2 hover:bg-muted/40 md:table-row md:p-0"
+                      className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2 hover:bg-muted/40 md:table-row md:p-0"
                     >
-                      <td role="cell" className="col-span-2 row-start-1 font-mono md:px-3 md:py-1.5">
+                      <td role="cell" className="col-span-2 row-start-1 font-mono [overflow-wrap:anywhere] md:px-3 md:py-1.5">
                         <a
                           href={`${RELEASES_URL}/tag/${encodeURIComponent(r.tag)}`}
                           target="_blank"
@@ -264,7 +265,7 @@ function Producers({ summary, now }: { summary: EcosystemSummary; now: number })
                 <ChevronRight aria-hidden className={chevron} />
                 <h3 title={p.label} className="min-w-0 flex-1 truncate text-base font-semibold">{p.label}</h3>
                 {p.sport ? (
-                  <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                  <span className="hidden shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary sm:inline-block">
                     {p.sport}
                   </span>
                 ) : null}
