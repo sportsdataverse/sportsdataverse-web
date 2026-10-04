@@ -248,7 +248,7 @@ function Producers({ summary, now }: { summary: EcosystemSummary; now: number })
   return (
     <section id="producers" className="mt-14 scroll-mt-24">
       <SectionHead title="Producers" note={`${summary.producers.length} repos build the release data`} />
-      <div className="mt-4 grid items-start gap-2 md:grid-cols-2 md:gap-3">
+      <div className="mt-4 grid grid-cols-1 items-start gap-2 md:grid-cols-2 md:gap-3">
         {summary.producers.map((p) => {
           const anchor = producerAnchor(p.repo);
           const tone = STATE_TONE[p.state];
@@ -408,7 +408,7 @@ function Packages({ summary }: { summary: EcosystemSummary }) {
       {rows.length === 0 ? (
         <p className="py-8 text-sm text-muted-foreground">This snapshot lists no package repos.</p>
       ) : (
-        <div className="mt-4 grid items-start gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
+        <div className="mt-4 grid grid-cols-1 items-start gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
           {rows.map((p) => {
             const failing = failingCount(p.workflows);
             return (
