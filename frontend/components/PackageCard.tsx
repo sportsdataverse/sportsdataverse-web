@@ -1,11 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Github, FileText, Database, FileDown } from "lucide-react";
+import { Github, FileText, Database, FileDown, CircleCheck, CircleDot, CircleHelp, CircleX, TriangleAlert, type LucideIcon } from "lucide-react";
 import { Card } from "@components/ui/card";
 import { Button } from "@components/ui/button";
-import StatusChip, { DOT, STATE_TONE } from "@components/site/StatusChip";
+import StatusChip, { STATE_TONE } from "@components/site/StatusChip";
 import { cheatsheetHref } from "@lib/cheatsheets";
-import { stateLabel, worstPipeline, type PipelineLink } from "@lib/ecosystemStatus";
+import { stateLabel, worstPipeline, type PipelineLink, type ProducerState } from "@lib/ecosystemStatus";
 import { cranDoi, cranHref } from "@lib/packageOrder";
 import type { PackageDoc } from "@lib/packageSchema";
 
@@ -46,6 +46,15 @@ function Pipelines({ pipelines }: { pipelines: PipelineLink[] }) {
   );
 }
 
+/** One shape per pipeline state, in the state's own status-* ink: a status never carries meaning by hue alone. */
+const STATE_ICON: Record<ProducerState, { Icon: LucideIcon; ink: string }> = {
+  fresh: { Icon: CircleCheck, ink: "text-status-success-ink dark:text-status-success" },
+  idle: { Icon: CircleDot, ink: "text-status-scheduled-ink dark:text-status-scheduled" },
+  stale: { Icon: TriangleAlert, ink: "text-status-running-ink dark:text-status-running" },
+  failing: { Icon: CircleX, ink: "text-status-failed-ink dark:text-status-failed" },
+  unknown: { Icon: CircleHelp, ink: "text-status-cancelled-ink dark:text-status-cancelled" },
+};
+
 const rowIcon =
   "inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 
@@ -56,6 +65,7 @@ const rowIcon =
  */
 function PackageRow({ pkg, pipelines }: { pkg: PackageDoc; pipelines?: PipelineLink[] }) {
   const worst = worstPipeline(pipelines ?? []);
+  const worstIcon = worst ? STATE_ICON[worst.state] : null;
   return (
     <div className="flex items-start gap-3 rounded-md border border-border bg-card p-3 sm:hidden">
       {pkg.logoHref ? (
@@ -85,7 +95,7 @@ function PackageRow({ pkg, pipelines }: { pkg: PackageDoc; pipelines?: PipelineL
               title={`${worst.label} data pipeline: ${stateLabel(worst.state)}`}
               className={rowIcon}
             >
-              <span aria-hidden className={`size-2.5 rounded-full ${DOT[STATE_TONE[worst.state]]}`} />
+              {worstIcon ? <worstIcon.Icon aria-hidden className={`size-4 ${worstIcon.ink}`} /> : null}
             </Link>
           ) : null}
         </div>

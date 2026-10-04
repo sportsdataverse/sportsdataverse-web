@@ -91,12 +91,13 @@ function SectionHead({ id, title, note }: { id?: string; title: string; note?: s
   );
 }
 
-function When({ value, now }: { value: string | null; now: number }) {
+/** `compact` drops the relative age below md, where a stacked row has no room for it. */
+function When({ value, now, compact = false }: { value: string | null; now: number; compact?: boolean }) {
   if (!value) return <span className="text-muted-foreground">—</span>;
   return (
     <>
-      <time dateTime={value}>{formatDate(value)}</time>{" "}
-      <span className="text-muted-foreground">· {relativeAge(value, now)}</span>
+      <time dateTime={value}>{formatDate(value)}</time>
+      <span className={`text-muted-foreground ${compact ? "hidden md:inline" : ""}`}> · {relativeAge(value, now)}</span>
     </>
   );
 }
@@ -365,32 +366,45 @@ function RedWorkflows({ summary, now }: { summary: EcosystemSummary; now: number
           aria-label="Red workflows table, scrollable"
           className={`mt-4 overflow-x-auto ${scrollRegion}`}
         >
-          <table aria-labelledby="red-workflows-heading" className="w-full min-w-[36rem] text-left text-sm">
-            <thead>
-              <tr className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
+          {/* Below md every row is a stacked block (repo, date and conclusion; workflow and run link), the same
+              pattern as the release table above; the explicit roles keep the table semantics. */}
+          <table
+            data-plain
+            role="table"
+            aria-labelledby="red-workflows-heading"
+            className="block w-full text-left text-sm md:table md:min-w-[36rem]"
+          >
+            <thead role="rowgroup" className="hidden md:table-header-group">
+              <tr role="row" className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
                 {["Repo", "Workflow", "Conclusion", "Date", "Run"].map((h) => (
-                  <th key={h} scope="col" className="px-3 py-2 font-semibold">
+                  <th key={h} role="columnheader" scope="col" className="px-3 py-2 font-semibold">
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup" className="block md:table-row-group">
               {rows.map((r) => (
-                <tr key={`${r.repo}/${r.name}`} className="border-t border-border/60">
-                  <td className="px-3 py-1.5 font-mono">
+                <tr
+                  key={`${r.repo}/${r.name}`}
+                  role="row"
+                  className="flex flex-wrap items-center gap-x-2 border-b border-border/60 px-3 py-1.5 md:table-row md:border-b-0 md:border-t md:p-0"
+                >
+                  <td role="cell" className="order-1 font-mono [overflow-wrap:anywhere] md:px-3 md:py-1.5">
                     <a href={`${GH}/${r.repo}`} target="_blank" rel="noopener noreferrer" className={rowLink}>
                       {producerAnchor(r.repo)}
                     </a>
                   </td>
-                  <td className="px-3 py-1.5">{r.name}</td>
-                  <td className="px-3 py-1.5">
+                  <td role="cell" className="order-4 grow [overflow-wrap:anywhere] md:px-3 md:py-1.5">
+                    {r.name}
+                  </td>
+                  <td role="cell" className="order-3 md:px-3 md:py-1.5">
                     <Chip tone={runTone(r)}>{r.conclusion ? r.conclusion.replace(/_/g, " ") : "unknown"}</Chip>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-1.5 font-mono text-xs">
-                    <When value={r.created_at} now={now} />
+                  <td role="cell" className="order-2 mr-auto whitespace-nowrap font-mono text-xs md:px-3 md:py-1.5">
+                    <When value={r.created_at} now={now} compact />
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td role="cell" className="order-5 md:px-3 md:py-1.5">
                     {r.url ? <External href={r.url}>View run</External> : <span className="text-muted-foreground">—</span>}
                   </td>
                 </tr>

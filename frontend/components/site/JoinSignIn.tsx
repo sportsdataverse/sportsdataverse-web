@@ -3,6 +3,7 @@
 import { useSession, signIn } from "next-auth/react";
 import { Github } from "lucide-react";
 import { Button } from "@components/ui/button";
+import { PROSE_MEASURE } from "@lib/prose";
 
 /**
  * The optional GitHub sign-in the spec puts on `/join` ("Pages and routes").
@@ -19,12 +20,14 @@ export default function JoinSignIn() {
     return (
       <div className="rounded-lg border border-border bg-card p-4 sm:p-6">
         <p className="text-sm font-medium text-muted-foreground">Signed in</p>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          GitHub knows you as{" "}
-          <span className="font-medium text-foreground">@{session.login}</span>. If you&apos;re in the
-          sportsdataverse org or have a merged pull request there, your Discord invite is issued the
-          moment you submit — no review queue.
-        </p>
+        <div className={PROSE_MEASURE}>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            GitHub knows you as{" "}
+            <span className="font-medium text-foreground">@{session.login}</span>. If you&apos;re in the
+            sportsdataverse org or have a merged pull request there, your Discord invite is issued the
+            moment you submit — no review queue.
+          </p>
+        </div>
       </div>
     );
   }
@@ -32,11 +35,13 @@ export default function JoinSignIn() {
   return (
     <div className="rounded-lg border border-border bg-card p-4 sm:p-6">
       <p className="text-sm font-medium text-muted-foreground">Optional</p>
-      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-        Contributed to a SportsDataverse repo, or in the GitHub org? Sign in and we&apos;ll issue your
-        Discord invite on the spot instead of queueing you for a member to review. The form works
-        either way.
-      </p>
+      <div className={PROSE_MEASURE}>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Contributed to a SportsDataverse repo, or in the GitHub org? Sign in and we&apos;ll issue your
+          Discord invite on the spot instead of queueing you for a member to review. The form works
+          either way.
+        </p>
+      </div>
       <Button
         type="button"
         variant="outline"
