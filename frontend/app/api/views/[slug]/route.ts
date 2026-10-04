@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { viewsReply } from "@lib/viewsReply";
 
 /**
  * This function handles HTTP requests made to a specific route. It takes in a "slug" parameter from the request query.
@@ -42,18 +43,13 @@ export async function POST(_req: Request, ctx: Ctx) {
   // check if the app in the production and req method is post only then add the view to the database
   if (process.env.NODE_ENV === "production") {
     const supabaseResponse = await addView(slug);
-    // Supabase returns status 0 on a failed request (and addView can return
-    // undefined if it threw). `res.status(0)` / `res.status(undefined)` crash
-    // with ERR_HTTP_INVALID_STATUS_CODE, so clamp to a valid HTTP status:
-    // pass through a real 1xx–5xx code, otherwise treat it as a 500.
-    const status = supabaseResponse?.status;
-    const httpStatus =
-      typeof status === "number" && status >= 100 && status <= 599
-        ? status
-        : 500;
+    // Supabase answers a successful write with 204, which cannot carry a body
+    // (`NextResponse.json` throws), and reports a failed request as status 0.
+    const reply = viewsReply(supabaseResponse?.status);
+    if (!reply.hasBody) return new NextResponse(null, { status: reply.status });
     return NextResponse.json(
       supabaseResponse ?? { message: "View could not be recorded." },
-      { status: httpStatus }
+      { status: reply.status }
     );
   } else {
     return NextResponse.json(
