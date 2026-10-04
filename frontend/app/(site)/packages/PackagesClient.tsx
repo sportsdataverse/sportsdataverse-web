@@ -9,12 +9,17 @@ import PageHeader from "@components/site/PageHeader";
 import { Input } from "@components/ui/input";
 import { pipelinesForPackage, type PipelineLink } from "@lib/ecosystemStatus";
 import type { PackageDoc } from "@lib/packageSchema";
+import { cn } from "@lib/utils";
 
 /**
  * The package directory. One labeled section per ecosystem; the flagship
  * sportsdataverse metapackage leads each section as a full-width row. A single
- * search box filters every section on title / sport / description.
+ * search box filters every section on title / sport / description, and the
+ * language chips narrow it to one section: a package shows when it is in the
+ * chosen language AND matches every search term.
  */
+
+const LANGUAGES = ["Python", "R", "Node.js"] as const;
 
 type Props = {
   rPackages: PackageDoc[];
@@ -101,6 +106,7 @@ export default function PackagesClient({
   pipelines,
 }: Props) {
   const [query, setQuery] = useState("");
+  const [language, setLanguage] = useState<(typeof LANGUAGES)[number] | null>(null);
 
   const sections = useMemo(
     () => [
@@ -144,6 +150,24 @@ export default function PackagesClient({
             aria-label="Search packages"
           />
         </div>
+        <div role="group" aria-label="Filter packages by language" className="flex flex-wrap gap-2">
+          {([null, ...LANGUAGES] as const).map((l) => (
+            <button
+              key={l ?? "all"}
+              type="button"
+              aria-pressed={language === l}
+              onClick={() => setLanguage(l)}
+              className={cn(
+                "inline-flex min-h-8 items-center rounded-full border px-3 font-display text-sm font-semibold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                language === l
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+              )}
+            >
+              {l ?? "All"}
+            </button>
+          ))}
+        </div>
         <Image
           src={sdvBlue}
           alt="SportsDataverse banner"
@@ -152,9 +176,11 @@ export default function PackagesClient({
         />
       </div>
 
-      {sections.map((s) => (
-        <Section key={s.title} {...s} query={query} pipelines={pipelines} />
-      ))}
+      {sections
+        .filter((s) => language === null || s.title === language)
+        .map((s) => (
+          <Section key={s.title} {...s} query={query} pipelines={pipelines} />
+        ))}
     </div>
   );
 }

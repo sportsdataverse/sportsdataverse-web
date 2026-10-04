@@ -390,6 +390,20 @@ export function pipelinesByPackage(
   return out;
 }
 
+/** Worst first: failing, stale, unknown, idle, fresh. */
+const STATE_RANK: Record<ProducerState, number> = { failing: 0, stale: 1, unknown: 2, idle: 3, fresh: 4 };
+
+/**
+ * The producer whose state a package's one status dot shows (/packages on a phone): the worst of the
+ * producers it reads, the first in snapshot order on a tie; undefined when it reads none.
+ */
+export function worstPipeline(pipelines: PipelineLink[]): PipelineLink | undefined {
+  return pipelines.reduce<PipelineLink | undefined>(
+    (worst, p) => (!worst || STATE_RANK[p.state] < STATE_RANK[worst.state] ? p : worst),
+    undefined
+  );
+}
+
 /** Shared by the R, Python and Node flagship cards, so never a lookup key on its own. */
 const SHARED_TITLE = "sportsdataverse";
 
