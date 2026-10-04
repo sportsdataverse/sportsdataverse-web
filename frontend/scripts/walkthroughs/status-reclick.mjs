@@ -3,6 +3,8 @@
 // into view.
 export default async (page, base) => {
   const errors = [];
+  const isOpen = (id, why) => page.waitForFunction((g) => document.getElementById(g)?.open === true, id, { timeout: 5000 })
+    .catch(() => { throw new Error(`#${id} is not open ${why}`); });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto(base + '/status', { waitUntil: 'networkidle', timeout: 90_000 });
   // a producer that starts closed and has a link to it in the release table
@@ -15,8 +17,10 @@ export default async (page, base) => {
   });
   if (!id) throw new Error('no closed producer group with a release-table link on /status');
 
+  // from another page, so this is a load of the hash URL, not a same-document hash change
+  await page.goto(base + '/about', { waitUntil: 'load', timeout: 90_000 });
   await page.goto(`${base}/status#${id}`, { waitUntil: 'networkidle', timeout: 90_000 });
-  await page.waitForFunction((g) => document.getElementById(g)?.open === true, id, { timeout: 5000 });
+  await isOpen(id, 'after loading /status#' + id);
   await page.waitForTimeout(1000);
 
   // the reader closes the group; the hash stays in the URL
@@ -28,7 +32,7 @@ export default async (page, base) => {
   const link = page.locator(`#release-tags tbody tr[data-tag] a[href="#${id}"]`).first();
   await link.scrollIntoViewIfNeeded();
   await link.click();
-  await page.waitForFunction((g) => document.getElementById(g)?.open === true, id, { timeout: 5000 });
+  await isOpen(id, 'after clicking a link to the hash it is already at');
   await page.waitForTimeout(1200);
   const { top, vh } = await page.evaluate((g) => ({ top: document.getElementById(g).getBoundingClientRect().top, vh: innerHeight }), id);
   if (top < 0 || top > vh * 0.75) throw new Error(`#${id} reopened but sits at ${Math.round(top)}px of ${vh}px`);
