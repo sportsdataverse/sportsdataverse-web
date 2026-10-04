@@ -19,6 +19,7 @@ import { RxPencil2 } from "react-icons/rx";
 import TableOfContents from "@components/TableOfContents";
 import PostNavigation, { type PostNavLink } from "@components/PostNavigation";
 import PageHeader from "@components/site/PageHeader";
+import { PROSE_MEASURE } from "@lib/prose";
 
 export default function BlogLayout({
   post,
@@ -56,7 +57,7 @@ export default function BlogLayout({
 
       {/* Blog Content */}
       <section
-        className="p-5 sm:pt-10 relative font-barlow prose dark:prose-invert md:ml-[35%] lg:ml-[30%] print:!mx-auto"
+        className="p-5 sm:pt-10 relative font-sans prose dark:prose-invert md:ml-[35%] lg:ml-[30%] print:!mx-auto"
         style={{
           maxWidth: "800px",
           opacity: `${isTOCActive} && "0.3"`,
@@ -120,7 +121,7 @@ export default function BlogLayout({
 
         <AnimatedDiv
           variants={opacityVariant}
-          className="max-w-full prose-sm blog-container sm:prose-base prose-headings:scroll-mt-24 prose-h2:border-b prose-h2:border-border/60 prose-h2:pb-2 prose-a:text-primary prose-a:no-underline hover:prose-a:text-accent prose-a:transition-colors prose-blockquote:border-l-primary prose-img:mx-auto prose-img:rounded-md marker:text-primary"
+          className={`${PROSE_MEASURE} prose-sm blog-container sm:prose-base prose-headings:scroll-mt-24 prose-h2:border-b prose-h2:border-border/60 prose-h2:pb-2 prose-a:text-primary prose-a:no-underline hover:prose-a:text-accent prose-a:transition-colors prose-blockquote:border-l-primary prose-img:mx-auto prose-img:rounded-md marker:text-primary`}
         >
           {children}
         </AnimatedDiv>
