@@ -4,6 +4,8 @@ import pageMeta from "@content/meta";
 import getRSS from "@lib/generateRSS";
 import generateSitemap from "@lib/sitemap";
 import HomeClient from "@components/site/HomeClient";
+import { getSiteFacts } from "@lib/siteFacts";
+import { warehousePhrase } from "@lib/warehouseFigures";
 
 export const metadata: Metadata = {
   description: pageMeta.home.description,
@@ -17,5 +19,5 @@ export default async function HomePage() {
   // public/feed.xml + public/sitemap.xml (static page => runs once per build).
   await getRSS();
   await generateSitemap();
-  return <HomeClient blogs={blogs} />;
+  return <HomeClient blogs={blogs} warehouse={warehousePhrase(await getSiteFacts())} />;
 }

@@ -5,6 +5,8 @@ import PageHeader from "@components/site/PageHeader";
 import SupportCallout from "@components/site/SupportCallout";
 import { connectToDatabase } from "@lib/mongodb";
 import { PUBLIC_PACKAGE_FILTER } from "@lib/packageVisibility";
+import { getSiteFacts } from "@lib/siteFacts";
+import { aboutOpenData, leagueLabels } from "@lib/warehouseFigures";
 
 export const metadata: Metadata = {
   title: "About",
@@ -21,7 +23,8 @@ async function packageCount(): Promise<number | null> {
   }
 }
 
-const PILLARS = [
+// The open-data figures come from the snapshot /stats reads (lib/siteFacts); never hard-coded here.
+const PILLARS = (openData: string) => [
   {
     title: "Packages",
     body: "Sport-specific libraries in R, Python, and Node.js — cfbfastR, hoopR, wehoop, fastRhockey, sportsdataverse-py, sportsdataverse.js and friends — with consistent loaders for schedules, rosters, box scores, and play-by-play.",
@@ -30,7 +33,7 @@ const PILLARS = [
   },
   {
     title: "Open data",
-    body: "Nightly pipelines scrape, process, and publish season-level datasets as versioned releases: over 120 million rows of play-by-play and stats across eight leagues, loadable in one function call.",
+    body: openData,
     href: "/stats",
     link: "See the numbers",
   },
@@ -42,19 +45,9 @@ const PILLARS = [
   },
 ];
 
-const LEAGUES = [
-  "CFB",
-  "MBB",
-  "WBB",
-  "NFL",
-  "NBA",
-  "WNBA",
-  "NHL",
-  "PWHL",
-];
-
 export default async function AboutPage() {
-  const count = await packageCount();
+  const [count, facts] = await Promise.all([packageCount(), getSiteFacts()]);
+  const leagues = facts.leagues ? leagueLabels(facts.leagues) : null;
   return (
     <div className="mx-auto max-w-4xl px-4">
       <section>
@@ -69,7 +62,7 @@ export default async function AboutPage() {
           </p>
           <p>
             So we built the connective tissue. Today the SportsDataverse is a
-            family of {count ?? "40+"} open-source packages and data
+            family of {count != null ? `${count} ` : ""}open-source packages and data
             repositories maintained by contributors across the sports analytics
             community, founded and led by{" "}
             <a
@@ -117,7 +110,7 @@ export default async function AboutPage() {
       <section className="mt-14">
         <p className="text-sm font-medium text-muted-foreground">What we build</p>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {PILLARS.map((p) => (
+          {PILLARS(aboutOpenData(facts)).map((p) => (
             <div
               key={p.title}
               className="flex flex-col rounded-lg border border-border bg-card p-5"
@@ -139,22 +132,24 @@ export default async function AboutPage() {
         </div>
       </section>
 
-      <section className="mt-14">
-        <p className="text-sm font-medium text-muted-foreground">Leagues covered</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {LEAGUES.map((l) => (
-            <span
-              key={l}
-              className="rounded-md border border-border bg-card px-3 py-1.5 font-display text-lg font-bold tracking-wide text-foreground"
-            >
-              {l}
+      {leagues ? (
+        <section className="mt-14">
+          <p className="text-sm font-medium text-muted-foreground">Leagues covered</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {leagues.map((l) => (
+              <span
+                key={l}
+                className="rounded-md border border-border bg-card px-3 py-1.5 font-display text-lg font-bold tracking-wide text-foreground"
+              >
+                {l}
+              </span>
+            ))}
+            <span className="rounded-md border border-dashed border-border px-3 py-1.5 font-display text-lg font-bold tracking-wide text-muted-foreground">
+              + softball &amp; more on the way
             </span>
-          ))}
-          <span className="rounded-md border border-dashed border-border px-3 py-1.5 font-display text-lg font-bold tracking-wide text-muted-foreground">
-            + college baseball, softball &amp; more on the way
-          </span>
-        </div>
-      </section>
+          </div>
+        </section>
+      ) : null}
 
       <section className="mt-14">
         <p className="text-sm font-medium text-muted-foreground">Find us</p>
