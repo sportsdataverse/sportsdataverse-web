@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import {
   UNMAPPED,
   badgeUrl,
+  failingCount,
   formatDate,
   formatUtc,
   latestFileAt,
@@ -12,8 +13,10 @@ import {
   matchesReleaseFilter,
   normalizeSummary,
   packageKey,
+  packageStartsOpen,
   pipelinesByPackage,
   pipelinesForPackage,
+  producerStartsOpen,
   relativeAge,
   runLabel,
   stateCounts,
@@ -424,4 +427,24 @@ test('conformance: the disabled workflows read "disabled", and latest-file dates
     if (latest) assert.ok(formatDate(latest) > formatDate(p.updated_at), p.repo);
   }
   assert.ok(s.producers.some((p) => latestFileAt(p)), 'the live snapshot has producers with a newer non-play file');
+});
+
+test('a /status group starts open only when it needs attention', () => {
+  const s = normalizeSummary(fixture)!;
+  assert.deepEqual(
+    s.producers.filter(producerStartsOpen).map((p) => p.repo),
+    ['sportsdataverse/fastRhockey-nhl-data', 'sportsdataverse/hoopR-nba-data'],
+    'stale and failing open; fresh, idle and unknown stay closed'
+  );
+  assert.deepEqual(s.producers.map((p) => failingCount(p.workflows)), [0, 0, 0, 0, 1, 0]);
+  assert.deepEqual(s.packages.filter(packageStartsOpen), [], 'no fixture package has a failing workflow');
+  const run = { name: 'R-CMD-check', file: 'R-CMD-check.yaml', event: 'push', url: null, created_at: '2026-09-30T00:00:00Z' };
+  assert.equal(packageStartsOpen({ workflows: [{ ...run, conclusion: 'failure' }] }), true);
+  assert.equal(packageStartsOpen({ workflows: [{ ...run, conclusion: 'timed_out' }] }), true, 'timed out reads failing');
+  assert.equal(packageStartsOpen({ workflows: [{ ...run, conclusion: 'cancelled' }] }), false);
+  assert.equal(
+    packageStartsOpen({ workflows: [{ ...run, conclusion: 'failure', state: 'disabled_manually' }] }),
+    false,
+    'a disabled workflow\'s last failure is history, not attention'
+  );
 });
