@@ -3,6 +3,7 @@
 import { opacityVariant } from "@content/FramerMotionVariants";
 import AnimatedDiv from "@components/FramerMotion/AnimatedDiv";
 import PageHeader from "@components/site/PageHeader";
+import { PROSE_MEASURE } from "@lib/prose";
 import { PostType } from "@lib/types";
 import { snippetsImages } from "@utils/utils";
 import Image from "next/image";
@@ -16,7 +17,7 @@ export default function SnippetLayout({
 }) {
   return (
     <section className="mt-[44px] md:mt-[60px]  relative !overflow-hidden">
-      <section className="relative max-w-3xl p-5 mx-auto prose sm:pt-10 font-barlow dark:prose-invert">
+      <section className="relative max-w-3xl p-5 mx-auto prose sm:pt-10 font-sans dark:prose-invert">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <PageHeader compact title={snippet.meta.title}>
@@ -37,7 +38,7 @@ export default function SnippetLayout({
 
         <AnimatedDiv
           variants={opacityVariant}
-          className="max-w-full prose-sm blog-container sm:prose-base prose-pre:shadow marker:text-foreground"
+          className={`${PROSE_MEASURE} prose-sm blog-container sm:prose-base prose-pre:shadow marker:text-foreground`}
         >
           {children}
         </AnimatedDiv>
