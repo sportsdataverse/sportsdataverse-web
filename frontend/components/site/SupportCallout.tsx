@@ -1,5 +1,6 @@
 import supportOptions from "@content/support";
 import TrackedLink from "@components/site/TrackedLink";
+import { PROSE_MEASURE } from "@lib/prose";
 
 /**
  * Support strip — Ko-fi, DigitalOcean referral, PayPal. Server component;
@@ -12,13 +13,15 @@ export default function SupportCallout() {
       <h2 className="font-display text-3xl font-bold uppercase tracking-tight">
         Keep the data free
       </h2>
-      <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-        Everything here is free to use — and costs real money to keep fresh.
-        Donations pay for the servers that scrape, process, and serve the data
-        every night. Signing up for DigitalOcean through our referral link
-        gives your new account free credit and sends a slice back to the
-        project at no cost to you.
-      </p>
+      <div className={PROSE_MEASURE}>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          Everything here is free to use — and costs real money to keep fresh.
+          Donations pay for the servers that scrape, process, and serve the data
+          every night. Signing up for DigitalOcean through our referral link
+          gives your new account free credit and sends a slice back to the
+          project at no cost to you.
+        </p>
+      </div>
       <div className="mt-5 flex flex-wrap gap-3">
         {supportOptions.map(({ name, url, Icon, platform }, i) => (
           <TrackedLink

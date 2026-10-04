@@ -12,6 +12,7 @@ import { JOIN_SECTIONS, QUESTIONS, SURVEY_SECTIONS, type Answers, type Question,
 import { affiliationRequired, EMPTY_IDENTITY_FORM, toIdentityPayload, type IdentityForm } from "@lib/identity";
 import { REPO_TYPES } from "@lib/packageSchema";
 import { visibleQuestions } from "@lib/survey";
+import { PROSE_MEASURE } from "@lib/prose";
 
 // No shadcn Textarea in this repo's components/ui/ — matched to Input's own
 // classes (components/ui/input.tsx) rather than inventing a different look.
@@ -167,7 +168,11 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
             {q.label}
             {q.required ? <span aria-hidden className="text-muted-foreground"> *</span> : null}
           </legend>
-          {q.help ? <p className="text-sm text-muted-foreground">{q.help}</p> : null}
+          {q.help ? (
+            <div className={PROSE_MEASURE}>
+              <p className="text-sm text-muted-foreground">{q.help}</p>
+            </div>
+          ) : null}
           {q.type === "text" ? (
             <Input aria-label={q.label} value={String(answers[q.id] ?? "")} onChange={(e) => set(q.id, e.target.value)} required={q.required} maxLength={200} />
           ) : (
