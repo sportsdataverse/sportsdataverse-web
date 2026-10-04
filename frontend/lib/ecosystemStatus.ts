@@ -336,6 +336,21 @@ export function latestFileAt(p: Pick<Producer, "updated_at" | "any_updated_at">)
   return !p.updated_at || formatDate(p.any_updated_at) > formatDate(p.updated_at) ? p.any_updated_at : null;
 }
 
+/** Workflows whose latest run is failing (`runLabel` "failing"; a disabled workflow is not counted). */
+export function failingCount(workflows: Pick<WorkflowRun, "conclusion" | "created_at" | "state">[]): number {
+  return workflows.filter((w) => runLabel(w) === "failing").length;
+}
+
+/** A producer's /status group starts open only when it needs attention: stale or failing. */
+export function producerStartsOpen(p: Pick<Producer, "state">): boolean {
+  return p.state === "stale" || p.state === "failing";
+}
+
+/** A package's /status group starts open only when one of its workflows is failing. */
+export function packageStartsOpen(p: Pick<PackageRepo, "workflows">): boolean {
+  return failingCount(p.workflows) > 0;
+}
+
 export function stateCounts(producers: Producer[]): Record<ProducerState, number> {
   const counts = { fresh: 0, idle: 0, stale: 0, failing: 0, unknown: 0 };
   for (const p of producers) counts[p.state] += 1;

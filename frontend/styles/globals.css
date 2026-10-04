@@ -226,12 +226,12 @@
 
   /* MDX / legacy tables. Not the platform's ResultsGrid (role="grid"): these
      !important rules beat its own utilities (border-separate, density padding). */
-  table:not([role="grid"]) { @apply !border-collapse text-left; }
-  table:not([role="grid"]) thead tr > th,
-  table:not([role="grid"]) tbody tr > td { @apply !p-2 border border-border align-middle; }
-  table:not([role="grid"]) thead tr > th { @apply text-foreground font-bold; }
-  table:not([role="grid"]) thead tr { @apply align-text-top; }
-  table:not([role="grid"]) a { @apply !text-accent; }
+  table:not([role="grid"]):not([data-plain]) { @apply !border-collapse text-left; }
+  table:not([role="grid"]):not([data-plain]) thead tr > th,
+  table:not([role="grid"]):not([data-plain]) tbody tr > td { @apply !p-2 border border-border align-middle; }
+  table:not([role="grid"]):not([data-plain]) thead tr > th { @apply text-foreground font-bold; }
+  table:not([role="grid"]):not([data-plain]) thead tr { @apply align-text-top; }
+  table:not([role="grid"]):not([data-plain]) a { @apply !text-accent; }
 
   strong { @apply !font-bold; }
 
