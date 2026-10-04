@@ -20,8 +20,8 @@ export default async function Ticker() {
   const items = [
     `${count ?? "40+"} open-source packages`,
     "R · Python · Node.js",
-    "8 leagues in the warehouse",
-    "120M+ rows of play-by-play",
+    // No league or row counts here: they were hard-coded and disagreed with /stats, which
+    // computes them. Showing live figures in the ticker is a separate change.
     "EPA · win probability · ratings models",
     "free and open since 2021",
   ];
