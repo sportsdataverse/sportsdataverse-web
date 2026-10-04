@@ -25,8 +25,11 @@ export default async function Ticker() {
     "EPA · win probability · ratings models",
     "free and open since 2021",
   ];
-  // duplicate once so the marquee loops seamlessly (translateX(-50%))
-  const strip = [...items, ...items];
+  // Two identical halves so the marquee loops seamlessly (translateX(-50%)). Each half must be
+  // wider than the viewport or a gap shows at the loop point; four facts are ~1050px, so repeat
+  // them twice per half.
+  const half = [...items, ...items];
+  const strip = [...half, ...half];
   return (
     <div className="overflow-hidden border-b border-border bg-card">
       <p className="sr-only">{items.join(" · ")}</p>
