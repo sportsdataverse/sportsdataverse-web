@@ -395,7 +395,7 @@ function RedWorkflows({ summary, now }: { summary: EcosystemSummary; now: number
                       {producerAnchor(r.repo)}
                     </a>
                   </td>
-                  <td role="cell" className="order-4 min-w-0 flex-1 [overflow-wrap:anywhere] md:px-3 md:py-1.5">
+                  <td role="cell" className="order-4 grow [overflow-wrap:anywhere] md:px-3 md:py-1.5">
                     {r.name}
                   </td>
                   <td role="cell" className="order-3 md:px-3 md:py-1.5">
