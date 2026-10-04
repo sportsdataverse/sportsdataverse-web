@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo } from "react";
+import { useEffect, useId, useState } from "react";
 import { Input } from "@components/ui/input";
 import { Button } from "@components/ui/button";
 import { COUNTRY_CODES, SUBDIVISIONS } from "@content/geo";
@@ -20,12 +20,14 @@ const REQ = { pattern: ".*\\S.*", title: "Can't be only spaces" };
 type Props = { value: IdentityForm; onChange: (next: IdentityForm) => void };
 
 export function LocationFields({ value, onChange }: Props) {
-  const countries = useMemo(() => {
+  // Region names come from the runtime's own ICU data, and Node's differs from Chrome's for a few
+  // regions ("Hong Kong SAR China" vs "Hong Kong", "Palestinian Territories" vs "Palestine"), so a
+  // server-rendered list is a React hydration mismatch. Build the list in the browser only.
+  const [countries, setCountries] = useState<{ code: string; name: string }[]>([]);
+  useEffect(() => {
     const names = new Intl.DisplayNames(["en"], { type: "region" });
-    // "en" pinned, not the runtime locale: the server always renders in en-US, and a
-    // browser with a different default locale would otherwise sort <option>s in a
-    // different order than the server did, tripping a React hydration mismatch.
-    return COUNTRY_CODES.map((c) => ({ code: c, name: names.of(c) ?? c })).sort((a, b) => a.name.localeCompare(b.name, "en"));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- browser-only data, filled after hydration
+    setCountries(COUNTRY_CODES.map((c) => ({ code: c, name: names.of(c) ?? c })).sort((a, b) => a.name.localeCompare(b.name, "en")));
   }, []);
   const regions = SUBDIVISIONS[value.country];
   return (
