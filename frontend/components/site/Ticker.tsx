@@ -20,18 +20,23 @@ export default async function Ticker() {
   const items = [
     `${count ?? "40+"} open-source packages`,
     "R · Python · Node.js",
-    "8 leagues in the warehouse",
-    "120M+ rows of play-by-play",
+    // No league or row counts here: they were hard-coded and disagreed with /stats, which
+    // computes them. Showing live figures in the ticker is a separate change.
     "EPA · win probability · ratings models",
     "free and open since 2021",
   ];
-  // duplicate once so the marquee loops seamlessly (translateX(-50%))
-  const strip = [...items, ...items];
+  // Two identical halves so the marquee loops seamlessly (translateX(-50%)). Each half must be
+  // wider than the viewport or a gap shows at the loop point; four facts are ~1050px, so repeat
+  // them twice per half.
+  const half = [...items, ...items];
+  const strip = [...half, ...half];
+  // The 40s cycle was tuned for six facts per half; eight facts keep that pace at 40 * 8 / 6 = 53s.
   return (
     <div className="overflow-hidden border-b border-border bg-card">
       <p className="sr-only">{items.join(" · ")}</p>
       <div
         aria-hidden="true"
+        style={{ animationDuration: "53s" }}
         className="flex w-max animate-ticker gap-0 whitespace-nowrap py-1.5 motion-reduce:animate-none"
       >
         {strip.map((item, i) => (
