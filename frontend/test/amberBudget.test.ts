@@ -11,19 +11,25 @@ import { fileURLToPath } from 'node:url';
 // (any utility, variant or opacity, or the raw token and hex values) and every `eyebrow` must sit in a
 // file on the allow-list below, and no more often than the allow-list says.
 //
+// Scanned: ts/tsx/js/jsx/mjs/cjs, css and mdx under app, components, layout, lib, content, hooks, utils,
+// styles, and the MDX roots posts, snippets and static_pages. In CSS, the two token DEFINITIONS
+// (`--color-score: …`, `--color-score-ink: …` in @theme / :root / .dark) are not uses and are skipped;
+// every `var(--color-score…)`, hex or rgb() of the amber is.
+//
 // Not scanned: the members' area (`app/(platform)`, `components/platform`, `lib/platform`), whose charts
 // draw their crosshair in `score` (DESIGN.md "Chart colour" counts it toward that view's budget), and
-// `app/api`, which renders no page (the OG image route draws its own amber).
+// `app/api`, which renders no page (the OG image route draws its own amber); `test/`; `public/`.
 //
-// Known limit: a text scan. A class name assembled at runtime from pieces ("bg-" + tone) is invisible to
-// it; build class names from whole literals, as Tailwind needs anyway.
+// Known limit: a text scan. A class name or colour assembled at runtime from pieces ("bg-" + tone) is
+// invisible to it; build class names from whole literals, as Tailwind needs anyway. Amber in a database
+// or a remote document is out of its reach too.
 const here = path.dirname(fileURLToPath(import.meta.url));
 const frontendRoot = path.resolve(here, '..'); // test/ -> frontend/
 
-const SCAN_ROOTS = ['app', 'components', 'layout', 'lib', 'content', 'hooks', 'utils'];
+const SCAN_ROOTS = ['app', 'components', 'layout', 'lib', 'content', 'hooks', 'utils', 'styles', 'posts', 'snippets', 'static_pages'];
 const SKIP_DIRS = new Set(['node_modules', '.next', 'out', 'coverage', 'public', 'test']);
 const SKIP_PATHS = ['app/(platform)', 'app/api', 'components/platform', 'lib/platform'];
-const SOURCE = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
+const SOURCE = /\.(ts|tsx|js|jsx|mjs|cjs|css|mdx)$/;
 
 // The only places the amber may appear on a public page, and how many uses each file may hold.
 export const ALLOWED: Record<string, { uses: number; what: string }> = {
@@ -41,8 +47,12 @@ const UTILITY =
 const RAW = /--color-score(?:-ink)?(?![\w-])|#(?:ffb43c|8a5300)(?:[0-9a-f]{2})?(?![0-9a-f])|colors\.score(?:-ink)?\b|rgba?\(\s*255[\s,]+180[\s,]+60(?!\d)/gi;
 const EYEBROW = /(?<![\w-])eyebrow(?![\w-])/g;
 
+// A CSS custom-property declaration that DEFINES the token (not a use). Blanked, newline kept, so line numbers hold.
+const TOKEN_DEFINITION = /^[ \t]*--color-score(?:-ink)?[ \t]*:[^;\n]*;?[ \t]*$/gm;
+
 /** `file:line token` for every amber colour use and every eyebrow in one source text. */
 export function amberUses(rel: string, text: string): string[] {
+  if (rel.endsWith('.css')) text = text.replace(TOKEN_DEFINITION, '');
   const found: { at: number; token: string }[] = [];
   for (const re of [UTILITY, RAW, EYEBROW]) {
     for (const m of text.matchAll(re)) found.push({ at: m.index ?? 0, token: m[0] });
@@ -97,6 +107,19 @@ test('the scanner sees every way of writing the amber, and nothing else', () => 
     'text-status-running', '#ffb43d', 'var(--color-scoreboard)']) {
     assert.deepEqual(hit(clean), [], clean);
   }
+});
+
+test('in CSS the scanner flags uses of the amber and skips the token definitions', () => {
+  const hit = (s: string) => amberUses('x.css', s).map((u) => u.replace(/^x\.css:\d+ /, ''));
+  for (const css of ['a { color: var(--color-score); }', 'a { color: var(--color-score-ink) !important; }',
+    'a { border-left: 4px solid var(--color-score) !important; }', 'a { color: #FFB43C; }', 'a { color: #8a5300; }',
+    'a { background: rgba(255, 180, 60, 0.08); }', 'a { background: rgb(255,180,60); }',
+    'a { background: rgba(255 , 180 , 60 / .1); }']) {
+    assert.equal(hit(css).length, 1, css);
+  }
+  assert.deepEqual(hit('@theme {\n  --color-score: #ffb43c;\n  --color-score-ink: #8a5300;\n}\n.dark {\n  --color-score-ink: #ffb43c;\n}\n'), []);
+  assert.deepEqual(amberUses('x.css', '@theme {\n  --color-score: #ffb43c;\n}\na { color: var(--color-score); }\n'), ['x.css:4 --color-score']);
+  assert.deepEqual(hit('a { color: var(--color-scoreboard); --color-ring: #123456; }'), []);
 });
 
 test('the eyebrow utility is gone from the stylesheet', () => {

@@ -312,10 +312,6 @@ code > .line::before {
   font-weight: 500;
   border-right: 4px solid transparent;
 }
-.highlighted {
-  background: rgba(255, 180, 60, 0.08);
-  border-left: 4px solid var(--color-score) !important;
-}
 
 .blogGrid {
   display: grid;

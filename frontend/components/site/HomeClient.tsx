@@ -80,7 +80,7 @@ export default function HomeClient({ blogs }: { blogs: FrontMatter[] }) {
         </div>
 
         <motion.div variants={popUp} className="hidden justify-center md:flex">
-          <div className="relative flex size-64 items-center justify-center rounded-full border border-border bg-card p-6 shadow-sm lg:size-72">
+          <div className="flex size-64 items-center justify-center rounded-full border border-border bg-card p-6 shadow-sm lg:size-72">
             <Image
               src={homeProfileImage}
               className="rounded-full"
