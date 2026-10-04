@@ -5,6 +5,7 @@ import PageHeader from "@components/site/PageHeader";
 import SupportCallout from "@components/site/SupportCallout";
 import { connectToDatabase } from "@lib/mongodb";
 import { PUBLIC_PACKAGE_FILTER } from "@lib/packageVisibility";
+import { PROSE_MEASURE } from "@lib/prose";
 import { getSiteFacts } from "@lib/siteFacts";
 import { aboutOpenData, leagueLabels } from "@lib/warehouseFigures";
 
@@ -52,7 +53,7 @@ export default async function AboutPage() {
     <div className="mx-auto max-w-4xl px-4">
       <section>
         <PageHeader title="Sports data, without the paywall." />
-        <div className="mt-8 space-y-5 text-base leading-relaxed text-foreground/90 sm:text-lg">
+        <div className={`${PROSE_MEASURE} mt-8 space-y-5 text-base leading-relaxed text-foreground/90 sm:text-lg`}>
           <p>
             The SportsDataverse started in 2021 with a simple frustration:
             sports data was either locked behind expensive commercial feeds or

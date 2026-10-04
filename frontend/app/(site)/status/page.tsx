@@ -61,6 +61,8 @@ function runTone(run: Pick<WorkflowRun, "conclusion" | "created_at">): Tone {
 const link = "text-accent underline-offset-4 hover:underline";
 /** Links that are not inline in running text are at least 24 px tall (a tap target on a phone). */
 const tapLink = `${link} inline-flex min-h-6 items-center`;
+// Release rows stack on a phone, so their links get the 24 px target there and keep the table look from md up.
+const rowLink = `${tapLink} md:inline-block md:min-h-0`;
 /** The one-line summary of a collapsed producer or package group. */
 const summaryRow =
   "flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 py-2 [&::-webkit-details-marker]:hidden";
@@ -199,14 +201,14 @@ function ReleaseFreshness({ summary, now }: { summary: EcosystemSummary; now: nu
                           href={`${RELEASES_URL}/tag/${encodeURIComponent(r.tag)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={link}
+                          className={rowLink}
                         >
                           {r.tag}
                         </a>
                       </td>
                       <td role="cell" className="col-start-1 row-start-2 md:px-3 md:py-1.5">
                         {r.producer ? (
-                          <a href={`#${producerAnchor(r.producer)}`} title={labelOf(r.producer)} className={link}>
+                          <a href={`#${producerAnchor(r.producer)}`} title={labelOf(r.producer)} className={rowLink}>
                             {producerAnchor(r.producer)}
                           </a>
                         ) : (
@@ -501,7 +503,7 @@ function HowToRead() {
         once an hour, so a run that finished this morning may not show until tomorrow.
       </p>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-        A producer or package that needs attention (stale, failing, or with a failing workflow) starts
+        A producer or package that needs attention (stale or failing) starts
         open; the rest are one line each until you open them.
       </p>
     </section>

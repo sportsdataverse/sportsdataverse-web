@@ -1,3 +1,5 @@
+import { PROSE_MEASURE } from "@lib/prose";
+
 /**
  * The one page-title pattern for the public site (DESIGN.md "Components"): condensed display caps with
  * the amber score-underline (the page's single amber moment) and an optional lede. Every public route
@@ -29,15 +31,17 @@ export default function PageHeader({
         </span>
       </h1>
       {children ? (
-        <p
-          className={
-            compact
-              ? "mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground"
-              : "mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg"
-          }
-        >
-          {children}
-        </p>
+        <div className={PROSE_MEASURE}>
+          <p
+            className={
+              compact
+                ? "mt-4 text-base leading-relaxed text-muted-foreground"
+                : "mt-4 text-base leading-relaxed text-muted-foreground sm:text-lg"
+            }
+          >
+            {children}
+          </p>
+        </div>
       ) : null}
     </div>
   );
