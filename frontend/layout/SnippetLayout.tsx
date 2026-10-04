@@ -19,7 +19,7 @@ export default function SnippetLayout({
     <section className="mt-[44px] md:mt-[60px]  relative !overflow-hidden">
       <section className="relative max-w-3xl p-5 mx-auto prose sm:pt-10 font-sans dark:prose-invert">
         <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 max-w-[54ch] flex-1">
             <PageHeader compact title={snippet.meta.title}>
               {snippet.meta.excerpt}
             </PageHeader>

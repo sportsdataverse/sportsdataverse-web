@@ -16,7 +16,7 @@ export default function StaticProse({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mx-auto w-full max-w-4xl px-4 pb-16">
+    <section className="mx-auto w-full max-w-[calc(54ch+2rem)] px-4 pb-16">
       <PageHeader title={title}>{description}</PageHeader>
       <AnimatedDiv
         variants={opacityVariant}
