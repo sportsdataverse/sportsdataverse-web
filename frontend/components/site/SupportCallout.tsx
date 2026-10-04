@@ -9,8 +9,7 @@ import TrackedLink from "@components/site/TrackedLink";
 export default function SupportCallout() {
   return (
     <div className="rounded-lg border border-border bg-card p-6 sm:p-8">
-      <p className="eyebrow">Support</p>
-      <h2 className="mt-2 font-display text-3xl font-bold uppercase tracking-tight">
+      <h2 className="font-display text-3xl font-bold uppercase tracking-tight">
         Keep the data free
       </h2>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">

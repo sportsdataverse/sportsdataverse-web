@@ -18,7 +18,7 @@ export default function JoinSignIn() {
   if (session?.login) {
     return (
       <div className="rounded-lg border border-border bg-card p-4 sm:p-6">
-        <p className="eyebrow">Signed in</p>
+        <p className="text-sm font-medium text-muted-foreground">Signed in</p>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           GitHub knows you as{" "}
           <span className="font-medium text-foreground">@{session.login}</span>. If you&apos;re in the
@@ -31,7 +31,7 @@ export default function JoinSignIn() {
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 sm:p-6">
-      <p className="eyebrow">Optional</p>
+      <p className="text-sm font-medium text-muted-foreground">Optional</p>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
         Contributed to a SportsDataverse repo, or in the GitHub org? Sign in and we&apos;ll issue your
         Discord invite on the spot instead of queueing you for a member to review. The form works

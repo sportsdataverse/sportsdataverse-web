@@ -8,7 +8,8 @@
    SportsDataverse design tokens — "night game broadcast".
    Dark mode is navy ink under the lights; light mode is chalk paper with the
    same ink. SDV blue stays the interactive color; scoreboard amber is the one
-   loud element, reserved for the ticker, eyebrows, and live markers.
+   loud element: at most three places per view (the ticker, one active marker,
+   one underline), DESIGN.md "Amber discipline", held by test/amberBudget.test.ts.
 --------------------------------------------------------------------------- */
 @theme {
   /* type */
@@ -98,15 +99,6 @@
   &::-webkit-scrollbar-thumb:hover { background-color: var(--muted-foreground); }
 }
 
-/* Broadcast eyebrow: the small label above headlines and section heads. */
-@utility eyebrow {
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-score-ink);
-}
-
 /* semantic surface tokens — chalk (light) / ink (dark) */
 :root {
   --background: #f6f8fb;
@@ -164,7 +156,7 @@
   --chart-cat-5: #d55181;
   --chart-cat-6: #008300;
   --chart-div-mid: #2b3548;
-  /* amber reads fine as text on ink — flip the eyebrow to the graphic amber */
+  /* amber reads fine as text on ink, so score-ink is the graphic amber in dark */
   --color-score-ink: #ffb43c;
 }
 
@@ -319,10 +311,6 @@ code > .line::before {
   color: var(--color-status-cancelled);
   font-weight: 500;
   border-right: 4px solid transparent;
-}
-.highlighted {
-  background: rgba(255, 180, 60, 0.08);
-  border-left: 4px solid var(--color-score) !important;
 }
 
 .blogGrid {

@@ -17,7 +17,7 @@ export default async function ConfirmedPage({ searchParams }: { searchParams: Pr
   const c = COPY[key];
   return (
     <div className="mx-auto max-w-3xl px-4 pb-20">
-      <PageHeader eyebrow="Newsletter" title={c.title}>{c.body}</PageHeader>
+      <PageHeader title={c.title}>{c.body}</PageHeader>
       <div className="mt-10 space-y-10">
         {key === "ok" ? (
           <FollowUs placement="confirmed" />

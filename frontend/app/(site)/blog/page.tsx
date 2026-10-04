@@ -14,7 +14,7 @@ export default function BlogIndex() {
   const posts = new MDXContent("posts").getAllPosts();
   return (
     <div className="mx-auto w-full max-w-4xl px-4 pb-16">
-      <PageHeader eyebrow="The SDV blog" title="Blog">
+      <PageHeader title="Blog">
         Notes on sports data engineering — packages, pipelines, and analysis
         across Python, R, and Node.js. {posts.length} posts and counting.
       </PageHeader>

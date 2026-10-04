@@ -5,7 +5,7 @@ import { FOLLOW_LINKS } from "@content/links";
 export default function FollowUs({ placement }: { placement: string }) {
   return (
     <div>
-      <p className="eyebrow">Follow along</p>
+      <p className="text-sm font-medium text-muted-foreground">Follow along</p>
       <ul className="mt-3 flex flex-wrap gap-3">
         {FOLLOW_LINKS.map((l) => (
           <li key={l.platform}>

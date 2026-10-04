@@ -215,7 +215,7 @@ function Section({ head, items }: { head: string; items: Resource[] }) {
 export default function ResourcesPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 pb-16">
-      <PageHeader eyebrow="Also see" title="Resources">
+      <PageHeader title="Resources">
         Sports analytics is a community sport. These are the ecosystems we
         build on, the friends we build alongside, and the conferences and
         competitions where the work gets shared.

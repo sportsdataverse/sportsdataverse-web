@@ -157,7 +157,7 @@ export default function QuestionFlow({ mode, dynamicOptions }: Props) {
         else setStep((s) => s + 1);
       }}
     >
-      <p className="eyebrow">
+      <p className="text-sm font-medium text-muted-foreground">
         Step {step + 1} of {steps.length} · {SECTION_TITLES[section]}
       </p>
 

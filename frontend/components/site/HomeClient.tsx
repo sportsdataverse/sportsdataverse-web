@@ -27,9 +27,6 @@ export default function HomeClient({ blogs }: { blogs: FrontMatter[] }) {
         className="grid items-center gap-10 py-16 md:grid-cols-[1.4fr_1fr] md:py-24"
       >
         <div className="flex flex-col gap-6">
-          <motion.p variants={opacityVariant} className="eyebrow">
-            Open-source sports data
-          </motion.p>
           <motion.h1
             variants={opacityVariant}
             className="font-display text-6xl font-bold uppercase leading-[0.95] tracking-tight sm:text-7xl lg:text-8xl"
@@ -83,8 +80,7 @@ export default function HomeClient({ blogs }: { blogs: FrontMatter[] }) {
         </div>
 
         <motion.div variants={popUp} className="hidden justify-center md:flex">
-          <div className="relative flex size-64 items-center justify-center rounded-full border border-border bg-card p-6 shadow-sm lg:size-72">
-            <span className="absolute -top-1.5 left-1/2 h-3 w-16 -translate-x-1/2 rounded-full bg-score" />
+          <div className="flex size-64 items-center justify-center rounded-full border border-border bg-card p-6 shadow-sm lg:size-72">
             <Image
               src={homeProfileImage}
               className="rounded-full"

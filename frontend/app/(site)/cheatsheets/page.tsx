@@ -100,7 +100,7 @@ export default function CheatsheetsPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 pb-16">
-      <PageHeader eyebrow="Print one out" title="Cheat sheets">
+      <PageHeader title="Cheat sheets">
         One-page references for every package in the ecosystem — the function
         families, the loaders, and what each one returns. Free to download,
         print and hand out. Every sheet ships light and dark on US Letter

@@ -38,7 +38,7 @@ export default function NewsletterSignup({ placement }: { placement: "footer" | 
 
   return (
     <form onSubmit={onSubmit} className="mt-6" aria-label="Newsletter sign-up">
-      <label htmlFor={`newsletter-email-${placement}`} className="eyebrow">
+      <label htmlFor={`newsletter-email-${placement}`} className="text-sm font-medium text-muted-foreground">
         Newsletter
       </label>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">

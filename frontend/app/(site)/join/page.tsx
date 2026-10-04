@@ -15,7 +15,7 @@ export default async function JoinPage() {
   const dynamicOptions = await packageOptions();
   return (
     <div className="mx-auto max-w-3xl px-4 pb-20">
-      <PageHeader eyebrow="Community" title="Join the SportsDataverse">
+      <PageHeader title="Join the SportsDataverse">
         A few questions about what you do and use, then choose the newsletter, a Discord invite, or both.
       </PageHeader>
       <div className="mt-8">
