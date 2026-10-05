@@ -3,7 +3,7 @@ import TrackedLink from "@components/site/TrackedLink";
 import { PROSE_MEASURE } from "@lib/prose";
 
 /**
- * Support strip — Ko-fi, DigitalOcean referral, PayPal. Server component;
+ * Support strip — Patreon, Ko-fi, DigitalOcean referral, PayPal. Server component;
  * used on About and Resources. Links come from content/support.ts (which
  * mirrors the org profile README).
  */
@@ -16,8 +16,8 @@ export default function SupportCallout() {
       <div className={PROSE_MEASURE}>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
           Everything here is free to use — and costs real money to keep fresh.
-          Donations pay for the servers that scrape, process, and serve the data
-          every night. Signing up for DigitalOcean through our referral link
+          Memberships and donations pay for the servers that scrape, process, and
+          serve the data every night. Signing up for DigitalOcean through our referral link
           gives your new account free credit and sends a slice back to the
           project at no cost to you.
         </p>

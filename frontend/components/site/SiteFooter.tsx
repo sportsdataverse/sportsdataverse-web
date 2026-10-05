@@ -1,7 +1,7 @@
 import Link from "next/link";
 import NewsletterSignup from "@components/site/NewsletterSignup";
 import TrackedLink from "@components/site/TrackedLink";
-import { DO_REFERRAL_URL, KOFI_URL, PAYPAL_URL } from "@content/support";
+import { DO_REFERRAL_URL, KOFI_URL, PATREON_URL, PAYPAL_URL } from "@content/support";
 
 const GROUPS: {
   title: string;
@@ -40,6 +40,7 @@ const GROUPS: {
   {
     title: "Support",
     links: [
+      { href: PATREON_URL, label: "Patreon membership", external: true, track: { event: "support_click", platform: "patreon" } },
       { href: KOFI_URL, label: "Donate — Ko-fi", external: true, track: { event: "support_click", platform: "kofi" } },
       { href: PAYPAL_URL, label: "PayPal", external: true, track: { event: "support_click", platform: "paypal" } },
       { href: DO_REFERRAL_URL, label: "DigitalOcean credit", external: true, track: { event: "support_click", platform: "digitalocean" } },

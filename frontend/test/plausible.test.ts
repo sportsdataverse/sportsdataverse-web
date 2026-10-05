@@ -92,6 +92,14 @@ test('the response is capped at the top 20 rows by count', async () => {
   assert.deepEqual(r.rows.map((row) => row.count), Array.from({ length: 20 }, (_, i) => 23 - i));
 });
 
+test('a Patreon support click survives the allowlist', async () => {
+  const { fetchImpl } = fakePlausible(200, {
+    results: [{ dimensions: ['support_click', 'patreon', 'callout'], metrics: [3] }],
+  });
+  const r = await fetchClickCounts({ apiKey: 'k', fetchImpl });
+  assert.deepEqual(r.rows, [{ event: 'support_click', platform: 'patreon', placement: 'callout', count: 3 }]);
+});
+
 test('a row whose platform or placement the site never emits is dropped, however many events it has', async () => {
   // anyone can POST a Plausible event for our domain with any property text
   const { fetchImpl } = fakePlausible(200, {

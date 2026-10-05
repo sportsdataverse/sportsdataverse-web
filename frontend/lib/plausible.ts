@@ -6,13 +6,13 @@ const DEFAULT_SITE = "sportsdataverse.org"; // app/providers.tsx reports under t
 
 // The platform/placement values the site actually emits, through TrackedLink, from:
 // components/site/FollowUs.tsx (github, bluesky, twitter), components/site/SiteFooter.tsx
-// (footer, footer-bar), components/site/SupportCallout.tsx (callout, with kofi,
+// (footer, footer-bar), components/site/SupportCallout.tsx (callout, with patreon, kofi,
 // digitalocean and paypal from content/support.ts), app/(site)/join/confirmed/page.tsx
 // (confirmed) and components/site/QuestionFlow.tsx (join-thanks, survey-thanks).
 // Anyone can POST an event carrying any text to Plausible for our domain, so a row with
 // any other value is not ours: it is dropped, never shown to members. A new TrackedLink
 // value must be added here or its clicks never appear on the Population tab.
-const PLATFORMS = new Set(["github", "bluesky", "twitter", "kofi", "digitalocean", "paypal"]);
+const PLATFORMS = new Set(["github", "bluesky", "twitter", "patreon", "kofi", "digitalocean", "paypal"]);
 const PLACEMENTS = new Set(["footer", "footer-bar", "callout", "confirmed", "join-thanks", "survey-thanks"]);
 
 /**
@@ -62,7 +62,7 @@ export async function fetchClickCounts(deps: { apiKey?: string; siteId?: string;
     rows.push({ event: d[0], platform: d[1], placement: d[2], count: m[0] });
   }
   rows.sort((a, b) => b.count - a.count);
-  // at most 2 events x 6 platforms x 6 placements survive the allowlist; the cap
+  // at most 2 events x 7 platforms x 6 placements survive the allowlist; the cap
   // keeps the tab short either way
   return { status: "ok", rows: rows.slice(0, 20) };
 }

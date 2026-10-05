@@ -14,6 +14,7 @@ export const FOLLOW_LINKS = [
 // Canonical support links — mirror the org profile README
 // (github.com/sportsdataverse/.github → profile/README.md). Moved unchanged
 // from content/support.ts.
+export const PATREON_URL = "https://www.patreon.com/sportsdataverse";
 export const KOFI_URL = "https://ko-fi.com/G2G0KJ588";
 export const PAYPAL_URL = "https://www.paypal.me/SaiemGilani";
 export const DO_REFERRAL_URL =
