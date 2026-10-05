@@ -1,4 +1,4 @@
-import { FOLLOW_LINKS, KOFI_URL, PAYPAL_URL, DO_REFERRAL_URL, CONTACT_EMAIL } from "../content/links.ts";
+import { FOLLOW_LINKS, PATREON_URL, KOFI_URL, PAYPAL_URL, DO_REFERRAL_URL, CONTACT_EMAIL } from "../content/links.ts";
 
 /**
  * Resend transactional send (`POST /emails`) and the one template PR 2a needs.
@@ -74,11 +74,17 @@ export function stickerRequestEmail(): { subject: string; html: string; text: st
   const followHtml = FOLLOW_LINKS.map((l) => `<a href="${l.href}">${l.label}</a>`).join(", ");
   const followText = FOLLOW_LINKS.map((l) => `${l.label}: ${l.href}`).join("\n");
   const supportHtml = [
+    `<a href="${PATREON_URL}">Patreon</a>`,
     `<a href="${KOFI_URL}">Ko-fi</a>`,
     `<a href="${DO_REFERRAL_URL}">DigitalOcean credit</a>`,
     `<a href="${PAYPAL_URL}">PayPal</a>`,
   ].join(", ");
-  const supportText = [`Ko-fi: ${KOFI_URL}`, `DigitalOcean credit: ${DO_REFERRAL_URL}`, `PayPal: ${PAYPAL_URL}`].join("\n");
+  const supportText = [
+    `Patreon: ${PATREON_URL}`,
+    `Ko-fi: ${KOFI_URL}`,
+    `DigitalOcean credit: ${DO_REFERRAL_URL}`,
+    `PayPal: ${PAYPAL_URL}`,
+  ].join("\n");
   return {
     subject: "Your SportsDataverse sticker request",
     html: `<p>${bodyHtml}</p>

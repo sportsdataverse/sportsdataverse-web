@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sendEmail, confirmEmail, stickerRequestEmail } from '../lib/email.ts';
-import { FOLLOW_LINKS, KOFI_URL, PAYPAL_URL, DO_REFERRAL_URL, CONTACT_EMAIL } from '../content/links.ts';
+import { FOLLOW_LINKS, PATREON_URL, KOFI_URL, PAYPAL_URL, DO_REFERRAL_URL, CONTACT_EMAIL } from '../content/links.ts';
 
 test('sendEmail posts to Resend /emails with the bearer key and returns the id', async () => {
   const calls: { url: string; init: RequestInit }[] = [];
@@ -42,7 +42,7 @@ test('stickerRequestEmail warns a stranger who never asked, and links follow + s
     assert.ok(e.html.includes(l.href), `html missing follow link ${l.href}`);
     assert.ok(e.text.includes(l.href), `text missing follow link ${l.href}`);
   }
-  for (const url of [KOFI_URL, DO_REFERRAL_URL, PAYPAL_URL]) {
+  for (const url of [PATREON_URL, KOFI_URL, DO_REFERRAL_URL, PAYPAL_URL]) {
     assert.ok(e.html.includes(url), `html missing support link ${url}`);
     assert.ok(e.text.includes(url), `text missing support link ${url}`);
   }
