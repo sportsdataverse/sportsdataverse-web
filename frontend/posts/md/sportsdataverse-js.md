@@ -39,7 +39,7 @@ For more information on the package and function reference, please see the [spor
 
 To cite the [**`sportsdataverse`**](https://js.sportsdataverse.org) Node.js package in publications, use:
 
-BibTex Citation
+BibTeX Citation
 ```bibtex
 @misc{gilani_2021_sportsdataverse_js,
   author = {Gilani, Saiem},

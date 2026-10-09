@@ -276,7 +276,7 @@ stars](https://img.shields.io/github/stars/billpetti/baseballr.svg?color=eee&log
 To cite the [**`baseballr`**](https://billpetti.github.io/baseballr/) R
 package in publications, use:
 
-BibTex Citation
+BibTeX Citation
 
 ``` bibtex
 @misc{petti_gilani_2021,
