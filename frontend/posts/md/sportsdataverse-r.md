@@ -73,7 +73,7 @@ stars](https://img.shields.io/github/stars/sportsdataverse/sportsdataverse-R.svg
 To cite the [**`sportsdataverse`**](https://r.sportsdataverse.org) R
 package in publications, use:
 
-BibTex Citation
+BibTeX Citation
 
 ``` bibtex
 @misc{saiemgilani2021sdv,
