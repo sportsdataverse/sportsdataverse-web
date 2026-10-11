@@ -53,7 +53,6 @@ export const PLATFORM_REPOS: PlatformRepo[] = [
   // --- basketball -------------------------------------------------------
   R("hoopR-mbb-raw", "raw", "mbb"),
   R("hoopR-mbb-data", "data", "mbb"),
-  R("hoopR-kp-data", "data", "mbb"),
   R("hoopR-nba-raw", "raw", "nba"),
   R("hoopR-nba-data", "data", "nba"),
   R("hoopR-nba-stats-data", "data", "nba"),
