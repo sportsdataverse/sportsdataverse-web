@@ -65,7 +65,7 @@ export const SHEETS: Cheatsheet[] = [
     covers: ["sportsdataverse-js"],
     ecosystem: "Node.js",
     pages: 4,
-    variants: "light + dark",
+    variants: "4 colour themes, light + dark",
     blurb:
       "The JavaScript client at 4.0.0 — sportsdataverse-py's names, the cross-league ESPN layer, 27 native and provider families, the dataset loaders and the error vocabulary.",
     docs: "https://js.sportsdataverse.org",
