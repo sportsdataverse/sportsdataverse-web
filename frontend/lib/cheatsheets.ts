@@ -67,7 +67,7 @@ export const SHEETS: Cheatsheet[] = [
     pages: 4,
     variants: "light + dark",
     blurb:
-      "The JavaScript client — every sport module, the async data getters, and the shapes they return.",
+      "The JavaScript client at 4.0.0 — sportsdataverse-py's names, the cross-league ESPN layer, 27 native and provider families, the dataset loaders and the error vocabulary.",
     docs: "https://js.sportsdataverse.org",
     flagship: true,
   },
@@ -183,6 +183,30 @@ export const SHEETS: Cheatsheet[] = [
     variants: "light + dark",
     blurb: "sportyR's Python twin — the same to-scale surfaces for matplotlib.",
     docs: "https://sportypy.sportsdataverse.org",
+  },
+  {
+    file: "sdvplot.pdf",
+    title: "sdvplot",
+    covers: ["sdvplot"],
+    ecosystem: "Python",
+    pages: 4,
+    variants: "4 colour themes, light + dark",
+    blurb:
+      "Team logos, wordmarks, headshots and colours on nine Python plotting libraries, plus the great_tables toolkit, surfaces and coordinates.",
+    docs: "https://sdvplot.sportsdataverse.org",
+  },
+
+  // --- Node.js -------------------------------------------------------------
+  {
+    file: "sdvplot-js.pdf",
+    title: "sdvplot-js",
+    covers: ["sdvplot-js"],
+    ecosystem: "Node.js",
+    pages: 4,
+    variants: "4 colour themes, light + dark",
+    blurb:
+      "@sportsdataverse/sdvplot, sporty and sdvtables — team marks on seven chart libraries and React, playing surfaces, shot charts, linked interactivity and themed tables.",
+    docs: "https://plot.sportsdataverse.org",
   },
 ];
 
