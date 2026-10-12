@@ -172,6 +172,17 @@ export const SHEETS: Cheatsheet[] = [
       "MLB team logos, caps and player headshots as ggplot2 scales, geoms and gt helpers.",
     docs: "https://camdenk.github.io/mlbplotR/",
   },
+  {
+    file: "sdvplotR.pdf",
+    title: "sdvplotR",
+    covers: ["sdvplotR"],
+    ecosystem: "R",
+    pages: 4,
+    variants: "4 colour themes, light + dark",
+    blurb:
+      "Team logos, wordmarks, headshots and colours for 28 leagues in ggplot2, gt, reactable, plotly, ggiraph and leaflet, plus team tiers, surfaces and coordinates.",
+    docs: "https://sdvplotR.sportsdataverse.org",
+  },
 
   // --- Python --------------------------------------------------------------
   {
