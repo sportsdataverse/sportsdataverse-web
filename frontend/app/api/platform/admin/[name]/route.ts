@@ -6,7 +6,7 @@ import { isHttpsBase, requireAdminApp } from "@lib/platform/auth";
 
 const BASE =
   process.env.SDV_DATA_API_URL ?? "https://data.sportsdataverse.org";
-const NAMES = new Set(["summary", "requests", "keys", "errors", "site"]);
+const NAMES = new Set(["summary", "requests", "keys", "errors", "site", "host", "joblog"]);
 
 type Ctx = { params: Promise<{ name: string }> };
 
