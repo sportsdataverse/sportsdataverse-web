@@ -8,7 +8,7 @@ import { useAdmin } from "../AdminOverviewClient";
 /** Droplet status from `GET /v1/admin/host`: host gauges, cron / one-off job runs
  *  (recorded by bin/jobsh, cron's SHELL), systemd services + timers, Postgres
  *  activity, top processes. Live per-second CPU lives in glances at
- *  data.sportsdataverse.org/ops/; Prefect flows on the Pipelines page. */
+ *  data.sportsdataverse.org/ops/; Prefect flows on the Automation page's Pipelines panel. */
 
 type JobRun = {
   run: string;
@@ -81,7 +81,8 @@ function duration(s: number | null | undefined): string {
 
 function Card({ title, children, extra }: { title: string; children: React.ReactNode; extra?: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
+    // min-w-0: as a grid item a wide table would otherwise stretch the card past the viewport.
+    <section className="min-w-0 rounded-lg border border-border bg-card p-4">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-barlow text-lg font-semibold">{title}</h3>
         {extra}
@@ -244,7 +245,7 @@ export default function OpsClient() {
             glances
           </a>{" "}
           · Prefect flows:{" "}
-          <Link className="underline" href="/platform/pipelines">
+          <Link className="underline" href="/platform/automation">
             Pipelines
           </Link>{" "}
           · updated {timeAgo(data.ts)}
