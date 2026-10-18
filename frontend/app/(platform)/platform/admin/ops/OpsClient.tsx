@@ -173,7 +173,21 @@ function JobRow({ r, open, toggle }: { r: JobRun; open: boolean; toggle: () => v
           <StatusBadge status={r.status} />
           {r.alerted ? <span className="ml-1 font-mono text-xs text-muted-foreground">alerted</span> : null}
         </td>
-        <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">{r.name}</td>
+        <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">
+          {/* The row is clickable for the mouse; this button is the keyboard path. */}
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={`job-${r.run}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggle();
+            }}
+            className="text-left underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
+          >
+            {r.name}
+          </button>
+        </td>
         <td className="max-w-md truncate px-3 py-2 font-mono text-xs" title={r.call ?? ""}>
           {r.call}
         </td>
@@ -186,7 +200,7 @@ function JobRow({ r, open, toggle }: { r: JobRun; open: boolean; toggle: () => v
         <td className="px-3 py-2 font-mono text-xs">{r.rc ?? "–"}</td>
       </tr>
       {open ? (
-        <tr className="border-t border-border bg-muted/30">
+        <tr id={`job-${r.run}`} className="border-t border-border bg-muted/30">
           <td className="space-y-2 px-3 py-3" colSpan={6}>
             <p className="break-all font-mono text-xs">
               <span className="text-muted-foreground">{r.src ?? "cron"} $ </span>

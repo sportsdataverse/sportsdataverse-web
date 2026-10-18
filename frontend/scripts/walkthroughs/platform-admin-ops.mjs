@@ -10,9 +10,14 @@ export default async (page, base) => {
   await page.goto(base + '/platform/admin/ops', { waitUntil: 'domcontentloaded' });
   await page.getByRole('heading', { name: 'Jobs' }).waitFor({ timeout: 60_000 });
   await page.getByText('Load (1/5/15m)').waitFor();
-  const firstJob = page.locator('section:has(h3:text-is("Jobs")) tbody tr').first();
-  await firstJob.click();
-  await page.getByText(/Loading log…|no log file found|\/logs?\//).first().waitFor({ timeout: 15_000 });
+  // Expand the first job through its keyboard-reachable button and wait for the
+  // log request to succeed, not just for the "Loading log…" placeholder.
+  const log = page.waitForResponse((r) => r.url().includes('/api/platform/admin/joblog') && r.ok(), { timeout: 15_000 });
+  const firstJob = page.locator('section:has(h3:text-is("Jobs")) tbody tr button[aria-expanded]').first();
+  await firstJob.focus();
+  await page.keyboard.press('Enter');
+  await log;
+  if ((await firstJob.getAttribute('aria-expanded')) !== 'true') throw new Error('job row did not expand');
   await page.waitForTimeout(1_200);
   await page.getByRole('button', { name: 'All recent runs' }).click();
   await page.waitForTimeout(800);
