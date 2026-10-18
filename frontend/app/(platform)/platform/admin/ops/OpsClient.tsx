@@ -69,7 +69,7 @@ type Host = {
       query: string | null;
     }[];
   };
-  jobs: { latest: JobRun[]; recent: JobRun[]; error?: string | null };
+  jobs: { latest: JobRun[]; running?: JobRun[]; recent: JobRun[]; error?: string | null };
 };
 
 function duration(s: number | null | undefined): string {
@@ -227,7 +227,8 @@ export default function OpsClient() {
   if (!data) return <p className="text-sm text-muted-foreground">Loading…</p>;
 
   const { host, processes, services, timers, db, jobs } = data;
-  const running = jobs.recent.filter((r) => r.status === "running");
+  // The API lists every live run; older Data APIs only had them inside `recent`.
+  const running = jobs.running ?? jobs.recent.filter((r) => r.status === "running");
   const latest = [...jobs.latest].sort(
     (a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9) || a.name.localeCompare(b.name)
   );
