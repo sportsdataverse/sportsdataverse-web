@@ -303,7 +303,11 @@ export function parseAsk(question: string, ctx: AskContext = {}): AskResult {
       if (!SHARED_CITY(ids.map((i) => toks[i].w))) team(abbr, ids);
     });
     toks.forEach((t, i) => {
-      if (!t.used && /^[A-Z]{2,3}$/.test(t.raw) && NFL_TEAMS.some(([a]) => a === t.raw)) team(t.raw, [i]);
+      if (t.used || !/^[A-Z]{2,3}$/.test(t.raw) || !NFL_TEAMS.some(([a]) => a === t.raw)) return;
+      // MIN and NO also open comparators: "MIN 200 dropbacks", "NO more than 10 games" are thresholds, "MIN QBs" is Minnesota
+      const cmp = longest(toks, i, CMPS);
+      if (cmp && toks[cmp.end]?.num) return;
+      team(t.raw, [i]);
     });
   }
 
@@ -339,12 +343,23 @@ export function parseAsk(question: string, ctx: AskContext = {}): AskResult {
     const ids = range(i, at + 1);
     let num = { ...n.num };
     let end = at + 1;
-    if (toks[end]?.raw === "%" && !toks[end].used) (num = { ...num, pct: true }), ids.push(end++);
-    if (toks[end]?.raw === "+" && !toks[end].used) (num = { ...num, plus: true }), ids.push(end++);
+    if (toks[end]?.raw === "%" && !toks[end].used) {
+      num = { ...num, pct: true };
+      ids.push(end++);
+    }
+    if (toks[end]?.raw === "+" && !toks[end].used) {
+      num = { ...num, plus: true };
+      ids.push(end++);
+    }
     let op: Cmp | null = cmp ? cmp.val.op : num.plus ? "__gte" : null;
     let prefix = cmp ? cmp.val.prefix : true;
     const post = !cmp ? longest(toks, end, POSTFIX) : null;
-    if (post) (op = post.val), ids.push(...range(end, post.end)), (end = post.end), (prefix = true);
+    if (post) {
+      op = post.val;
+      ids.push(...range(end, post.end));
+      end = post.end;
+      prefix = true;
+    }
     if (op === null) continue;
     const before = prevMention(i);
     const afterM = mentionAt(nextIdx(end));
@@ -371,7 +386,10 @@ export function parseAsk(question: string, ctx: AskContext = {}): AskResult {
     let limit: number | null = null;
     const limitIdx = j;
     const n = toks[j]?.num;
-    if (s.val.limit && n && n.int && !n.pct && !n.plus && n.v >= 1 && n.v <= 1000 && !toks[j].used) (limit = n.v), j++;
+    if (s.val.limit && n && n.int && !n.pct && !n.plus && n.v >= 1 && n.v <= 1000 && !toks[j].used) {
+      limit = n.v;
+      j++;
+    }
     let target: Mention | undefined = mentionAt(j);
     if (!target && !s.val.by) {
       for (let k = j; k < toks.length - 1 && !target; k++) {
@@ -440,12 +458,12 @@ export function parseAsk(question: string, ctx: AskContext = {}): AskResult {
   if (cols && tableDraft && !cols.includes("position_group")) {
     tableDraft.chip = { ...tableDraft.chip, display: table, params: tableDraft.chip.params.slice(0, 1) };
   }
+  // a sort or limit carries its metric's column, so it goes when that column is missing
   const kept = drafts.filter((d) => {
     const ok = (!d.onlyTable || d.onlyTable === table) && (!cols || !d.column || cols.includes(d.column));
     if (!ok) d.toks.forEach((i) => (toks[i].used = false));
     return ok;
   });
-  // a sort or limit whose metric was dropped goes with it
   const chips = kept.map((d) => d.chip);
 
   // 8. what is left: runs of unused, meaningful words (a filler word ends a run; a stray `/` or `%` does not)

@@ -37,6 +37,11 @@ const TABLE: [string, string, string[]][] = [
   ['Eagles RBs', 'schema=nfl&table=rushing&position_group=RB&pos_team=PHI&limit=100', []],
   ['PHI receivers', 'schema=nfl&table=receiving&pos_team=PHI&limit=100', []],
   ['nfl Miami QBs', 'schema=nfl&table=passing&position_group=QB&pos_team=MIA&limit=100', []],
+  // MIN and NO are team abbreviations and comparator words: a number after them makes them the comparator
+  ['QBs MIN 200 dropbacks', 'schema=nfl&table=passing&position_group=QB&dropbacks__gte=200&limit=100', []],
+  ['MIN QBs', 'schema=nfl&table=passing&position_group=QB&pos_team=MIN&limit=100', []],
+  ['QBs with NO more than 10 games', 'schema=nfl&table=passing&position_group=QB&games__lte=10&limit=100', []],
+  ['WAS QBs', 'schema=nfl&table=passing&position_group=QB&pos_team=WAS&limit=100', []],
   // negatives: words no rule can place stay in `ignored`, nothing is invented
   ['QBs with 65% completion and 8+ YPA', 'schema=nfl&table=passing&position_group=QB&limit=100', ['65% completion', '8+ YPA']],
   ['Miami QBs', 'schema=nfl&table=passing&position_group=QB&limit=100', ['Miami']], // a city alone: also a college team

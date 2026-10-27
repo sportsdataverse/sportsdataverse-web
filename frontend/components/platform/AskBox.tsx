@@ -44,7 +44,8 @@ export default function AskBox({ schemas }: { schemas: string[] }) {
       }),
     [text, schemas, base, schema, catalog]
   );
-  const chips = edited?.text === text ? edited.chips : result.chips;
+  // an edit made before the catalog arrived must not keep a filter the catalog has since dropped
+  const chips = edited?.text === text ? edited.chips.filter((c) => result.chips.some((r) => r.id === c.id)) : result.chips;
   const setChips = (next: Chip[]) => setEdited({ text, chips: next });
 
   function apply() {
