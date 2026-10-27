@@ -4,6 +4,7 @@ import { requireOrgMember } from "@lib/platform/auth";
 import { dataApi } from "@lib/platform/orch";
 import { parseGridView, parseQueryView, toSearchParams } from "@lib/platform/viewState";
 import QueryBuilder from "@components/platform/QueryBuilder";
+import AskBox from "@components/platform/AskBox";
 
 export async function generateMetadata({
   searchParams,
@@ -33,7 +34,10 @@ export default async function QueryPage({
           API your personal key hits, with the equivalent curl for every query.
         </p>
       </div>
+      <AskBox schemas={schemas} />
+      {/* keyed by the URL so an Ask navigation remounts the builder on the new view (it reads `initial` once) */}
       <QueryBuilder
+        key={sp.toString()}
         schemas={schemas}
         initial={parseQueryView(sp, schemas)}
         initialGrid={parseGridView(sp)}
