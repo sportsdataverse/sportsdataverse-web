@@ -81,7 +81,7 @@ export const SHEETS: Cheatsheet[] = [
     pages: 2,
     variants: "light + dark",
     blurb:
-      "College football play-by-play, schedules and rosters — the CFBD, ESPN and stats.ncaa.org function families side by side.",
+      "College football at 3.1.0 (main; CRAN has 3.0.0) — all 93 CFBD endpoints, now with punting, the ESPN, Fox and Yahoo families, release loaders, model calculators and the companion packages.",
     docs: "https://cfbfastR.sportsdataverse.org",
   },
   {
