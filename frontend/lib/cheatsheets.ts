@@ -125,7 +125,7 @@ export const SHEETS: Cheatsheet[] = [
     pages: 2,
     variants: "light + dark",
     blurb:
-      "Hockey play-by-play and box scores — the NHL, the PWHL, and the ESPN hockey family.",
+      "Hockey play-by-play and box scores — the NHL, the PWHL, the AHL, the CHL junior leagues (OHL, WHL, QMJHL), 13 European leagues, college hockey, and the ESPN and Fox families.",
     docs: "https://fastRhockey.sportsdataverse.org",
   },
   {
